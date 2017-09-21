@@ -3,6 +3,8 @@
 # include "data_type.hpp"
 # include <string>
 
+using namespace csvmorph;
+
 TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string int_a("1");
     
