@@ -17,6 +17,10 @@ test_data_type: data_type
 .PHONY: all clean distclean
 
 clean:
+	# Run Tests
+	./test_data_type
+
+	# Clean Up
 	rm -f data_type
 	rm -f test_data_type
 	
