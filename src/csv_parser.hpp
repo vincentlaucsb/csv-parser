@@ -472,9 +472,9 @@ namespace csvmorph {
     
     void CSVStat::min_max(long double &x_n, size_t &i) {
         // Update current minimum and maximum
-        if (isnan(this->mins[i])) {
+        if (std::isnan(this->mins[i])) {
             this->mins[i] = x_n;
-        } if (isnan(this->maxes[i])) {
+        } if (std::isnan(this->maxes[i])) {
             this->maxes[i] = x_n;
         }
         
