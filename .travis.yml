@@ -4,9 +4,6 @@ dist: trusty
 sudo: required
 language:
   - cpp
-compiler:
-  - gcc
-  - clang
 addons:
   apt:
     sources:
@@ -25,3 +22,5 @@ script:
   # Check versions of gcc, g++ and cmake
   - gcc -v && g++ -v && cmake --version
   # Run your build commands next
+  - make
+  - ./test_data_type
