@@ -23,4 +23,3 @@ script:
   - gcc -v && g++ -v && cmake --version
   # Run your build commands next
   - make
-  - ./test_data_type
