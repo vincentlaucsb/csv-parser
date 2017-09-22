@@ -1,62 +1,86 @@
 /* Lightweight CSV Parser */
 
-// g++ -std=c++11 -O3 -o test -g _parser2.cpp
-// Debugging: g++ -std=c++11 -o test -g _parser.cpp
-// ./test
-
-# include "csvmorph.hpp"
-# include "data_type.hpp"
 # include <iostream>
 # include <vector>
 # include <queue>
-# include <map>
 # include <stdexcept>
 # include <fstream>
 # include <math.h>
 
 namespace csvmorph {
+    class CSVReader {
+        public:
+            void read_csv(std::string filename, bool carriage_return);
+            std::vector<std::string> get_col_names();
+            void set_col_names(std::vector<std::string>);
+            void feed(std::string &in);
+            void end_feed();
+            std::vector<std::string> pop();
+            bool empty();
+            void print_csv();
+            void to_csv(std::string);
+            void to_json(std::string);
+            int row_num = 0;
+            CSVReader(
+                std::string delim=",",
+                std::string quote="\"",
+                int header=-1,
+                std::vector<int> subset_= std::vector<int>{});
+        protected:
+            void process_possible_delim(std::string&, size_t&);
+            void process_quote(std::string&, size_t&);
+            void process_newline(std::string&, size_t&);
+            void write_record(std::vector<std::string>&);
+            std::vector<std::string> col_names;
+            
+            // Indices of columns to subset
+            std::vector<int> subset;
+            
+            // Actual column names of subset columns
+            std::vector<std::string> subset_col_names;
+            
+            char delimiter;
+            char quote_char;
+            bool quote_escape;
+            int header_row;
+            std::queue< std::vector < std::string > > records;
+            std::vector<std::string> record_buffer;
+            std::string str_buffer;
+    };
+    
     // CSVReader Member functions
     CSVReader::CSVReader(
         std::string delim,
         std::string quote,
-        std::vector<std::string> col_names_,
+        int header,
         std::vector<int> subset_) {
         // Type cast std::string to char
         delimiter = delim[0];
         quote_char = quote[0];
         
         quote_escape = false;
-        col_names = col_names_;
+        header_row = header;
         subset = subset_;
-        
-        if (subset.size() > 0) {
-            for (size_t i = 0; i < subset.size(); i++) {
-                subset_col_names.push_back(col_names_[subset_[i]]);
-            }
-        } else {
-            subset_col_names = col_names_;
-        }
     }
 
+    void CSVReader::set_col_names(std::vector<std::string> col_names) {
+        this->col_names = col_names;
+        
+        if (this->subset.size() > 0) {
+            for (size_t i = 0; i < this->subset.size(); i++) {
+                subset_col_names.push_back(col_names[this->subset[i]]);
+            }
+        } else {
+            subset_col_names = col_names;
+        }
+    }
+    
+    std::vector<std::string> CSVReader::get_col_names() {
+        return this->col_names;
+    }
+    
     void CSVReader::feed(std::string &in) {
         /* Parse RFC 4180 compliant CSV files */
-        /*
-        for (int i = 0; i < in.length(); i++) {
-            if (in[i] == this->delimiter) {
-                // Case 1: Possible delimiter
-                this->process_possible_delim(in, i);
-            } else if (in[i] == this->quote_char) {
-                // Case 2: Possible quote escape
-                this->process_quote(in, i);
-            } else if ((in[i] == '\r') || (in[i] == '\n')) {
-                // Case 3: Newline
-                this->process_newline(in, i);
-            } else {
-                // Case 4: Data --> Write it
-                this->str_buffer += in[i];
-            }
-        }
-        */
         
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
@@ -181,33 +205,40 @@ namespace csvmorph {
         outfile << "Columns: " << this->col_names.size() << std::endl;
         */
         
-        // Temporary fix: CSV parser doesn't always catch
-        // the last field if it is empty
-        if (record.size() + 1 == this->col_names.size()) {
-            record.push_back(std::string());
-        }
-        
-        // Make sure record is of the right length
-        if (record.size() == this->col_names.size()) {
-            if (this->subset.size() > 0) {
-                // Subset the data
-                std::vector<std::string> subset_record;
-                
-                for (size_t i = 0; i < this->subset.size(); i++) {
-                    int subset_index = this->subset[i];
-                    subset_record.push_back(record[subset_index]);
-                }
-                
-                this->records.push(subset_record);
-            } else {
-                this->records.push(record);
+        if (this->row_num > this->header_row) {
+            // Temporary fix: CSV parser doesn't always catch
+            // the last field if it is empty
+            if (record.size() + 1 == this->col_names.size()) {
+                record.push_back(std::string());
             }
+            
+            // Make sure record is of the right length
+            if (record.size() == this->col_names.size()) {
+                if (this->subset.size() > 0) {
+                    // Subset the data
+                    std::vector<std::string> subset_record;
+                    
+                    for (size_t i = 0; i < this->subset.size(); i++) {
+                        int subset_index = this->subset[i];
+                        subset_record.push_back(record[subset_index]);
+                    }
+                    
+                    this->records.push(subset_record);
+                } else {
+                    this->records.push(record);
+                }
+            } else {
+                // Case 1: Zero-length record. Probably caused by
+                // extraneous delimiters.
+                // Case 2: Too short or too long
+            }
+        } else if (this->row_num == this->header_row) {
+            this->set_col_names(record);
         } else {
-            // Case 1: Zero-length record. Probably caused by
-            // extraneous delimiters.
-            // Case 2: Too short or too long
+            // Ignore rows before header row     
         }
         
+        this->row_num++;
         record.clear();
     }
 
@@ -223,17 +254,25 @@ namespace csvmorph {
         return this->records.empty();
     }
 
-    void CSVReader::read_csv(std::string filename) {
-        std::ifstream infile;
+    void CSVReader::read_csv(
+        std::string filename,
+        bool carriage_return=true) {
+        std::ifstream infile(filename);
         std::string line;
-        infile.open(filename);
+        char delim;
         
-        if (infile.is_open()) {
-            while (std::getline(infile, line)) {
-                this->feed(line);
-            }
+        if (carriage_return) {
+            // Works for files terminated by \r\n
+            delim = '\r';
+        } else {
+            delim = '\n';
         }
-
+        
+        while (std::getline(infile, line, delim)) {
+            this->feed(line);
+            this->quote_escape = false;
+        }
+        
         this->end_feed();
         infile.close();
     }
@@ -317,194 +356,4 @@ namespace csvmorph {
             std::cout << std::endl;
         }
     }    
-    
-    // CSVStat Member Functions
-    CSVStat::CSVStat(
-        std::string delim,
-        std::string quote,
-        std::vector<std::string> col_names_,
-        std::vector<int> subset_) {
-        // Type cast from std::string to char
-        delimiter = delim[0];
-        quote_char = quote[0];
-        
-        quote_escape = false;
-        col_names = col_names_;
-        subset = subset_;
-        
-        if (subset.size() > 0) {
-            for (size_t i = 0; i < subset.size(); i++) {
-                subset_col_names.push_back(col_names_[subset_[i]]);
-            }
-        } else {
-            subset_col_names = col_names_;
-        }
-        
-        // Initialize arrays to 0
-        for (size_t i = 0; i < subset_.size(); i++) {
-            rolling_means.push_back(0);
-            rolling_vars.push_back(0);
-            mins.push_back(NAN);
-            maxes.push_back(NAN);
-            n.push_back(0);
-        }
-    }
-    
-    std::vector<long double> CSVStat::get_mean() {
-        // Return current means
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
-            ret.push_back(this->rolling_means[i]);
-        }
-        return ret;
-    }
-    
-    std::vector<long double> CSVStat::get_variance() {
-        // Return current variances
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
-            ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
-        }
-        return ret;
-    }
-    
-    std::vector<long double> CSVStat::get_mins() {
-        // Return current variances
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
-            ret.push_back(this->mins[i]);
-        }
-        return ret;
-    }
-    
-    std::vector<long double> CSVStat::get_maxes() {
-        // Return current variances
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
-            ret.push_back(this->maxes[i]);
-        }
-        return ret;
-    }
-    
-    std::vector< std::map<std::string, int> > CSVStat::get_counts() {
-        // Get counts for each column
-        std::vector< std::map<std::string, int> > ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
-            ret.push_back(this->counts[i]);
-        }
-        return ret;
-    }
-    
-    std::vector< std::map<int, int> > CSVStat::get_dtypes() {
-        // Get data type counts for each column
-        std::vector< std::map<int, int> > ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
-            ret.push_back(this->dtypes[i]);
-        }
-        return ret;
-    }
-    
-    void CSVStat::calc(
-        bool numeric=true,
-        bool count=true,
-        bool dtype=true) {
-        /* Go through all records and calculate specified statistics
-         * numeric: Calculate all numeric related statistics
-         */
-        std::vector<std::string> current_record;
-        long double x_n;
-
-        while (!this->records.empty()) {
-            current_record = this->records.front();
-            this->records.pop();
-            
-            for (size_t i = 0; i < this->subset.size(); i++) {
-                if (count) {
-                    this->count(current_record[i], i);
-                } if (dtype) {
-                    this->dtype(current_record[i], i);
-                }
-                
-                // Numeric Stuff
-                if (numeric) {
-                    try {
-                        x_n = std::stold(current_record[i]);
-                        
-                        // This actually calculates mean AND variance
-                        this->variance(x_n, i);
-                        this->min_max(x_n, i);
-                    } catch(std::invalid_argument) {
-                        // Ignore for now 
-                        // In the future, save number of non-numeric arguments
-                    } catch(std::out_of_range) {
-                        // Ignore for now                         
-                    }
-                }
-            }
-        }
-    }
-    
-    void CSVStat::dtype(std::string &record, size_t &i) {
-        // Given a record update the type counter
-        int type = data_type(record);
-        
-        if (this->dtypes[i].find(type) !=
-            this->dtypes[i].end()) {
-            // Increment count
-            this->dtypes[i][type]++;
-        } else {
-            // Initialize count
-            this->dtypes[i].insert(std::make_pair(type, 1));
-        }
-    }
-    
-    void CSVStat::count(std::string &record, size_t &i) {
-        // Given a record update the according count
-        if (this->counts[i].find(record) !=
-            this->counts[i].end()) {
-            // Increment count
-            this->counts[i][record]++;
-        } else {
-            // Initialize count
-            this->counts[i].insert(std::make_pair(record, 1));
-        }
-    }
-    
-    void CSVStat::min_max(long double &x_n, size_t &i) {
-        // Update current minimum and maximum
-        if (std::isnan(this->mins[i])) {
-            this->mins[i] = x_n;
-        } if (std::isnan(this->maxes[i])) {
-            this->maxes[i] = x_n;
-        }
-        
-        if (x_n < this->mins[i]) {
-            this->mins[i] = x_n;
-        } else if (x_n > this->maxes[i]) {
-            this->maxes[i] = x_n;
-        } else {
-        }
-    }
-    
-    void CSVStat::variance(long double &x_n, size_t &i) {
-        // Given a record update rolling mean and variance for all columns
-        // using Welford's Algorithm
-        long double * current_rolling_mean = &this->rolling_means[i];
-        long double * current_rolling_var = &this->rolling_vars[i];
-        int * current_n = &this->n[i];
-        long double delta;
-        long double delta2;
-        
-        if (*current_n == 0) {
-            // If current n obvs = 0
-            *current_rolling_mean = x_n;
-        } else {
-            delta = x_n - *current_rolling_mean;
-            *current_rolling_mean += delta/(*current_n);
-            delta2 = x_n - *current_rolling_mean;
-            *current_rolling_var += delta*delta2;
-        }
-        
-        *current_n = *current_n + 1;
-    }
 }
