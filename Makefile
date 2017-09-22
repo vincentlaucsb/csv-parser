@@ -1,5 +1,4 @@
 IDIR = src/
-CC = g++
 CFLAGS = -std=c++11 -g
 
 TEST_DIR = tests/
