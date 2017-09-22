@@ -80,7 +80,8 @@ namespace csvmorph {
     }
     
     std::vector<std::string> CSVReader::get_col_names() {
-        return this->col_names;
+        std::vector<std::string> col_names = this->col_names;
+        return col_names;
     }
     
     void CSVReader::feed(std::string &in) {
