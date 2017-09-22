@@ -1,4 +1,6 @@
 # Yet Another... CSV Parser
+[![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
+
 A CSV parser that can handle any RFC 4180 compliant files and then some. Has extra features to calculate statistics, clean up CSVs, and ease loading to SQL.
 
 ## Dependencies
