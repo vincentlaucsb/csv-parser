@@ -71,6 +71,10 @@ namespace csvmorph {
                 subset_col_names.push_back(col_names[this->subset[i]]);
             }
         } else {
+            // "Subset" is every column
+            for (size_t i = 0; i < this->col_names.size(); i++) {
+                this->subset.push_back(i);
+            }
             subset_col_names = col_names;
         }
     }

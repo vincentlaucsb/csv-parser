@@ -23,7 +23,7 @@ namespace csvmorph {
             CSVStat(
                 std::string,
                 std::string,
-                std::vector<std::string> col_names_ = std::vector<std::string>{},
+                int header=-1,
                 std::vector<int> subset_ = std::vector<int>{});
         private:
             // An array of rolling averages
@@ -32,7 +32,8 @@ namespace csvmorph {
             std::vector<long double> rolling_vars;
             std::vector<long double> mins;
             std::vector<long double> maxes;
-            std::vector<int> n;
+            std::vector<float> n;
+            void init_vectors();
             
             // Statistic calculators
             void variance(long double&, size_t&);
@@ -49,26 +50,20 @@ namespace csvmorph {
     CSVStat::CSVStat(
         std::string delim,
         std::string quote,
-        std::vector<std::string> col_names_,
+        int header,
         std::vector<int> subset_) {
         // Type cast from std::string to char
         delimiter = delim[0];
         quote_char = quote[0];
         
         quote_escape = false;
-        col_names = col_names_;
+        header_row = header;
         subset = subset_;
-        
-        if (subset.size() > 0) {
-            for (size_t i = 0; i < subset.size(); i++) {
-                subset_col_names.push_back(col_names_[subset_[i]]);
-            }
-        } else {
-            subset_col_names = col_names_;
-        }
-        
-        // Initialize arrays to 0
-        for (size_t i = 0; i < subset_.size(); i++) {
+    }
+    
+    void CSVStat::init_vectors() {
+        // Initialize statistics arrays to NAN
+        for (size_t i = 0; i < this->subset.size(); i++) {
             rolling_means.push_back(0);
             rolling_vars.push_back(0);
             mins.push_back(NAN);
@@ -138,6 +133,7 @@ namespace csvmorph {
         /* Go through all records and calculate specified statistics
          * numeric: Calculate all numeric related statistics
          */
+        this->init_vectors();
         std::vector<std::string> current_record;
         long double x_n;
 
@@ -218,12 +214,13 @@ namespace csvmorph {
         // using Welford's Algorithm
         long double * current_rolling_mean = &this->rolling_means[i];
         long double * current_rolling_var = &this->rolling_vars[i];
-        int * current_n = &this->n[i];
+        float * current_n = &this->n[i];
         long double delta;
         long double delta2;
         
-        if (*current_n == 0) {
-            // If current n obvs = 0
+        *current_n = *current_n + 1;
+        
+        if (*current_n == 1) {
             *current_rolling_mean = x_n;
         } else {
             delta = x_n - *current_rolling_mean;
@@ -231,7 +228,5 @@ namespace csvmorph {
             delta2 = x_n - *current_rolling_mean;
             *current_rolling_var += delta*delta2;
         }
-        
-        *current_n = *current_n + 1;
     }
 }
