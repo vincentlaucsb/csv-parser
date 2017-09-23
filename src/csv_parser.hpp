@@ -18,7 +18,7 @@ namespace csvmorph {
             std::vector<std::string> pop();
             bool empty();
             void print_csv();
-            void to_csv(std::string);
+            void to_csv(std::string, bool);
             void to_json(std::string);
             int row_num = 0;
             CSVReader(
@@ -80,8 +80,7 @@ namespace csvmorph {
     }
     
     std::vector<std::string> CSVReader::get_col_names() {
-        std::vector<std::string> col_names = this->col_names;
-        return col_names;
+        return this->col_names;
     }
     
     void CSVReader::feed(std::string &in) {
@@ -282,7 +281,7 @@ namespace csvmorph {
         infile.close();
     }
     
-    void CSVReader::to_csv(std::string filename) {
+    void CSVReader::to_csv(std::string filename, bool quote_minimal=true) {
         // Write queue to CSV file
         std::string row;
         std::vector<std::string> record;
@@ -294,19 +293,24 @@ namespace csvmorph {
             std::vector< std::string > record = this->records.front();
             this->records.pop();
             
-            for (size_t i = 0; i < record.size(); i++) {
-                row += "\"" + record[i] + "\"";
-                if (i + 1 != record.size()) {
-                    row += ",";
+            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
+                if ((quote_minimal &&
+                    (record[i].find_first_of(this->delimiter)
+                        != std::string::npos))
+                    || !quote_minimal) {
+                    row += "\"" + record[i] + "\"";
+                } else {
+                    row += record[i];
                 }
+                
+                if (i + 1 != ilen) { row += ","; }
             }
             
-            outfile << row << "\r\n";
+            outfile << row << "\n";
             row.clear();
         }
         outfile.close();
     }
-    
         
     void CSVReader::to_json(std::string filename) {
         // Write queue to CSV file
