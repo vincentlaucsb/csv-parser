@@ -53,3 +53,22 @@ TEST_CASE( "Test Calculating Statistics", "[read_csv_stat]" ) {
     REQUIRE( reader.get_maxes()[0] == 100 );
     REQUIRE( ceil(reader.get_variance()[0]) == 842 );
 }
+
+TEST_CASE( "Test Calculating Statistics (Line Feed Record-Separated)",
+    "[read_csv_stat2]" ) {
+    // Header on first row
+    CSVStat reader(",", "\"", 0);
+    reader.read_csv("./tests/data/fake_data/ints_newline_sep.csv");
+    reader.calc();
+    
+    // Expected Results
+    std::vector<long double> means = {
+        50.5, 50.5, 50.5, 50.5, 50.5,
+        50.5, 50.5, 50.5, 50.5, 50.5
+    };
+    
+    REQUIRE( reader.get_mean() == means );
+    REQUIRE( reader.get_mins()[0] == 1 );
+    REQUIRE( reader.get_maxes()[0] == 100 );
+    REQUIRE( ceil(reader.get_variance()[0]) == 842 );
+}

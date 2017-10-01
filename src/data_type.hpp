@@ -3,7 +3,6 @@
  
 # include <iostream>
 # include <string>
-# include <regex>
 
 namespace csvmorph {
     int data_type(std::string&);

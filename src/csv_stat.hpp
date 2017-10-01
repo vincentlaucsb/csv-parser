@@ -238,7 +238,7 @@ namespace csvmorph {
                 this->dtype(record[i], i);
                 
                 if ((quote_minimal &&
-                    (record[i].find_first_of(this->delimiter)
+                    (record[i].find_first_of(',')
                         != std::string::npos))
                     || !quote_minimal) {
                     row += "\"" + record[i] + "\"";

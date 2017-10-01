@@ -295,7 +295,7 @@ namespace csvmorph {
             
             for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
                 if ((quote_minimal &&
-                    (record[i].find_first_of(this->delimiter)
+                    (record[i].find_first_of(',')
                         != std::string::npos))
                     || !quote_minimal) {
                     row += "\"" + record[i] + "\"";
