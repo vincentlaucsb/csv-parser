@@ -3,7 +3,7 @@ CFLAGS = -std=c++11 -g
 
 TEST_DIR = tests/
 
-all: csv_parser data_type test_data_type test_read_csv test_csv_stat clean distclean
+all: csv_parser data_type test_data_type test_read_csv test_csv_stat test_csv_clean clean distclean
 
 # Main Library
 csv_parser:
@@ -22,6 +22,9 @@ test_read_csv:
 test_csv_stat:
 	$(CXX) $(TEST_DIR)test_csv_stat.cpp -o test_csv_stat -I$(IDIR) $(CFLAGS)
 	
+test_csv_clean:
+	$(CXX) $(TEST_DIR)test_csv_clean.cpp -o test_csv_clean -I$(IDIR) $(CFLAGS)
+	
 .PHONY: all clean distclean
 
 clean:
@@ -29,6 +32,7 @@ clean:
 	./test_data_type
 	./test_read_csv
 	./test_csv_stat
+	./test_csv_clean
 
 	# Clean Up
 	rm -f csv_parser
@@ -36,5 +40,6 @@ clean:
 	rm -f test_data_type
 	rm -f test_read_csv
 	rm -f test_csv_stat
+	rm -f test_csv_clean
 	
 distclean: clean
