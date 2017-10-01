@@ -20,11 +20,13 @@ namespace csvmorph {
             std::vector< std::map<std::string, int> > get_counts();
             std::vector< std::map<int, int> > get_dtypes();
             void calc(bool, bool, bool);
-            CSVStat(
-                std::string,
-                std::string,
-                int header=-1,
-                std::vector<int> subset_ = std::vector<int>{});
+            using CSVReader::CSVReader;
+        protected:
+            // Statistic calculators
+            void dtype(std::string&, size_t&);
+            
+            // Map column indices to counters
+            std::map<int, std::map<int, int>> dtypes;
         private:
             // An array of rolling averages
             // Each index corresponds to the rolling mean for the column at said index
@@ -38,28 +40,17 @@ namespace csvmorph {
             // Statistic calculators
             void variance(long double&, size_t&);
             void count(std::string&, size_t&);
-            void dtype(std::string&, size_t&);
             void min_max(long double&, size_t&);
             
             // Map column indices to counters
             std::map<int, std::map<std::string, int>> counts;
-            std::map<int, std::map<int, int>> dtypes;
     };
     
-    // CSVStat Member Functions    
-    CSVStat::CSVStat(
-        std::string delim,
-        std::string quote,
-        int header,
-        std::vector<int> subset_) {
-        // Type cast from std::string to char
-        delimiter = delim[0];
-        quote_char = quote[0];
-        
-        quote_escape = false;
-        header_row = header;
-        subset = subset_;
-    }
+    class CSVCleaner: public CSVStat {
+        public:
+            void to_csv(std::string, bool);
+            using CSVStat::CSVStat;
+    };
     
     void CSVStat::init_vectors() {
         // Initialize statistics arrays to NAN
@@ -228,5 +219,39 @@ namespace csvmorph {
             delta2 = x_n - *current_rolling_mean;
             *current_rolling_var += delta*delta2;
         }
+    }
+    
+    // CSVCleaner Member Functions       
+    void CSVCleaner::to_csv(std::string filename, bool quote_minimal=true) {
+        // Write queue to CSV file
+        std::string row;
+        std::vector<std::string> record;
+        std::ofstream outfile;
+        outfile.open(filename);
+        
+        while (!this->records.empty()) {
+            // Remove and return first CSV row
+            std::vector< std::string > record = this->records.front();
+            this->records.pop();            
+            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
+                // Calculate data type statistics
+                this->dtype(record[i], i);
+                
+                if ((quote_minimal &&
+                    (record[i].find_first_of(this->delimiter)
+                        != std::string::npos))
+                    || !quote_minimal) {
+                    row += "\"" + record[i] + "\"";
+                } else {
+                    row += record[i];
+                }
+                
+                if (i + 1 != ilen) { row += ","; }
+            }
+            
+            outfile << row << "\n";
+            row.clear();
+        }
+        outfile.close();
     }
 }
