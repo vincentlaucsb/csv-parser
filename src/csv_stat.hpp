@@ -48,7 +48,7 @@ namespace csvmorph {
     
     class CSVCleaner: public CSVStat {
         public:
-            void to_csv(std::string, bool);
+            void to_csv(std::string, bool, int);
             using CSVStat::CSVStat;
     };
     
@@ -222,13 +222,29 @@ namespace csvmorph {
     }
     
     // CSVCleaner Member Functions       
-    void CSVCleaner::to_csv(std::string filename, bool quote_minimal=true) {
+    void CSVCleaner::to_csv(
+        std::string filename,
+        bool quote_minimal=true,
+        int skiplines=0) {
         // Write queue to CSV file
         std::string row;
         std::vector<std::string> record;
         std::ofstream outfile;
         outfile.open(filename);
         
+        // Write column names
+        for (size_t i = 0; i < this->col_names.size(); i++) {
+            outfile << this->col_names[i] + ",";
+        }
+        outfile << "\n";
+        
+        // Skip lines
+        while (!this->records.empty() && skiplines > 0) {
+            this->records.pop();
+            skiplines--;
+        }
+        
+        // Write records
         while (!this->records.empty()) {
             // Remove and return first CSV row
             std::vector< std::string > record = this->records.front();

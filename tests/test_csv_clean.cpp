@@ -17,6 +17,20 @@ TEST_CASE( "Test Calculating Statistics", "[csv_clean]" ) {
     }
 }
 
+TEST_CASE( "Test Line Skipping", "[csv_skiplines]" ) {
+    // Header on first row
+    CSVCleaner reader(",", "\"", 0);
+    reader.read_csv("./tests/data/fake_data/ints_skipline.csv");
+    
+    // Minimal quoting + skip one line
+    reader.to_csv("./tests/data/fake_data/ints_skipline2.csv", true, 1);
+    
+    // 100 ints (type 2) in all columns
+    for (int i = 0; i < 10; i++) {
+        REQUIRE( reader.get_dtypes()[i][2] == 100 );
+    }
+}
+
 TEST_CASE( "Test Converting Tab Delimited File", "[tsv_clean]" ) {
     // Header on first row
     CSVCleaner reader("\t", "\"", 0);

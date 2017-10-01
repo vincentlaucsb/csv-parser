@@ -15,33 +15,32 @@ data_type:
 # Unit Tests
 test_data_type: data_type
 	$(CXX) $(TEST_DIR)test_data_type.cpp -o test_data_type -I$(IDIR) $(CFLAGS)
+	./test_data_type
+	rm -f test_data_type
     
 test_read_csv:
 	$(CXX) $(TEST_DIR)test_read_csv.cpp -o test_read_csv -I$(IDIR) $(CFLAGS)
+	./test_read_csv
+	rm -f test_read_csv
 	
 test_csv_stat:
 	$(CXX) $(TEST_DIR)test_csv_stat.cpp -o test_csv_stat -I$(IDIR) $(CFLAGS)
+	./test_csv_stat
+	rm -f test_csv_stat
 	
 test_csv_clean:
 	$(CXX) $(TEST_DIR)test_csv_clean.cpp -o test_csv_clean -I$(IDIR) $(CFLAGS)
 	./test_csv_clean
 	rm -f test_csv_clean
 	rm -f tests/data/fake_data/ints2.csv
+	rm -f tests/data/fake_data/ints_skipline2.csv
 	rm -f tests/data/real_data/2016_Gaz_place_national.csv
 	
 .PHONY: all clean distclean
 
 clean:
-	# Run Tests
-	./test_data_type
-	./test_read_csv
-	./test_csv_stat
-
 	# Clean Up
 	rm -f csv_parser
 	rm -f data_type
-	rm -f test_data_type
-	rm -f test_read_csv
-	rm -f test_csv_stat
 	
 distclean: clean
