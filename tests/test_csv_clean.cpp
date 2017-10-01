@@ -1,6 +1,6 @@
 # define CATCH_CONFIG_MAIN
 # include "catch.hpp"
-# include "csv_cleaner.hpp"
+# include "csv_stat.hpp"
 # include <string>
 
 using namespace csvmorph;
