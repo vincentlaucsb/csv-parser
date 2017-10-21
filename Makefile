@@ -45,8 +45,6 @@ clean:
 	rm -f data_type
 	
 	# Analyze code coverage data
-	ifeq ($(CXX),g++)
-		gcov data_type test_read_csv test_csv_clean test_csv_stat --relative-only
-	endif
+	bash ./code_cov.sh
 	
 distclean: clean
