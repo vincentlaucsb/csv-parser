@@ -8,3 +8,6 @@ compiler:
   - clang
 script:
   - make
+  - pip install --user cpp-coveralls
+after_success:
+  - coveralls --exclude src --exclude tests --gcov-options '\-lp'

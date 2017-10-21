@@ -1,5 +1,6 @@
 IDIR = src/
 CFLAGS = -std=c++11 -g
+TFLAGS = $(CFLAGS) --coverage
 
 TEST_DIR = tests/
 
@@ -14,22 +15,22 @@ data_type:
 
 # Unit Tests
 test_data_type: data_type
-	$(CXX) $(TEST_DIR)test_data_type.cpp -o test_data_type -I$(IDIR) $(CFLAGS)
+	$(CXX) $(TEST_DIR)test_data_type.cpp -o test_data_type -I$(IDIR) $(TFLAGS)
 	./test_data_type
 	rm -f test_data_type
     
 test_read_csv:
-	$(CXX) $(TEST_DIR)test_read_csv.cpp -o test_read_csv -I$(IDIR) $(CFLAGS)
+	$(CXX) $(TEST_DIR)test_read_csv.cpp -o test_read_csv -I$(IDIR) $(TFLAGS)
 	./test_read_csv
 	rm -f test_read_csv
 	
 test_csv_stat:
-	$(CXX) $(TEST_DIR)test_csv_stat.cpp -o test_csv_stat -I$(IDIR) $(CFLAGS)
+	$(CXX) $(TEST_DIR)test_csv_stat.cpp -o test_csv_stat -I$(IDIR) $(TFLAGS)
 	./test_csv_stat
 	rm -f test_csv_stat
 	
 test_csv_clean:
-	$(CXX) $(TEST_DIR)test_csv_clean.cpp -o test_csv_clean -I$(IDIR) $(CFLAGS)
+	$(CXX) $(TEST_DIR)test_csv_clean.cpp -o test_csv_clean -I$(IDIR) $(TFLAGS)
 	./test_csv_clean
 	rm -f test_csv_clean
 	rm -f tests/data/fake_data/ints2.csv
@@ -42,5 +43,10 @@ clean:
 	# Clean Up
 	rm -f csv_parser
 	rm -f data_type
+	
+	# Analyze code coverage data
+	ifeq ($(CXX),g++)
+		gcov data_type test_read_csv test_csv_clean test_csv_stat --relative-only
+	endif
 	
 distclean: clean
