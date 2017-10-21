@@ -10,4 +10,6 @@ script:
   - make
   - pip install --user cpp-coveralls
 after_success:
-  - coveralls --exclude src --exclude tests --gcov-options '\-lp'
+  - if [ "$CXX" == "g++" ]; then
+        coveralls --exclude tests --gcov-options '\-lp \--relative-only';
+    fi;
