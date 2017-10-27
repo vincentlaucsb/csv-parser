@@ -1,10 +1,11 @@
 # define CATCH_CONFIG_MAIN
 # include "catch.hpp"
-# include "csv_stat.hpp"
+# include "csv_stat.cpp"
 # include <string>
 # include <vector>
 
-using namespace csvmorph;
+using namespace csv_parser;
+
 TEST_CASE( "Test Calculating Statistics from Direct Input", 
     "[read_csv_stat_direct]" ) {
     // Header on first row

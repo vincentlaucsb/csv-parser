@@ -1,12 +1,10 @@
 /* Function for distinguishing numeric from text values
  */
- 
+
 # include <iostream>
 # include <string>
 
-namespace csvmorph {
-    int data_type(std::string&);
-    
+namespace csv_parser {  
     int data_type(std::string &in) {
         /*
         Returns:

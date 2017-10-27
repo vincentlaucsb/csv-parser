@@ -1,10 +1,10 @@
 # define CATCH_CONFIG_MAIN
 # include "catch.hpp"
-# include "csv_parser.hpp"
+# include "csv_parser.cpp"
 # include <string>
 # include <vector>
 
-using namespace csvmorph;
+using namespace csv_parser;
 
 TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     std::string csv_string1("123,234,345\r\n"

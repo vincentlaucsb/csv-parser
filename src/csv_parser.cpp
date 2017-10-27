@@ -1,5 +1,4 @@
-/* Lightweight CSV Parser */
-
+# include "csv_parser.h"
 # include <iostream>
 # include <vector>
 # include <queue>
@@ -7,48 +6,7 @@
 # include <fstream>
 # include <math.h>
 
-namespace csvmorph {
-    class CSVReader {
-        public:
-            void read_csv(std::string filename, bool carriage_return);
-            std::vector<std::string> get_col_names();
-            void set_col_names(std::vector<std::string>);
-            void feed(std::string &in);
-            void end_feed();
-            std::vector<std::string> pop();
-            bool empty();
-            void print_csv();
-            void to_csv(std::string, bool);
-            void to_json(std::string);
-            int row_num = 0;
-            CSVReader(
-                std::string delim=",",
-                std::string quote="\"",
-                int header=-1,
-                std::vector<int> subset_= std::vector<int>{});
-        protected:
-            void process_possible_delim(std::string&, size_t&);
-            void process_quote(std::string&, size_t&);
-            void process_newline(std::string&, size_t&);
-            void write_record(std::vector<std::string>&);
-            std::vector<std::string> col_names;
-            
-            // Indices of columns to subset
-            std::vector<int> subset;
-            
-            // Actual column names of subset columns
-            std::vector<std::string> subset_col_names;
-            
-            char delimiter;
-            char quote_char;
-            bool quote_escape;
-            int header_row;
-            std::queue< std::vector < std::string > > records;
-            std::vector<std::string> record_buffer;
-            std::string str_buffer;
-    };
-    
-    // CSVReader Member functions
+namespace csv_parser {
     CSVReader::CSVReader(
         std::string delim,
         std::string quote,
@@ -78,11 +36,11 @@ namespace csvmorph {
             subset_col_names = col_names;
         }
     }
-    
+
     std::vector<std::string> CSVReader::get_col_names() {
         return this->col_names;
     }
-    
+
     void CSVReader::feed(std::string &in) {
         /* Parse RFC 4180 compliant CSV files */
         
@@ -260,7 +218,7 @@ namespace csvmorph {
 
     void CSVReader::read_csv(
         std::string filename,
-        bool carriage_return=true) {
+        bool carriage_return) {
         std::ifstream infile(filename);
         std::string line;
         char delim;
@@ -280,7 +238,7 @@ namespace csvmorph {
         this->end_feed();
         infile.close();
     }
-    
+
     void CSVReader::to_csv(std::string filename, bool quote_minimal=true) {
         // Write queue to CSV file
         std::string row;
@@ -352,7 +310,7 @@ namespace csvmorph {
         outfile << "]";
         outfile.close();
     }
-    
+
     void CSVReader::print_csv() {
         while (!this->records.empty()) {
             std::vector< std::string > record = this->records.front();
@@ -364,5 +322,5 @@ namespace csvmorph {
             
             std::cout << std::endl;
         }
-    }    
+    }
 }

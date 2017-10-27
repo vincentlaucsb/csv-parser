@@ -1,9 +1,9 @@
 # define CATCH_CONFIG_MAIN
 # include "catch.hpp"
-# include "csv_stat.hpp"
+# include "csv_stat.cpp"
 # include <string>
 
-using namespace csvmorph;
+using namespace csv_parser;
 
 TEST_CASE( "Test Calculating Statistics", "[csv_clean]" ) {
     // Header on first row

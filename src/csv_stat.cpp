@@ -1,57 +1,14 @@
 /* Calculates statistics from CSV files */
 
-# include "csv_parser.hpp"
-# include "data_type.hpp"
+# include "data_type.cpp"
+# include "csv_parser.cpp"
 # include <iostream>
-# include <vector>
-# include <queue>
 # include <map>
 # include <stdexcept>
 # include <fstream>
 # include <math.h>
 
-namespace csvmorph {
-    class CSVStat: public CSVReader {
-        public:
-            std::vector<long double> get_mean();
-            std::vector<long double> get_variance();
-            std::vector<long double> get_mins();
-            std::vector<long double> get_maxes();
-            std::vector< std::map<std::string, int> > get_counts();
-            std::vector< std::map<int, int> > get_dtypes();
-            void calc(bool, bool, bool);
-            using CSVReader::CSVReader;
-        protected:
-            // Statistic calculators
-            void dtype(std::string&, size_t&);
-            
-            // Map column indices to counters
-            std::map<int, std::map<int, int>> dtypes;
-        private:
-            // An array of rolling averages
-            // Each index corresponds to the rolling mean for the column at said index
-            std::vector<long double> rolling_means;
-            std::vector<long double> rolling_vars;
-            std::vector<long double> mins;
-            std::vector<long double> maxes;
-            std::vector<float> n;
-            void init_vectors();
-            
-            // Statistic calculators
-            void variance(long double&, size_t&);
-            void count(std::string&, size_t&);
-            void min_max(long double&, size_t&);
-            
-            // Map column indices to counters
-            std::map<int, std::map<std::string, int>> counts;
-    };
-    
-    class CSVCleaner: public CSVStat {
-        public:
-            void to_csv(std::string, bool, int);
-            using CSVStat::CSVStat;
-    };
-    
+namespace csv_parser {
     void CSVStat::init_vectors() {
         // Initialize statistics arrays to NAN
         for (size_t i = 0; i < this->subset.size(); i++) {
@@ -62,7 +19,7 @@ namespace csvmorph {
             n.push_back(0);
         }
     }
-    
+
     std::vector<long double> CSVStat::get_mean() {
         // Return current means
         std::vector<long double> ret;        
@@ -71,7 +28,7 @@ namespace csvmorph {
         }
         return ret;
     }
-    
+
     std::vector<long double> CSVStat::get_variance() {
         // Return current variances
         std::vector<long double> ret;        
@@ -80,7 +37,7 @@ namespace csvmorph {
         }
         return ret;
     }
-    
+
     std::vector<long double> CSVStat::get_mins() {
         // Return current variances
         std::vector<long double> ret;        
@@ -89,7 +46,7 @@ namespace csvmorph {
         }
         return ret;
     }
-    
+
     std::vector<long double> CSVStat::get_maxes() {
         // Return current variances
         std::vector<long double> ret;        
@@ -98,7 +55,7 @@ namespace csvmorph {
         }
         return ret;
     }
-    
+
     std::vector< std::map<std::string, int> > CSVStat::get_counts() {
         // Get counts for each column
         std::vector< std::map<std::string, int> > ret;        
@@ -107,7 +64,7 @@ namespace csvmorph {
         }
         return ret;
     }
-    
+
     std::vector< std::map<int, int> > CSVStat::get_dtypes() {
         // Get data type counts for each column
         std::vector< std::map<int, int> > ret;        
@@ -116,7 +73,7 @@ namespace csvmorph {
         }
         return ret;
     }
-    
+
     void CSVStat::calc(
         bool numeric=true,
         bool count=true,
@@ -157,7 +114,7 @@ namespace csvmorph {
             }
         }
     }
-    
+
     void CSVStat::dtype(std::string &record, size_t &i) {
         // Given a record update the type counter
         int type = data_type(record);
@@ -171,7 +128,7 @@ namespace csvmorph {
             this->dtypes[i].insert(std::make_pair(type, 1));
         }
     }
-    
+
     void CSVStat::count(std::string &record, size_t &i) {
         // Given a record update the according count
         if (this->counts[i].find(record) !=
@@ -183,7 +140,7 @@ namespace csvmorph {
             this->counts[i].insert(std::make_pair(record, 1));
         }
     }
-    
+
     void CSVStat::min_max(long double &x_n, size_t &i) {
         // Update current minimum and maximum
         if (isnan(this->mins[i])) {
@@ -199,7 +156,7 @@ namespace csvmorph {
         } else {
         }
     }
-    
+
     void CSVStat::variance(long double &x_n, size_t &i) {
         // Given a record update rolling mean and variance for all columns
         // using Welford's Algorithm
@@ -220,7 +177,7 @@ namespace csvmorph {
             *current_rolling_var += delta*delta2;
         }
     }
-    
+
     // CSVCleaner Member Functions       
     void CSVCleaner::to_csv(
         std::string filename,
