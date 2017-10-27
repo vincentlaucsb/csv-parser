@@ -36,12 +36,12 @@ test_csv_clean:
 	
 .PHONY: all clean distclean
 
-code_cov:
-	# Analyze
-	lcov --directory $(PWD) --capture --output-file $(PWD)/app.info
+# code_cov:
+	# # Analyze
+	# lcov --directory $(PWD) --capture --output-file $(PWD)/app.info
 	
-	# Generate HTML
-	genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
+	# # Generate HTML
+	# genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
 
 clean:
 	# Clean Up
