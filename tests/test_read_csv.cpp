@@ -24,8 +24,8 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     REQUIRE( reader.pop() == first_row );
 }
 
-TEST_CASE( "Test Comma Escape", "[read_csv_direct2]" ) {
-    std::string csv_string2 = ("123,\"234,345\",456\r\n"
+TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
+    std::string csv_string = ("123,\"234,345\",456\r\n"
                                "1,2,3\r\n"
                                "1,2,3");
     std::vector<std::string> col_names = {"A", "B", "C"};
@@ -33,12 +33,66 @@ TEST_CASE( "Test Comma Escape", "[read_csv_direct2]" ) {
     // Feed Strings
     CSVReader reader(",", "\"");
     reader.set_col_names(col_names);
-    reader.feed(csv_string2);
+    reader.feed(csv_string);
     reader.end_feed();
     
     // Expected Results
     std::vector<std::string> first_row = {"123", "234,345", "456"};
     REQUIRE( reader.pop() == first_row );
+}
+
+TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
+    std::string csv_string = ("123,\"234\n,345\",456\r\n"
+                               "1,2,3\r\n"
+                               "1,2,3");
+    std::vector<std::string> col_names = {"A", "B", "C"};
+    
+    // Feed Strings
+    CSVReader reader(",", "\"");
+    reader.set_col_names(col_names);
+    reader.feed(csv_string);
+    reader.end_feed();
+    
+    // Expected Results
+    std::vector<std::string> first_row = {"123", "234\n,345", "456"};
+    REQUIRE( reader.pop() == first_row );
+}
+
+TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
+    // Per RFC 1480, escaped quotes should be doubled up
+    std::string csv_string = ("123,\"\",456\r\n");
+    std::vector<std::string> col_names = {"A", "B", "C"};
+    
+    // Feed Strings
+    CSVReader reader(",", "\"");
+    reader.set_col_names(col_names);
+    reader.feed(csv_string);
+    reader.end_feed();
+    
+    // Expected Results
+    std::vector<std::string> correct_row = {"123", "", "456"};
+    REQUIRE( reader.pop() == correct_row ); // First Row
+}
+
+TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
+    // Per RFC 1480, escaped quotes should be doubled up
+    std::string csv_string = ("123,\"234\"\"345\",456\r\n"
+    
+    // Only a single quote --> Not valid but correct it
+                              "123,\"234\"345\",456\r\n");
+                              
+    std::vector<std::string> col_names = {"A", "B", "C"};
+    
+    // Feed Strings
+    CSVReader reader(",", "\"");
+    reader.set_col_names(col_names);
+    reader.feed(csv_string);
+    reader.end_feed();
+    
+    // Expected Results
+    std::vector<std::string> correct_row = {"123", "234\"\"345", "456"};
+    REQUIRE( reader.pop() == correct_row ); // First Row
+    REQUIRE( reader.pop() == correct_row ); // Second Row
 }
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {

@@ -183,6 +183,7 @@ namespace csv_parser {
         std::string filename,
         bool quote_minimal=true,
         int skiplines=0) {
+            
         // Write queue to CSV file
         std::string row;
         std::vector<std::string> record;

@@ -129,11 +129,13 @@ namespace csv_parser {
                 this->quote_escape = false;
             } else if (in[index + 1] == this->quote_char) {
                 // Case: Next character is quote --> This is a quote escape
-                this->str_buffer += in[index] + in[index];
+                this->str_buffer += in[index];
+                this->str_buffer += in[index];
                 index++;
             } else {
                 // Not RFC 1480 compliant --> Double up the quotes so it is
-                this->str_buffer += in[index] + in[index];
+                this->str_buffer += in[index];
+                this->str_buffer += in[index];
             }
         } else {
             // Case 1: Not case 1 + previous character was delimiter
@@ -239,37 +241,6 @@ namespace csv_parser {
         infile.close();
     }
 
-    void CSVReader::to_csv(std::string filename, bool quote_minimal=true) {
-        // Write queue to CSV file
-        std::string row;
-        std::vector<std::string> record;
-        std::ofstream outfile;
-        outfile.open(filename);
-        
-        while (!this->records.empty()) {
-            // Remove and return first CSV row
-            std::vector< std::string > record = this->records.front();
-            this->records.pop();
-            
-            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
-                if ((quote_minimal &&
-                    (record[i].find_first_of(',')
-                        != std::string::npos))
-                    || !quote_minimal) {
-                    row += "\"" + record[i] + "\"";
-                } else {
-                    row += record[i];
-                }
-                
-                if (i + 1 != ilen) { row += ","; }
-            }
-            
-            outfile << row << "\n";
-            row.clear();
-        }
-        outfile.close();
-    }
-        
     void CSVReader::to_json(std::string filename) {
         // Write queue to CSV file
         std::string row;

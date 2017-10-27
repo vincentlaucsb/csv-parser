@@ -4,7 +4,7 @@ TFLAGS = $(CFLAGS) --coverage
 
 TEST_DIR = tests/
 
-all: csv_parser test_data_type test_read_csv test_csv_stat test_csv_clean clean distclean
+all: csv_parser test_data_type test_read_csv test_csv_stat test_csv_clean  code_cov clean distclean
 
 # Main Library
 csv_parser:
@@ -35,6 +35,13 @@ test_csv_clean:
 	rm -f tests/data/real_data/2016_Gaz_place_national.csv
 	
 .PHONY: all clean distclean
+
+code_cov:
+	# Analyze
+	lcov --directory $(PWD) --capture --output-file $(PWD)/app.info
+	
+	# Generate HTML
+	genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
 
 clean:
 	# Clean Up

@@ -36,12 +36,14 @@ namespace csv_parser {
                             digit_allowed = false;
                             ws_allowed = true;
                         } else {
+                            // Ex: '510 123 4567'
                             return 1;
                         }
                     }
                     break;
                 case '-':
                     if (!neg_allowed) {
+                        // Ex: '510-123-4567'
                         return 1;
                     } else {
                         neg_allowed = false;
@@ -59,6 +61,9 @@ namespace csv_parser {
                     if (isdigit(in[i])) {
                         if (!digit_allowed) {
                             return 1;
+                        } else if (ws_allowed) {
+                            // Ex: '510 456'
+                            ws_allowed = false;
                         }
                     } else {
                         return 1;
