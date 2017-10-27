@@ -4,17 +4,14 @@ TFLAGS = $(CFLAGS) --coverage
 
 TEST_DIR = tests/
 
-all: csv_parser data_type test_data_type test_read_csv test_csv_stat test_csv_clean clean distclean
+all: csv_parser test_data_type test_read_csv test_csv_stat test_csv_clean clean distclean
 
 # Main Library
 csv_parser:
-	$(CXX) $(IDIR)csv_parser.hpp -o csv_parser -I$(IDIR) $(CFLAGS)
-
-data_type:
-	$(CXX) $(IDIR)data_type.hpp -o data_type $(CFLAGS)
+	$(CXX) $(IDIR)csv_parser.h -o csv_parser -I$(IDIR) $(CFLAGS)
 
 # Unit Tests
-test_data_type: data_type
+test_data_type:
 	$(CXX) $(TEST_DIR)test_data_type.cpp -o test_data_type -I$(IDIR) $(TFLAGS)
 	./test_data_type
 	rm -f test_data_type
@@ -42,7 +39,6 @@ test_csv_clean:
 clean:
 	# Clean Up
 	rm -f csv_parser
-	rm -f data_type
 	
 	# Analyze code coverage data
 	bash ./code_cov.sh
