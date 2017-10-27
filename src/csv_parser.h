@@ -3,6 +3,7 @@
 # include <string>
 # include <vector>
 # include <queue>
+# include <map>
 
 namespace csv_parser {    
     int data_type(std::string&);
