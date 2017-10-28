@@ -25,6 +25,7 @@ namespace csv_parser {
         this->col_names = col_names;
         
         if (this->subset.size() > 0) {
+            this->subset_flag = true;
             for (size_t i = 0; i < this->subset.size(); i++) {
                 subset_col_names.push_back(col_names[this->subset[i]]);
             }
@@ -78,26 +79,20 @@ namespace csv_parser {
     void CSVReader::process_possible_delim(std::string &in, size_t &index) {
         // Process a delimiter character and determine if it is a field separator
         
-        if (this->quote_escape) {
-            // Case: We are currently in a quote-escaped field
-            // -> Write char as data
-            this->str_buffer += in[index];
-        } else {
+        if (!this->quote_escape) {
             // Case: Not being escaped --> Write field
             this->record_buffer.push_back(this->str_buffer);
             this->str_buffer.clear();
+        } else {
+            // Case: We are currently in a quote-escaped field
+            // -> Write char as data
+            this->str_buffer += in[index];
         }
     }
 
     void CSVReader::process_newline(std::string &in, size_t &index) {
-        // Process a newline character and determine if it is a record separator
-        // May not get called if reader is fed via getline()
-        
-        if (this->quote_escape) {
-            // Case: We are currently in a quote-escaped field
-            // -> Write char as data
-            this->str_buffer += in[index];
-        } else {
+        // Process a newline character and determine if it is a record separator        
+        if (!this->quote_escape) {
             // Case: Carriage Return Line Feed, Carriage Return, or Line Feed
             // => End of record -> Write record
             if ((in[index] == '\r') && (in[index + 1] == '\n')) {
@@ -107,12 +102,15 @@ namespace csv_parser {
             // Write remaining data
             if (this->str_buffer.size() > 0) {
                 this->record_buffer.push_back(this->str_buffer);
+                this->str_buffer.clear();
             }
-            
-            this->str_buffer.clear();
             
             // Write record
             this->write_record(this->record_buffer);
+        } else {
+            // Case: We are currently in a quote-escaped field
+            // -> Write char as data
+            this->str_buffer += in[index];
         }
     }
 
@@ -170,31 +168,32 @@ namespace csv_parser {
         */
         
         if (this->row_num > this->header_row) {
-            // Temporary fix: CSV parser doesn't always catch
-            // the last field if it is empty
+            /* Workaround: CSV parser doesn't catch the last field if
+             * it is empty */
             if (record.size() + 1 == this->col_names.size()) {
                 record.push_back(std::string());
             }
             
             // Make sure record is of the right length
             if (record.size() == this->col_names.size()) {
-                if (this->subset.size() > 0) {
+                if (!this->subset_flag) {
+                    // No need to subset
+                    this->records.push(record);
+                } else {
                     // Subset the data
                     std::vector<std::string> subset_record;
                     
                     for (size_t i = 0; i < this->subset.size(); i++) {
-                        int subset_index = this->subset[i];
-                        subset_record.push_back(record[subset_index]);
+                        subset_record.push_back(record[ this->subset[i] ]);
                     }
                     
                     this->records.push(subset_record);
-                } else {
-                    this->records.push(record);
                 }
             } else {
                 // Case 1: Zero-length record. Probably caused by
                 // extraneous delimiters.
                 // Case 2: Too short or too long
+                // std::cout << "Dropping row" << std::endl;
             }
         } else if (this->row_num == this->header_row) {
             this->set_col_names(record);
@@ -218,25 +217,20 @@ namespace csv_parser {
         return this->records.empty();
     }
 
-    void CSVReader::read_csv(
-        std::string filename,
-        bool carriage_return) {
+    void CSVReader::read_csv(std::string filename) {
         std::ifstream infile(filename);
         std::string line;
-        char delim;
+        std::string newline("\n");
         
-        if (carriage_return) {
-            // Works for files terminated by \r\n
-            delim = '\r';
-        } else {
-            delim = '\n';
-        }
-        
-        while (std::getline(infile, line, delim)) {
+        while (std::getline(infile, line, '\n')) {
+            /* Hack: Add the delimiter back in because it might be
+             * in a quoted field and thus not an actual delimiter
+             */
+            line += newline;
             this->feed(line);
-            this->quote_escape = false;
         }
-        
+
+        // Done reading
         this->end_feed();
         infile.close();
     }

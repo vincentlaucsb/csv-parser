@@ -10,7 +10,7 @@ namespace csv_parser {
 
     class CSVReader {
         public:
-            void read_csv(std::string filename, bool carriage_return=true);
+            void read_csv(std::string filename);
             std::vector<std::string> get_col_names();
             void set_col_names(std::vector<std::string>);
             void feed(std::string &in);
@@ -27,10 +27,10 @@ namespace csv_parser {
                 int header=-1,
                 std::vector<int> subset_= std::vector<int>{});
         protected:
-            void process_possible_delim(std::string&, size_t&);
-            void process_quote(std::string&, size_t&);
-            void process_newline(std::string&, size_t&);
-            void write_record(std::vector<std::string>&);
+            inline void process_possible_delim(std::string&, size_t&);
+            inline void process_quote(std::string&, size_t&);
+            inline void process_newline(std::string&, size_t&);
+            inline void write_record(std::vector<std::string>&);
             std::vector<std::string> col_names;
             
             // Indices of columns to subset
@@ -38,6 +38,9 @@ namespace csv_parser {
             
             // Actual column names of subset columns
             std::vector<std::string> subset_col_names;
+            
+            // Set to true if we need to subset data
+            bool subset_flag = false;
             
             char delimiter;
             char quote_char;
