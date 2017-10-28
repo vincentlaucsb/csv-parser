@@ -47,16 +47,13 @@ namespace csv_parser {
         
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
-                // Case 1: Possible delimiter
                 this->process_possible_delim(in, i);
             } else if (in[i] == this->quote_char) {
-                // Case 2: Possible quote escape
                 this->process_quote(in, i);
             } else {
                 switch(in[i]) {
                     case '\r':
                     case '\n':
-                        // Case 3: Newline
                         this->process_newline(in, i);
                         break;
                     default:
@@ -78,15 +75,12 @@ namespace csv_parser {
 
     void CSVReader::process_possible_delim(std::string &in, size_t &index) {
         // Process a delimiter character and determine if it is a field separator
-        
         if (!this->quote_escape) {
             // Case: Not being escaped --> Write field
             this->record_buffer.push_back(this->str_buffer);
             this->str_buffer.clear();
         } else {
-            // Case: We are currently in a quote-escaped field
-            // -> Write char as data
-            this->str_buffer += in[index];
+            this->str_buffer += in[index]; // Treat as regular data
         }
     }
 
@@ -108,9 +102,7 @@ namespace csv_parser {
             // Write record
             this->write_record(this->record_buffer);
         } else {
-            // Case: We are currently in a quote-escaped field
-            // -> Write char as data
-            this->str_buffer += in[index];
+            this->str_buffer += in[index]; // Quote-escaped
         }
     }
 
@@ -122,37 +114,24 @@ namespace csv_parser {
             if ((in[index + 1] == this->delimiter) || 
                 (in[index + 1] == '\r') ||
                 (in[index + 1] == '\n')) {
-                // Case: Next character is delimiter or newline
-                // --> End of field
+                // Case: End of field
                 this->quote_escape = false;
-            } else if (in[index + 1] == this->quote_char) {
-                // Case: Next character is quote --> This is a quote escape
-                this->str_buffer += in[index];
-                this->str_buffer += in[index];
-                index++;
             } else {
-                // Not RFC 1480 compliant --> Double up the quotes so it is
+                // Note: This may fix single quotes (not valid) by doubling them up
                 this->str_buffer += in[index];
                 this->str_buffer += in[index];
-            }
-        } else {
-            // Case 1: Not case 1 + previous character was delimiter
-            if (in[index - 1] == this->delimiter) {
-                this->quote_escape = true;
-            } else if (in[index + 1] == this->quote_char) {
-                // Case 2: Two quotes follow each other
-                // Possible empty field, e.g. "Value","","Value"
-                // Treat as empty field if we have the sequence "",
-                if ((in[index + 2] == this->delimiter)
-                    || (in[index + 2] == '\r')
-                    || (in[index + 2] == '\n')) {
-                    this->record_buffer.push_back(std::string());
-                    index += 2;
-                } else {
-                    throw std::runtime_error("Unexpected usage of quotes.");
+                
+                if (in[index + 1] == this->quote_char) {
+                    index++;  // Case: Two consecutive quotes
                 }
             }
-            
+        } else {
+            if (in[index - 1] == this->delimiter) {
+                // Case 1: Previous character was delimiter
+                this->quote_escape = true;
+            } else {
+                // Case 2: Unescaped quote => Drop it
+            }
         }
     }
 
@@ -236,7 +215,7 @@ namespace csv_parser {
     }
 
     void CSVReader::to_json(std::string filename) {
-        // Write queue to CSV file
+        // Write CSV as a newline-delimited JSON file
         std::string row;
         std::vector<std::string> record;
         std::string * col_name;
@@ -244,48 +223,28 @@ namespace csv_parser {
         std::ofstream outfile;
         outfile.open(filename);
         
-        outfile << "[";
-        
-        while (!this->records.empty()) {
-            // Remove and return first CSV row
-            record = this->records.front();
-            this->records.pop();
-            json_record = "{";
+        while (!this->empty()) {
+            record = this->pop();
             
             // Create JSON record
+            json_record = "{";
             for (size_t i = 0; i < this->subset_col_names.size(); i++) {
                 col_name = &this->subset_col_names[i];
-                json_record += "\"" + *col_name + "\": ";
+                json_record += "\"" + *col_name + "\":";
                 json_record += "\"" + record[i] + "\"";
                 if (i + 1 != record.size()) {
                     json_record += ",";
                 }
             }
             
-            if (!this->records.empty()) {
-                json_record += "},\n";
-            } else {
-                json_record += "}";
-            }
+            // End of record
+            json_record += "}";
+            if (!this->records.empty()) { json_record += "\n"; }
             
             outfile << json_record;
-            json_record.clear();                
+            json_record.clear();             
         }
         
-        outfile << "]";
         outfile.close();
-    }
-
-    void CSVReader::print_csv() {
-        while (!this->records.empty()) {
-            std::vector< std::string > record = this->records.front();
-            this->records.pop();
-            
-            for (int j = 0; j < record.size(); j++) {
-                std::cout << record[j] << '\t';
-            }
-            
-            std::cout << std::endl;
-        }
     }
 }

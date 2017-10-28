@@ -10,7 +10,7 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     std::string csv_string1("123,234,345\r\n"
                             "1,2,3\r\n"
                             "1,2,3");
-                            ;
+    
     std::vector<std::string> col_names = {"A", "B", "C"};
     
     // Feed Strings
@@ -128,4 +128,34 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     REQUIRE( reader.row_num == 246498 );
 }
 
-// std::string psv_string = "123|\"234,345\"|456\r\n1|2|3\r\n1|2|3";
+TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
+    // Same file as above
+    std::vector<int> subset = {0, 1, 2, 3, 4};    
+    CSVReader reader(",", "\"", 0, subset);
+    reader.read_csv("./tests/data/real_data/2015_StateDepartment.csv");
+    
+    // Expected Results
+    std::vector<std::string> first_row = {
+        "2015","State Department","","Administrative Law, Office of", "" };
+    
+    REQUIRE( reader.pop() == first_row );
+    REQUIRE( reader.row_num == 246498 );
+}
+
+TEST_CASE( "Test JSON Output", "[csv_to_json]") {
+    std::string csv_string("I,Like,Turtles\r\n");
+    std::vector<std::string> col_names = {"A", "B", "C"};
+    
+    // Feed Strings
+    CSVReader reader(",", "\"");
+    reader.set_col_names(col_names);
+    reader.feed(csv_string);
+    reader.end_feed();
+    reader.to_json("test.ndjson");
+    
+    // Expected Results
+    std::ifstream test_file("test.ndjson");
+    std::string first_line;
+    std::getline(test_file, first_line, '\n');
+    REQUIRE( first_line == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\"}" );
+}

@@ -73,3 +73,12 @@ TEST_CASE( "Test Calculating Statistics (Line Feed Record-Separated)",
     REQUIRE( reader.get_maxes()[0] == 100 );
     REQUIRE( ceil(reader.get_variance()[0]) == 842 );
 }
+TEST_CASE( "Test Calculating Statistics (persons.csv)", "[test_stat_person]" ) {
+    // Header on first row
+    CSVStat reader(",", "\"", 0);
+    reader.read_csv("./tests/data/mimesis_data/persons.csv");
+    reader.calc();
+    
+    // Expected Results
+    REQUIRE( ceil(reader.get_mean()[1]) == 42 );
+}

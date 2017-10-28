@@ -20,6 +20,7 @@ test_read_csv:
 	$(CXX) $(TEST_DIR)test_read_csv.cpp -o test_read_csv -I$(IDIR) $(TFLAGS)
 	./test_read_csv
 	rm -f test_read_csv
+	rm -f test.ndjson
 	
 test_csv_stat:
 	$(CXX) $(TEST_DIR)test_csv_stat.cpp -o test_csv_stat -I$(IDIR) $(TFLAGS)
