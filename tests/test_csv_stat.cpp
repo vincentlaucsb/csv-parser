@@ -9,7 +9,7 @@ using namespace csv_parser;
 TEST_CASE( "Test Calculating Statistics from Direct Input", 
     "[read_csv_stat_direct]" ) {
     // Header on first row
-    CSVStat reader(",", "\"");
+    CSVStat reader(",", "\"", -1);
     reader.set_col_names({"A", "B", "C"});
     std::string int_str;
     std::string int_list;
