@@ -20,28 +20,29 @@ namespace csv_parser {
             inline bool empty();
             void to_csv(std::string, bool);
             void to_json(std::string);
+            std::vector<std::string> to_json();
             int row_num = 0;
             CSVReader(
                 std::string delim=",",
                 std::string quote="\"",
-                int header=-1,
+                int header=0,
                 std::vector<int> subset_= std::vector<int>{});
         protected:
+            // CSV parsing callbacks
             inline void process_possible_delim(std::string&, size_t&);
             inline void process_quote(std::string&, size_t&);
             inline void process_newline(std::string&, size_t&);
             inline void write_record(std::vector<std::string>&);
+            
+            // Helper methods
+            inline std::string csv_to_json();
+            
+            // Column Information
             std::vector<std::string> col_names;
-            
-            // Indices of columns to subset
-            std::vector<int> subset;
-            
-            // Actual column names of subset columns
+            std::vector<int> subset; // Indices of columns to subset
             std::vector<std::string> subset_col_names;
-            
-            // Set to true if we need to subset data
-            bool subset_flag = false;
-            
+            bool subset_flag = false; // Set to true if we need to subset data
+                        
             char delimiter;
             char quote_char;
             bool quote_escape;

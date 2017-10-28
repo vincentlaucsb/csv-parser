@@ -41,8 +41,7 @@ namespace csv_parser {
     }
 
     void CSVReader::feed(std::string &in) {
-        /* Parse RFC 4180 compliant CSV files */
-        
+        // Parse RFC 4180 compliant CSV files
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
                 this->process_possible_delim(in, i);
@@ -59,14 +58,12 @@ namespace csv_parser {
                 }
             }
         }
-        
     }
 
     void CSVReader::end_feed() {
         // Indicate that there is no more data to receive, and parse remaining
         // content in string buffer
         if (this->record_buffer.size() > 0) {
-            // Don't try to parse an empty buffer
             this->write_record(this->record_buffer);
         }
     }
@@ -105,9 +102,7 @@ namespace csv_parser {
     }
 
     void CSVReader::process_quote(std::string &in, size_t &index) {
-        // Determine if the usage of a quote is valid or throw an error
-        
-        // Case: We are currently in a quote-escaped field
+        // Determine if the usage of a quote is valid or fix it
         if (this->quote_escape) {
             if ((in[index + 1] == this->delimiter) || 
                 (in[index + 1] == '\r') ||
@@ -202,7 +197,6 @@ namespace csv_parser {
     }
 
     bool CSVReader::empty() {
-        // Return true or false if CSV queue is empty
         return this->records.empty();
     }
 
@@ -223,38 +217,56 @@ namespace csv_parser {
         this->end_feed();
         infile.close();
     }
-
-    void CSVReader::to_json(std::string filename) {
-        // Write CSV as a newline-delimited JSON file
-        std::string row;
-        std::vector<std::string> record;
+    
+    std::string CSVReader::csv_to_json() {
+        // Helper method for to_json()
+        std::vector<std::string> record = this->pop();
+        std::string json_record = "{";
         std::string * col_name;
+        
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+            col_name = &this->subset_col_names[i];
+            json_record += "\"" + *col_name + "\":";
+            json_record += "\"" + record[i] + "\"";
+            if (i + 1 != record.size()) {
+                json_record += ",";
+            }
+        }
+        
+        json_record += "}";
+        return json_record;
+    }
+    
+    void CSVReader::to_json(std::string filename) {
+        /* Write CSV as a newline-delimited JSON file
+         * TODO: Handle integers and floats correctly (instead of leaving
+         * them as strings)
+         */
+        std::vector<std::string> record;
         std::string json_record;
         std::ofstream outfile;
         outfile.open(filename);
         
         while (!this->empty()) {
-            record = this->pop();
-            
-            // Create JSON record
-            json_record = "{";
-            for (size_t i = 0; i < this->subset_col_names.size(); i++) {
-                col_name = &this->subset_col_names[i];
-                json_record += "\"" + *col_name + "\":";
-                json_record += "\"" + record[i] + "\"";
-                if (i + 1 != record.size()) {
-                    json_record += ",";
-                }
-            }
-            
-            // End of record
-            json_record += "}";
-            if (!this->records.empty()) { json_record += "\n"; }
-            
+            json_record = this->csv_to_json();
+            if (!this->empty()) { json_record += "\n"; }
             outfile << json_record;
-            json_record.clear();             
         }
         
         outfile.close();
+    }
+    
+    std::vector<std::string> CSVReader::to_json() {
+        // Same as above but writes to memory
+        std::vector<std::string> record;
+        std::string json_record;
+        std::vector<std::string> output;
+        
+        while (!this->empty()) {
+            json_record = this->csv_to_json();
+            output.push_back(json_record);
+        }
+        
+        return output;
     }
 }
