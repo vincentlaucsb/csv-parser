@@ -24,6 +24,27 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     REQUIRE( reader.pop() == first_row );
 }
 
+TEST_CASE( "Test Reading CSV From Direct Input (pop_map())",
+           "[read_csv_pop_map]" ) {
+    std::string csv_string1("123,234,345\r\n"
+                            "1,2,3\r\n"
+                            "1,2,3");
+    
+    std::vector<std::string> col_names = {"A", "B", "C"};
+    
+    // Feed Strings
+    CSVReader reader(",", "\"");
+    reader.set_col_names(col_names);
+    reader.feed(csv_string1);
+    reader.end_feed();
+    
+    // Expected Results
+    std::map<std::string, std::string> first_row = {
+        {"A", "123"}, {"B", "234"}, {"C", "345"}
+    };
+    REQUIRE( reader.pop_map() == first_row );
+}
+
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
     std::string csv_string = ("123,\"234,345\",456\r\n"
                                "1,2,3\r\n"

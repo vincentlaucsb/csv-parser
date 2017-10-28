@@ -15,9 +15,9 @@ namespace csv_parser {
             void set_col_names(std::vector<std::string>);
             void feed(std::string &in);
             void end_feed();
-            std::vector<std::string> pop();
-            bool empty();
-            void print_csv();
+            inline std::vector<std::string> pop();
+            inline std::map<std::string, std::string> pop_map();
+            inline bool empty();
             void to_csv(std::string, bool);
             void to_json(std::string);
             int row_num = 0;

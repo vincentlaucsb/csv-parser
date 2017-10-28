@@ -1,7 +1,5 @@
 # include "csv_parser.h"
 # include <iostream>
-# include <vector>
-# include <queue>
 # include <stdexcept>
 # include <fstream>
 # include <math.h>
@@ -189,6 +187,18 @@ namespace csv_parser {
         std::vector< std::string > record = this->records.front();
         this->records.pop();
         return record;
+    }
+    
+    std::map<std::string, std::string> CSVReader::pop_map() {
+        // Remove and return first CSV row as an std::map
+        std::vector< std::string > record = this->pop();
+        std::map< std::string, std::string > record_map;
+        
+        for (size_t i = 0; i < subset.size(); i ++) {
+            record_map[ this->subset_col_names[i] ] = record[i];
+        }
+        
+        return record_map;
     }
 
     bool CSVReader::empty() {
