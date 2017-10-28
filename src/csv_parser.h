@@ -7,6 +7,7 @@
 
 namespace csv_parser {    
     int data_type(std::string&);
+    std::string json_escape(std::string);
 
     class CSVReader {
         public:

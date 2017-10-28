@@ -1,4 +1,5 @@
 # include "csv_parser.h"
+# include "data_type.cpp"
 # include <iostream>
 # include <stdexcept>
 # include <fstream>
@@ -227,7 +228,17 @@ namespace csv_parser {
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             col_name = &this->subset_col_names[i];
             json_record += "\"" + *col_name + "\":";
-            json_record += "\"" + record[i] + "\"";
+            
+            /* Quote strings but not numeric fields
+             * Recall data_type() returns 2 for ints and 3 for floats
+             */
+            
+            if (data_type(record[i]) > 1) {
+                json_record += record[i];
+            } else {
+                json_record += "\"" + json_escape(record[i]) + "\"";
+            }
+            
             if (i + 1 != record.size()) {
                 json_record += ",";
             }
@@ -268,5 +279,41 @@ namespace csv_parser {
         }
         
         return output;
+    }
+    
+    std::string json_escape(std::string in) {
+        // Given a CSV string, convert it to a JSON string with proper
+        // escaping as described by RFC 7159
+        
+        std::string out;
+        
+        for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
+            switch (in[i]) {
+                case '"':
+                    // Assuming quotes come in pairs due to CSV escaping
+                    out += "\\\"";
+                    i++; // Skip over next quote
+                    break;
+                case '\\':
+                    out += "\\\\";
+                    break;
+                case '/':
+                    out += "\\/";
+                    break;
+                case '\r':
+                    out += "\\\r";
+                    break;
+                case '\n':
+                    out += "\\\n";
+                    break;
+                case '\t':
+                    out += "\\\t";
+                    break;
+                default:
+                    out += in[i];
+            }
+        }
+        
+        return out;
     }
 }

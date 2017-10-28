@@ -1,6 +1,5 @@
 /* Calculates statistics from CSV files */
 
-# include "data_type.cpp"
 # include "csv_parser.cpp"
 # include <iostream>
 # include <map>

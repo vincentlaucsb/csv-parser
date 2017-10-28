@@ -165,17 +165,44 @@ TEST_CASE( "Test JSON Output", "[csv_to_json]") {
 }
 
 TEST_CASE( "Test JSON Output (Memory)", "[csv_to_json_mem]") {
-    std::string csv_string("I,Like,Turtles\r\n");
-    std::vector<std::string> col_names = {"A", "B", "C"};
+    std::string csv_string(
+        "A,B,C,D\r\n" // Header row
+        "I,Like,Turtles,1\r\n"
+        "I,Like,Turtles,2\r\n");
     std::vector<std::string> turtles;
     
     // Feed Strings
-    CSVReader reader(",", "\"", -1);
-    reader.set_col_names(col_names);
+    CSVReader reader;
     reader.feed(csv_string);
     reader.end_feed();
     turtles = reader.to_json();
     
     // Expected Results
-    REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\"}" );
+    REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\",\"D\":1}");
+    REQUIRE( turtles[1] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\",\"D\":2}");
+}
+
+TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
+    std::string csv_string(
+        "A,B,C,D\r\n" // Header row
+        "I,\"Like\"\"\",Turtles,1\r\n" // Quote escape test
+        "I,\"Like\\\",Turtles,1\r\n"   // Backslash escape test
+        "I,\"Like\r\n\",Turtles,1\r\n" // Newline escape test
+        "I,\"Like\t\",Turtles,1\r\n"   // Tab escape test
+        "I,\"Like/\",Turtles,1\r\n"    // Slash escape test
+        );
+    std::vector<std::string> turtles;
+    
+    // Feed Strings
+    CSVReader reader;
+    reader.feed(csv_string);
+    reader.end_feed();
+    turtles = reader.to_json();
+    
+    // Expected Results
+    REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\\\"\",\"C\":\"Turtles\",\"D\":1}");
+    REQUIRE( turtles[1] == "{\"A\":\"I\",\"B\":\"Like\\\\\",\"C\":\"Turtles\",\"D\":1}");
+    REQUIRE( turtles[2] == "{\"A\":\"I\",\"B\":\"Like\\\r\\\n\",\"C\":\"Turtles\",\"D\":1}");
+    REQUIRE( turtles[3] == "{\"A\":\"I\",\"B\":\"Like\\\t\",\"C\":\"Turtles\",\"D\":1}");
+    REQUIRE( turtles[4] == "{\"A\":\"I\",\"B\":\"Like\\/\",\"C\":\"Turtles\",\"D\":1}");
 }

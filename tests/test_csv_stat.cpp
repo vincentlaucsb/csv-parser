@@ -33,6 +33,11 @@ TEST_CASE( "Test Calculating Statistics from Direct Input",
     REQUIRE( reader.get_mean() == means );
     REQUIRE( ceil(reader.get_variance()[0]) == 842 );
     
+    // Make sure all integers between 1 and 100 have a count of 1
+    for (int i = 1; i < 101; i++) {
+        REQUIRE( reader.get_counts()[0][std::to_string(i)] == 1 );
+    }
+    
     // Confirm column at pos 0 has 100 integers (type 2)
     REQUIRE( reader.get_dtypes()[0][2] == 100 );
 }
