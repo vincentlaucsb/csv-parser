@@ -21,6 +21,11 @@ namespace csv_parser {
     }
 
     void CSVReader::set_col_names(std::vector<std::string> col_names) {
+        /** - Set or override the CSV's column names
+         *  - When parsing, rows that are shorter or longer than the list 
+         *    of column names get dropped
+         */
+        
         this->col_names = col_names;
         
         if (this->subset.size() > 0) {
@@ -42,7 +47,10 @@ namespace csv_parser {
     }
 
     void CSVReader::feed(std::string &in) {
-        // Parse RFC 4180 compliant CSV files
+        /** Parse a CSV-formatted string. Incomplete CSV fragments can be 
+         *  joined together by calling feed() on them sequentially.
+         *  **Note**: end_feed() should be called after the last string
+         */
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
                 this->process_possible_delim(in, i);
@@ -62,15 +70,18 @@ namespace csv_parser {
     }
 
     void CSVReader::end_feed() {
-        // Indicate that there is no more data to receive, and parse remaining
-        // content in string buffer
+        /** Indicate that there is no more data to receive, and parse
+         *  remaining content in string buffer
+         */
         if (this->record_buffer.size() > 0) {
             this->write_record(this->record_buffer);
         }
     }
 
     void CSVReader::process_possible_delim(std::string &in, size_t &index) {
-        // Process a delimiter character and determine if it is a field separator
+        /** Process a delimiter character and determine if it is a field
+         *  separator
+         */
         if (!this->quote_escape) {
             // Case: Not being escaped --> Write field
             this->record_buffer.push_back(this->str_buffer);
@@ -81,7 +92,9 @@ namespace csv_parser {
     }
 
     void CSVReader::process_newline(std::string &in, size_t &index) {
-        // Process a newline character and determine if it is a record separator        
+        /** Process a newline character and determine if it is a record
+         *  separator        
+         */
         if (!this->quote_escape) {
             // Case: Carriage Return Line Feed, Carriage Return, or Line Feed
             // => End of record -> Write record
@@ -103,7 +116,8 @@ namespace csv_parser {
     }
 
     void CSVReader::process_quote(std::string &in, size_t &index) {
-        // Determine if the usage of a quote is valid or fix it
+        /** Determine if the usage of a quote is valid or fix it
+         */
         if (this->quote_escape) {
             if ((in[index + 1] == this->delimiter) || 
                 (in[index + 1] == '\r') ||
@@ -130,15 +144,12 @@ namespace csv_parser {
     }
 
     void CSVReader::write_record(std::vector<std::string> &record) {
+        /** Push the current row into a queue if it is the right length.
+         *  Drop it otherwise.
+         */
+        
         // Unset all flags
         this->quote_escape = false;
-        
-        /*
-        std::ofstream outfile;
-        outfile.open("debugging.txt", std::ios::app);
-        outfile << "Record Size: " << record.size() << std::endl;
-        outfile << "Columns: " << this->col_names.size() << std::endl;
-        */
         
         if (this->row_num > this->header_row) {
             /* Workaround: CSV parser doesn't catch the last field if
@@ -179,14 +190,18 @@ namespace csv_parser {
     }
 
     std::vector<std::string> CSVReader::pop() {
-        // Remove and return first CSV row
+        /** - Remove and return the first CSV row
+         *  - Considering using empty() to avoid popping from an empty queue
+         */
         std::vector< std::string > record = this->records.front();
         this->records.pop();
         return record;
     }
     
     std::map<std::string, std::string> CSVReader::pop_map() {
-        // Remove and return first CSV row as an std::map
+        /** - Remove and return the first CSV row as a std::map
+         *  - Considering using empty() to avoid popping from an empty queue
+         */
         std::vector< std::string > record = this->pop();
         std::map< std::string, std::string > record_map;
         
@@ -198,10 +213,12 @@ namespace csv_parser {
     }
 
     bool CSVReader::empty() {
+        /** Indicates whether or not the queue still contains CSV rows */
         return this->records.empty();
     }
 
     void CSVReader::read_csv(std::string filename) {
+        /** Parse an entire CSV file */
         std::ifstream infile(filename);
         std::string line;
         std::string newline("\n");
@@ -220,7 +237,7 @@ namespace csv_parser {
     }
     
     std::string CSVReader::csv_to_json() {
-        // Helper method for to_json()
+        /** Helper method for both to_json() methods */
         std::vector<std::string> record = this->pop();
         std::string json_record = "{";
         std::string * col_name;
@@ -249,9 +266,23 @@ namespace csv_parser {
     }
     
     void CSVReader::to_json(std::string filename) {
-        /* Write CSV as a newline-delimited JSON file
-         * TODO: Handle integers and floats correctly (instead of leaving
-         * them as strings)
+        /** Convert CSV to a newline-delimited JSON file, where each 
+         *  row is mapped to an object with the column names as keys.
+         * 
+         *  # Example
+         *  ## Input
+         *  <TABLE>
+         *      <TR><TH>Name</TH><TH>TD</TH><TH>Int</TH><TH>Yards</TH></TR>
+         *      <TR><TD>Tom Brady</TD><TD>2</TD><TD>1</TD><TD>466</TD></TR>
+         *      <TR><TD>Matt Ryan</TD><TD>2</TD><TD>0</TD><TD>284</TD></TR>
+         *  </TABLE>
+         *
+         *  ## Output
+         *  > to_json("twentyeight-three.ndjson")
+         *
+         *  > {"Name":"Tom Brady","TD":2,"Int":1,"Yards":466}
+         *  >
+         *  > {"Name":"Matt Ryan","TD":2,"Int":0,"Yards":284}
          */
         std::vector<std::string> record;
         std::string json_record;
@@ -268,7 +299,9 @@ namespace csv_parser {
     }
     
     std::vector<std::string> CSVReader::to_json() {
-        // Same as above but writes to memory
+        /** Similar to to_json(std::string filename), but outputs a vector of 
+         *  JSON strings instead
+         */
         std::vector<std::string> record;
         std::string json_record;
         std::vector<std::string> output;
@@ -282,9 +315,9 @@ namespace csv_parser {
     }
     
     std::string json_escape(std::string in) {
-        // Given a CSV string, convert it to a JSON string with proper
-        // escaping as described by RFC 7159
-        
+        /** Given a CSV string, convert it to a JSON string with proper
+         *  escaping as described by RFC 7159
+         */
         std::string out;
         
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {

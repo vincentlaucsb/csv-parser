@@ -9,20 +9,33 @@ namespace csv_parser {
     int data_type(std::string&);
     std::string json_escape(std::string);
 
-    class CSVReader {
+    /** The main class for parsing CSV files */
+    class CSVReader {        
         public:
+            /** @name CSV Input
+             *  Functions for reading CSV files
+             */
+            ///@{
             void read_csv(std::string filename);
             std::vector<std::string> get_col_names();
             void set_col_names(std::vector<std::string>);
             void feed(std::string &in);
             void end_feed();
+            ///@}
+            
+            /** @name Output
+             *  Functions for working with parsed CSV rows
+             */
+            ///@{
             inline std::vector<std::string> pop();
             inline std::map<std::string, std::string> pop_map();
             inline bool empty();
-            void to_csv(std::string, bool);
             void to_json(std::string);
             std::vector<std::string> to_json();
-            int row_num = 0;
+            ///@}
+            
+            int row_num = 0; /**< How many lines have been parsed so far */
+            
             CSVReader(
                 std::string delim=",",
                 std::string quote="\"",
@@ -39,29 +52,33 @@ namespace csv_parser {
             inline std::string csv_to_json();
             
             // Column Information
-            std::vector<std::string> col_names;
-            std::vector<int> subset; // Indices of columns to subset
+            std::vector<std::string> col_names; /**< Column names */
+            std::vector<int> subset; /**< Indices of columns to subset */
             std::vector<std::string> subset_col_names;
-            bool subset_flag = false; // Set to true if we need to subset data
-                        
-            char delimiter;
-            char quote_char;
-            bool quote_escape;
-            int header_row;
-            std::queue< std::vector < std::string > > records;
-            std::vector<std::string> record_buffer;
-            std::string str_buffer;
+            bool subset_flag = false; /**< Set to true if we need to subset data */
+                      
+            // CSV settings and flags
+            char delimiter;    /**< Delimiter character */
+            char quote_char;   /**< Quote character */
+            bool quote_escape; /**< Parsing flag */
+            int header_row;    /**< Line number of the header row (zero-indexed) */
+            
+            // Buffers
+            std::queue< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
+            std::vector<std::string> record_buffer;            /**< Buffer for current row */
+            std::string str_buffer;                            /**< Buffer for current string fragment */
     };
     
+    /** Class for calculating statistics from CSV files */
     class CSVStat: public CSVReader {
         public:
+            void calc(bool, bool, bool);
             std::vector<long double> get_mean();
             std::vector<long double> get_variance();
             std::vector<long double> get_mins();
             std::vector<long double> get_maxes();
             std::vector< std::map<std::string, int> > get_counts();
             std::vector< std::map<int, int> > get_dtypes();
-            void calc(bool, bool, bool);
             using CSVReader::CSVReader;
         protected:
             // Statistic calculators
@@ -88,6 +105,7 @@ namespace csv_parser {
             std::map<int, std::map<std::string, int>> counts;
     };
 
+    /** Class for writing CSV files */
     class CSVCleaner: public CSVStat {
         public:
             void to_csv(std::string, bool, int);

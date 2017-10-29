@@ -9,7 +9,9 @@
 
 namespace csv_parser {
     void CSVStat::init_vectors() {
-        // Initialize statistics arrays to NAN
+        /** - Initialize statistics arrays to NAN
+         *  - Should be called (by calc()) before calculating statistics
+         */
         for (size_t i = 0; i < this->subset.size(); i++) {
             rolling_means.push_back(0);
             rolling_vars.push_back(0);
@@ -20,7 +22,7 @@ namespace csv_parser {
     }
 
     std::vector<long double> CSVStat::get_mean() {
-        // Return current means
+        /** Return current means */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->subset.size(); i++) {
             ret.push_back(this->rolling_means[i]);
@@ -29,7 +31,7 @@ namespace csv_parser {
     }
 
     std::vector<long double> CSVStat::get_variance() {
-        // Return current variances
+        /** Return current variances */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->subset.size(); i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
@@ -38,7 +40,7 @@ namespace csv_parser {
     }
 
     std::vector<long double> CSVStat::get_mins() {
-        // Return current variances
+        /** Return current variances */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->subset.size(); i++) {
             ret.push_back(this->mins[i]);
@@ -47,7 +49,7 @@ namespace csv_parser {
     }
 
     std::vector<long double> CSVStat::get_maxes() {
-        // Return current variances
+        /** Return current variances */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->subset.size(); i++) {
             ret.push_back(this->maxes[i]);
@@ -56,7 +58,7 @@ namespace csv_parser {
     }
 
     std::vector< std::map<std::string, int> > CSVStat::get_counts() {
-        // Get counts for each column
+        /** Get counts for each column */
         std::vector< std::map<std::string, int> > ret;        
         for (size_t i = 0; i < this->subset.size(); i++) {
             ret.push_back(this->counts[i]);
@@ -65,7 +67,7 @@ namespace csv_parser {
     }
 
     std::vector< std::map<int, int> > CSVStat::get_dtypes() {
-        // Get data type counts for each column
+        /** Get data type counts for each column */
         std::vector< std::map<int, int> > ret;        
         for (size_t i = 0; i < this->subset.size(); i++) {
             ret.push_back(this->dtypes[i]);
@@ -73,12 +75,11 @@ namespace csv_parser {
         return ret;
     }
 
-    void CSVStat::calc(
-        bool numeric=true,
-        bool count=true,
-        bool dtype=true) {
-        /* Go through all records and calculate specified statistics
-         * numeric: Calculate all numeric related statistics
+    void CSVStat::calc(bool numeric=true, bool count=true, bool dtype=true) {
+        /** Go through all records and calculate specified statistics
+         *  @param   numeric Calculate all numeric related statistics
+         *  @param   count   Create frequency counter for field values
+         *  @param   dtype   Calculate data type statistics
          */
         this->init_vectors();
         std::vector<std::string> current_record;
@@ -129,7 +130,7 @@ namespace csv_parser {
     }
 
     void CSVStat::count(std::string &record, size_t &i) {
-        // Given a record update the according count
+        /** Given a record update the frequency counter */
         if (this->counts[i].find(record) !=
             this->counts[i].end()) {
             // Increment count
@@ -141,7 +142,7 @@ namespace csv_parser {
     }
 
     void CSVStat::min_max(long double &x_n, size_t &i) {
-        // Update current minimum and maximum
+        /** Update current minimum and maximum */
         if (isnan(this->mins[i])) {
             this->mins[i] = x_n;
         } if (isnan(this->maxes[i])) {
@@ -178,10 +179,14 @@ namespace csv_parser {
     }
 
     // CSVCleaner Member Functions       
-    void CSVCleaner::to_csv(
-        std::string filename,
-        bool quote_minimal=true,
+    void CSVCleaner::to_csv(std::string filename, bool quote_minimal=true, 
         int skiplines=0) {
+        /** Output currently parsed rows (including column names)
+         *  to a RFC 4180-compliant CSV file.
+         *  @param[out] filename        File to save to
+         *  @param      quote_minimal   Only quote fields if necessary
+         *  @param      skiplines       Number of lines (after header) to skip
+         */
             
         // Write queue to CSV file
         std::string row;
