@@ -1,6 +1,6 @@
 # define CATCH_CONFIG_MAIN
+# include "csv_parser.h"
 # include "catch.hpp"
-# include "csv_stat.cpp"
 # include <string>
 
 using namespace csv_parser;
@@ -45,4 +45,12 @@ TEST_CASE( "Test Converting Tab Delimited File", "[tsv_clean]" ) {
     // 10 = INTPTLAT; 11 = INTPTLONG
     REQUIRE(ceil(stats.get_mean()[10]) == 39);
     REQUIRE(ceil(stats.get_mean()[10]) == 39);
+}
+
+TEST_CASE( "Test CSV Merge", "[csv_merge]") {
+    merge_csv("StormEvents.csv",
+        {"./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2014_c20170718.csv",
+        "./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2015_c20170718.csv",
+        "./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2016_c20170816.csv",
+        "./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2017_c20170816.csv"});
 }

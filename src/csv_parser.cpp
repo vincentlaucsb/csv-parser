@@ -1,5 +1,4 @@
 # include "csv_parser.h"
-# include "data_type.cpp"
 # include <iostream>
 # include <stdexcept>
 # include <fstream>
@@ -162,7 +161,7 @@ namespace csv_parser {
             if (record.size() == this->col_names.size()) {
                 if (!this->subset_flag) {
                     // No need to subset
-                    this->records.push(record);
+                    this->records.push_back(record);
                 } else {
                     // Subset the data
                     std::vector<std::string> subset_record;
@@ -171,7 +170,7 @@ namespace csv_parser {
                         subset_record.push_back(record[ this->subset[i] ]);
                     }
                     
-                    this->records.push(subset_record);
+                    this->records.push_back(subset_record);
                 }
             } else {
                 // Case 1: Zero-length record. Probably caused by
@@ -194,7 +193,16 @@ namespace csv_parser {
          *  - Considering using empty() to avoid popping from an empty queue
          */
         std::vector< std::string > record = this->records.front();
-        this->records.pop();
+        this->records.pop_front();
+        return record;
+    }
+    
+    std::vector<std::string> CSVReader::pop_back() {
+        /** - Remove and return the last CSV row
+         *  - Considering using empty() to avoid popping from an empty queue
+         */
+        std::vector< std::string > record = this->records.back();
+        this->records.pop_back();
         return record;
     }
     
@@ -217,18 +225,19 @@ namespace csv_parser {
         return this->records.empty();
     }
 
-    void CSVReader::read_csv(std::string filename) {
+    void CSVReader::read_csv(std::string filename, int nrows) {
         /** Parse an entire CSV file */
         std::ifstream infile(filename);
         std::string line;
         std::string newline("\n");
         
-        while (std::getline(infile, line, '\n')) {
+        while (std::getline(infile, line, '\n') && this->row_num != nrows) {
             /* Hack: Add the delimiter back in because it might be
              * in a quoted field and thus not an actual delimiter
              */
             line += newline;
             this->feed(line);
+            nrows -= 1;
         }
 
         // Done reading

@@ -2,12 +2,20 @@
 
 # include <string>
 # include <vector>
-# include <queue>
+# include <deque>
 # include <map>
 
 namespace csv_parser {    
+    // Helpers
     int data_type(std::string&);
     std::string json_escape(std::string);
+    
+    // Utility functions
+    std::vector<std::string> get_col_names(std::string filename, int row);
+    void print_record(std::vector<std::string>&);
+    void merge(std::string outfile, std::vector<std::string> in);
+    void head(std::string infile, int nrow=100);
+    void grep(std::string infile, int col, std::string match);
 
     /** The main class for parsing CSV files */
     class CSVReader {        
@@ -16,7 +24,7 @@ namespace csv_parser {
              *  Functions for reading CSV files
              */
             ///@{
-            void read_csv(std::string filename);
+            void read_csv(std::string filename, int nrows=-1);
             std::vector<std::string> get_col_names();
             void set_col_names(std::vector<std::string>);
             void feed(std::string &in);
@@ -27,9 +35,13 @@ namespace csv_parser {
              *  Functions for working with parsed CSV rows
              */
             ///@{
-            inline std::vector<std::string> pop();
+            //inline
+            std::vector<std::string> pop();
+            // inline
+            std::vector<std::string> pop_back();
             inline std::map<std::string, std::string> pop_map();
-            inline bool empty();
+            // inline
+            bool empty();
             void to_json(std::string);
             std::vector<std::string> to_json();
             ///@}
@@ -64,7 +76,7 @@ namespace csv_parser {
             int header_row;    /**< Line number of the header row (zero-indexed) */
             
             // Buffers
-            std::queue< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
+            std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
             std::vector<std::string> record_buffer;            /**< Buffer for current row */
             std::string str_buffer;                            /**< Buffer for current string fragment */
     };
@@ -72,7 +84,7 @@ namespace csv_parser {
     /** Class for calculating statistics from CSV files */
     class CSVStat: public CSVReader {
         public:
-            void calc(bool, bool, bool);
+            void calc(bool numeric=true, bool count=true, bool dtype=true);
             std::vector<long double> get_mean();
             std::vector<long double> get_variance();
             std::vector<long double> get_mins();
@@ -108,7 +120,8 @@ namespace csv_parser {
     /** Class for writing CSV files */
     class CSVCleaner: public CSVStat {
         public:
-            void to_csv(std::string, bool, int);
+            void to_csv(std::string filename, bool quote_minimal=true, 
+                int skiplines=0, bool append=false);
             using CSVStat::CSVStat;
     };
 }

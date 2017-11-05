@@ -1,6 +1,7 @@
 /* Function for distinguishing numeric from text values
  */
 
+# include "csv_parser.h"
 # include <iostream>
 # include <string>
 

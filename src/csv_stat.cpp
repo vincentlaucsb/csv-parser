@@ -1,6 +1,6 @@
 /* Calculates statistics from CSV files */
 
-# include "csv_parser.cpp"
+# include "csv_parser.h"
 # include <iostream>
 # include <map>
 # include <stdexcept>
@@ -75,7 +75,7 @@ namespace csv_parser {
         return ret;
     }
 
-    void CSVStat::calc(bool numeric=true, bool count=true, bool dtype=true) {
+    void CSVStat::calc(bool numeric, bool count, bool dtype) {
         /** Go through all records and calculate specified statistics
          *  @param   numeric Calculate all numeric related statistics
          *  @param   count   Create frequency counter for field values
@@ -87,7 +87,7 @@ namespace csv_parser {
 
         while (!this->records.empty()) {
             current_record = this->records.front();
-            this->records.pop();
+            this->records.pop_front();
             
             for (size_t i = 0; i < this->subset.size(); i++) {
                 if (count) {
@@ -179,38 +179,44 @@ namespace csv_parser {
     }
 
     // CSVCleaner Member Functions       
-    void CSVCleaner::to_csv(std::string filename, bool quote_minimal=true, 
-        int skiplines=0) {
+    void CSVCleaner::to_csv(std::string filename, bool quote_minimal, 
+        int skiplines, bool append) {
         /** Output currently parsed rows (including column names)
          *  to a RFC 4180-compliant CSV file.
          *  @param[out] filename        File to save to
          *  @param      quote_minimal   Only quote fields if necessary
          *  @param      skiplines       Number of lines (after header) to skip
+         *  @param      append          Append to an existing CSV file
          */
             
         // Write queue to CSV file
         std::string row;
         std::vector<std::string> record;
         std::ofstream outfile;
-        outfile.open(filename);
         
-        // Write column names
-        for (size_t i = 0; i < this->col_names.size(); i++) {
-            outfile << this->col_names[i] + ",";
+        if (append) {
+            outfile.open(filename, std::ios_base::app);
+        } else {
+            outfile.open(filename);
+            
+            // Write column names
+            for (size_t i = 0; i < this->col_names.size(); i++) {
+                outfile << this->col_names[i] + ",";
+            }
+            outfile << "\n";
         }
-        outfile << "\n";
         
         // Skip lines
         while (!this->records.empty() && skiplines > 0) {
-            this->records.pop();
+            this->records.pop_front();
             skiplines--;
         }
         
         // Write records
         while (!this->records.empty()) {
             // Remove and return first CSV row
-            std::vector< std::string > record = this->records.front();
-            this->records.pop();            
+            std::vector< std::string > record = this->pop();
+            
             for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
                 // Calculate data type statistics
                 this->dtype(record[i], i);
@@ -230,6 +236,7 @@ namespace csv_parser {
             outfile << row << "\n";
             row.clear();
         }
+        
         outfile.close();
     }
 }
