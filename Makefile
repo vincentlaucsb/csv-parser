@@ -4,15 +4,11 @@ TFLAGS = ./csv_parser.o -I$(IDIR) $(CFLAGS) --coverage
 
 TEST_DIR = tests/
 
-all: csv_parser cli \
-	test_data_type test_read_csv test_csv_stat test_csv_clean \
-	code_cov clean distclean
+all: csv_parser cli test_data_type test_read_csv test_csv_stat test_csv_clean code_cov clean distclean
 
 # Main Library
 csv_parser:
-	$(CXX) $(IDIR)csv_parser.h $(IDIR)csv_parser.cpp $(IDIR)csv_stat.cpp \
-		$(IDIR)csv_merge.cpp $(IDIR)data_type.cpp -o csv_parser.o \
-		-I$(IDIR) -shared -fPIC -O3 --coverage $(CFLAGS)
+	$(CXX) $(IDIR)csv_parser.h $(IDIR)csv_parser.cpp $(IDIR)csv_stat.cpp $(IDIR)csv_merge.cpp $(IDIR)data_type.cpp -o csv_parser.o -I$(IDIR) -shared -fPIC -O3 --coverage $(CFLAGS)
 	
 cli: csv_parser
 	$(CXX) -o csv_parser $(IDIR)main.cpp ./csv_parser.o -I$(IDIR) -O3
@@ -37,7 +33,7 @@ test_csv_stat: csv_parser
 test_csv_clean: csv_parser
 	$(CXX) -o test_csv_clean $(TEST_DIR)test_csv_clean.cpp $(TFLAGS)
 	./test_csv_clean
-	# rm -f test_csv_clean
+	rm -f test_csv_clean
 	rm -f tests/data/fake_data/ints2.csv
 	rm -f tests/data/fake_data/ints_skipline2.csv
 	rm -f tests/data/real_data/2016_Gaz_place_national.csv
