@@ -6,7 +6,7 @@ language:
 compiler:
   - gcc
 script:
-  - sudo apt-get --only-upgrade gcc
+  - sudo apt-get install --only-upgrade gcc
   - make
   - pip install --user cpp-coveralls
 after_success:
