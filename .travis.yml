@@ -7,6 +7,7 @@ compiler:
   - gcc
 script:
   - make
+  - sudo apt-get upgrade gcc
   - pip install --user cpp-coveralls
 after_success:
   - if [ "$CXX" == "g++" ]; then
