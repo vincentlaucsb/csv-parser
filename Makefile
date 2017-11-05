@@ -8,7 +8,7 @@ all: csv_parser cli test_data_type test_read_csv test_csv_stat test_csv_clean co
 
 # Main Library
 csv_parser:
-	$(CXX) -o -I$(IDIR) -shared -fPIC -O3 --coverage $(CFLAGS) csv_parser.o $(IDIR)csv_parser.h $(IDIR)csv_parser.cpp $(IDIR)csv_stat.cpp $(IDIR)csv_merge.cpp $(IDIR)data_type.cpp
+	$(CXX) -o csv_parser.o -I$(IDIR) -shared -fPIC -O3 --coverage $(CFLAGS) $(IDIR)csv_parser.h $(IDIR)csv_parser.cpp $(IDIR)csv_stat.cpp $(IDIR)csv_merge.cpp $(IDIR)data_type.cpp
 	
 cli: csv_parser
 	$(CXX) -o csv_parser $(IDIR)main.cpp ./csv_parser.o -I$(IDIR) -O3
