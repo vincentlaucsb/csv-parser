@@ -1,6 +1,6 @@
 # define CATCH_CONFIG_MAIN
 # include "catch.hpp"
-# include "csv_stat.cpp"
+# include "csv_parser.h"
 # include <string>
 # include <vector>
 

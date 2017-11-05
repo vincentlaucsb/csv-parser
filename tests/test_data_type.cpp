@@ -1,6 +1,6 @@
 # define CATCH_CONFIG_MAIN
 # include "catch.hpp"
-# include "data_type.cpp"
+# include "csv_parser.h"
 # include <string>
 
 using namespace csv_parser;

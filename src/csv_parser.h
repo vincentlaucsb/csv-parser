@@ -35,12 +35,9 @@ namespace csv_parser {
              *  Functions for working with parsed CSV rows
              */
             ///@{
-            //inline
             std::vector<std::string> pop();
-            // inline
             std::vector<std::string> pop_back();
-            inline std::map<std::string, std::string> pop_map();
-            // inline
+            std::map<std::string, std::string> pop_map();
             bool empty();
             void to_json(std::string);
             std::vector<std::string> to_json();
