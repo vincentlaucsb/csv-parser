@@ -84,20 +84,29 @@ namespace csv_parser {
         }
     }
     
-    void grep(std::string infile, int col, std::string match) {
+    int grep(std::string infile, int col, std::string match, int max_rows) {
+		// Returns number of results that were ommitted
         std::smatch matches;
         std::regex reg_pattern(match);
         
         CSVReader reader;
         reader.read_csv(infile);
         
-        while (!reader.empty()) {
+        while (!reader.empty() && max_rows != 0) {
             std::vector<std::string> record = reader.pop();
             std::regex_search(record[col], matches, reg_pattern);
             
             if (!matches.empty()) {
                 print_record(record);
+				max_rows--;
             }
         }
+
+		if (max_rows > 0) {
+			return reader.row_num - max_rows;
+		}
+		else {
+			return reader.row_num;
+		}
     }
 }

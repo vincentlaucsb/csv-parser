@@ -133,7 +133,8 @@ namespace csv_parser {
                 }
             }
         } else {
-            if (in[index - 1] == this->delimiter) {
+			// Add index > 0 to prevent string index errors
+            if (index > 0 && in[index - 1] == this->delimiter) {
                 // Case 1: Previous character was delimiter
                 this->quote_escape = true;
             } else {

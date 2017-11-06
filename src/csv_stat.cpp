@@ -200,8 +200,10 @@ namespace csv_parser {
             outfile.open(filename);
             
             // Write column names
-            for (size_t i = 0; i < this->col_names.size(); i++) {
-                outfile << this->col_names[i] + ",";
+            for (size_t i = 0, ilen = this->col_names.size(); i < ilen; i++) {
+				outfile << this->col_names[i];
+				if (i + 1 != ilen)
+					outfile << ",";
             }
             outfile << "\n";
         }

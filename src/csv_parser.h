@@ -15,7 +15,7 @@ namespace csv_parser {
     void print_record(std::vector<std::string>&);
     void merge(std::string outfile, std::vector<std::string> in);
     void head(std::string infile, int nrow=100);
-    void grep(std::string infile, int col, std::string match);
+	int grep(std::string infile, int col, std::string match, int max_rows = 500);
 
     /** The main class for parsing CSV files */
     class CSVReader {        
