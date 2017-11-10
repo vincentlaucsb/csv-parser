@@ -1,5 +1,8 @@
 /* Lightweight CSV Parser */
 
+# include <cstdarg>
+# include <iostream>
+# include <fstream>
 # include <string>
 # include <vector>
 # include <deque>
@@ -12,10 +15,9 @@ namespace csv_parser {
     
     // Utility functions
     std::vector<std::string> get_col_names(std::string filename, int row);
-    void print_record(std::vector<std::string>&);
     void merge(std::string outfile, std::vector<std::string> in);
-    void head(std::string infile, int nrow=100);
-	int grep(std::string infile, int col, std::string match, int max_rows = 500);
+
+    std::string guess_delim(std::string filename);
 
     /** The main class for parsing CSV files */
     class CSVReader {        
@@ -24,7 +26,7 @@ namespace csv_parser {
              *  Functions for reading CSV files
              */
             ///@{
-            void read_csv(std::string filename, int nrows=-1);
+            void read_csv(std::string filename, int nrows=-1, bool close=true);
             std::vector<std::string> get_col_names();
             void set_col_names(std::vector<std::string>);
             void feed(std::string &in);
@@ -39,11 +41,20 @@ namespace csv_parser {
             std::vector<std::string> pop_back();
             std::map<std::string, std::string> pop_map();
             bool empty();
-            void to_json(std::string);
+            void to_json(std::string filename, bool append = false);
             std::vector<std::string> to_json();
             ///@}
             
             int row_num = 0; /**< How many lines have been parsed so far */
+            bool eof = false;      /**< Have we reached the end of file */
+
+            friend void head(std::string infile, int nrow=100,
+                std::string delim="", std::string quote="\"",
+                int header = 0, std::vector<int> subset = {});
+
+            friend void grep(std::string infile, int col, std::string match, int max_rows = 500,
+                std::string delim = "", std::string quote = "\"",
+                int header = 0, std::vector<int> subset = {});
             
             CSVReader(
                 std::string delim=",",
@@ -67,12 +78,14 @@ namespace csv_parser {
             bool subset_flag = false; /**< Set to true if we need to subset data */
                       
             // CSV settings and flags
-            char delimiter;    /**< Delimiter character */
-            char quote_char;   /**< Quote character */
-            bool quote_escape; /**< Parsing flag */
-            int header_row;    /**< Line number of the header row (zero-indexed) */
+            char delimiter;        /**< Delimiter character */
+            char quote_char;       /**< Quote character */
+            bool quote_escape;     /**< Parsing flag */
+            int header_row;        /**< Line number of the header row (zero-indexed) */
+            std::streampos last_pos = 0; /**< Line number of last row read from file */
             
             // Buffers
+            std::ifstream infile;
             std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
             std::vector<std::string> record_buffer;            /**< Buffer for current row */
             std::string str_buffer;                            /**< Buffer for current string fragment */
@@ -109,6 +122,7 @@ namespace csv_parser {
             void variance(long double&, size_t&);
             void count(std::string&, size_t&);
             void min_max(long double&, size_t&);
+            void calc_col(size_t);
             
             // Map column indices to counters
             std::map<int, std::map<std::string, int>> counts;

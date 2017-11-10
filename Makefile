@@ -6,11 +6,11 @@ TEST_DIR = tests/
 
 all: csv_parser \
 	test_data_type test_read_csv test_csv_stat test_csv_clean \
-	code_cov clean distclean
+	clean distclean
 
 # Main Library
 csv_parser:
-	$(CXX) -c -O3 -g --coverage $(CFLAGS) $(IDIR)csv_reader.cpp $(IDIR)csv_stat.cpp $(IDIR)csv_merge.cpp $(IDIR)data_type.cpp -I$(IDIR)
+	$(CXX) -c -Og -g -pthread --coverage $(CFLAGS) $(IDIR)csv_reader.cpp $(IDIR)csv_stat.cpp $(IDIR)csv_merge.cpp $(IDIR)data_type.cpp -I$(IDIR)
 	ar -cvq csv_parser.a csv_reader.o csv_stat.o csv_merge.o data_type.o
 	
 cli: csv_parser
@@ -29,12 +29,12 @@ test_read_csv: csv_parser
 	rm -f test.ndjson
 	
 test_csv_stat: csv_parser
-	$(CXX) -o test_csv_stat $(TEST_DIR)test_csv_stat.cpp $(TFLAGS)
+	$(CXX) -o test_csv_stat $(TEST_DIR)test_csv_stat.cpp -pthread $(TFLAGS)
 	./test_csv_stat
 	rm -f test_csv_stat
 	
 test_csv_clean: csv_parser
-	$(CXX) -o test_csv_clean $(TEST_DIR)test_csv_clean.cpp $(TFLAGS)
+	$(CXX) -o test_csv_clean $(TEST_DIR)test_csv_clean.cpp -pthread $(TFLAGS)
 	./test_csv_clean
 	# rm -f test_csv_clean
 	rm -f tests/data/fake_data/ints2.csv
@@ -43,12 +43,12 @@ test_csv_clean: csv_parser
 	
 .PHONY: all clean distclean
 
-# code_cov:
-	# # Analyze
-	# lcov --directory $(PWD) --capture --output-file $(PWD)/app.info
+code_cov:
+	# Analyze
+	lcov --directory $(PWD) --capture --output-file $(PWD)/app.info
 	
-	# # Generate HTML
-	# genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
+	# Generate HTML
+	genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
 
 clean:
 	# Clean Up

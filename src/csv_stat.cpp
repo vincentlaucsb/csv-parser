@@ -3,9 +3,13 @@
 # include "csv_parser.h"
 # include <iostream>
 # include <map>
+# include <thread>
 # include <stdexcept>
 # include <fstream>
 # include <math.h>
+
+using std::vector;
+using std::string;
 
 namespace csv_parser {
     void CSVStat::init_vectors() {
@@ -82,36 +86,51 @@ namespace csv_parser {
          *  @param   dtype   Calculate data type statistics
          */
         this->init_vectors();
-        std::vector<std::string> current_record;
+        vector<std::thread> pool;
+
+        // Start threads
+        for (size_t i = 0; i < this->subset.size(); i++) {
+            pool.push_back(std::thread(&CSVStat::calc_col, this, i));
+        }
+
+        // Block until done
+        for (auto it = pool.begin(); it != pool.end(); ++it) {
+            (*it).join();
+        }
+
+        this->records.clear();
+    }
+
+    void CSVStat::calc_col(size_t i) {
+        /** Calculate statistics for one column
+         *  Meant to be executed by one thread/helper for calc()
+         */
+
+        std::deque<vector<string>>::iterator current_record = this->records.begin();
         long double x_n;
 
-        while (!this->records.empty()) {
-            current_record = this->records.front();
-            this->records.pop_front();
-            
-            for (size_t i = 0; i < this->subset.size(); i++) {
-                if (count) {
-                    this->count(current_record[i], i);
-                } if (dtype) {
-                    this->dtype(current_record[i], i);
-                }
-                
-                // Numeric Stuff
-                if (numeric) {
-                    try {
-                        x_n = std::stold(current_record[i]);
-                        
-                        // This actually calculates mean AND variance
-                        this->variance(x_n, i);
-                        this->min_max(x_n, i);
-                    } catch(std::invalid_argument) {
-                        // Ignore for now 
-                        // In the future, save number of non-numeric arguments
-                    } catch(std::out_of_range) {
-                        // Ignore for now                         
-                    }
+        while (current_record != this->records.end()) {
+            this->count((*current_record)[i], i);
+            this->dtype((*current_record)[i], i);
+
+            // Numeric Stuff
+            try {
+                // Using data_type() to check if field is numeric is faster
+                // than catching stold() errors
+                if (data_type((*current_record)[i]) >= 2) {
+                    x_n = std::stold((*current_record)[i]);
+
+                    // This actually calculates mean AND variance
+                    this->variance(x_n, i);
+                    this->min_max(x_n, i);
                 }
             }
+            catch (std::out_of_range) {
+                // Ignore for now
+            }
+
+            // (*current_record)[i].clear();
+            ++current_record;
         }
     }
 

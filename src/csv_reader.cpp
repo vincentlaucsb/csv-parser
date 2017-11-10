@@ -5,6 +5,36 @@
 # include <math.h>
 
 namespace csv_parser {
+    std::string guess_delim(std::string filename) {
+        /** Guess the delimiter of a delimiter separated values file
+         *  by scanning the first 100 lines
+         *
+         *  "Winner" is based on which delimiter has the most number
+         *  of correctly parsed rows + largest number of columns
+         *
+         *  Note: Assumes that whatever the dialect, all records
+         *  are newline separated
+         */
+
+        std::vector<std::string> delims = { ",", "|", "\t", ";", "^" };
+        std::string current_delim;
+        int max_rows = 0;
+        int max_cols = 0;
+
+        for (size_t i = 0; i < delims.size(); i++) {
+            CSVReader guesser(delims[i]);
+            guesser.read_csv(filename, 100);
+            if ((guesser.row_num >= max_rows) &&
+                (guesser.get_col_names().size() > max_cols)) {
+                max_rows = guesser.row_num > max_rows;
+                max_cols = guesser.get_col_names().size();
+                current_delim = delims[i];
+            }
+        }
+
+        return current_delim;
+    }
+
     CSVReader::CSVReader(
         std::string delim,
         std::string quote,
@@ -226,13 +256,16 @@ namespace csv_parser {
         return this->records.empty();
     }
 
-    void CSVReader::read_csv(std::string filename, int nrows) {
+    void CSVReader::read_csv(std::string filename, int nrows, bool close) {
         /** Parse an entire CSV file */
-        std::ifstream infile(filename);
+
+        if (!this->infile.is_open())
+            this->infile = std::ifstream(filename);
+        
         std::string line;
         std::string newline("\n");
         
-        while (std::getline(infile, line, '\n') && this->row_num != nrows) {
+        while (std::getline(this->infile, line, '\n') && (nrows <= -1 || nrows > 0)) {
             /* Hack: Add the delimiter back in because it might be
              * in a quoted field and thus not an actual delimiter
              */
@@ -241,9 +274,17 @@ namespace csv_parser {
             nrows -= 1;
         }
 
-        // Done reading
-        this->end_feed();
-        infile.close();
+        if (!std::getline(infile, line, '\n')) {
+            // Only end_feed() if we have reached the end of the file
+            this->end_feed();
+            this->eof = true;
+            this->infile.close();
+        }
+
+        // Close file handler unless specified
+        if (close) {
+            this->infile.close();
+        }
     }
     
     std::string CSVReader::csv_to_json() {
@@ -275,10 +316,10 @@ namespace csv_parser {
         return json_record;
     }
     
-    void CSVReader::to_json(std::string filename) {
+    void CSVReader::to_json(std::string filename, bool append) {
         /** Convert CSV to a newline-delimited JSON file, where each 
          *  row is mapped to an object with the column names as keys.
-         * 
+		 *
          *  # Example
          *  ## Input
          *  <TABLE>
@@ -297,8 +338,12 @@ namespace csv_parser {
         std::vector<std::string> record;
         std::string json_record;
         std::ofstream outfile;
-        outfile.open(filename);
-        
+
+        if (append)
+            outfile.open(filename, std::ios_base::app);
+        else
+            outfile.open(filename);
+
         while (!this->empty()) {
             json_record = this->csv_to_json();
             if (!this->empty()) { json_record += "\n"; }
