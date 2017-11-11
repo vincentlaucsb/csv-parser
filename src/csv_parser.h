@@ -1,23 +1,35 @@
 /* Lightweight CSV Parser */
 
-# include <cstdarg>
-# include <iostream>
-# include <fstream>
-# include <string>
-# include <vector>
-# include <deque>
-# include <map>
+#include <stdexcept>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <deque>
+#include <map>
 
 namespace csv_parser {    
     // Helpers
     int data_type(std::string&);
     std::string json_escape(std::string);
     
-    // Utility functions
-    std::vector<std::string> get_col_names(std::string filename, int row);
-    void merge(std::string outfile, std::vector<std::string> in);
+    // Search Functions
+    void head(std::string infile, int nrow = 100,
+        std::string delim = "", std::string quote = "\"",
+        int header = 0, std::vector<int> subset = {});
+    void grep(std::string infile, int col, std::string match, int max_rows = 500,
+        std::string delim = "", std::string quote = "\"",
+        int header = 0, std::vector<int> subset = {});
 
+    // Utility functions
     std::string guess_delim(std::string filename);
+    std::vector<std::string> get_col_names(std::string filename,
+        std::string delim = ",", std::string quote = "\"", int header = 0);
+    int col_pos(std::string filename, std::string col_name,
+        std::string delim = ",", std::string quote = "\"", int header = 0);
+
+    // CSV Functions
+    void merge(std::string outfile, std::vector<std::string> in);    
 
     /** The main class for parsing CSV files */
     class CSVReader {        
@@ -48,13 +60,13 @@ namespace csv_parser {
             int row_num = 0; /**< How many lines have been parsed so far */
             bool eof = false;      /**< Have we reached the end of file */
 
-            friend void head(std::string infile, int nrow=100,
-                std::string delim="", std::string quote="\"",
-                int header = 0, std::vector<int> subset = {});
+            friend void head(std::string infile, int nrow,
+                std::string delim, std::string quote,
+                int header, std::vector<int> subset);
 
-            friend void grep(std::string infile, int col, std::string match, int max_rows = 500,
-                std::string delim = "", std::string quote = "\"",
-                int header = 0, std::vector<int> subset = {});
+            friend void grep(std::string infile, int col, std::string match, int max_rows,
+                std::string delim, std::string quote,
+                int header, std::vector<int> subset);
             
             CSVReader(
                 std::string delim=",",

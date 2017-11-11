@@ -1,8 +1,9 @@
-# include "csv_parser.h"
-# include <iostream>
-# include <stdexcept>
-# include <fstream>
-# include <math.h>
+#include "csv_parser.h"
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
+#include <fstream>
+#include <math.h>
 
 namespace csv_parser {
     std::string guess_delim(std::string filename) {
@@ -33,6 +34,22 @@ namespace csv_parser {
         }
 
         return current_delim;
+    }
+    
+    std::vector<std::string> get_col_names(std::string filename, 
+        std::string delim, std::string quote, int header) {
+        /** Return a CSV's column names */
+
+        CSVReader reader(delim, quote, header);
+        reader.read_csv(filename, 1);
+        return reader.get_col_names();
+    }
+
+    int col_pos(std::string filename, std::string col_name,
+        std::string delim, std::string quote, int header) {
+        // Resolve column position from column name
+        std::vector<std::string> col_names = get_col_names(filename, delim, quote, header);
+        return std::find(col_names.begin(), col_names.end(), col_name) - col_names.begin();
     }
 
     CSVReader::CSVReader(

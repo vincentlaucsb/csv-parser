@@ -1,11 +1,8 @@
 /* Command Line Interface for CSV Parser */
 
 # include "csv_parser.h"
-# include "util.h"
-# include <fstream>
+# include "print.h"
 # include <set>
-# include <thread>
-# include <functional>
 
 using namespace csv_parser;
 using std::vector;
@@ -14,7 +11,7 @@ using std::string;
 using std::map;
 
 int cli_csv(vector<string>, string);
-int cli_json(vector<string>, string delim);
+int cli_json(vector<string>, string);
 int cli_stat(vector<string>, string);
 int cli_grep(vector<string>, string);
 
@@ -87,7 +84,7 @@ void print_help() {
     print("Print CSV information", 2);
     print();
 
-	print("grep [file] [column number] [regex]", 1);
+	print("grep [file] [column name/number] [regex]", 1);
 	print("Print all rows matching a regular expression", 2);
 	print();
 
@@ -110,7 +107,7 @@ void print_help() {
 	print("json [input] [output]", 1);
 	print("Newline Delimited JSON Output", 2);
 	print();
-    
+
     // General Flags
 	print("Flags");
 	print(rep("-", 80));
@@ -320,8 +317,30 @@ int cli_grep(vector<string> str_args, string delim) {
         return 1;
     }
 
+    string filename = str_args.at(0);
     file_exists(str_args.at(0));
     string reg_exp = join(str_args, 2, str_args.size());
-    grep(str_args.at(0), std::stoi(str_args[1]), reg_exp, 500, delim);
+
+    if (delim == "") {
+        delim = guess_delim(filename);
+    }
+
+    try {
+        int col = std::stoi(str_args[1]);
+        size_t n_cols = get_col_names(filename, delim).size();
+
+        // Assert column position exists
+        if (col + 1 > n_cols) {
+            std::cerr << filename << " only has " << n_cols << " columns" << std::endl;
+            return 1;
+        }
+
+        grep(filename, col, reg_exp, 500, delim);
+    }
+    catch (std::invalid_argument) {
+        int col = col_pos(filename, str_args[1]);
+        grep(filename, col, reg_exp, 500, delim);
+    }
+    
     return 0;
 }

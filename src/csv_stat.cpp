@@ -1,12 +1,9 @@
 /* Calculates statistics from CSV files */
 
-# include "csv_parser.h"
-# include <iostream>
-# include <map>
-# include <thread>
-# include <stdexcept>
-# include <fstream>
-# include <math.h>
+#include "csv_parser.h"
+#include <thread>
+#include <stdexcept>
+#include <math.h>
 
 using std::vector;
 using std::string;
@@ -214,9 +211,9 @@ namespace csv_parser {
         std::ofstream outfile;
         
         if (append) {
-            outfile.open(filename, std::ios_base::app);
+            outfile.open(filename, std::ios_base::binary | std::ios_base::app);
         } else {
-            outfile.open(filename);
+            outfile.open(filename, std::ios_base::binary);
             
             // Write column names
             for (size_t i = 0, ilen = this->col_names.size(); i < ilen; i++) {
@@ -224,7 +221,7 @@ namespace csv_parser {
 				if (i + 1 != ilen)
 					outfile << ",";
             }
-            outfile << "\n";
+            outfile << "\r\n";
         }
         
         // Skip lines
@@ -254,7 +251,7 @@ namespace csv_parser {
                 if (i + 1 != ilen) { row += ","; }
             }
             
-            outfile << row << "\n";
+            outfile << row << "\r\n";
             row.clear();
         }
         
