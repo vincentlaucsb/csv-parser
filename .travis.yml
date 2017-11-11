@@ -1,4 +1,14 @@
-os: linux
+matrix:
+  include:
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+      env:
+         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
 dist: trusty
 sudo: required
 language:
@@ -6,8 +16,6 @@ language:
 compiler:
   - gcc
 script:
-  - sudo apt-get update
-  - sudo apt-get install --only-upgrade g++
   - make
   - pip install --user cpp-coveralls
 after_success:
