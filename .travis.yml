@@ -7,12 +7,12 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-6
-      env:
-         - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6"
 dist: trusty
 sudo: required
 language:
   - cpp
+compiler:
+  - gcc-6
 script:
   - make
   - pip install --user cpp-coveralls
