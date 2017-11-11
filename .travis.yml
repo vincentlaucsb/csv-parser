@@ -11,12 +11,12 @@ dist: trusty
 sudo: required
 language:
   - cpp
-compiler:
-  - gcc-6
+env:
+  - CXX=g++-6
 script:
   - make
   - pip install --user cpp-coveralls
 after_success:
-  - if [ "$CXX" == "g++" ]; then
+  - if [ "$CXX" == "g++-6" ]; then
         coveralls --exclude tests --gcov-options '\-lp \--relative-only';
     fi;
