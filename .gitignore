@@ -75,7 +75,7 @@ Release/
 .vs
 *.sln
 *.vcxproj
-*.vcxproj.filters
+*.vcxproj.*
 
 
 # Windows Installer files

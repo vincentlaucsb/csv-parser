@@ -1,14 +1,14 @@
-/* Calculates statistics from CSV files */
-
 #include "csv_parser.h"
 #include <thread>
-#include <stdexcept>
-#include <math.h>
 
 using std::vector;
 using std::string;
 
 namespace csv_parser {
+    /** @file
+      * Calculates statistics from CSV files
+      */
+
     void CSVStat::init_vectors() {
         /** - Initialize statistics arrays to NAN
          *  - Should be called (by calc()) before calculating statistics

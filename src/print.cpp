@@ -1,6 +1,12 @@
 #include "print.h"
+#include <algorithm>
+#include <list>
+
+using std::list;
 
 namespace csv_parser {
+    /** @file */
+
     string pad(string in, int n) {
         /** Add extra whitespace until string is n characters long */
         std::string new_str = in;
@@ -27,41 +33,113 @@ namespace csv_parser {
         return new_vec;
     }
 
-    /*
-    template<typename T1, typename T2>
-    inline map<T1, T2> top_n_values(map<T1, T2> in, int n) {
-        // Return a map with only the top n values
-        auto it = in.begin();
+    vector<size_t> _get_col_widths(
+        vector<vector<string>> &records,
+        size_t max_col_width) {
+        /** Given a list of string vectors representing rows to print,
+         *  compute the width of each column
+         *
+         *  Rules
+         *   - Doesn't return column widths > max_col_width
+         */
 
-        // Rolling vector of pointers to top n values
-        vector<map<T1, T2>::iterator> top_n = { it };
-        T2 min = *it;
-        T2 max = *it;
-        ++it;
+        vector<size_t> col_widths = {};
+        bool first_row = true;
+        size_t col_width;
 
-        // Initialize
-        while (top_n.size() < 10) {
-            if (*it < min) {
-                min = *it;
+        for (auto row = std::begin(records); row != std::end(records); ++row) {
+            // Looping through columns
+            for (size_t i = 0; i < (*row).size(); i++) {
+                // Get size of string (plus 3 for padding)
+                col_width = (*row)[i].size() + 3;
+                if (col_width > max_col_width)
+                    col_width = max_col_width;
+
+                // Set initial column widths
+                if (first_row)
+                    col_widths.push_back(col_width);
+
+                // Update col_width if this field is a big boy
+                else if (col_width > col_widths[i]) 
+                    col_widths[i] = col_width;
             }
-            else if (*it > max) {
-                max = *it;
-            }
 
-            top_n.push_back(it);
-            ++it;
+            first_row = false;
         }
 
-        // Loop through map
-        for (; it != in.end(); ++it) {
-            if (*it < min) {
-                // Replace
+        return col_widths;
+    }
 
-            }
-            else if (*it > max) {
-                // Replace
+    void print_table(vector<vector<string>> &records,
+        vector<string> row_names) {
 
+        /* Find out width of each column */
+        vector<size_t> col_widths = _get_col_widths(records, 80);
+        size_t row_name_width = 0;
+
+        // Find out length of row names column
+        if (row_names.size() > 0) {
+            for (auto r_name = std::begin(row_names); r_name != std::end(row_names);
+                ++r_name) {
+
+                if ((*r_name).size() + 3 > row_name_width) {
+                    row_name_width = (*r_name).size() + 3;
+                }
             }
         }
-    }*/
+
+        // Print out several vectors as a table
+        auto& col_width_p = col_widths.begin();
+        auto& col_width_base = col_widths.begin();
+        auto row_name_p = row_names.begin();
+
+        size_t temp_col_size = 0;
+        size_t temp_row_width = 0; // Flag for when to break long rows
+        vector<vector<string>::iterator> cursor = {}; // Save position in string vectors
+
+        // Initialize cursors
+        for (auto record_p = records.begin(); record_p != records.end(); ++record_p)
+            cursor.push_back((*record_p).begin());
+
+        for (size_t current_row = 0, rlen = records.size();
+            current_row < rlen;
+            current_row++) {
+
+            // Print out row name (if applicable)
+            if (row_name_p != row_names.end()) {
+                std::cout << pad(*row_name_p, row_name_width);
+                ++row_name_p;
+            }
+
+            // Print out one row --> Break if necessary
+            while (temp_row_width < 80 && col_width_p != col_widths.end()) {
+                temp_col_size = *col_width_p;
+                std::cout << pad(*(cursor[current_row]), temp_col_size);
+
+                temp_row_width += temp_col_size;
+                ++col_width_p;         // Advance col width iterator
+                ++cursor[current_row]; // Advance row iterator
+            }
+
+            // Prepare to move to next row
+            col_width_p = col_width_base;
+            temp_row_width = 0;
+            std::cout << std::endl;
+
+            // Check if we need to restart the loop
+            if ((current_row + 1 == rlen) && cursor[0] != records[0].end()) {
+                std::cout << std::endl;
+                row_name_p = row_names.begin();
+                current_row = -1;
+
+                col_width_base = col_widths.begin();
+                for (size_t i = cursor[0] - records[0].begin(); i > 0; i--) {
+                    ++col_width_base;
+                    col_width_p = col_width_base;
+                }
+            }
+        }
+
+        records.clear();
+    }
 }

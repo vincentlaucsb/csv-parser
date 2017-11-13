@@ -16,7 +16,7 @@ csv_parser:
 	ar -cvq csv_parser.a $(OBJECTS)
 	
 cli: csv_parser
-	$(CXX) -o csv_parser $(TFLAGS)
+	$(CXX) -o csv_parser -pthread $(TFLAGS)
 
 # Unit Tests
 test_all: csv_parser
@@ -56,6 +56,9 @@ code_cov:
 	# Generate HTML
 	genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
 
+docs:
+	doxygen Doxyfile
+	
 clean:
 	# Clean Up
 	rm -f csv_parser.a

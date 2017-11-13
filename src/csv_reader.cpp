@@ -1,20 +1,18 @@
 #include "csv_parser.h"
 #include <algorithm>
-#include <iostream>
-#include <stdexcept>
-#include <fstream>
-#include <math.h>
+#include <random>
 
 namespace csv_parser {
+    /** @file */
+
     std::string guess_delim(std::string filename) {
         /** Guess the delimiter of a delimiter separated values file
          *  by scanning the first 100 lines
          *
-         *  "Winner" is based on which delimiter has the most number
-         *  of correctly parsed rows + largest number of columns
-         *
-         *  Note: Assumes that whatever the dialect, all records
-         *  are newline separated
+         *  - "Winner" is based on which delimiter has the most number
+         *    of correctly parsed rows + largest number of columns
+         *  -  **Note:** Assumes that whatever the dialect, all records
+         *     are newline separated
          */
 
         std::vector<std::string> delims = { ",", "|", "\t", ";", "^" };
@@ -385,11 +383,25 @@ namespace csv_parser {
         
         return output;
     }
+
+    void CSVReader::sample(int n) {
+        /** Take a random uniform sample (with replacement) of n rows */
+        std::deque<std::vector<std::string>> new_rows;
+        std::default_random_engine generator;
+        std::uniform_int_distribution<int> distribution(0, this->records.size() - 1);
+
+        for (; n > 1; n--)
+            new_rows.push_back( this->records[distribution(generator)] );
+
+        this->records.clear();
+        this->records.swap(new_rows);
+    }
     
     std::string json_escape(std::string in) {
         /** Given a CSV string, convert it to a JSON string with proper
          *  escaping as described by RFC 7159
          */
+
         std::string out;
         
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {

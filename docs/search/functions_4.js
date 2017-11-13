@@ -1,8 +1,11 @@
 var searchData=
 [
-  ['pop',['pop',['../classcsv__parser_1_1CSVReader.html#a388b411f1dec1ab8b470d15af9103b7a',1,'csv_parser::CSVReader']]],
-  ['pop_5fmap',['pop_map',['../classcsv__parser_1_1CSVReader.html#a97632a21e7cc867d3b9883f0775bfd6e',1,'csv_parser::CSVReader']]],
-  ['process_5fnewline',['process_newline',['../classcsv__parser_1_1CSVReader.html#afe515ddf9dae19e8d030bf445b2090d0',1,'csv_parser::CSVReader']]],
-  ['process_5fpossible_5fdelim',['process_possible_delim',['../classcsv__parser_1_1CSVReader.html#ab4ea0186d0fce327e4b2bd58ee66eb73',1,'csv_parser::CSVReader']]],
-  ['process_5fquote',['process_quote',['../classcsv__parser_1_1CSVReader.html#a9ce4ca421786474314b9945480b7cd41',1,'csv_parser::CSVReader']]]
+  ['get_5fcol_5fnames',['get_col_names',['../namespacecsv__parser.html#abbf02b1c5967562afd3882e04526299f',1,'csv_parser']]],
+  ['get_5fcounts',['get_counts',['../classcsv__parser_1_1CSVStat.html#a1e536f35c4f2c9bac9e6b50b9bc703af',1,'csv_parser::CSVStat']]],
+  ['get_5fdtypes',['get_dtypes',['../classcsv__parser_1_1CSVStat.html#a9c35bf37b84eef9980ed25392767eb58',1,'csv_parser::CSVStat']]],
+  ['get_5fmaxes',['get_maxes',['../classcsv__parser_1_1CSVStat.html#a1b478c5df4cfd87ef81820062acc3583',1,'csv_parser::CSVStat']]],
+  ['get_5fmean',['get_mean',['../classcsv__parser_1_1CSVStat.html#a981ea291714e629213e8b23829de2c1c',1,'csv_parser::CSVStat']]],
+  ['get_5fmins',['get_mins',['../classcsv__parser_1_1CSVStat.html#afeba9dae570d3167a979272240cf4ab3',1,'csv_parser::CSVStat']]],
+  ['get_5fvariance',['get_variance',['../classcsv__parser_1_1CSVStat.html#ab4800e53c5d7d263b733457b14ff7120',1,'csv_parser::CSVStat']]],
+  ['guess_5fdelim',['guess_delim',['../namespacecsv__parser.html#ac7fc2dc2700585885829c43fd765a313',1,'csv_parser']]]
 ];

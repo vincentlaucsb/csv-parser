@@ -5,21 +5,28 @@
 
 #include <iostream>
 #include <vector>
+#include <list>
 #include <string>
-#include <deque>
+#include <map>
 
 using std::vector;
 using std::string;
-using std::deque;
+using std::map;
+using std::list;
 
 namespace csv_parser {
-    // Utility Functions
+    /** @name String Formatting Functions
+      */
+    ///@{
     string pad(string in, int n=20);
     vector<string> round(vector<long double> in);
+    ///@}
 
-    inline void print_table(
-        vector<vector<string>*> records,
-        deque<string> row_names = {});
+    /** @name Pretty Printing Functions
+      */
+    ///@{
+    void print_table(vector<vector<string>> &records, 
+        vector<string> row_names = {});
 
     template<typename T>
     inline void print_record(std::vector<T> &record) {
@@ -41,6 +48,7 @@ namespace csv_parser {
 
         std::cout << std::endl;
     }
+    ///@}
 
     template<typename T>
     inline vector<string> to_string(vector<T> record) {
@@ -52,71 +60,48 @@ namespace csv_parser {
         return ret_vec;
     }
 
-    inline void print_table(
-        vector<vector<string>*> records,
-        deque<string> row_names) {
+    template<typename T>
+    inline void _min_val_to_front(list<T>& seq) {
+        /** Move the mapped element with the smallest value to the front */
+        auto min_p = seq.begin();
+        for (auto it = seq.begin(); it != seq.end(); ++it)
+            if ((*it)->second < (*min_p)->second)
+                min_p = it;
 
-        /* Find out width of each column
-         */
-        vector<size_t> col_widths = {};
-        size_t row_name_width = 0;
-        size_t col_width = 0;
-        bool first_row = true;
+        // Swap
+        if (min_p != seq.begin()) {
+            auto temp = *min_p;
+            seq.erase(min_p);
+            seq.push_front(temp);
+        }
+    }
 
-        // Find out length of row names column
-        if (row_names.size() > 0) {
-            for (auto r_name = std::begin(row_names); r_name != std::end(row_names);
-                ++r_name) {
+    template<typename T1, typename T2>
+    inline map<T1, T2> top_n_values(map<T1, T2> in, int n) {
+        /** Return a map with only the top n values */
+        list<typename map<T1, T2>::iterator> top_n; // Ptrs to top values
 
-                if ((*r_name).size() + 3 > row_name_width) {
-                    row_name_width = (*r_name).size() + 3;
-                }
+        // Initialize with first n values
+        auto it = in.begin();
+        for (; (it != in.end()) && (top_n.size() < n); ++it)
+            top_n.push_back(it);
+
+        _min_val_to_front(top_n);  // Keep smallest value at front
+
+        // Loop through map
+        for (; it != in.end(); ++it) {
+            if (it->second > (top_n.front())->second) {
+                top_n.pop_front();      // Swap values
+                top_n.push_front(it);
+                _min_val_to_front(top_n);
             }
         }
 
-        // Looping through rows
-        for (auto row = std::begin(records); row != std::end(records); ++row) {
-            // Looping through columns
-            for (size_t i = 0; i < (**row).size(); i++) {
-                // Get size of string (add 3 for padding)
-                col_width = (**row)[i].size() + 3;
+        map<T1, T2> new_map;
+        for (auto it = top_n.begin(); it != top_n.end(); ++it)
+            new_map[(*it)->first] = in[(*it)->first];
 
-                if (first_row) {
-                    // Set initial column widths
-                    col_widths.push_back(col_width);
-                }
-                else if (col_width > col_widths[i]) {
-                    // Update col_width if this field is a big boy
-                    col_widths[i] = col_width;
-                }
-            }
-
-            first_row = false;
-        }
-
-        // Print out several vectors as a table
-        size_t col = 0;
-
-        for (auto record_p = records.begin(); record_p != records.end(); ++record_p) {
-            // Print out row name (if applicable)
-            if (!row_names.empty()) {
-                std::cout << pad(*row_names.begin(), row_name_width);
-                row_names.pop_front();
-            }
-
-            // Print out this row
-            for (string field : **record_p) {
-                std::cout << pad(field, col_widths[col]);
-                col++;
-                if (col >= col_widths.size()) {
-                    col = 0;
-                }
-            }
-
-            std::cout << std::endl;
-        }
-
-        records.clear();
+        return new_map;
     }
 }
 

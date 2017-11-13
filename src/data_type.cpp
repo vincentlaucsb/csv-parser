@@ -6,6 +6,8 @@
 # include <string>
 
 namespace csv_parser {  
+    /** @file */
+
     int data_type(std::string &in) {
         /*
         Returns:
@@ -16,17 +18,18 @@ namespace csv_parser {
             
         Rules:
             - Leading and trailing whitespace ("padding") ignored
+            - A string of just whitespace is NULL
         */
         
         // Empty string --> NULL
-        if (in.size() == 0) {
+        if (in.size() == 0)
             return 0;
-        }
         
         bool ws_allowed = true;
         bool neg_allowed = true;
         bool dot_allowed = true;
         bool digit_allowed = true;
+        bool has_digit = false;
         bool prob_float = false;
         
         for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
@@ -66,16 +69,25 @@ namespace csv_parser {
                             // Ex: '510 456'
                             ws_allowed = false;
                         }
+                        has_digit = true;
                     } else {
                         return 1;
                     }
             }
         }
         
-        if (prob_float) {
-            return 3;
-        } else {
-            return 2;
+        // No non-numeric/non-whitespace characters found
+        if (has_digit) {
+            if (prob_float) {
+                return 3;
+            }
+            else {
+                return 2;
+            }
+        }
+        else {
+            // Just whitespace
+            return 0;
         }
     }
 }

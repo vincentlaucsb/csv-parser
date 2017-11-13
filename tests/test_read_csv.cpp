@@ -1,11 +1,33 @@
-# define CATCH_CONFIG_MAIN
-# include "catch.hpp"
-# include "csv_parser.h"
-# include <string>
-# include <vector>
+#define CATCH_CONFIG_MAIN
+
+#include "catch.hpp"
+#include "csv_parser.h"
+#include <string>
+#include <vector>
 
 using namespace csv_parser;
 
+// Test Utility Functions
+TEST_CASE("col_pos() Test", "[test_col_pos]") {
+    int pos = col_pos(
+        "./tests/data/real_data/2015_StateDepartment.csv",
+        "Entity Type");
+    REQUIRE(pos == 1);
+}
+
+TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
+    std::string delim = guess_delim(
+        "./tests/data/real_data/2009PowerStatus.txt");
+    REQUIRE(delim == "|");
+}
+
+TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
+    std::string delim = guess_delim(
+        "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
+    REQUIRE(delim == ";");
+}
+
+// Test Main Functions
 TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     std::string csv_string("A,B,C\r\n" // Header row
                            "123,234,345\r\n"

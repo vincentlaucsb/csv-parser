@@ -1,3 +1,4 @@
+/** @csv_parser */
 /* Lightweight CSV Parser */
 
 #include <stdexcept>
@@ -6,30 +7,46 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <math.h>
 #include <map>
+#include <set>
 
 namespace csv_parser {    
-    // Helpers
+    /** @file */
+
+    /** @name Helpers
+      */
+    ///@{
     int data_type(std::string&);
     std::string json_escape(std::string);
+    ///@}
     
-    // Search Functions
+    /** @name Search Functions
+      */
+    ///@{
     void head(std::string infile, int nrow = 100,
         std::string delim = "", std::string quote = "\"",
         int header = 0, std::vector<int> subset = {});
     void grep(std::string infile, int col, std::string match, int max_rows = 500,
         std::string delim = "", std::string quote = "\"",
         int header = 0, std::vector<int> subset = {});
+    ///@}
 
-    // Utility functions
+    /** @name Utility functions
+      */
+    ///@{
     std::string guess_delim(std::string filename);
     std::vector<std::string> get_col_names(std::string filename,
         std::string delim = ",", std::string quote = "\"", int header = 0);
     int col_pos(std::string filename, std::string col_name,
         std::string delim = ",", std::string quote = "\"", int header = 0);
+    ///@}
 
-    // CSV Functions
+    /** @name CSV Functions
+      */
+    ///@{
     void merge(std::string outfile, std::vector<std::string> in);    
+    ///@}
 
     /** The main class for parsing CSV files */
     class CSVReader {        
@@ -55,6 +72,7 @@ namespace csv_parser {
             bool empty();
             void to_json(std::string filename, bool append = false);
             std::vector<std::string> to_json();
+            void sample(int n);
             ///@}
             
             int row_num = 0; /**< How many lines have been parsed so far */

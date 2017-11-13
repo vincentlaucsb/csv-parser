@@ -1,3 +1,4 @@
+/** @file */
 /* Command Line Interface for CSV Parser */
 
 # include "csv_parser.h"
@@ -11,6 +12,7 @@ using std::string;
 using std::map;
 
 int cli_csv(vector<string>, string);
+int cli_sample(vector<string>, string);
 int cli_json(vector<string>, string);
 int cli_stat(vector<string>, string);
 int cli_grep(vector<string>, string);
@@ -79,11 +81,11 @@ void print_help() {
     print("head [file]", 1);
     print("Print first 100 lines", 2);
     print();
-
+    /*
     print("info [file]", 1);
     print("Print CSV information", 2);
     print();
-
+    */
 	print("grep [file] [column name/number] [regex]", 1);
 	print("Print all rows matching a regular expression", 2);
 	print();
@@ -104,14 +106,18 @@ void print_help() {
 	print("Merge several CSVs into one", 2);
 	print();
 
+    print("sample [input] [output] [n]", 1);
+    print("Take a random sample (with replacement) of n rows", 2);
+
 	print("json [input] [output]", 1);
 	print("Newline Delimited JSON Output", 2);
 	print();
 
-    // General Flags
+    /* General Flags
 	print("Flags");
 	print(rep("-", 80));
 	print(" -d[DELIMITER]:   Specify a delimiter (default: comma)", 1);
+    */
 }
 
 bool file_exists(string filename, bool throw_err=true) {
@@ -189,6 +195,9 @@ int main(int argc, char* argv[]) {
 		else if (command == "csv") {
             return cli_csv(str_args, delim);
 		}
+        else if (command == "sample") {
+            return cli_sample(str_args, delim);
+        }
 		else if (command == "json") {
             return cli_json(str_args, delim);
 		}
@@ -223,19 +232,15 @@ int cli_stat(vector<string> str_args, string delim) {
     }
 
     vector<string> col_names = calc.get_col_names();
-    vector<string> means = round(calc.get_mean());
-    vector<string> vars = round(calc.get_variance());
-    vector<string> mins = round(calc.get_mins());
-    vector<string> maxes = round(calc.get_maxes());
     vector<map<string, int>> counts = calc.get_counts();
-
-    vector<vector<string>*> print_rows = {
-        &col_names, &means, &vars, &mins, &maxes
+    vector<vector<string>> print_rows = {
+        col_names,
+        round(calc.get_mean()),
+        round(calc.get_variance()),
+        round(calc.get_mins()),
+        round(calc.get_maxes())
     };
-
-    deque<string> row_names = {
-        "", "Mean", "Variance", "Min", "Max"
-    };
+    vector<string> row_names = { "", "Mean", "Variance", "Min", "Max" };
 
     // Print basic stats
     print_table(print_rows, row_names);
@@ -244,13 +249,14 @@ int cli_stat(vector<string> str_args, string delim) {
     // Print counts
     for (size_t i = 0; i < col_names.size(); i++) {
         std::cout << "Counts for " << col_names[i] << std::endl;
+        map<string, int> temp = top_n_values(counts[i], 10);
 
-        map<string, int>::iterator it = counts[i].begin();
-        for (size_t j = 0; (j < 10) && it != counts[i].end(); j++) {
-            std::cout << it->first << " => " << it->second << std::endl;
-            ++it;
+        for (auto it = temp.begin(); it != temp.end(); ++it) {
+            print_rows.push_back(
+                vector<string>({ it->first, std::to_string(it->second) }));
         }
 
+        print_table(print_rows);
         print("");
     }
 
@@ -287,6 +293,37 @@ int cli_csv(vector<string> str_args, string delim) {
         merge(outfile, str_args);
     }
     
+    return 0;
+}
+
+int cli_sample(vector<string> str_args, string delim) {
+    std::string filename = str_args.at(0);
+    file_exists(filename);
+
+    if (delim == "")
+        delim = guess_delim(filename);
+
+    try {
+        if (str_args.size() < 2) {
+            std::cerr << "Please specify an input file and the number of rows to sample." << std::endl;
+            return 1;
+        }
+        else {
+            std::string new_filename = filename.replace(
+                filename.end() - 4, filename.end(), "_sample.csv");
+            int sample_size = std::stoi(str_args.back());
+
+            CSVCleaner cleaner(delim);
+            cleaner.read_csv(str_args.at(0));
+            cleaner.sample(sample_size);
+            cleaner.to_csv(new_filename);
+        }
+    }
+    catch (std::invalid_argument) {
+        std::cerr << "Please specify the number of rows to sample." << std::endl;
+        return 1;
+    }
+
     return 0;
 }
 

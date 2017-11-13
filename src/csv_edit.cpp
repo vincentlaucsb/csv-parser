@@ -1,11 +1,12 @@
 # include "csv_parser.h"
-# include <set>
 
 using std::vector;
 using std::string;
 
-namespace csv_parser {    
-    void merge(string outfile, vector<string> in) {
+namespace csv_parser {
+    /** @file */
+
+    void merge(std::string outfile, std::vector<std::string> in) {
         /** Merge several CSV files together
          *  Note: Currently guesses delimiters
          */

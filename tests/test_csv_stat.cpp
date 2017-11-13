@@ -1,12 +1,14 @@
-# define CATCH_CONFIG_MAIN
-# include "catch.hpp"
-# include "csv_parser.h"
-# include <string>
-# include <vector>
+#define CATCH_CONFIG_MAIN
+
+#include "catch.hpp"
+#include "csv_parser.h"
+#include <string>
+#include <vector>
 
 using namespace csv_parser;
 
-TEST_CASE( "Test Calculating Statistics from Direct Input", 
+TEST_CASE(
+    "Calculating Statistics from Direct Input",
     "[read_csv_stat_direct]" ) {
     // Header on first row
     CSVStat reader(",", "\"", -1);
@@ -42,7 +44,7 @@ TEST_CASE( "Test Calculating Statistics from Direct Input",
     REQUIRE( reader.get_dtypes()[0][2] == 100 );
 }
 
-TEST_CASE( "Test Calculating Statistics", "[read_csv_stat]" ) {
+TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
     reader.read_csv("./tests/data/fake_data/ints.csv");
@@ -60,7 +62,7 @@ TEST_CASE( "Test Calculating Statistics", "[read_csv_stat]" ) {
     REQUIRE( ceil(reader.get_variance()[0]) == 842 );
 }
 
-TEST_CASE( "Test Calculating Statistics (Line Feed Record-Separated)",
+TEST_CASE( "Statistics (Line Feed Record-Separated)",
     "[read_csv_stat2]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
@@ -78,7 +80,7 @@ TEST_CASE( "Test Calculating Statistics (Line Feed Record-Separated)",
     REQUIRE( reader.get_maxes()[0] == 100 );
     REQUIRE( ceil(reader.get_variance()[0]) == 842 );
 }
-TEST_CASE( "Test Calculating Statistics (persons.csv)", "[test_stat_person]" ) {
+TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
     reader.read_csv("./tests/data/mimesis_data/persons.csv");

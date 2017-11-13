@@ -1,11 +1,14 @@
-# define CATCH_CONFIG_MAIN
-# include "csv_parser.h"
-# include "catch.hpp"
-# include <string>
+#ifndef CATCH_CONFIG_MAIN
+#define CATCH_CONFIG_MAIN
+#endif 
+
+#include "csv_parser.h"
+#include "catch.hpp"
+#include <string>
 
 using namespace csv_parser;
 
-TEST_CASE( "Test Calculating Statistics", "[csv_clean]" ) {
+TEST_CASE( "Integrity Check via Statistics", "[csv_clean]" ) {
     // Header on first row
     CSVCleaner reader(",", "\"", 0);
     reader.read_csv("./tests/data/fake_data/ints.csv");
@@ -31,7 +34,7 @@ TEST_CASE( "Test Line Skipping", "[csv_skiplines]" ) {
     }
 }
 
-TEST_CASE( "Test Converting Tab Delimited File", "[tsv_clean]" ) {
+TEST_CASE( "Converting Tab Delimited File", "[tsv_clean]" ) {
     // Header on first row
     CSVCleaner reader("\t", "\"", 0);
     reader.read_csv("./tests/data/real_data/2016_Gaz_place_national.txt");
@@ -47,7 +50,7 @@ TEST_CASE( "Test Converting Tab Delimited File", "[tsv_clean]" ) {
     REQUIRE(ceil(stats.get_mean()[10]) == 39);
 }
 
-TEST_CASE( "Test CSV Merge", "[csv_merge]") {
+TEST_CASE( "CSV Merge", "[csv_merge]") {
     merge("StormEvents.csv",
         {"./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2014_c20170718.csv",
         "./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2015_c20170718.csv",
