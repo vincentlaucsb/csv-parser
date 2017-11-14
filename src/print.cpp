@@ -89,8 +89,8 @@ namespace csv_parser {
         }
 
         // Print out several vectors as a table
-        auto& col_width_p = col_widths.begin();
-        auto& col_width_base = col_widths.begin();
+        size_t col_width_p = 0;
+        size_t col_width_base = 0;
         auto row_name_p = row_names.begin();
 
         size_t temp_col_size = 0;
@@ -112,8 +112,8 @@ namespace csv_parser {
             }
 
             // Print out one row --> Break if necessary
-            while (temp_row_width < 80 && col_width_p != col_widths.end()) {
-                temp_col_size = *col_width_p;
+            while (temp_row_width < 80 && col_width_p != col_widths.size()) {
+                temp_col_size = col_widths[col_width_p];
                 std::cout << pad(*(cursor[current_row]), temp_col_size);
 
                 temp_row_width += temp_col_size;
@@ -132,7 +132,7 @@ namespace csv_parser {
                 row_name_p = row_names.begin();
                 current_row = -1;
 
-                col_width_base = col_widths.begin();
+                col_width_base = 0;
                 for (size_t i = cursor[0] - records[0].begin(); i > 0; i--) {
                     ++col_width_base;
                     col_width_p = col_width_base;
