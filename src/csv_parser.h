@@ -112,7 +112,6 @@ namespace csv_parser {
             
             // Helper methods
             inline std::string csv_to_json();
-            void _read_csv(std::string*);
             
             // Column Information
             std::vector<std::string> col_names; /**< Column names */
@@ -128,7 +127,10 @@ namespace csv_parser {
             std::streampos last_pos = 0; /**< Line number of last row read from file */
 
             // Multi-threading support
+            void _read_csv();      /**< Worker thread */
+            std::deque<std::string*> feed_buffer;
             std::mutex feed_lock;
+            std::condition_variable feed_cond;
             
             // Buffers
             std::ifstream infile;

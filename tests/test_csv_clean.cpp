@@ -1,7 +1,3 @@
-#ifndef CATCH_CONFIG_MAIN
-#define CATCH_CONFIG_MAIN
-#endif 
-
 #include "csv_parser.h"
 #include "catch.hpp"
 #include <string>

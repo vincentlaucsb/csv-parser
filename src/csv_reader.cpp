@@ -298,12 +298,27 @@ namespace csv_parser {
         return this->records.empty();
     }
 
-    void CSVReader::_read_csv(std::string* in) {
-        /** Multi-threaded reading and processing */
-        this->feed_lock.lock();
-        this->feed(*in);
-        delete in;  // Free buffer
-        this->feed_lock.unlock();
+    void CSVReader::_read_csv() {
+        /** Multi-threaded reading/processing worker thread */
+
+        while (true) {
+            std::unique_lock<std::mutex> lock{ this->feed_lock }; // Get lock
+            this->feed_cond.wait(lock,                            // Wait
+                [this] { return !(this->feed_buffer.empty()); });
+
+            // Wake-up
+            std::string* in = this->feed_buffer.front();
+            this->feed_buffer.pop_front();
+
+            if (!in) { // Nullptr --> Die
+                delete in;
+                break;    
+            }
+
+            lock.unlock();      // Release lock
+            this->feed(*in);
+            delete in;          // Free buffer
+        }
     }
 
     void CSVReader::read_csv(std::string filename, int nrows, bool close) {
@@ -316,7 +331,7 @@ namespace csv_parser {
         std::string newline("\n");
 
         std::string* buffer = new std::string();
-        std::vector<std::thread> jobs;
+        std::thread worker(&CSVReader::_read_csv, this);
 
         while (std::getline(this->infile, line, '\n') && (nrows <= -1 || nrows > 0)) {
             /*
@@ -327,19 +342,22 @@ namespace csv_parser {
             *buffer += newline;
 
             if ((*buffer).size() >= 1000000) {
-                jobs.push_back(std::thread(&CSVReader::_read_csv, this, buffer));
-                buffer = new std::string();
+                std::unique_lock<std::mutex> lock{ this->feed_lock };
+                this->feed_buffer.push_back(buffer);
+                this->feed_cond.notify_one();
+                buffer = new std::string();  // Buffers get freed by worker
             }
 
             nrows--;
         }
 
-        for (auto it = jobs.begin(); it != jobs.end(); ++it)
-            (*it).join();
-
         // Feed remaining bits
-        this->feed(*buffer);
-        delete buffer;
+        std::unique_lock<std::mutex> lock{ this->feed_lock };
+        this->feed_buffer.push_back(buffer);
+        this->feed_buffer.push_back(nullptr); // Termination signal
+        this->feed_cond.notify_one();
+        lock.unlock();
+        worker.join();
 
         if (!std::getline(infile, line, '\n')) {
             // Only end_feed() if we have reached the end of the file
