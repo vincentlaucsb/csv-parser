@@ -6,9 +6,11 @@ using std::string;
 namespace csv_parser {
     /** @file */
 
-    void merge(std::string outfile, std::vector<std::string> in) {
+    void merge(
+        std::string outfile,
+        std::vector<std::string> in) {
         /** Merge several CSV files together
-         *  Note: Currently guesses delimiters
+         *  @param delims A list of delimiters
          */
         std::set<string> col_names = {};
         std::string delim;

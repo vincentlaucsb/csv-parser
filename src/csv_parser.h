@@ -10,9 +10,19 @@
 #include <math.h>
 #include <map>
 #include <set>
+#include <thread>
+#include <mutex>
 
 namespace csv_parser {    
     /** @file */
+
+    struct CSVFileInfo {
+        std::string filename;
+        std::vector<std::string> col_names;
+        std::string delim;
+        int n_rows;
+        int n_cols;
+    };
 
     /** @name Helpers
       */
@@ -40,6 +50,7 @@ namespace csv_parser {
         std::string delim = ",", std::string quote = "\"", int header = 0);
     int col_pos(std::string filename, std::string col_name,
         std::string delim = ",", std::string quote = "\"", int header = 0);
+    CSVFileInfo get_file_info(std::string filename);
     ///@}
 
     /** @name CSV Functions
@@ -74,7 +85,8 @@ namespace csv_parser {
             std::vector<std::string> to_json();
             void sample(int n);
             ///@}
-            
+
+            std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
             int row_num = 0; /**< How many lines have been parsed so far */
             bool eof = false;      /**< Have we reached the end of file */
 
@@ -100,6 +112,7 @@ namespace csv_parser {
             
             // Helper methods
             inline std::string csv_to_json();
+            void _read_csv(std::string*);
             
             // Column Information
             std::vector<std::string> col_names; /**< Column names */
@@ -113,10 +126,12 @@ namespace csv_parser {
             bool quote_escape;     /**< Parsing flag */
             int header_row;        /**< Line number of the header row (zero-indexed) */
             std::streampos last_pos = 0; /**< Line number of last row read from file */
+
+            // Multi-threading support
+            std::mutex feed_lock;
             
             // Buffers
             std::ifstream infile;
-            std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
             std::vector<std::string> record_buffer;            /**< Buffer for current row */
             std::string str_buffer;                            /**< Buffer for current string fragment */
     };

@@ -18,7 +18,7 @@ namespace csv_parser {
     /** @name String Formatting Functions
       */
     ///@{
-    string pad(string in, int n=20);
+    string pad(string in, size_t n=20, size_t trim=80);
     vector<string> round(vector<long double> in);
     ///@}
 
@@ -77,7 +77,7 @@ namespace csv_parser {
     }
 
     template<typename T1, typename T2>
-    inline map<T1, T2> top_n_values(map<T1, T2> in, int n) {
+    inline map<T1, T2> top_n_values(map<T1, T2> in, size_t n) {
         /** Return a map with only the top n values */
         list<typename map<T1, T2>::iterator> top_n; // Ptrs to top values
 

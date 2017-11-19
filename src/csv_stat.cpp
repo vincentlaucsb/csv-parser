@@ -1,5 +1,4 @@
 #include "csv_parser.h"
-#include <thread>
 
 using std::vector;
 using std::string;

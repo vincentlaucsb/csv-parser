@@ -47,7 +47,33 @@ namespace csv_parser {
         std::string delim, std::string quote, int header) {
         // Resolve column position from column name
         std::vector<std::string> col_names = get_col_names(filename, delim, quote, header);
-        return std::find(col_names.begin(), col_names.end(), col_name) - col_names.begin();
+
+        auto it = std::find(col_names.begin(), col_names.end(), col_name);
+        if (it != col_names.end())
+            return it - col_names.begin();
+        else
+            return -1;
+    }
+
+    CSVFileInfo get_file_info(std::string filename) {
+        // Get basic information about a CSV file
+        //char delim = *(guess_delim(filename).c_str());
+        std::string delim = guess_delim(filename);
+        CSVReader reader(delim);        
+        while (!reader.eof) {
+            reader.read_csv(filename, 100000, false);
+            reader.records.clear();
+        }
+
+        CSVFileInfo* info = new CSVFileInfo;
+
+        info->filename = filename;
+        info->n_rows = reader.row_num;
+        info->n_cols = (int)reader.get_col_names().size();
+        info->col_names = reader.get_col_names();
+        info->delim = delim;
+
+        return *info;
     }
 
     CSVReader::CSVReader(
@@ -95,6 +121,7 @@ namespace csv_parser {
          *  joined together by calling feed() on them sequentially.
          *  **Note**: end_feed() should be called after the last string
          */
+
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
                 this->process_possible_delim(in, i);
@@ -271,6 +298,14 @@ namespace csv_parser {
         return this->records.empty();
     }
 
+    void CSVReader::_read_csv(std::string* in) {
+        /** Multi-threaded reading and processing */
+        this->feed_lock.lock();
+        this->feed(*in);
+        delete in;  // Free buffer
+        this->feed_lock.unlock();
+    }
+
     void CSVReader::read_csv(std::string filename, int nrows, bool close) {
         /** Parse an entire CSV file */
 
@@ -279,15 +314,32 @@ namespace csv_parser {
         
         std::string line;
         std::string newline("\n");
-        
+
+        std::string* buffer = new std::string();
+        std::vector<std::thread> jobs;
+
         while (std::getline(this->infile, line, '\n') && (nrows <= -1 || nrows > 0)) {
-            /* Hack: Add the delimiter back in because it might be
-             * in a quoted field and thus not an actual delimiter
-             */
-            line += newline;
-            this->feed(line);
-            nrows -= 1;
+            /*
+            * Hack: Add the delimiter back in because it might be
+            * in a quoted field and thus not an actual delimiter
+            */
+            *buffer += line;
+            *buffer += newline;
+
+            if ((*buffer).size() >= 1000000) {
+                jobs.push_back(std::thread(&CSVReader::_read_csv, this, buffer));
+                buffer = new std::string();
+            }
+
+            nrows--;
         }
+
+        for (auto it = jobs.begin(); it != jobs.end(); ++it)
+            (*it).join();
+
+        // Feed remaining bits
+        this->feed(*buffer);
+        delete buffer;
 
         if (!std::getline(infile, line, '\n')) {
             // Only end_feed() if we have reached the end of the file
@@ -297,9 +349,8 @@ namespace csv_parser {
         }
 
         // Close file handler unless specified
-        if (close) {
+        if (close)
             this->infile.close();
-        }
     }
     
     std::string CSVReader::csv_to_json() {

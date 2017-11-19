@@ -7,12 +7,16 @@ using std::list;
 namespace csv_parser {
     /** @file */
 
-    string pad(string in, int n) {
+    string pad(string in, size_t n, size_t trim) {
         /** Add extra whitespace until string is n characters long */
         std::string new_str = in;
 
-        for (size_t i = in.size(); i + 1 < n; i++) {
-            new_str += " ";
+        if (in.size() <= trim) {
+            for (size_t i = in.size(); i + 1 < n; i++)
+                new_str += " ";
+        }
+        else {
+            new_str = in.substr(0, trim);
         }
 
         return new_str;
