@@ -12,6 +12,7 @@
 #include <set>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 namespace csv_parser {    
     /** @file */
