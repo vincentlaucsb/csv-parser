@@ -17,7 +17,7 @@ all: csv_parser test_all clean distclean
 
 # Main Library
 csv_parser:
-	$(CC) -c -O3 $(SQLITE3)sqlite3.c -lpthread -ldl -I$(SQLITE3)
+	$(CC) -c -O3 $(SQLITE3)sqlite3.c -pthread -ldl -I$(SQLITE3)
 	$(CXX) -c -O3 -Wall $(CFLAGS) $(SOURCES) -I$(IDIR)
 	ar -cvq csv_parser.a $(OBJECTS) sqlite3.o
 	
@@ -26,10 +26,11 @@ cli: csv_parser
 
 # Unit Tests
 test_all:
-	$(CXX) -c $(TFLAGS) $(SOURCES) -I$(IDIR)
+	$(CC) -c -Og $(SQLITE3)sqlite3.c -pthread -ldl -I$(SQLITE3)
+	$(CXX) -c $(TFLAGS) $(SOURCES) -I$(IDIR)	
 	rm -f main.o
 
-	$(CXX) -o test_csv_parser $(OBJECTS) $(TEST_SOURCES) $(TFLAGS)
+	$(CXX) -o test_csv_parser sqlite3.o $(OBJECTS) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)
 	./test_csv_parser
 	
 	# read_csv
