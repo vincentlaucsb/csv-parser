@@ -6,7 +6,7 @@ using namespace csv_parser;
 
 TEST_CASE( "Integrity Check via Statistics", "[csv_clean]" ) {
     // Header on first row
-    CSVCleaner reader(",", "\"", 0);
+    CSVWriter reader(",", "\"", 0);
     reader.read_csv("./tests/data/fake_data/ints.csv");
     reader.to_csv("./tests/data/fake_data/ints2.csv");
     
@@ -18,7 +18,7 @@ TEST_CASE( "Integrity Check via Statistics", "[csv_clean]" ) {
 
 TEST_CASE( "Test Line Skipping", "[csv_skiplines]" ) {
     // Header on first row
-    CSVCleaner reader(",", "\"", 0);
+    CSVWriter reader(",", "\"", 0);
     reader.read_csv("./tests/data/fake_data/ints_skipline.csv");
     
     // Minimal quoting + skip one line
@@ -32,7 +32,7 @@ TEST_CASE( "Test Line Skipping", "[csv_skiplines]" ) {
 
 TEST_CASE( "Converting Tab Delimited File", "[tsv_clean]" ) {
     // Header on first row
-    CSVCleaner reader("\t", "\"", 0);
+    CSVWriter reader("\t", "\"", 0);
     reader.read_csv("./tests/data/real_data/2016_Gaz_place_national.txt");
     reader.to_csv("./tests/data/real_data/2016_Gaz_place_national.csv");
     

@@ -19,6 +19,8 @@ int cli_json(vector<string>);
 int cli_stat(vector<string>);
 int cli_grep(vector<string>);
 int cli_rearrange(vector<string>);
+int cli_sql(vector<string>);
+int cli_join(vector<string>);
 
 void print(string in="", int ntabs=0) {
 	for (int i = 0; i < ntabs; i++) {
@@ -120,11 +122,16 @@ void print_help() {
 	print("Newline Delimited JSON Output", 2);
 	print();
 
-    /* General Flags
-	print("Flags");
-	print(rep("-", 80));
-	print(" -d[DELIMITER]:   Specify a delimiter (default: comma)", 1);
-    */
+    // Advanced
+    print("Advanced");
+    print(rep("-", 80));
+
+    print("sql [input] [output]", 1);
+    print("Transform CSV file into a SQLite3 database", 2);
+    print();
+
+    print("join [input1] [input2]", 1);
+    print("Join two CSV files on their common fields", 2);
 }
 
 bool file_exists(string filename, bool throw_err=true) {
@@ -190,6 +197,12 @@ int main(int argc, char* argv[]) {
 		}
         else if (command == "rearrange") {
             return cli_rearrange(str_args);
+        }
+        else if (command == "sql") {
+            return cli_sql(str_args);
+        }
+        else if (command == "join") {
+            return cli_join(str_args);
         }
 		else {
 			// No command speicifed --> assume it's a filename
@@ -286,7 +299,7 @@ int cli_csv(vector<string> str_args) {
         file_exists(str_args.at(0));
         string delim = guess_delim(str_args.at(0));
         
-        CSVCleaner cleaner(delim);
+        CSVWriter cleaner(delim);
         cleaner.read_csv(str_args.at(0));
         cleaner.to_csv(str_args[1]);
     }
@@ -326,7 +339,7 @@ int cli_sample(vector<string> str_args) {
                 filename.end() - 4, filename.end(), "_sample.csv");
             int sample_size = std::stoi(str_args.back());
 
-            CSVCleaner cleaner(delim);
+            CSVWriter cleaner(delim);
             cleaner.read_csv(str_args.at(0));
             cleaner.sample(sample_size);
             cleaner.to_csv(new_filename);
@@ -424,9 +437,35 @@ int cli_rearrange(vector<string> str_args) {
         }
     }
 
-    CSVCleaner writer(delim, "\"", 0, columns);
+    CSVWriter writer(delim, "\"", 0, columns);
     writer.read_csv(filename);
     writer.to_csv(outfile);
+
+    return 0;
+}
+
+int cli_sql(vector<string> str_args) {
+    string csv_file = str_args.at(0);
+    string db_file = str_args.at(1);
+
+    csv_to_sql(csv_file, db_file);
+
+    return 0;
+}
+
+int cli_join(vector<string> str_args) {
+    string file1 = str_args.at(0);
+    string file2 = str_args.at(1);
+    string outfile = str_args.at(2);
+    string column1("");
+    string column2("");
+
+    if (str_args.size() >= 4)
+        column1 = str_args.at(3);
+    if (str_args.size() >= 5)
+        column2 = str_args.at(4);
+
+    csv_join(file1, file2, outfile, column1, column2);
 
     return 0;
 }

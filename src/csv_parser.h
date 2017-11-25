@@ -1,9 +1,9 @@
 /** @csv_parser */
-/* Lightweight CSV Parser */
 
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <deque>
@@ -16,6 +16,11 @@
 
 namespace csv_parser {    
     /** @file */
+
+    struct CSVFormat {
+        std::string delim;
+        std::string quote_char;
+    };
 
     struct CSVFileInfo {
         std::string filename;
@@ -57,7 +62,18 @@ namespace csv_parser {
     /** @name CSV Functions
       */
     ///@{
-    void merge(std::string outfile, std::vector<std::string> in);    
+    void merge(std::string outfile, std::vector<std::string> in);
+    int csv_to_sql(std::string csv_file, std::string db, std::string table="");
+    void csv_join(std::string filename1, std::string filename2, std::string outfile,
+        std::string column1="", std::string column2="");
+    std::string csv_escape(std::string& in, bool quote_minimal=true);
+    ///@}
+
+    /** @name SQL Functions
+      */
+    ///@{
+    std::string sql_sanitize(std::string);
+    std::vector<std::string> sql_sanitize(std::vector<std::string>);
     ///@}
 
     /** The main class for parsing CSV files */
@@ -177,10 +193,11 @@ namespace csv_parser {
     };
 
     /** Class for writing CSV files */
-    class CSVCleaner: public CSVStat {
+    class CSVWriter: public CSVStat {
         public:
             void to_csv(std::string filename, bool quote_minimal=true, 
                 int skiplines=0, bool append=false);
+            //void to_postgres(std::string filename, int skiplines = 0);
             using CSVStat::CSVStat;
     };
 }

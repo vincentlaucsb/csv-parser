@@ -1,8 +1,9 @@
 IDIR = src/
-CFLAGS = -pthread -std=c++11
-TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -O3
-#-Og -g --coverage
+SQLITE3 = src/sqlite3/
+CFLAGS = -ldl -pthread -std=c++11
+TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 
+# Main Library
 SOURCES = $(wildcard src/*.cpp)
 OBJECTS_ = $(subst .cpp,.o,$(subst src/,,$(SOURCES)))
 OBJECTS = $(subst main.o,,$(OBJECTS_))
@@ -16,11 +17,12 @@ all: csv_parser test_all clean distclean
 
 # Main Library
 csv_parser:
+	$(CC) -c -O3 $(SQLITE3)sqlite3.c -lpthread -ldl -I$(SQLITE3)
 	$(CXX) -c -O3 -Wall $(CFLAGS) $(SOURCES) -I$(IDIR)
-	ar -cvq csv_parser.a $(OBJECTS)
+	ar -cvq csv_parser.a $(OBJECTS) sqlite3.o
 	
 cli: csv_parser
-	$(CXX) -o csv_parser csv_parser.a -O3 -Wall $(CFLAGS)
+	$(CXX) -o csv_parser csv_parser.a src/main.cpp -O3 -Wall $(CFLAGS)
 
 # Unit Tests
 test_all:

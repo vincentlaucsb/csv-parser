@@ -46,7 +46,7 @@ namespace csv_parser {
         }
         
         // Begin merging
-        CSVCleaner writer;
+        CSVWriter writer;
         bool csv_append = false;
         
         for (string infile: in) {
