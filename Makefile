@@ -1,12 +1,13 @@
+BUILD_DIR = build
 IDIR = src/
-SQLITE3 = src/sqlite3/
+SQLITE3 = lib/sqlite3
 CFLAGS = -ldl -pthread -std=c++11
 TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 
 # Main Library
-SOURCES = $(wildcard src/*.cpp)
-OBJECTS_ = $(subst .cpp,.o,$(subst src/,,$(SOURCES)))
-OBJECTS = $(subst main.o,,$(OBJECTS_))
+SOURCES_ = $(wildcard src/*.cpp)
+SOURCES = $(subst src/main.cpp,,$(SOURCES_))
+OBJECTS = $(subst .cpp,.o,$(subst src/,$(BUILD_DIR)/,$(SOURCES)))
 
 TEST_SOURCES = $(wildcard tests/*.cpp)
 TEST_OBJECTS = $(subst .cpp,.o,$(subst tests/,,$(TEST_SOURCES)))
@@ -15,22 +16,23 @@ TEST_DIR = tests/
 
 all: csv_parser test_all clean distclean
 
+# SQLite3
+lib/sqlite3.o:
+	unzip lib/sqlite-amalgamation-3210000.zip
+	mv sqlite-amalgamation-3210000 $(PWD)/$(SQLITE3)
+	$(CC) -c -o $(PWD)/lib/sqlite3.o -O3 $(SQLITE3)/sqlite3.c -pthread -ldl -I$(SQLITE3)/
+
 # Main Library
-csv_parser:
-	$(CC) -c -O3 $(SQLITE3)sqlite3.c -pthread -ldl -I$(SQLITE3)
+csv_parser: sqlite3
 	$(CXX) -c -O3 -Wall $(CFLAGS) $(SOURCES) -I$(IDIR)
-	ar -cvq csv_parser.a $(OBJECTS) sqlite3.o
+	ar -cvq $(BUILD_DIR)/csv_parser.a $(OBJECTS) sqlite3.o
 	
 cli: csv_parser
-	$(CXX) -o csv_parser csv_parser.a src/main.cpp -O3 -Wall $(CFLAGS)
+	$(CXX) -o bin/csv_parser $(BUILD_DIR)/csv_parser.a src/main.cpp -O3 -Wall $(CFLAGS)
 
 # Unit Tests
-test_all:
-	$(CC) -c -Og $(SQLITE3)sqlite3.c -pthread -ldl -I$(SQLITE3)
-	$(CXX) -c $(TFLAGS) $(SOURCES) -I$(IDIR)	
-	rm -f main.o
-
-	$(CXX) -o test_csv_parser sqlite3.o $(OBJECTS) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)
+test_all: lib/sqlite3.o
+	$(CXX) -o test_csv_parser lib/sqlite3.o $(SOURCES) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)/
 	./test_csv_parser
 	
 	# read_csv
@@ -42,23 +44,15 @@ test_all:
 	rm -f tests/data/fake_data/ints_skipline2.csv
 	rm -f tests/data/real_data/2016_Gaz_place_national.csv
 	
-.PHONY: all clean distclean
-
-code_cov:
-	# Analyze
-	lcov --directory $(PWD) --capture --output-file $(PWD)/app.info
+	# csv_sql
+	rm -f ints.sqlite
 	
-	# Generate HTML
-	genhtml --output-directory $(PWD)/cov_http $(PWD)/app.info
+.PHONY: all clean distclean
 
 docs:
 	doxygen Doxyfile
 	
 clean:
-	# Clean Up
-	rm -f csv_parser.a
-	
-	# Analyze code coverage data
-	bash ./code_cov.sh
+	rm -rf build
 	
 distclean: clean

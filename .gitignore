@@ -4,6 +4,9 @@
 *.o
 *.obj
 
+# Unzipped Dependencies
+sqlite3/
+
 # Precompiled Headers
 *.gch
 *.pch

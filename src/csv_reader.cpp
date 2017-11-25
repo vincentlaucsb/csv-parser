@@ -68,7 +68,7 @@ namespace csv_parser {
         CSVFileInfo* info = new CSVFileInfo;
 
         info->filename = filename;
-        info->n_rows = reader.row_num;
+        info->n_rows = reader.correct_rows;
         info->n_cols = (int)reader.get_col_names().size();
         info->col_names = reader.get_col_names();
         info->delim = delim;
@@ -223,15 +223,17 @@ namespace csv_parser {
         // Unset all flags
         this->quote_escape = false;
         
-        if (this->row_num > this->header_row) {
+        if (this->row_num > this->header_row) {            
             /* Workaround: CSV parser doesn't catch the last field if
-             * it is empty */
+             * it is empty */             
             if (record.size() + 1 == this->col_names.size()) {
                 record.push_back(std::string());
             }
             
             // Make sure record is of the right length
-            if (record.size() == this->col_names.size()) {
+            if (record.size() == this->col_names.size()) {                
+                this->correct_rows++;
+                
                 if (!this->subset_flag) {
                     // No need to subset
                     this->records.push_back(record);
@@ -257,8 +259,8 @@ namespace csv_parser {
             // Ignore rows before header row     
         }
         
-        this->row_num++;
         record.clear();
+        this->row_num++;
     }
 
     std::vector<std::string> CSVReader::pop() {

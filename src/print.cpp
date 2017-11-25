@@ -7,8 +7,11 @@ using std::list;
 namespace csv_parser {
     /** @file */
 
-    string pad(string in, size_t n, size_t trim) {
-        /** Add extra whitespace until string is n characters long */
+    string rpad_trim(string in, size_t n, size_t trim) {
+        /**
+         * Add extra whitespace until string is n characters long
+         * Also trim string if it is too long
+         */
         std::string new_str = in;
 
         if (in.size() <= trim) {
@@ -111,14 +114,14 @@ namespace csv_parser {
 
             // Print out row name (if applicable)
             if (row_name_p != row_names.end()) {
-                std::cout << pad(*row_name_p, row_name_width);
+                std::cout << rpad_trim(*row_name_p, row_name_width);
                 ++row_name_p;
             }
 
             // Print out one row --> Break if necessary
             while (temp_row_width < 80 && col_width_p != col_widths.size()) {
                 temp_col_size = col_widths[col_width_p];
-                std::cout << pad(*(cursor[current_row]), temp_col_size);
+                std::cout << rpad_trim(*(cursor[current_row]), temp_col_size);
 
                 temp_row_width += temp_col_size;
                 ++col_width_p;         // Advance col width iterator

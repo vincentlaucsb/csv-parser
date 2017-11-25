@@ -18,13 +18,14 @@ namespace csv_parser {
     /** @name String Formatting Functions
       */
     ///@{
-    string pad(string in, size_t n=20, size_t trim=80);
+    string rpad_trim(string in, size_t n=20, size_t trim=80);
     vector<string> round(vector<long double> in);
     ///@}
 
     /** @name Pretty Printing Functions
       */
     ///@{
+    vector<size_t> _get_col_widths(vector<vector<string>>&, size_t);
     void print_table(vector<vector<string>> &records, 
         vector<string> row_names = {});
 
@@ -43,7 +44,7 @@ namespace csv_parser {
     inline void print_record(std::vector<std::string> &record) {
         // Print out a single CSV row
         for (std::string field : record) {
-            std::cout << pad(field, 20) << " ";
+            std::cout << rpad_trim(field, 20) << " ";
         }
 
         std::cout << std::endl;

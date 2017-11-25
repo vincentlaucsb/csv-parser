@@ -1,4 +1,4 @@
-#include "sqlite3/sqlite3.h"
+#include "sqlite3.h"
 #include "csv_parser.h"
 #include <stdio.h>
 
@@ -6,6 +6,26 @@ using std::vector;
 using std::string;
 
 namespace csv_parser {
+    std::vector<std::string> path_split(std::string path) {
+        vector<string> splitted;
+        string current_part;
+        
+        for (size_t i = 0; i < path.size(); i++) {
+            switch (path[i]) {
+            case '/':
+                splitted.push_back(current_part);
+                current_part.clear();
+                break;
+            default:
+                current_part += path[i];
+            }
+        }
+        
+        // Push remainder
+        splitted.push_back(current_part);        
+        return splitted;
+    }
+    
     std::string sql_sanitize(std::string col_name) {
         /** Sanitize column names for SQL
          *   - Remove bad characters
@@ -47,8 +67,10 @@ namespace csv_parser {
         char* error_message;
 
         // Default file name is CSV file minus extension
-        if (table == "")
-            table = csv_file.substr(0, csv_file.size() - 4);
+        if (table == "") {
+            table = path_split(csv_file).back();
+            table = table.substr(0, table.size() - 3);
+        }
 
         table = sql_sanitize(table);
 

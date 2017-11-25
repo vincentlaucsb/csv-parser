@@ -34,6 +34,7 @@ namespace csv_parser {
       */
     ///@{
     int data_type(std::string&);
+    std::vector<std::string> path_split(std::string);
     std::string json_escape(std::string);
     ///@}
     
@@ -104,7 +105,8 @@ namespace csv_parser {
             ///@}
 
             std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
-            int row_num = 0; /**< How many lines have been parsed so far */
+            int row_num = 0;       /**< How many lines have been parsed so far */
+            int correct_rows = 0;  /**< How many correct rows (minus header) have been parsed so far */
             bool eof = false;      /**< Have we reached the end of file */
 
             friend void head(std::string infile, int nrow,
