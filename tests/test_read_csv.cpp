@@ -124,8 +124,8 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     reader.feed(csv_string);
     reader.end_feed();
     
-    // Expected Results
-    vector<string> correct_row = {"123", "234\"\"345", "456"};
+    // Expected Results: Double " is an escape for a single "
+    vector<string> correct_row = {"123", "234\"345", "456"};
     REQUIRE( reader.pop() == correct_row ); // First Row
     REQUIRE( reader.pop() == correct_row ); // Second Row
 }
@@ -172,8 +172,12 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
     // Expected Results
     vector<string> first_row = {
         "2015","State Department","","Administrative Law, Office of", "" };
+    vector<string> col_names = {
+        "Year","Entity Type","Entity Group","Entity Name","Department / Subdivision"
+    };
     
     REQUIRE( reader.pop() == first_row );
+    REQUIRE( reader.get_col_names() == col_names);
     REQUIRE( reader.row_num == 246498 );
 }
 

@@ -6,6 +6,26 @@ using std::string;
 namespace csv_parser {
     /** @file */
 
+    void reformat(std::string infile, std::string outfile, int skiplines) {
+        /** Reformat a CSV file */
+        CSVReader reader(guess_delim(infile));
+        CSVWriter writer(outfile);
+        reader.read_csv(infile);
+        writer.write_row(reader.get_col_names()); // Write Column Names
+
+        // Write Records
+        while (!reader.empty()) {
+            while (skiplines > 0) {
+                reader.pop();
+                skiplines--;
+            }
+                
+            writer.write_row(reader.pop());
+        }
+
+        writer.close();
+    }
+
     void merge(
         std::string outfile,
         std::vector<std::string> in) {
@@ -46,18 +66,17 @@ namespace csv_parser {
         }
         
         // Begin merging
-        CSVWriter writer;
-        bool csv_append = false;
+        CSVWriter writer(outfile);
         
         for (string infile: in) {
-            writer.read_csv(infile);
+            delim = guess_delim(infile);
+            CSVReader reader(delim);
+            reader.read_csv(infile);
             
-            if (!csv_append) {
-                writer.to_csv(outfile);
-                csv_append = true;
-            } else {
-                writer.to_csv(outfile, true, 0, true);
-            }
+            while (!reader.empty())
+                writer.write_row(reader.pop());
         }
+
+        writer.close();
     }
 }

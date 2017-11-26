@@ -63,6 +63,7 @@ namespace csv_parser {
     /** @name CSV Functions
       */
     ///@{
+    void reformat(std::string infile, std::string outfile, int skiplines=0);
     void merge(std::string outfile, std::vector<std::string> in);
     int csv_to_sql(std::string csv_file, std::string db, std::string table="");
     void csv_join(std::string filename1, std::string filename2, std::string outfile,
@@ -195,11 +196,12 @@ namespace csv_parser {
     };
 
     /** Class for writing CSV files */
-    class CSVWriter: public CSVStat {
+    class CSVWriter {
         public:
-            void to_csv(std::string filename, bool quote_minimal=true, 
-                int skiplines=0, bool append=false);
-            //void to_postgres(std::string filename, int skiplines = 0);
-            using CSVStat::CSVStat;
+            void write_row(std::vector<std::string> record, bool quote_minimal=true);
+            void close();
+            CSVWriter(std::string filename);
+        private:
+            std::ofstream outfile;
     };
 }

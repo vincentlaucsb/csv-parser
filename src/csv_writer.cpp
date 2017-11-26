@@ -1,5 +1,8 @@
 #include "csv_parser.h"
 
+using std::vector;
+using std::string;
+
 namespace csv_parser {
     std::string csv_escape(std::string& in, bool quote_minimal) {
         /** Format a string to be RFC 4180-compliant
@@ -32,69 +35,28 @@ namespace csv_parser {
         }
     }
 
-    void CSVWriter::to_csv(std::string filename, bool quote_minimal,
-        int skiplines, bool append) {
+    CSVWriter::CSVWriter(std::string outfile) {
+        // Open a file handler
+        this->outfile = std::ofstream(outfile, std::ios_base::binary);
+    }
+
+    void CSVWriter::write_row(vector<string> record, bool quote_minimal) {
         /** Output currently parsed rows (including column names)
          *  to a RFC 4180-compliant CSV file.
-         *  @param[out] filename        File to save to
          *  @param      quote_minimal   Only quote fields if necessary
-         *  @param      skiplines       Number of lines (after header) to skip
-         *  @param      append          Append to an existing CSV file
          */
 
-        // Write queue to CSV file
-        std::string row;
-        std::vector<std::string> record;
-        std::ofstream outfile;
-
-        if (append) {
-            outfile.open(filename, std::ios_base::binary | std::ios_base::app);
-        }
-        else {
-            outfile.open(filename, std::ios_base::binary);
-
-            // Write column names
-            for (size_t i = 0, ilen = this->col_names.size(); i < ilen; i++) {
-                outfile << this->col_names[i];
-                if (i + 1 != ilen)
-                    outfile << ",";
-            }
-            outfile << "\r\n";
+        for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
+            this->outfile << csv_escape(record[i]);
+            if (i + 1 != ilen) 
+                this->outfile << ",";
         }
 
-        // Skip lines
-        while (!this->records.empty() && skiplines > 0) {
-            this->records.pop_front();
-            skiplines--;
-        }
+        this->outfile << "\r\n";
+    }
 
-        // Write records
-        while (!this->records.empty()) {
-            // Remove and return first CSV row
-            std::vector< std::string > record = this->pop();
-
-            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
-                // Calculate data type statistics
-                this->dtype(record[i], i);
-
-                if ((quote_minimal &&
-                    (record[i].find_first_of(',')
-                        != std::string::npos))
-                    || !quote_minimal) {
-                    row += "\"" + record[i] + "\"";
-                }
-                else {
-                    row += record[i];
-                }
-
-                if (i + 1 != ilen) { row += ","; }
-            }
-
-            outfile << row << "\r\n";
-            row.clear();
-        }
-
-        outfile.close();
+    void CSVWriter::close() {
+        this->outfile.close();
     }
 
     /*

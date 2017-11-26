@@ -189,9 +189,6 @@ int main(int argc, char* argv[]) {
 		else if (command == "csv") {
             return cli_csv(str_args);
 		}
-        else if (command == "sample") {
-            return cli_sample(str_args);
-        }
 		else if (command == "json") {
             return cli_json(str_args);
 		}
@@ -297,11 +294,7 @@ int cli_csv(vector<string> str_args) {
     else if (str_args.size() == 2) {
         // Single CSV input
         file_exists(str_args.at(0));
-        string delim = guess_delim(str_args.at(0));
-        
-        CSVWriter cleaner(delim);
-        cleaner.read_csv(str_args.at(0));
-        cleaner.to_csv(str_args[1]);
+        reformat(str_args.at(0), str_args.at(1));
     }
     else {
         // Multiple CSV input
@@ -324,34 +317,6 @@ int cli_csv(vector<string> str_args) {
     return 0;
 }
 
-int cli_sample(vector<string> str_args) {
-    std::string filename = str_args.at(0);
-    file_exists(filename);
-    string delim = guess_delim(filename);
-
-    try {
-        if (str_args.size() < 2) {
-            std::cerr << "Please specify an input file and the number of rows to sample." << std::endl;
-            return 1;
-        }
-        else {
-            std::string new_filename = filename.replace(
-                filename.end() - 4, filename.end(), "_sample.csv");
-            int sample_size = std::stoi(str_args.back());
-
-            CSVWriter cleaner(delim);
-            cleaner.read_csv(str_args.at(0));
-            cleaner.sample(sample_size);
-            cleaner.to_csv(new_filename);
-        }
-    }
-    catch (std::invalid_argument) {
-        std::cerr << "Please specify the number of rows to sample." << std::endl;
-        return 1;
-    }
-
-    return 0;
-}
 
 int cli_json(vector<string> str_args) {
     string filename = str_args.at(0);
@@ -437,9 +402,16 @@ int cli_rearrange(vector<string> str_args) {
         }
     }
 
-    CSVWriter writer(delim, "\"", 0, columns);
-    writer.read_csv(filename);
-    writer.to_csv(outfile);
+    CSVReader reader(delim, "\"", 0, columns);
+    reader.read_csv(filename);
+    
+    CSVWriter writer(outfile);
+    writer.write_row(reader.get_col_names());
+
+    while (!reader.empty())
+        writer.write_row(reader.pop());
+
+    writer.close();
 
     return 0;
 }

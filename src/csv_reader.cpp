@@ -113,7 +113,7 @@ namespace csv_parser {
     }
 
     std::vector<std::string> CSVReader::get_col_names() {
-        return this->col_names;
+        return this->subset_col_names;
     }
 
     void CSVReader::feed(std::string &in) {
@@ -196,13 +196,11 @@ namespace csv_parser {
                 // Case: End of field
                 this->quote_escape = false;
             } else {
-                // Note: This may fix single quotes (not valid) by doubling them up
-                this->str_buffer += in[index];
+                // Note: This may fix single quotes (not valid)
                 this->str_buffer += in[index];
                 
-                if (in[index + 1] == this->quote_char) {
+                if (in[index + 1] == this->quote_char)
                     index++;  // Case: Two consecutive quotes
-                }
             }
         } else {
 			// Add index > 0 to prevent string index errors
@@ -256,7 +254,7 @@ namespace csv_parser {
         } else if (this->row_num == this->header_row) {
             this->set_col_names(record);
         } else {
-            // Ignore rows before header row     
+            // Ignore rows before header row
         }
         
         record.clear();
