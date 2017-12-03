@@ -29,5 +29,5 @@ class CSVPrintTest(unittest.TestCase):
             '20\s+20\s+20'
         ))
         
-if __name__ == '__main__':
-    unittest.main()
+# if __name__ == '__main__':
+    # unittest.main()
