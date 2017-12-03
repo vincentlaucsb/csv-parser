@@ -16,6 +16,7 @@ before_script:
 script:
   - export CC=gcc-6
   - export CXX=g++-6
+  - make cli
   - make test_all
   - sudo pip install --user cpp-coveralls
 after_success:
