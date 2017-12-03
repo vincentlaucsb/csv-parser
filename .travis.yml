@@ -11,11 +11,14 @@ dist: trusty
 sudo: required
 language:
   - cpp
+before_script:
+  - sudo pip install pexpect
 script:
   - export CC=gcc-6
   - export CXX=g++-6
+  - sudo make cli
   - make test_all
-  - pip install --user cpp-coveralls
+  - sudo pip install --user cpp-coveralls
 after_success:
   - if [ "$CXX" == "g++-6" ]; then
         coveralls --exclude tests --gcov-options '\-lp \--relative-only';
