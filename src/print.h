@@ -27,8 +27,8 @@ namespace csv_parser {
     ///@{
     vector<size_t> _get_col_widths(vector<vector<string>>&, size_t);
     void print_record(std::vector<std::string> record);
-    void print_table(vector<vector<string>> &records, 
-        vector<string> row_names = {});
+    void print_table(vector<vector<string>> &records,
+        int row_num = 0, vector<string> row_names = {});
     ///@}
 
     template<typename T>

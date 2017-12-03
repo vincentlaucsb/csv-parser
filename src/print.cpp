@@ -86,46 +86,39 @@ namespace csv_parser {
         std::cout << std::endl;
     }
 
-    void print_table(vector<vector<string>> &records,
-        vector<string> row_names) {
+    void print_table(vector<vector<string>> &records, int row_num, vector<string> row_names) {
+        /*
+         * Set row_num to -1 to disable row number printing
+         * Or set row_names to disable number printing
+         */
 
         /* Find out width of each column */
         vector<size_t> col_widths = _get_col_widths(records, 80);
-        size_t row_name_width = 0;
-
-        // Find out length of row names column
-        if (row_names.size() > 0) {
-            for (auto r_name = std::begin(row_names); r_name != std::end(row_names);
-                ++r_name) {
-
-                if ((*r_name).size() + 3 > row_name_width) {
-                    row_name_width = (*r_name).size() + 3;
-                }
-            }
-        }
+        const int orig_row_num = row_num;
+        
+        // Set size of row names column
+        size_t row_name_width = 10;
+        for (auto it = row_names.begin(); it != row_names.end(); ++it)
+            if ((*it).size() > row_name_width)
+                row_name_width = (*it).size();
 
         // Print out several vectors as a table
-        size_t col_width_p = 0;
-        size_t col_width_base = 0;
         auto row_name_p = row_names.begin();
-
-        size_t temp_col_size = 0;
+        size_t col_width_p = 0, col_width_base = 0, temp_col_size = 0;
         size_t temp_row_width = 0; // Flag for when to break long rows
-        vector<vector<string>::iterator> cursor = {}; // Save position in string vectors
 
-        // Initialize cursors
+        // Store position in string vectors
+        vector<vector<string>::iterator> cursor = {};
         for (auto record_p = records.begin(); record_p != records.end(); ++record_p)
             cursor.push_back((*record_p).begin());
 
         for (size_t current_row = 0, rlen = records.size();
-            current_row < rlen;
-            current_row++) {
+            current_row < rlen; current_row++) {
 
-            // Print out row name (if applicable)
-            if (row_name_p != row_names.end()) {
-                std::cout << rpad_trim(*row_name_p, row_name_width);
-                ++row_name_p;
-            }
+            if (!row_names.empty())
+                std::cout << rpad_trim(*(++row_name_p), row_name_width) << std::endl;
+            else if (row_num >= 0)
+                std::cout << rpad_trim("[" + std::to_string(row_num++) + "]", row_name_width);
 
             // Print out one row --> Break if necessary
             while (temp_row_width < 80 && col_width_p != col_widths.size()) {
@@ -145,17 +138,12 @@ namespace csv_parser {
             // Check if we need to restart the loop
             if ((current_row + 1 == rlen) && cursor[0] != records[0].end()) {
                 std::cout << std::endl;
+                row_num = orig_row_num;
                 row_name_p = row_names.begin();
+                col_width_base = col_width_p = cursor[0] - records[0].begin();
                 current_row = -1;
-
-                col_width_base = 0;
-                for (size_t i = cursor[0] - records[0].begin(); i > 0; i--) {
-                    ++col_width_base;
-                    col_width_p = col_width_base;
-                }
             }
         }
-
         records.clear();
     }
 }

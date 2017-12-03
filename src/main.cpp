@@ -231,6 +231,7 @@ int cli_stat(vector<string> str_args) {
     }
 
     vector<string> col_names = calc.get_col_names();
+
     vector<map<string, int>> counts = calc.get_counts();
     vector<vector<string>> print_rows = {
         col_names,
@@ -242,7 +243,7 @@ int cli_stat(vector<string> str_args) {
     vector<string> row_names = { "", "Mean", "Variance", "Min", "Max" };
 
     // Print basic stats
-    print_table(print_rows, row_names);
+    print_table(print_rows, -1, row_names);
     print("");
 
     // Print counts

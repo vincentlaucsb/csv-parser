@@ -18,6 +18,8 @@
 namespace csv_parser {    
     /** @file */
 
+    const size_t ITERATION_CHUNK_SIZE = 100000;
+
     struct CSVFormat {
         std::string delim;
         std::string quote_char;
@@ -100,6 +102,7 @@ namespace csv_parser {
             std::vector<std::string> pop();
             std::vector<std::string> pop_back();
             std::map<std::string, std::string> pop_map();
+            void clear();
             bool empty();
             void to_json(std::string filename, bool append = false);
             std::vector<std::string> to_json();
@@ -113,8 +116,8 @@ namespace csv_parser {
                 */
             ///@}
 
-            std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
             std::ifstream infile;
+            std::string infile_name;
             int row_num = 0;       /**< How many lines have been parsed so far */
             int correct_rows = 0;  /**< How many correct rows (minus header) have been parsed so far */
             bool eof = false;      /**< Have we reached the end of file */
@@ -132,6 +135,72 @@ namespace csv_parser {
                 std::string quote="\"",
                 int header=0,
                 std::vector<int> subset_= std::vector<int>{});
+
+            // CSVReader Iterator
+            class iterator : public std::iterator <
+                std::input_iterator_tag,         // iterator category
+                std::vector<std::string>,        // value type
+                std::vector<std::string>,        // difference type
+                const std::vector<std::string>*, // pointer
+                std::vector<std::string>         // reference
+            > {
+                CSVReader * reader_p;
+                std::deque<std::vector<std::string>>::iterator record_it;
+                size_t chunk_size;
+            public:
+                explicit iterator(
+                    CSVReader* _ptr,
+                    std::deque<std::vector<std::string>>::iterator _it,
+                    size_t _chunk_size=ITERATION_CHUNK_SIZE) :
+                    reader_p(_ptr), record_it(_it), chunk_size(_chunk_size) {};
+
+                iterator& operator++() {
+                    (this->record_it)++;
+                    return *this;
+                }
+
+                iterator operator++(int) {
+                    iterator ret = *this;
+                    ++(*this);
+                    return ret;
+                }
+
+                bool operator==(iterator other) const {
+                    return (this->record_it) == (other.record_it);
+                }
+
+                bool operator!=(iterator& other) const {
+                    if (reader_p->records.empty()) {
+                        // Keep iterating advancing if there are still CSV rows to be read
+                        if ((reader_p->infile.is_open()) &&
+                            !(reader_p->eof)) {
+                            reader_p->clear();
+                            reader_p->read_csv(reader_p->infile_name, 100, false);
+                            other = iterator(reader_p, reader_p->records.end());
+                        }
+                    }
+
+                    return !(*this == other);
+                }
+
+                reference operator*() const {
+                    return *(this->record_it);
+                }
+            };
+
+            iterator begin() {
+                return iterator(this, this->records.begin());
+            }
+
+            iterator begin(std::string filename, size_t chunk_size=ITERATION_CHUNK_SIZE) {
+                this->read_csv(filename, chunk_size, false);
+                return iterator(this, this->records.begin(), chunk_size);
+            }
+
+            iterator end() {
+                return iterator(this, this->records.end());
+            }
+
         protected:
             // CSV parsing callbacks
             inline void process_possible_delim(std::string&, size_t&);
@@ -162,6 +231,7 @@ namespace csv_parser {
             std::condition_variable feed_cond;
             
             // Buffers
+            std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
             std::vector<std::string> record_buffer;            /**< Buffer for current row */
             std::string str_buffer;                            /**< Buffer for current string fragment */
     };

@@ -62,7 +62,7 @@ namespace csv_parser {
         CSVReader reader(delim);        
         while (!reader.eof) {
             reader.read_csv(filename, 100000, false);
-            reader.records.clear();
+            reader.clear();
         }
 
         CSVFileInfo* info = new CSVFileInfo;
@@ -302,6 +302,10 @@ namespace csv_parser {
         return this->records.empty();
     }
 
+    void CSVReader::clear() {
+        return this->records.clear();
+    }
+
     void CSVReader::_read_csv() {
         /** Multi-threaded reading/processing worker thread */
 
@@ -328,8 +332,10 @@ namespace csv_parser {
     void CSVReader::read_csv(std::string filename, int nrows, bool close) {
         /** Parse an entire CSV file */
 
-        if (!this->infile.is_open())
+        if (!this->infile.is_open()) {
             this->infile = std::ifstream(filename);
+            this->infile_name = filename;
+        }
         
         std::string line;
         std::string newline("\n");
@@ -391,23 +397,24 @@ namespace csv_parser {
             
             if (data_type(record[i]) > 1) {
                 json_record += record[i];
-            } else {
+            }
+            else {
                 json_record += "\"" + json_escape(record[i]) + "\"";
             }
-            
+
             if (i + 1 != record.size()) {
                 json_record += ",";
             }
         }
-        
+
         json_record += "}";
         return json_record;
     }
-    
+
     void CSVReader::to_json(std::string filename, bool append) {
-        /** Convert CSV to a newline-delimited JSON file, where each 
+        /** Convert CSV to a newline-delimited JSON file, where each
          *  row is mapped to an object with the column names as keys.
-		 *
+         *
          *  # Example
          *  ## Input
          *  <TABLE>
@@ -437,23 +444,23 @@ namespace csv_parser {
             if (!this->empty()) { json_record += "\n"; }
             outfile << json_record;
         }
-        
+
         outfile.close();
     }
-    
+
     std::vector<std::string> CSVReader::to_json() {
-        /** Similar to to_json(std::string filename), but outputs a vector of 
+        /** Similar to to_json(std::string filename), but outputs a vector of
          *  JSON strings instead
          */
         std::vector<std::string> record;
         std::string json_record;
         std::vector<std::string> output;
-        
+
         while (!this->empty()) {
             json_record = this->csv_to_json();
             output.push_back(json_record);
         }
-        
+
         return output;
     }
 
@@ -464,7 +471,7 @@ namespace csv_parser {
         std::uniform_int_distribution<int> distribution(0, this->records.size() - 1);
 
         for (; n > 1; n--)
-            new_rows.push_back( this->records[distribution(generator)] );
+            new_rows.push_back(this->records[distribution(generator)]);
 
         this->records.clear();
         this->records.swap(new_rows);
@@ -506,4 +513,6 @@ namespace csv_parser {
         
         return out;
     }
+
+
 }
