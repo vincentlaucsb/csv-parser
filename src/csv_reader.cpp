@@ -249,7 +249,11 @@ namespace csv_parser {
                 // Case 1: Zero-length record. Probably caused by
                 // extraneous delimiters.
                 // Case 2: Too short or too long
-                // std::cout << "Dropping row" << std::endl;
+                
+                if (!record.empty() && this->bad_row_handler) {
+                    std::cout << "Warning: Row too short" << std::endl;
+                    this->bad_row_handler(record);
+                }
             }
         } else if (this->row_num == this->header_row) {
             this->set_col_names(record);

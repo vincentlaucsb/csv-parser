@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
+#include <functional>
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -105,7 +106,15 @@ namespace csv_parser {
             void sample(int n);
             ///@}
 
+            /** @name User-Defined Settings */
+            ///@{
+            void(*bad_row_handler)(std::vector<std::string>) = nullptr; /**<
+                Callback for rows that are too short
+                */
+            ///@}
+
             std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
+            std::ifstream infile;
             int row_num = 0;       /**< How many lines have been parsed so far */
             int correct_rows = 0;  /**< How many correct rows (minus header) have been parsed so far */
             bool eof = false;      /**< Have we reached the end of file */
@@ -153,7 +162,6 @@ namespace csv_parser {
             std::condition_variable feed_cond;
             
             // Buffers
-            std::ifstream infile;
             std::vector<std::string> record_buffer;            /**< Buffer for current row */
             std::string str_buffer;                            /**< Buffer for current string fragment */
     };

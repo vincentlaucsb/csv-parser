@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['eof',['eof',['../classcsv__parser_1_1CSVReader.html#af81b5b989e74194d135902a3e9422380',1,'csv_parser::CSVReader']]]
+  ['delimiter',['delimiter',['../classcsv__parser_1_1CSVReader.html#a2ea11e91ae7a916e3785ea816efb1df9',1,'csv_parser::CSVReader']]]
 ];

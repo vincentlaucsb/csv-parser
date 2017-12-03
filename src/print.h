@@ -26,29 +26,9 @@ namespace csv_parser {
       */
     ///@{
     vector<size_t> _get_col_widths(vector<vector<string>>&, size_t);
+    void print_record(std::vector<std::string> record);
     void print_table(vector<vector<string>> &records, 
         vector<string> row_names = {});
-
-    template<typename T>
-    inline void print_record(std::vector<T> &record) {
-        // Print out a single CSV row
-        for (T field : record) {
-            std::string temp = std::to_string(field);
-            std::cout << temp << " ";
-        }
-
-        std::cout << std::endl;
-    }
-
-    template<>
-    inline void print_record(std::vector<std::string> &record) {
-        // Print out a single CSV row
-        for (std::string field : record) {
-            std::cout << rpad_trim(field, 20) << " ";
-        }
-
-        std::cout << std::endl;
-    }
     ///@}
 
     template<typename T>

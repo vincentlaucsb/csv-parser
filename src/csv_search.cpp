@@ -17,19 +17,37 @@ namespace csv_parser {
         }
 
         CSVReader reader(delim, quote, header, subset);
-        reader.read_csv(infile, nrow);
+        reader.read_csv(infile, nrow, false);
 
         vector<vector<string>> records = { reader.get_col_names() };
         vector<string> row_names = {};
-        for (int i = 0; i < nrow; i++)
-            row_names.push_back("[" + std::to_string(i) + "]");
+        int i = 0;
 
-        for (auto it = std::begin(reader.records);
-            it != std::end(reader.records); ++it) {
-            records.push_back(*it);
+        while (!(reader.eof)) {
+            for (int j = 0; j < nrow; j++) {
+                row_names.push_back("[" + std::to_string(i) + "]");
+                i++;
+            }
+
+            while (!reader.empty())
+                records.push_back(reader.pop());
+
+            print_table(records, row_names);
+            records.clear();
+            row_names.clear();
+
+            std::cout << std::endl;
+            std::cout << "Press Enter to continue printing, or q or Ctrl + C to quit." << std::endl;
+            std::cout << std::endl;
+
+            if (std::cin.get() != 'q') {
+                reader.read_csv(infile, nrow, false);
+            }
+            else {
+                reader.infile.close();
+                break;
+            }
         }
-
-        print_table(records, row_names);
     }
 
     void grep(std::string infile, int col, std::string match, int max_rows,

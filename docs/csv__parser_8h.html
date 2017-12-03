@@ -72,16 +72,23 @@ $(function() {
 <div class="textblock"><code>#include &lt;stdexcept&gt;</code><br />
 <code>#include &lt;iostream&gt;</code><br />
 <code>#include &lt;fstream&gt;</code><br />
+<code>#include &lt;functional&gt;</code><br />
+<code>#include &lt;algorithm&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;math.h&gt;</code><br />
 <code>#include &lt;map&gt;</code><br />
 <code>#include &lt;set&gt;</code><br />
+<code>#include &lt;thread&gt;</code><br />
+<code>#include &lt;mutex&gt;</code><br />
+<code>#include &lt;condition_variable&gt;</code><br />
 </div><div class="textblock"><div class="dynheader">
 Include dependency graph for csv_parser.h:</div>
 <div class="dyncontent">
 <div class="center"><img src="csv__parser_8h__incl.png" border="0" usemap="#src_2csv__parser_8h" alt=""/></div>
+<map name="src_2csv__parser_8h" id="src_2csv__parser_8h">
+</map>
 </div>
 </div><div class="textblock"><div class="dynheader">
 This graph shows which files directly or indirectly include this file:</div>
@@ -101,11 +108,15 @@ This graph shows which files directly or indirectly include this file:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv__parser_1_1CSVFormat.html">csv_parser::CSVFormat</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv__parser_1_1CSVFileInfo.html">csv_parser::CSVFileInfo</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html">csv_parser::CSVReader</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html">csv_parser::CSVStat</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVCleaner.html">csv_parser::CSVCleaner</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVWriter.html">csv_parser::CSVWriter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -119,6 +130,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a199603fee5ac4bb317057dc14ad38c0a"><td class="memItemLeft" align="right" valign="top"><a id="a199603fee5ac4bb317057dc14ad38c0a"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::data_type</b> (std::string &amp;)</td></tr>
 <tr class="separator:a199603fee5ac4bb317057dc14ad38c0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adabf4c4daaf51e4f17d77cbdc38624d8"><td class="memItemLeft" align="right" valign="top"><a id="adabf4c4daaf51e4f17d77cbdc38624d8"></a>
+std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::path_split</b> (std::string)</td></tr>
+<tr class="separator:adabf4c4daaf51e4f17d77cbdc38624d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8059a19f300c431d46ab789c1dc1f100"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a8059a19f300c431d46ab789c1dc1f100">csv_parser::json_escape</a> (std::string)</td></tr>
 <tr class="separator:a8059a19f300c431d46ab789c1dc1f100"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Search Functions</div></td></tr>
@@ -135,9 +149,28 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::grep</b> 
 <tr class="memitem:a0ded7f8e0e4483337ee06a64ea324615"><td class="memItemLeft" align="right" valign="top"><a id="a0ded7f8e0e4483337ee06a64ea324615"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::col_pos</b> (std::string filename, std::string col_name, std::string delim=&quot;,&quot;, std::string quote=&quot;\, int header=0)</td></tr>
 <tr class="separator:a0ded7f8e0e4483337ee06a64ea324615"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a00c7922a42747b04a8f28dbcf3e79d15"><td class="memItemLeft" align="right" valign="top"><a id="a00c7922a42747b04a8f28dbcf3e79d15"></a>
+CSVFileInfo&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::get_file_info</b> (std::string filename)</td></tr>
+<tr class="separator:a00c7922a42747b04a8f28dbcf3e79d15"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">CSV Functions</div></td></tr>
+<tr class="memitem:a2fe3b51fa67ed7fe4518574a93ab33d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a2fe3b51fa67ed7fe4518574a93ab33d8">csv_parser::reformat</a> (std::string infile, std::string outfile, int skiplines)</td></tr>
+<tr class="separator:a2fe3b51fa67ed7fe4518574a93ab33d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a00fbd2268a599f02016ccf1687e7982d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a00fbd2268a599f02016ccf1687e7982d">csv_parser::merge</a> (std::string outfile, std::vector&lt; std::string &gt; in)</td></tr>
 <tr class="separator:a00fbd2268a599f02016ccf1687e7982d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada90e1a038f812e44f332a9932175610"><td class="memItemLeft" align="right" valign="top"><a id="ada90e1a038f812e44f332a9932175610"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::csv_to_sql</b> (std::string csv_file, std::string db, std::string table=&quot;&quot;)</td></tr>
+<tr class="separator:ada90e1a038f812e44f332a9932175610"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0c87a02da047b87d2e5ebb2e5660f306"><td class="memItemLeft" align="right" valign="top"><a id="a0c87a02da047b87d2e5ebb2e5660f306"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::csv_join</b> (std::string filename1, std::string filename2, std::string outfile, std::string column1=&quot;&quot;, std::string column2=&quot;&quot;)</td></tr>
+<tr class="separator:a0c87a02da047b87d2e5ebb2e5660f306"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab44572d370a535644f8c969afb3f1670"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#ab44572d370a535644f8c969afb3f1670">csv_parser::csv_escape</a> (std::string &amp;in, bool quote_minimal=true)</td></tr>
+<tr class="separator:ab44572d370a535644f8c969afb3f1670"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">SQL Functions</div></td></tr>
+<tr class="memitem:aa2c2a0bad817823bf31cd47b128b99a6"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#aa2c2a0bad817823bf31cd47b128b99a6">csv_parser::sql_sanitize</a> (std::string)</td></tr>
+<tr class="separator:aa2c2a0bad817823bf31cd47b128b99a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ff43577a72aaf62e8b35c28e7cd5fa2"><td class="memItemLeft" align="right" valign="top"><a id="a5ff43577a72aaf62e8b35c28e7cd5fa2"></a>
+std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::sql_sanitize</b> (std::vector&lt; std::string &gt;)</td></tr>
+<tr class="separator:a5ff43577a72aaf62e8b35c28e7cd5fa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- start footer part -->

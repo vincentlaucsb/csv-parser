@@ -7,5 +7,6 @@ var searchData=
   ['get_5fmean',['get_mean',['../classcsv__parser_1_1CSVStat.html#a981ea291714e629213e8b23829de2c1c',1,'csv_parser::CSVStat']]],
   ['get_5fmins',['get_mins',['../classcsv__parser_1_1CSVStat.html#afeba9dae570d3167a979272240cf4ab3',1,'csv_parser::CSVStat']]],
   ['get_5fvariance',['get_variance',['../classcsv__parser_1_1CSVStat.html#ab4800e53c5d7d263b733457b14ff7120',1,'csv_parser::CSVStat']]],
+  ['getargs',['getargs',['../namespacecsv__parser.html#a5a819ee328f2fc7d31f3e60cbc0df423',1,'csv_parser']]],
   ['guess_5fdelim',['guess_delim',['../namespacecsv__parser.html#ac7fc2dc2700585885829c43fd765a313',1,'csv_parser']]]
 ];

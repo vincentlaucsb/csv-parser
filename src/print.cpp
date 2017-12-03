@@ -77,6 +77,15 @@ namespace csv_parser {
         return col_widths;
     }
 
+    void print_record(std::vector<std::string> record) {
+        // Print out a single CSV row
+        for (std::string field : record) {
+            std::cout << rpad_trim(field, 20) << " ";
+        }
+
+        std::cout << std::endl;
+    }
+
     void print_table(vector<vector<string>> &records,
         vector<string> row_names) {
 

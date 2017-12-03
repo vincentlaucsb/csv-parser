@@ -22,9 +22,21 @@ int cli_rearrange(vector<string>);
 int cli_sql(vector<string>);
 int cli_join(vector<string>);
 
+string rep(string in, int n) {
+    // Repeat and concatenate a string multiple times
+    string new_str;
+
+    for (int i = 0; i + 1 < n; i++) {
+        new_str += in;
+    }
+
+    return new_str;
+}
+
 void print(string in="", int ntabs=0) {
 	for (int i = 0; i < ntabs; i++) {
-		std::cout << "\t";
+		// std::cout << "\t";
+        std::cout << rep(" ", 2); // 2 spaces per "tab"
 	}
 
 	std::cout << in << std::endl;
@@ -32,17 +44,6 @@ void print(string in="", int ntabs=0) {
 
 void print_err(string in) {
 	std::cerr << in << std::endl;
-}
-
-string rep(string in, int n) {
-    // Repeat and concatenate a string multiple times
-	string new_str;
-
-	for (int i = 0; i + 1 < n; i++) {
-		new_str += in;
-	}
-
-	return new_str;
 }
 
 template<typename T>
@@ -82,7 +83,7 @@ void print_help() {
     print("Basic Usage");
     print(rep("-", 80));
     print("csv-parser [command] [arguments]");
-    print(" - If no command is specified, basic file information is displayed");
+    print(" - If no command is specified, the parser pretty prints the file to the terminal");
     print(" - Escape spaces with quotes");
     print();
     
@@ -90,8 +91,8 @@ void print_help() {
 	print("Search Commands");
 	print(rep("-", 80));
 
-    print("head [file]", 1);
-    print("Print first 100 lines", 2);
+    print("info [file]", 1);
+    print("Display basic CSV information", 2);
     print();
 
 	print("grep [file] [column name/number] [regex]", 1);
@@ -106,17 +107,15 @@ void print_help() {
 	print("Reformating Commands");
 	print(rep("-", 80));
 
-	print("csv [input] [output]", 1);
-	print("Reformat input file as RFC 1480 CSV file", 2);
-	print();
-
 	print("csv [input 1] [input 2] ... [output]", 1);
-	print("Merge several CSVs into one", 2);
+	print("Reformat one or more input files into a single RFC 1480 compliant CSV file", 2);
 	print();
 
+    /*
     print("sample [input] [output] [n]", 1);
     print("Take a random sample (with replacement) of n rows", 2);
     print();
+    */
 
 	print("json [input] [output]", 1);
 	print("Newline Delimited JSON Output", 2);
@@ -130,7 +129,7 @@ void print_help() {
     print("Transform CSV file into a SQLite3 database", 2);
     print();
 
-    print("join [input1] [input2]", 1);
+    print("join [input 1] [input 2]", 1);
     print("Join two CSV files on their common fields", 2);
 }
 
@@ -176,11 +175,10 @@ int main(int argc, char* argv[]) {
     }
 
 	try {
-		if (command == "head") {
-			file_exists(str_args.at(0));
-            head(str_args.at(0), 100);
-		}
-		else if (command == "grep") {
+        if (command == "info") {
+            return cli_info(str_args.at(0));
+        }
+        else if (command == "grep") {
             return cli_grep(str_args);
 		}
         else if (command == "stat") {
@@ -204,7 +202,7 @@ int main(int argc, char* argv[]) {
 		else {
 			// No command speicifed --> assume it's a filename
             file_exists(command);
-            cli_info(command);
+            head(command, 100);
 		}
 	}
 	catch (string e) {
@@ -225,6 +223,8 @@ int cli_stat(vector<string> str_args) {
     string delim = guess_delim(str_args.at(0));
 
     CSVStat calc(delim);
+    (&calc)->bad_row_handler = &print_record;
+
     while (!calc.eof) {
         calc.read_csv(str_args.at(0), 50000, false);
         calc.calc();

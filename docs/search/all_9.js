@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['main_2ecpp',['main.cpp',['../main_8cpp.html',1,'']]],
-  ['merge',['merge',['../namespacecsv__parser.html#a00fbd2268a599f02016ccf1687e7982d',1,'csv_parser']]]
+  ['last_5fpos',['last_pos',['../classcsv__parser_1_1CSVReader.html#ad322a8e1675990c82ba988e578b663b5',1,'csv_parser::CSVReader']]]
 ];
