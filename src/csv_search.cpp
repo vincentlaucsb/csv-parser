@@ -23,7 +23,7 @@ namespace csv_parser {
         vector<string> row_names = {};
         int i = 0;
 
-        while (!(reader.eof)) {
+        while (!(reader.eof) || !(reader.empty())) {
             for (int j = 0; j < nrow; j++) {
                 row_names.push_back("[" + std::to_string(i) + "]");
                 i++;
