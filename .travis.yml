@@ -12,12 +12,12 @@ sudo: required
 language:
   - cpp
 before_script:
-  - pip3 install pexpect
+  - pip install pexpect
 script:
   - export CC=gcc-6
   - export CXX=g++-6
   - make test_all
-  - pip3 install --user cpp-coveralls
+  - pip install --user cpp-coveralls
 after_success:
   - if [ "$CXX" == "g++-6" ]; then
         coveralls --exclude tests --gcov-options '\-lp \--relative-only';
