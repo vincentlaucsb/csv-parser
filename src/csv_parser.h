@@ -169,7 +169,7 @@ namespace csv_parser {
                     return (this->record_it) == (other.record_it);
                 }
 
-                bool operator!=(iterator& other) const {
+                bool operator!=(iterator other) const {
                     if (reader_p->records.empty()) {
                         // Keep iterating advancing if there are still CSV rows to be read
                         if ((reader_p->infile.is_open()) &&
