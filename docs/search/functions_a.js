@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['sample',['sample',['../classcsv__parser_1_1CSVReader.html#adbe74d521dd8f2dc8bf9b9834024f336',1,'csv_parser::CSVReader']]],
-  ['set_5fcol_5fnames',['set_col_names',['../classcsv__parser_1_1CSVReader.html#af379afa29bafb70df0a1ffcc69b49466',1,'csv_parser::CSVReader']]],
-  ['sql_5fsanitize',['sql_sanitize',['../namespacecsv__parser.html#aa2c2a0bad817823bf31cd47b128b99a6',1,'csv_parser']]]
+  ['read_5fcsv',['read_csv',['../classcsv__parser_1_1CSVReader.html#a2d925f5ae93669c1ba6643eace07d7a1',1,'csv_parser::CSVReader']]],
+  ['reformat',['reformat',['../namespacecsv__parser.html#a2fe3b51fa67ed7fe4518574a93ab33d8',1,'csv_parser']]],
+  ['round',['round',['../namespacecsv__parser.html#aec928bc6375f31a8027c8339b1ae9a6c',1,'csv_parser']]],
+  ['rpad_5ftrim',['rpad_trim',['../namespacecsv__parser.html#afaa019228f129e0b9c8be638d97e36e4',1,'csv_parser']]]
 ];

@@ -131,6 +131,8 @@ void print_help() {
 
     print("join [input 1] [input 2]", 1);
     print("Join two CSV files on their common fields", 2);
+
+    cli_stat(std::vector<std::string>{"C:/Users/vince/Documents/DataFest/ASADataFest2017 Data/data.txt"});
 }
 
 bool file_exists(string filename, bool throw_err=true) {
@@ -175,30 +177,22 @@ int main(int argc, char* argv[]) {
     }
 
 	try {
-        if (command == "info") {
+        if (command == "info")
             return cli_info(str_args.at(0));
-        }
-        else if (command == "grep") {
+        else if (command == "grep")
             return cli_grep(str_args);
-		}
-        else if (command == "stat") {
+        else if (command == "stat")
             return cli_stat(str_args);
-        }
-		else if (command == "csv") {
+		else if (command == "csv")
             return cli_csv(str_args);
-		}
-		else if (command == "json") {
+		else if (command == "json")
             return cli_json(str_args);
-		}
-        else if (command == "rearrange") {
+        else if (command == "rearrange")
             return cli_rearrange(str_args);
-        }
-        else if (command == "sql") {
+        else if (command == "sql")
             return cli_sql(str_args);
-        }
-        else if (command == "join") {
+        else if (command == "join")
             return cli_join(str_args);
-        }
 		else {
 			// No command speicifed --> assume it's a filename
             file_exists(command);
@@ -214,7 +208,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Insufficient arguments" << std::endl;
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -265,25 +259,18 @@ int cli_stat(vector<string> str_args) {
 
 int cli_info(string filename) {
     CSVFileInfo info = get_file_info(filename);
-    auto info_p = &info;
-
-    print(info_p->filename);
-
     vector<vector<string>> records;
+    auto info_p = &info;
+    print(info_p->filename);
     
     records.push_back({"Delimiter", info_p->delim});
     records.push_back({"Rows", std::to_string(info_p->n_rows) });
     records.push_back({"Columns", std::to_string(info_p->n_cols) });
 
-    for (size_t i = 0; i < info_p->col_names.size(); i++) {
-        records.push_back({
-            "[" + std::to_string(i) + "]",
-            info_p->col_names[i]
-        });
-    }
+    for (size_t i = 0; i < info_p->col_names.size(); i++)
+        records.push_back({"[" + std::to_string(i) + "]", info_p->col_names[i]});
 
-    print_table(records);
-
+    print_table(records, -1);
     return 0;
 }
 

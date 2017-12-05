@@ -116,7 +116,7 @@ namespace csv_parser {
             current_row < rlen; current_row++) {
 
             if (!row_names.empty())
-                std::cout << rpad_trim(*(++row_name_p), row_name_width) << std::endl;
+                std::cout << rpad_trim(*(row_name_p++), row_name_width);
             else if (row_num >= 0)
                 std::cout << rpad_trim("[" + std::to_string(row_num++) + "]", row_name_width);
 

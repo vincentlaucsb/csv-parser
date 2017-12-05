@@ -36,13 +36,14 @@ namespace csv_parser {
     }
 
     CSVWriter::CSVWriter(std::string outfile) {
-        // Open a file handler
+        /** Open a file for writing */
         this->outfile = std::ofstream(outfile, std::ios_base::binary);
     }
 
     void CSVWriter::write_row(vector<string> record, bool quote_minimal) {
-        /** Output currently parsed rows (including column names)
-         *  to a RFC 4180-compliant CSV file.
+        /** Format a sequence of strings and write to CSV according to RFC 4180
+         *
+         *  **Note**: This does not check to make sure row lengths are consistent
          *  @param      quote_minimal   Only quote fields if necessary
          */
 
@@ -56,6 +57,7 @@ namespace csv_parser {
     }
 
     void CSVWriter::close() {
+        /** Close the file being written to */
         this->outfile.close();
     }
 

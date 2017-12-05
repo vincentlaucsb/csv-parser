@@ -60,10 +60,9 @@ namespace csv_parser {
         //char delim = *(guess_delim(filename).c_str());
         std::string delim = guess_delim(filename);
         CSVReader reader(delim);        
-        while (!reader.eof) {
-            reader.read_csv(filename, 100000, false);
+
+        for (auto it = reader.begin(filename); it != reader.end(); ++it)
             reader.clear();
-        }
 
         CSVFileInfo* info = new CSVFileInfo;
 
@@ -122,47 +121,51 @@ namespace csv_parser {
          *  **Note**: end_feed() should be called after the last string
          */
 
+        std::string * str_buffer = &(this->records.back().back());
+
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
-                this->process_possible_delim(in, i);
+                this->process_possible_delim(in, i, str_buffer);
             } else if (in[i] == this->quote_char) {
-                this->process_quote(in, i);
+                this->process_quote(in, i, str_buffer);
             } else {
                 switch(in[i]) {
                     case '\r':
                     case '\n':
-                        this->process_newline(in, i);
+                        this->process_newline(in, i, str_buffer);
                         break;
                     default:
-                        this->str_buffer += in[i];
+                        *str_buffer += in[i];
                 }
             }
         }
     }
 
     void CSVReader::end_feed() {
-        /** Indicate that there is no more data to receive, and parse
-         *  remaining content in string buffer
+        /** Indicate that there is no more data to receive,
+         *  and handle the last row
          */
-        if (this->record_buffer.size() > 0) {
-            this->write_record(this->record_buffer);
-        }
+        if ((this->records.back()).size() > 1)
+            this->write_record();
+        else
+            this->records.pop_back();
     }
 
-    void CSVReader::process_possible_delim(std::string &in, size_t &index) {
+    void CSVReader::process_possible_delim(std::string &in, size_t &index, std::string* &out) {
         /** Process a delimiter character and determine if it is a field
          *  separator
          */
+
         if (!this->quote_escape) {
             // Case: Not being escaped --> Write field
-            this->record_buffer.push_back(this->str_buffer);
-            this->str_buffer.clear();
+            this->records.back().push_back(std::string());
+            out = &(this->records.back().back());
         } else {
-            this->str_buffer += in[index]; // Treat as regular data
+            *out += in[index]; // Treat as regular data
         }
     }
 
-    void CSVReader::process_newline(std::string &in, size_t &index) {
+    void CSVReader::process_newline(std::string &in, size_t &index, std::string* &out) {
         /** Process a newline character and determine if it is a record
          *  separator        
          */
@@ -173,20 +176,15 @@ namespace csv_parser {
                 index++;
             }
             
-            // Write remaining data
-            if (this->str_buffer.size() > 0) {
-                this->record_buffer.push_back(this->str_buffer);
-                this->str_buffer.clear();
-            }
-            
             // Write record
-            this->write_record(this->record_buffer);
+            this->write_record();
+            out = &(this->records.back().back());
         } else {
-            this->str_buffer += in[index]; // Quote-escaped
+            *out += in[index]; // Quote-escaped
         }
     }
 
-    void CSVReader::process_quote(std::string &in, size_t &index) {
+    void CSVReader::process_quote(std::string &in, size_t &index, std::string* &out) {
         /** Determine if the usage of a quote is valid or fix it
          */
         if (this->quote_escape) {
@@ -196,72 +194,65 @@ namespace csv_parser {
                 // Case: End of field
                 this->quote_escape = false;
             } else {
-                // Note: This may fix single quotes (not valid)
-                this->str_buffer += in[index];
-                
+                // Note: This may fix single quotes (not strictly valid)
+                *out += in[index];
                 if (in[index + 1] == this->quote_char)
                     index++;  // Case: Two consecutive quotes
             }
         } else {
-			// Add index > 0 to prevent string index errors
-            if (index > 0 && in[index - 1] == this->delimiter) {
-                // Case 1: Previous character was delimiter
+			/* Add index > 0 to prevent string index errors
+             * Case: Previous character was delimiter
+             */
+            if (index > 0 && in[index - 1] == this->delimiter)
                 this->quote_escape = true;
-            } else {
-                // Case 2: Unescaped quote => Drop it
-            }
         }
     }
 
-    void CSVReader::write_record(std::vector<std::string> &record) {
+    void CSVReader::write_record() {
         /** Push the current row into a queue if it is the right length.
          *  Drop it otherwise.
          */
         
-        // Unset all flags
-        this->quote_escape = false;
+        auto& record = this->records.back();
+        size_t col_names_size = this->col_names.size();
+        this->quote_escape = false;  // Unset all flags
         
         if (this->row_num > this->header_row) {            
             /* Workaround: CSV parser doesn't catch the last field if
              * it is empty */             
-            if (record.size() + 1 == this->col_names.size()) {
+            if (record.size() + 1 == col_names_size)
                 record.push_back(std::string());
-            }
             
             // Make sure record is of the right length
-            if (record.size() == this->col_names.size()) {                
+            if (record.size() == col_names_size) {
                 this->correct_rows++;
-                
-                if (!this->subset_flag) {
-                    // No need to subset
-                    this->records.push_back(record);
-                } else {
-                    // Subset the data
+                if (this->subset_flag) {
                     std::vector<std::string> subset_record;
-                    
-                    for (size_t i = 0; i < this->subset.size(); i++) {
+                    for (size_t i = 0; i < this->subset.size(); i++)
                         subset_record.push_back(record[ this->subset[i] ]);
-                    }
                     
+                    this->records.pop_back();
                     this->records.push_back(subset_record);
                 }
             } else {
-                // Case 1: Zero-length record. Probably caused by
-                // extraneous delimiters.
-                // Case 2: Too short or too long
-                
+                /* 1) Zero-length record, probably caused by extraneous newlines
+                 * 2) Too short or too long
+                 */
                 if (!record.empty() && this->bad_row_handler) {
-                    std::cout << "Warning: Row too short" << std::endl;
-                    this->bad_row_handler(record);
+                    auto copy = this->records.back();
+                    this->records.pop_back();
+                    this->bad_row_handler(copy);
                 }
             }
         } else if (this->row_num == this->header_row) {
-            this->set_col_names(record);
+            this->set_col_names(this->records.back());
+            this->records.pop_back();
         } else {
             // Ignore rows before header row
         }
-        
-        record.clear();
+
+        this->records.push_back(std::vector<std::string>{std::string()});
+        this->records.back().reserve(col_names_size);
         this->row_num++;
     }
 
@@ -303,7 +294,8 @@ namespace csv_parser {
     }
 
     void CSVReader::clear() {
-        return this->records.clear();
+        this->records.clear();
+        this->records.push_back(std::vector<std::string>{std::string()});
     }
 
     void CSVReader::_read_csv() {
@@ -335,6 +327,9 @@ namespace csv_parser {
         if (!this->infile.is_open()) {
             this->infile = std::ifstream(filename);
             this->infile_name = filename;
+
+            if (!infile.good())
+                throw std::runtime_error("Cannot open file");
         }
         
         std::string line;
@@ -381,9 +376,8 @@ namespace csv_parser {
             this->infile.close();
     }
     
-    std::string CSVReader::csv_to_json() {
+    std::string CSVReader::csv_to_json(std::vector<std::string>& record) {
         /** Helper method for both to_json() methods */
-        std::vector<std::string> record = this->pop();
         std::string json_record = "{";
         std::string * col_name;
         
@@ -395,16 +389,13 @@ namespace csv_parser {
              * Recall data_type() returns 2 for ints and 3 for floats
              */
             
-            if (data_type(record[i]) > 1) {
+            if (data_type(record[i]) > 1)
                 json_record += record[i];
-            }
-            else {
+            else
                 json_record += "\"" + json_escape(record[i]) + "\"";
-            }
 
-            if (i + 1 != record.size()) {
+            if (i + 1 != record.size())
                 json_record += ",";
-            }
         }
 
         json_record += "}";
@@ -431,7 +422,6 @@ namespace csv_parser {
          *  > {"Name":"Matt Ryan","TD":2,"Int":0,"Yards":284}
          */
         std::vector<std::string> record;
-        std::string json_record;
         std::ofstream outfile;
 
         if (append)
@@ -439,11 +429,8 @@ namespace csv_parser {
         else
             outfile.open(filename);
 
-        while (!this->empty()) {
-            json_record = this->csv_to_json();
-            if (!this->empty()) { json_record += "\n"; }
-            outfile << json_record;
-        }
+        for (auto it = this->records.begin(); it != this->records.end(); ++it)
+            outfile << this->csv_to_json(*it) + "\n";
 
         outfile.close();
     }
@@ -452,14 +439,10 @@ namespace csv_parser {
         /** Similar to to_json(std::string filename), but outputs a vector of
          *  JSON strings instead
          */
-        std::vector<std::string> record;
-        std::string json_record;
         std::vector<std::string> output;
 
-        while (!this->empty()) {
-            json_record = this->csv_to_json();
-            output.push_back(json_record);
-        }
+        for (auto it = this->records.begin(); it != this->records.end(); ++it)
+            output.push_back(this->csv_to_json(*it));
 
         return output;
     }

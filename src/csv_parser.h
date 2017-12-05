@@ -81,7 +81,17 @@ namespace csv_parser {
     std::vector<std::string> sql_sanitize(std::vector<std::string>);
     ///@}
 
-    /** The main class for parsing CSV files */
+    /**
+     * The main class for parsing CSV files
+     *
+     * CSV data can be read in the following ways
+     * -# From in-memory strings using feed() and end_feed()
+     * -# From CSV files using the multi-threaded read_csv() function
+     *
+     * All rows are compared to the column names for length consistency
+     * - By default, rows that are too short or too long are dropped
+     * - A custom callback can be registered by setting bad_row_handler
+     */
     class CSVReader {        
         public:
             /** @name CSV Input
@@ -122,14 +132,6 @@ namespace csv_parser {
             int correct_rows = 0;  /**< How many correct rows (minus header) have been parsed so far */
             bool eof = false;      /**< Have we reached the end of file */
 
-            friend void head(std::string infile, int nrow,
-                std::string delim, std::string quote,
-                int header, std::vector<int> subset);
-
-            friend void grep(std::string infile, int col, std::string match, int max_rows,
-                std::string delim, std::string quote,
-                int header, std::vector<int> subset);
-            
             CSVReader(
                 std::string delim=",",
                 std::string quote="\"",
@@ -170,13 +172,14 @@ namespace csv_parser {
                 }
 
                 bool operator!=(iterator other) const {
-                    if (reader_p->records.empty()) {
+                    if (reader_p->records.size() < 10) {
                         // Keep iterating advancing if there are still CSV rows to be read
-                        if ((reader_p->infile.is_open()) &&
-                            !(reader_p->eof)) {
-                            reader_p->clear();
-                            reader_p->read_csv(reader_p->infile_name, 100, false);
+                        if (!(reader_p->eof)) {
+                            reader_p->read_csv(reader_p->infile_name, ITERATION_CHUNK_SIZE, false);
                             other = iterator(reader_p, reader_p->records.end());
+                        }
+                        else {
+                            return false; // EOF
                         }
                     }
 
@@ -189,27 +192,34 @@ namespace csv_parser {
             };
 
             iterator begin() {
+                /** Return an iterator over the rows CSVReader has parsed so far */
                 return iterator(this, this->records.begin());
             }
 
             iterator begin(std::string filename, size_t chunk_size=ITERATION_CHUNK_SIZE) {
+                /** Return an iterator over a potentially larger-than-RAM file */
                 this->read_csv(filename, chunk_size, false);
                 return iterator(this, this->records.begin(), chunk_size);
             }
 
             iterator end() {
+                /** Return an iterator pointing the the last parsed row
+                 *
+                 *  **Note:** If iterating over a file, the row which end() points to will 
+                 *  change as more data is read
+                 */
                 return iterator(this, this->records.end());
             }
 
         protected:
             // CSV parsing callbacks
-            inline void process_possible_delim(std::string&, size_t&);
-            inline void process_quote(std::string&, size_t&);
-            inline void process_newline(std::string&, size_t&);
-            inline void write_record(std::vector<std::string>&);
+            inline void process_possible_delim(std::string&, size_t&, std::string*&);
+            inline void process_quote(std::string&, size_t&, std::string*&);
+            inline void process_newline(std::string&, size_t&, std::string*&);
+            inline void write_record();
             
             // Helper methods
-            inline std::string csv_to_json();
+            inline std::string csv_to_json(std::vector<std::string>&);
             
             // Column Information
             std::vector<std::string> col_names; /**< Column names */
@@ -225,15 +235,13 @@ namespace csv_parser {
             std::streampos last_pos = 0; /**< Line number of last row read from file */
 
             // Multi-threading support
-            void _read_csv();      /**< Worker thread */
-            std::deque<std::string*> feed_buffer;
-            std::mutex feed_lock;
-            std::condition_variable feed_cond;
+            void _read_csv();                     /**< Worker thread */
+            std::deque<std::string*> feed_buffer; /**< Message queue for worker */
+            std::mutex feed_lock;                 /**< Allow only one worker to write */
+            std::condition_variable feed_cond;    /**< Wake up worker */
             
             // Buffers
-            std::deque< std::vector < std::string > > records; /**< Queue of parsed CSV rows */
-            std::vector<std::string> record_buffer;            /**< Buffer for current row */
-            std::string str_buffer;                            /**< Buffer for current string fragment */
+            std::deque< std::vector < std::string > > records = { { std::string() } }; /**< Queue of parsed CSV rows */
     };
     
     /** Class for calculating statistics from CSV files */

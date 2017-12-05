@@ -76,16 +76,52 @@ $(function() {
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a5c88acfa0a9e27bbb278d999b396d3ae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVWriter.html#a5c88acfa0a9e27bbb278d999b396d3ae">write_row</a> (std::vector&lt; std::string &gt; record, bool quote_minimal=true)</td></tr>
 <tr class="separator:a5c88acfa0a9e27bbb278d999b396d3ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a01bafc47dc4db1469ce6a6e3f02aedb0"><td class="memItemLeft" align="right" valign="top"><a id="a01bafc47dc4db1469ce6a6e3f02aedb0"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>close</b> ()</td></tr>
+<tr class="memitem:a01bafc47dc4db1469ce6a6e3f02aedb0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVWriter.html#a01bafc47dc4db1469ce6a6e3f02aedb0">close</a> ()</td></tr>
 <tr class="separator:a01bafc47dc4db1469ce6a6e3f02aedb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac57741f8bf4eed7129d1704fd7d7b355"><td class="memItemLeft" align="right" valign="top"><a id="ac57741f8bf4eed7129d1704fd7d7b355"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>CSVWriter</b> (std::string filename)</td></tr>
+<tr class="memitem:ac57741f8bf4eed7129d1704fd7d7b355"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVWriter.html#ac57741f8bf4eed7129d1704fd7d7b355">CSVWriter</a> (std::string filename)</td></tr>
 <tr class="separator:ac57741f8bf4eed7129d1704fd7d7b355"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class for writing CSV files </p>
-</div><h2 class="groupheader">Member Function Documentation</h2>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="ac57741f8bf4eed7129d1704fd7d7b355"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac57741f8bf4eed7129d1704fd7d7b355">&#9670;&nbsp;</a></span>CSVWriter()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">csv_parser::CSVWriter::CSVWriter </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Open a file for writing </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="a01bafc47dc4db1469ce6a6e3f02aedb0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a01bafc47dc4db1469ce6a6e3f02aedb0">&#9670;&nbsp;</a></span>close()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv_parser::CSVWriter::close </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Close the file being written to </p>
+
+</div>
+</div>
 <a id="a5c88acfa0a9e27bbb278d999b396d3ae"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a5c88acfa0a9e27bbb278d999b396d3ae">&#9670;&nbsp;</a></span>write_row()</h2>
 
@@ -111,7 +147,8 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>close</b> ()</td></tr
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Output currently parsed rows (including column names) to a RFC 4180-compliant CSV file. </p><dl class="params"><dt>Parameters</dt><dd>
+<p>Format a sequence of strings and write to CSV according to RFC 4180</p>
+<p><b>Note</b>: This does not check to make sure row lengths are consistent </p><dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">quote_minimal</td><td>Only quote fields if necessary</td></tr>
   </table>

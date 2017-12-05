@@ -12,7 +12,8 @@ namespace csv_parser {
         /** - Initialize statistics arrays to NAN
          *  - Should be called (by calc()) before calculating statistics
          */
-        for (size_t i = 0; i < this->subset.size(); i++) {
+         
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             rolling_means.push_back(0);
             rolling_vars.push_back(0);
             mins.push_back(NAN);
@@ -24,7 +25,7 @@ namespace csv_parser {
     std::vector<long double> CSVStat::get_mean() {
         /** Return current means */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->rolling_means[i]);
         }
         return ret;
@@ -33,7 +34,7 @@ namespace csv_parser {
     std::vector<long double> CSVStat::get_variance() {
         /** Return current variances */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
         }
         return ret;
@@ -42,7 +43,7 @@ namespace csv_parser {
     std::vector<long double> CSVStat::get_mins() {
         /** Return current variances */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->mins[i]);
         }
         return ret;
@@ -51,7 +52,7 @@ namespace csv_parser {
     std::vector<long double> CSVStat::get_maxes() {
         /** Return current variances */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->maxes[i]);
         }
         return ret;
@@ -60,7 +61,7 @@ namespace csv_parser {
     std::vector< std::map<std::string, int> > CSVStat::get_counts() {
         /** Get counts for each column */
         std::vector< std::map<std::string, int> > ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->counts[i]);
         }
         return ret;
@@ -69,7 +70,7 @@ namespace csv_parser {
     std::vector< std::map<int, int> > CSVStat::get_dtypes() {
         /** Get data type counts for each column */
         std::vector< std::map<int, int> > ret;        
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->dtypes[i]);
         }
         return ret;
@@ -85,7 +86,7 @@ namespace csv_parser {
         vector<std::thread> pool;
 
         // Start threads
-        for (size_t i = 0; i < this->subset.size(); i++) {
+        for (size_t i = 0; i < subset_col_names.size(); i++) {
             pool.push_back(std::thread(&CSVStat::calc_col, this, i));
         }
 
@@ -94,7 +95,7 @@ namespace csv_parser {
             (*it).join();
         }
 
-        this->records.clear();
+        this->clear();
     }
 
     void CSVStat::calc_col(size_t i) {
@@ -105,6 +106,9 @@ namespace csv_parser {
         std::deque<vector<string>>::iterator current_record = this->records.begin();
         long double x_n;
 
+        if (this->records.back().size() <= 1)
+            this->records.back().pop_back();
+        
         while (current_record != this->records.end()) {
             this->count((*current_record)[i], i);
             this->dtype((*current_record)[i], i);
