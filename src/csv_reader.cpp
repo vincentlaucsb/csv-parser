@@ -60,9 +60,12 @@ namespace csv_parser {
         //char delim = *(guess_delim(filename).c_str());
         std::string delim = guess_delim(filename);
         CSVReader reader(delim);        
+        reader.read_csv(filename, ITERATION_CHUNK_SIZE, false);
 
-        for (auto it = reader.begin(filename); it != reader.end(); ++it)
+        while (!reader.eof) {
+            reader.read_csv(filename, ITERATION_CHUNK_SIZE, false);
             reader.clear();
+        }
 
         CSVFileInfo* info = new CSVFileInfo;
 
@@ -324,36 +327,33 @@ namespace csv_parser {
     void CSVReader::read_csv(std::string filename, int nrows, bool close) {
         /** Parse an entire CSV file */
 
-        if (!this->infile.is_open()) {
-            this->infile = std::ifstream(filename);
+        if (!this->infile) {
+            this->infile = std::fopen(filename.c_str(), "r");
             this->infile_name = filename;
 
-            if (!infile.good())
+            if (!this->infile)
                 throw std::runtime_error("Cannot open file");
         }
         
-        std::string line;
-        std::string newline("\n");
-
+        char * line_buffer = new char[10000];
         std::string* buffer = new std::string();
         std::thread worker(&CSVReader::_read_csv, this);
 
-        while (std::getline(this->infile, line, '\n') && (nrows <= -1 || nrows > 0)) {
-            /*
-            * Hack: Add the delimiter back in because it might be
-            * in a quoted field and thus not an actual delimiter
-            */
-            *buffer += line;
-            *buffer += newline;
+        while (nrows <= -1 || nrows > 0) {
+            char * result = std::fgets(line_buffer, sizeof(char[10000]), this->infile);            
+            *buffer += line_buffer;
+            nrows--;
 
             if ((*buffer).size() >= 1000000) {
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
                 this->feed_buffer.push_back(buffer);
                 this->feed_cond.notify_one();
                 buffer = new std::string();  // Buffers get freed by worker
+                // Doesn't help oddly enough: buffer->reserve(1000000);
             }
 
-            nrows--;
+            if (result == NULL || std::feof(this->infile))
+                break;
         }
 
         // Feed remaining bits
@@ -364,16 +364,18 @@ namespace csv_parser {
         lock.unlock();
         worker.join();
 
-        if (!std::getline(infile, line, '\n')) {
-            // Only end_feed() if we have reached the end of the file
+        if (std::feof(this->infile)) {
             this->end_feed();
             this->eof = true;
-            this->infile.close();
+            this->close();
         }
 
-        // Close file handler unless specified
         if (close)
-            this->infile.close();
+            this->close();
+    }
+
+    void CSVReader::close() {
+        std::fclose(this->infile);
     }
     
     std::string CSVReader::csv_to_json(std::vector<std::string>& record) {

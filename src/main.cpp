@@ -132,7 +132,7 @@ void print_help() {
     print("join [input 1] [input 2]", 1);
     print("Join two CSV files on their common fields", 2);
 
-    cli_stat(std::vector<std::string>{"C:/Users/vince/Documents/DataFest/ASADataFest2017 Data/data.txt"});
+    cli_info({ "C:/Users/vince/Documents/GitHub/csv-parser/x64/Release/2015_StateDepartment.csv" });
 }
 
 bool file_exists(string filename, bool throw_err=true) {
@@ -213,19 +213,16 @@ int main(int argc, char* argv[]) {
 }
 
 int cli_stat(vector<string> str_args) {
+    std::string filename = str_args.at(0);
     file_exists(str_args.at(0));
-    string delim = guess_delim(str_args.at(0));
-
-    CSVStat calc(delim);
+   
+    CSVStat calc(guess_delim(filename));
     (&calc)->bad_row_handler = &print_record;
 
-    while (!calc.eof) {
-        calc.read_csv(str_args.at(0), 50000, false);
+    for (auto it = calc.begin(str_args.at(0)); it != calc.end(); ++it)
         calc.calc();
-    }
 
     vector<string> col_names = calc.get_col_names();
-
     vector<map<string, int>> counts = calc.get_counts();
     vector<vector<string>> print_rows = {
         col_names,
@@ -310,19 +307,14 @@ int cli_json(vector<string> str_args) {
     string filename = str_args.at(0);
     file_exists(filename);
 
-    string outfile;
-    string delim = filename;
+    string outfile(filename + ".ndjson");
+    if (str_args.size() > 1)
+        outfile = str_args[1];
 
-    if (str_args.size() == 1)
-        outfile = filename + ".ndjson";
-    else
-        outfile = filename;
-
-    CSVReader reader(delim);
-
-    while (!reader.eof) {
-        reader.read_csv(str_args.at(0), 50000, false);
+    CSVReader reader(guess_delim(filename));
+    for (auto it = reader.begin(filename); it != reader.end(); ++it) {
         reader.to_json(outfile, true);
+        reader.clear();
     }
 
     return 0;

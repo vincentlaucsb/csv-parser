@@ -1,6 +1,7 @@
 /** @csv_parser */
 
 #include <stdexcept>
+#include <cstdio>
 #include <iostream>
 #include <fstream>
 #include <functional>
@@ -126,11 +127,15 @@ namespace csv_parser {
                 */
             ///@}
 
-            std::ifstream infile;
+            /** @name File Handling */
+            ///@{
             std::string infile_name;
+            bool eof = false;            /**< Have we reached the end of file */
+            void close();          /**< Close the open file handler */
+            ///@}
+
             int row_num = 0;       /**< How many lines have been parsed so far */
             int correct_rows = 0;  /**< How many correct rows (minus header) have been parsed so far */
-            bool eof = false;      /**< Have we reached the end of file */
 
             CSVReader(
                 std::string delim=",",
@@ -157,6 +162,9 @@ namespace csv_parser {
                     reader_p(_ptr), record_it(_it), chunk_size(_chunk_size) {};
 
                 iterator& operator++() {
+                    if (this->record_it == reader_p->records.end() && !reader_p->eof)
+                        reader_p->read_csv(reader_p->infile_name, ITERATION_CHUNK_SIZE, false);
+
                     (this->record_it)++;
                     return *this;
                 }
@@ -172,17 +180,6 @@ namespace csv_parser {
                 }
 
                 bool operator!=(iterator other) const {
-                    if (reader_p->records.size() < 10) {
-                        // Keep iterating advancing if there are still CSV rows to be read
-                        if (!(reader_p->eof)) {
-                            reader_p->read_csv(reader_p->infile_name, ITERATION_CHUNK_SIZE, false);
-                            other = iterator(reader_p, reader_p->records.end());
-                        }
-                        else {
-                            return false; // EOF
-                        }
-                    }
-
                     return !(*this == other);
                 }
 
@@ -235,6 +232,7 @@ namespace csv_parser {
             std::streampos last_pos = 0; /**< Line number of last row read from file */
 
             // Multi-threading support
+            std::FILE* infile = nullptr;
             void _read_csv();                     /**< Worker thread */
             std::deque<std::string*> feed_buffer; /**< Message queue for worker */
             std::mutex feed_lock;                 /**< Allow only one worker to write */

@@ -31,7 +31,7 @@ namespace csv_parser {
                     << "Press Enter to continue printing, or q or Ctrl + C to quit."
                     << std::endl << std::endl;
                 if (std::cin.get() == 'q') {
-                    reader.infile.close();
+                    reader.close();
                     break;
                 }
             }
@@ -68,7 +68,7 @@ namespace csv_parser {
                     << std::endl << std::endl;
                 
                 if (std::cin.get() == 'q') {
-                    reader.infile.close();
+                    reader.close();
                     break;
                 }
                 max_rows = orig_max_rows;
