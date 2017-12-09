@@ -34,16 +34,9 @@ string rep(string in, int n) {
 }
 
 void print(string in="", int ntabs=0) {
-	for (int i = 0; i < ntabs; i++) {
-		// std::cout << "\t";
+	for (int i = 0; i < ntabs; i++)
         std::cout << rep(" ", 2); // 2 spaces per "tab"
-	}
-
 	std::cout << in << std::endl;
-}
-
-void print_err(string in) {
-	std::cerr << in << std::endl;
 }
 
 template<typename T>
@@ -86,30 +79,30 @@ void print_help() {
     print(" - If no command is specified, the parser pretty prints the file to the terminal");
     print(" - Escape spaces with quotes");
     print();
-    
+
     // Searching
-	print("Search Commands");
-	print(rep("-", 80));
+    print("Search Commands");
+    print(rep("-", 80));
 
     print("info [file]", 1);
     print("Display basic CSV information", 2);
     print();
 
-	print("grep [file] [column name/number] [regex]", 1);
-	print("Print all rows matching a regular expression", 2);
-	print();
+    print("grep [file] [column name/number] [regex]", 1);
+    print("Print all rows matching a regular expression", 2);
+    print();
 
     print("stat [file]", 1);
     print("Calculate statistics", 2);
     print();
-	
-    // Reformatting
-	print("Reformating Commands");
-	print(rep("-", 80));
 
-	print("csv [input 1] [input 2] ... [output]", 1);
-	print("Reformat one or more input files into a single RFC 1480 compliant CSV file", 2);
-	print();
+    // Reformatting
+    print("Reformating Commands");
+    print(rep("-", 80));
+
+    print("csv [input 1] [input 2] ... [output]", 1);
+    print("Reformat one or more input files into a single RFC 1480 compliant CSV file", 2);
+    print();
 
     /*
     print("sample [input] [output] [n]", 1);
@@ -117,9 +110,9 @@ void print_help() {
     print();
     */
 
-	print("json [input] [output]", 1);
-	print("Newline Delimited JSON Output", 2);
-	print();
+    print("json [input] [output]", 1);
+    print("Newline Delimited JSON Output", 2);
+    print();
 
     // Advanced
     print("Advanced");
@@ -131,27 +124,13 @@ void print_help() {
 
     print("join [input 1] [input 2]", 1);
     print("Join two CSV files on their common fields", 2);
-
-    cli_info({ "C:/Users/vince/Documents/GitHub/csv-parser/x64/Release/2015_StateDepartment.csv" });
 }
 
-bool file_exists(string filename, bool throw_err=true) {
-    std::ifstream infile;
-    infile.open(filename);
-
-    if (!infile.good()) {
-		if (throw_err) {
-			char err_msg[200];
-			snprintf(err_msg, 200, "File %s not found", filename.c_str());
-			throw string(err_msg);
-		}
-		else {
-			return false;
-		}
-	}
-	else {
-		return true;
-	}
+bool file_exists(string filename) {
+    std::ifstream infile(filename);
+    bool exists = infile.good();
+    infile.close();
+    return exists;
 }
 
 int main(int argc, char* argv[]) {
@@ -162,7 +141,6 @@ int main(int argc, char* argv[]) {
 
 	if (argc == 1) {
 		print_help();
-		return 0;
 	}
     else {
         int fail = getargs(argc, argv, str_args, flags);
@@ -193,17 +171,13 @@ int main(int argc, char* argv[]) {
             return cli_sql(str_args);
         else if (command == "join")
             return cli_join(str_args);
-		else {
-			// No command speicifed --> assume it's a filename
-            file_exists(command);
-            head(command, 100);
-		}
+		else
+            head(command, 100); // Assume first arg is a filename
 	}
-	catch (string e) {
-		// File not found
-		std::cerr << e << std::endl;
-		return 1;
-	}
+    catch (std::runtime_error e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
     catch (std::out_of_range) {
         std::cerr << "Insufficient arguments" << std::endl;
         return 1;
@@ -218,8 +192,9 @@ int cli_stat(vector<string> str_args) {
    
     CSVStat calc(guess_delim(filename));
     (&calc)->bad_row_handler = &print_record;
+    vector<string> row;
 
-    for (auto it = calc.begin(str_args.at(0)); it != calc.end(); ++it)
+    while(calc.read_row(filename, row))
         calc.calc();
 
     vector<string> col_names = calc.get_col_names();
@@ -273,29 +248,17 @@ int cli_info(string filename) {
 
 int cli_csv(vector<string> str_args) {
     if (str_args.size() < 2) {
-        std::cerr << "Please specify an input and an output file." << std::endl;
-        return 1;
+        throw std::runtime_error("Please specify an input and an output file.");
     }
     else if (str_args.size() == 2) {
-        // Single CSV input
-        file_exists(str_args.at(0));
-        reformat(str_args.at(0), str_args.at(1));
+        reformat(str_args.at(0), str_args.at(1));  // Single CSV input
     }
     else {
-        // Multiple CSV input
-        for (size_t i = 0; i < str_args.size() - 1; i++)
-            file_exists(str_args[i]);
-
         string outfile = str_args.back();
         str_args.pop_back();
-
-        // Make sure we don't overwrite an existing file
-        if (file_exists(outfile, false)) {
-            std::cerr << "Output file already exists. Please specify "
-                "a fresh CSV file to write to." << std::endl;
-            return 1;
-        }
-
+        if (file_exists(outfile))
+            throw std::runtime_error("Output file already exists. Please specify "
+                "a fresh CSV file to write to.");
         merge(outfile, str_args);
     }
     
@@ -305,14 +268,13 @@ int cli_csv(vector<string> str_args) {
 
 int cli_json(vector<string> str_args) {
     string filename = str_args.at(0);
-    file_exists(filename);
-
     string outfile(filename + ".ndjson");
     if (str_args.size() > 1)
         outfile = str_args[1];
 
     CSVReader reader(guess_delim(filename));
-    for (auto it = reader.begin(filename); it != reader.end(); ++it) {
+    while (!reader.eof) {
+        reader.read_csv(filename, ITERATION_CHUNK_SIZE, false);
         reader.to_json(outfile, true);
         reader.clear();
     }
@@ -321,14 +283,11 @@ int cli_json(vector<string> str_args) {
 }
 
 int cli_grep(vector<string> str_args) {
-    if (str_args.size() < 3) {
-        print_err("Please specify an input file, column number, and regular expression.");
-        return 1;
-    }
+    if (str_args.size() < 3)
+        throw std::runtime_error("Please specify an input file,"
+            "column number, and regular expression.");
 
     string filename = str_args.at(0);
-    file_exists(str_args.at(0));
-
     string delim = guess_delim(filename);
     string reg_exp = join(str_args, 2, str_args.size());
 
@@ -338,21 +297,18 @@ int cli_grep(vector<string> str_args) {
 
         // Assert column position exists
         if (col + 1 > n_cols) {
-            std::cerr << filename << " only has " << n_cols << " columns" << std::endl;
-            return 1;
+            throw std::runtime_error(filename + " only has " +
+                std::to_string(n_cols) + " columns");
         }
 
         grep(filename, col, reg_exp, 500, delim);
     }
     catch (std::invalid_argument) {
         int col = col_pos(filename, str_args[1]);
-        if (col == -1) {
-            std::cerr << "Could not find a column named " << str_args[1] << std::endl;
-            return 1;
-        }
-        else {
+        if (col == -1)
+            throw std::runtime_error("Could not find a column named " + str_args[1]);
+        else
             grep(filename, col, reg_exp, 500, delim);
-        }
     }
     
     return 0;
@@ -372,45 +328,39 @@ int cli_rearrange(vector<string> str_args) {
         }
         catch (std::invalid_argument) {
             col_index = col_pos(filename, str_args[i]);
-            if (col_index == -1) {
-                std::cerr << "Could not find a column named " << str_args[i] << std::endl;
-                return 1;
-            }
-            else {
+            if (col_index == -1)
+                throw std::runtime_error("Could not find a column named " + str_args[i]);
+            else
                 columns.push_back(col_index);
-            }
         }
     }
 
     CSVReader reader(delim, "\"", 0, columns);
-    reader.read_csv(filename);
-    
     CSVWriter writer(outfile);
-    writer.write_row(reader.get_col_names());
+    bool write_col_names = false;
+    vector<string> row;
 
-    while (!reader.empty())
-        writer.write_row(reader.pop());
+    while (reader.read_row(filename, row)) {
+        if (!write_col_names)
+            writer.write_row(reader.get_col_names());
+        writer.write_row(row);
+    }
 
     writer.close();
-
     return 0;
 }
 
 int cli_sql(vector<string> str_args) {
     string csv_file = str_args.at(0);
     string db_file = str_args.at(1);
-
     csv_to_sql(csv_file, db_file);
-
     return 0;
 }
 
 int cli_join(vector<string> str_args) {
-    string file1 = str_args.at(0);
-    string file2 = str_args.at(1);
+    string file1 = str_args.at(0), file2 = str_args.at(1);
     string outfile = str_args.at(2);
-    string column1("");
-    string column2("");
+    string column1(""), column2("");
 
     if (str_args.size() >= 4)
         column1 = str_args.at(3);
@@ -418,6 +368,5 @@ int cli_join(vector<string> str_args) {
         column2 = str_args.at(4);
 
     csv_join(file1, file2, outfile, column1, column2);
-
     return 0;
 }

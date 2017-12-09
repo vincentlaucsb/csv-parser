@@ -10,15 +10,17 @@ namespace csv_parser {
         /** Reformat a CSV file */
         CSVReader reader(guess_delim(infile));
         CSVWriter writer(outfile);
+        vector<string> row;
         bool write_col_names = false;
 
-        for (auto it = reader.begin(infile); it != reader.end(); ++it) {
+        while(reader.read_row(infile, row)) {
             if (!write_col_names)
                 writer.write_row(reader.get_col_names());
             
             for (; skiplines > 0; skiplines--)
-                ++it;
-            writer.write_row(*it);
+                reader.read_row(infile, row);
+
+            writer.write_row(row);
         }
 
         writer.close();

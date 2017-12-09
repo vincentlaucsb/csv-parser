@@ -59,13 +59,10 @@ namespace csv_parser {
         // Get basic information about a CSV file
         //char delim = *(guess_delim(filename).c_str());
         std::string delim = guess_delim(filename);
-        CSVReader reader(delim);        
-        reader.read_csv(filename, ITERATION_CHUNK_SIZE, false);
+        std::vector<std::string> row = {};
+        CSVReader reader(delim);
 
-        while (!reader.eof) {
-            reader.read_csv(filename, ITERATION_CHUNK_SIZE, false);
-            reader.clear();
-        }
+        while (reader.read_row(filename, row));
 
         CSVFileInfo* info = new CSVFileInfo;
 
@@ -259,35 +256,35 @@ namespace csv_parser {
         this->row_num++;
     }
 
-    std::vector<std::string> CSVReader::pop() {
+    std::vector<std::string> CSVReader::pop(bool front) {
         /** - Remove and return the first CSV row
          *  - Considering using empty() to avoid popping from an empty queue
          */
-        std::vector< std::string > record = this->records.front();
-        this->records.pop_front();
+
+        std::vector<std::string> record;
+
+        if (front) {
+            record = this->records.front();
+            this->records.pop_front();
+        }
+        else {
+            record = this->records.back();
+            this->records.pop_back();
+        }
+
         return record;
     }
-    
-    std::vector<std::string> CSVReader::pop_back() {
-        /** - Remove and return the last CSV row
-         *  - Considering using empty() to avoid popping from an empty queue
-         */
-        std::vector< std::string > record = this->records.back();
-        this->records.pop_back();
-        return record;
-    }
-    
-    std::map<std::string, std::string> CSVReader::pop_map() {
+
+    std::map<std::string, std::string> CSVReader::pop_map(bool front) {
         /** - Remove and return the first CSV row as a std::map
          *  - Considering using empty() to avoid popping from an empty queue
          */
-        std::vector< std::string > record = this->pop();
+        std::vector< std::string > record = this->pop(front);
         std::map< std::string, std::string > record_map;
-        
-        for (size_t i = 0; i < subset.size(); i ++) {
-            record_map[ this->subset_col_names[i] ] = record[i];
-        }
-        
+
+        for (size_t i = 0; i < subset.size(); i++)
+            record_map[this->subset_col_names[i]] = record[i];
+
         return record_map;
     }
 
@@ -332,16 +329,22 @@ namespace csv_parser {
             this->infile_name = filename;
 
             if (!this->infile)
-                throw std::runtime_error("Cannot open file");
+                throw std::runtime_error("Cannot open file " + filename);
         }
-        
+
         char * line_buffer = new char[10000];
         std::string* buffer = new std::string();
         std::thread worker(&CSVReader::_read_csv, this);
 
         while (nrows <= -1 || nrows > 0) {
             char * result = std::fgets(line_buffer, sizeof(char[10000]), this->infile);            
-            *buffer += line_buffer;
+            if (result == NULL || std::feof(this->infile)) {
+                break;
+            }
+            else {
+                *buffer += line_buffer;
+            }
+
             nrows--;
 
             if ((*buffer).size() >= 1000000) {
@@ -351,9 +354,6 @@ namespace csv_parser {
                 buffer = new std::string();  // Buffers get freed by worker
                 // Doesn't help oddly enough: buffer->reserve(1000000);
             }
-
-            if (result == NULL || std::feof(this->infile))
-                break;
         }
 
         // Feed remaining bits
@@ -364,14 +364,11 @@ namespace csv_parser {
         lock.unlock();
         worker.join();
 
-        if (std::feof(this->infile)) {
+        if (std::feof(this->infile) || (close && !this->eof)) {
             this->end_feed();
             this->eof = true;
             this->close();
         }
-
-        if (close)
-            this->close();
     }
 
     void CSVReader::close() {
@@ -461,6 +458,79 @@ namespace csv_parser {
         this->records.clear();
         this->records.swap(new_rows);
     }
+
+    bool CSVReader::read_row(std::string filename, std::vector<std::string> &row) {
+        /** Iterate over a potentially larger than RAM file 
+         *  storing the parsed results in row
+         *
+         *  Returns True if file is still open, False otherwise
+         */
+        while (true) {
+            if (!read_start || this->current_row == this->records.end()) {
+                if (!this->eof) {
+                    this->clear(); // Pull more records
+                    this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
+                    this->current_row = this->records.begin();
+                    read_start = true;
+                }
+                else {
+                    return false;
+                }
+            }
+
+            row.swap(*(this->current_row));
+            this->current_row++;
+            return true;
+        }
+    }
+
+    bool CSVReader::read_row(std::string filename, std::vector<void*> &row, std::vector<int> &dtypes) {
+        /** Same as read_row(std::string, std::vector<std::string> &row) but
+         *  does type-casting on values
+         */
+
+        while (!this->eof) {
+            if (!read_start || this->current_row == this->records.end()) {
+                this->clear(); // Pull more records
+                this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
+                this->current_row = this->records.begin();
+                read_start = true;
+            }
+
+            std::vector<std::string>& temp = *(this->current_row);
+            int dtype;
+            void * field;
+            row.clear();
+            dtypes.clear();
+
+            for (auto it = temp.begin(); it != temp.end(); ++it) {
+                dtype = data_type(*it);
+                dtypes.push_back(dtype);
+
+                switch (data_type(*it)) {
+                case 0: // Empty string
+                case 1: // String
+                    field = new std::string(*it);
+                    row.push_back(field);
+                    break;
+                case 2: // Integer
+                    field = new int(std::stoi(*it));
+                    row.push_back(field);
+                    break;
+                case 3: // Float
+                    field = new double(std::stold(*it));
+                    row.push_back(field);
+                default:
+                    break;
+                }
+            }
+            
+            this->current_row++;
+            return !this->eof;
+        }
+
+        return false;
+    }
     
     std::string json_escape(std::string in) {
         /** Given a CSV string, convert it to a JSON string with proper
@@ -498,6 +568,4 @@ namespace csv_parser {
         
         return out;
     }
-
-
 }

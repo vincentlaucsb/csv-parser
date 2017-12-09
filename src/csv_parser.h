@@ -80,6 +80,7 @@ namespace csv_parser {
     ///@{
     std::string sql_sanitize(std::string);
     std::vector<std::string> sql_sanitize(std::vector<std::string>);
+    std::vector<std::string> sqlite_types(std::string filename);
     ///@}
 
     /**
@@ -105,14 +106,22 @@ namespace csv_parser {
             void feed(std::string &in);
             void end_feed();
             ///@}
+
+            /** @name Short-Hand Functions
+             *  Functions for doing stuff with less code
+             */
+            ///@{
+            bool read_row(std::string filename, std::vector<std::string> &row);
+            bool read_row(std::string filename, std::vector<void*> &row, std::vector<int> &dtypes);
+
+            ///@}
             
             /** @name Output
              *  Functions for working with parsed CSV rows
              */
             ///@{
-            std::vector<std::string> pop();
-            std::vector<std::string> pop_back();
-            std::map<std::string, std::string> pop_map();
+            std::vector<std::string> pop(bool front=true);
+            std::map<std::string, std::string> pop_map(bool front=true);
             void clear();
             bool empty();
             void to_json(std::string filename, bool append = false);
@@ -143,69 +152,14 @@ namespace csv_parser {
                 int header=0,
                 std::vector<int> subset_= std::vector<int>{});
 
-            // CSVReader Iterator
-            class iterator : public std::iterator <
-                std::input_iterator_tag,         // iterator category
-                std::vector<std::string>,        // value type
-                std::vector<std::string>,        // difference type
-                const std::vector<std::string>*, // pointer
-                std::vector<std::string>         // reference
-            > {
-                CSVReader * reader_p;
-                std::deque<std::vector<std::string>>::iterator record_it;
-                size_t chunk_size;
-            public:
-                explicit iterator(
-                    CSVReader* _ptr,
-                    std::deque<std::vector<std::string>>::iterator _it,
-                    size_t _chunk_size=ITERATION_CHUNK_SIZE) :
-                    reader_p(_ptr), record_it(_it), chunk_size(_chunk_size) {};
-
-                iterator& operator++() {
-                    if (this->record_it == reader_p->records.end() && !reader_p->eof)
-                        reader_p->read_csv(reader_p->infile_name, ITERATION_CHUNK_SIZE, false);
-
-                    (this->record_it)++;
-                    return *this;
-                }
-
-                iterator operator++(int) {
-                    iterator ret = *this;
-                    ++(*this);
-                    return ret;
-                }
-
-                bool operator==(iterator other) const {
-                    return (this->record_it) == (other.record_it);
-                }
-
-                bool operator!=(iterator other) const {
-                    return !(*this == other);
-                }
-
-                reference operator*() const {
-                    return *(this->record_it);
-                }
-            };
-
-            iterator begin() {
+            std::deque<std::vector<std::string>>::iterator begin() {
                 /** Return an iterator over the rows CSVReader has parsed so far */
-                return iterator(this, this->records.begin());
+                return this->records.begin();
             }
 
-            iterator begin(std::string filename, size_t chunk_size=ITERATION_CHUNK_SIZE) {
-                /** Return an iterator over a potentially larger-than-RAM file */
-                this->read_csv(filename, chunk_size, false);
-                return iterator(this, this->records.begin(), chunk_size);
-            }
-
-            iterator end() {
-                /** Return an iterator pointing the the last parsed row
-                 *
-                 *  **Note:** If iterating over a file, the row which end() points to will 
-                 *  change as more data is read
-                 */
-                return iterator(this, this->records.end());
+            std::deque<std::vector<std::string>>::iterator end() {
+                /** Return an iterator pointing the the last parsed row */
+                return this->records.end();
             }
 
         protected:
@@ -214,7 +168,7 @@ namespace csv_parser {
             inline void process_quote(std::string&, size_t&, std::string*&);
             inline void process_newline(std::string&, size_t&, std::string*&);
             inline void write_record();
-            
+                        
             // Helper methods
             inline std::string csv_to_json(std::vector<std::string>&);
             
@@ -230,6 +184,11 @@ namespace csv_parser {
             bool quote_escape;     /**< Parsing flag */
             int header_row;        /**< Line number of the header row (zero-indexed) */
             std::streampos last_pos = 0; /**< Line number of last row read from file */
+
+            // read_row state
+            std::deque<std::vector<std::string>>::iterator current_row =
+                this->records.begin();
+            bool read_start = false;
 
             // Multi-threading support
             std::FILE* infile = nullptr;
@@ -267,7 +226,6 @@ namespace csv_parser {
             std::vector<long double> mins;
             std::vector<long double> maxes;
             std::vector<float> n;
-            void init_vectors();
             
             // Statistic calculators
             void variance(long double&, size_t&);

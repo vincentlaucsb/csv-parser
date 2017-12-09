@@ -16,13 +16,15 @@ namespace csv_parser {
             delim = guess_delim(infile);
 
         CSVReader reader(delim, quote, header, subset);
+        vector<string> row;
         vector<vector<string>> records = {};
         int i = 0;
 
-        for (auto it = reader.begin(infile); it != reader.end(); ++it) {
+        while (reader.read_row(infile, row)) {
             if (records.empty())
                 records.push_back(reader.get_col_names());
-            records.push_back(*it);
+
+            records.push_back(row);
             i++;
 
             if (i%nrow == 0) {
@@ -49,15 +51,16 @@ namespace csv_parser {
             delim = guess_delim(infile);
 
         CSVReader reader(delim);
+        vector<string> row;
         vector<vector<string>> records = {};
         
-        for (auto it = reader.begin(infile); it != reader.end() && max_rows != 0; ++it) {
+        while (reader.read_row(infile, row)) {
             if (records.empty())
                 records.push_back(reader.get_col_names());
 
-            std::regex_search((*it)[col], matches, reg_pattern);
+            std::regex_search(row[col], matches, reg_pattern);
             if (!matches.empty()) {
-                records.push_back(*it);
+                records.push_back(row);
                 max_rows--;
             }
 

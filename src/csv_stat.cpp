@@ -8,20 +8,6 @@ namespace csv_parser {
       * Calculates statistics from CSV files
       */
 
-    void CSVStat::init_vectors() {
-        /** - Initialize statistics arrays to NAN
-         *  - Should be called (by calc()) before calculating statistics
-         */
-         
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
-            rolling_means.push_back(0);
-            rolling_vars.push_back(0);
-            mins.push_back(NAN);
-            maxes.push_back(NAN);
-            n.push_back(0);
-        }
-    }
-
     std::vector<long double> CSVStat::get_mean() {
         /** Return current means */
         std::vector<long double> ret;        
@@ -82,7 +68,15 @@ namespace csv_parser {
          *  @param   count   Create frequency counter for field values
          *  @param   dtype   Calculate data type statistics
          */
-        this->init_vectors();
+
+        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+            rolling_means.push_back(0);
+            rolling_vars.push_back(0);
+            mins.push_back(NAN);
+            maxes.push_back(NAN);
+            n.push_back(0);
+        }
+
         vector<std::thread> pool;
 
         // Start threads
@@ -106,8 +100,8 @@ namespace csv_parser {
         std::deque<vector<string>>::iterator current_record = this->records.begin();
         long double x_n;
 
-        if (this->records.back().size() <= 1)
-            this->records.back().pop_back();
+        if (this->records.size() > 0 && this->records.back().size() <= 1)
+            this->records.pop_back();
         
         while (current_record != this->records.end()) {
             this->count((*current_record)[i], i);
