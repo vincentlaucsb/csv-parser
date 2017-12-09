@@ -1,6 +1,5 @@
 #include "catch.hpp"
 #include "csv_parser.h"
-#include "print.h"
 #include <string>
 #include <vector>
 
@@ -45,13 +44,9 @@ TEST_CASE(
 }
 
 TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
-    std::cout << "ints.csv" << std::endl;
-
     // Header on first row
     CSVStat reader(",", "\"", 0);
     reader.read_csv("./tests/data/fake_data/ints.csv");
-    print_record(reader.get_col_names());
-
     reader.calc();
     
     // Expected Results
@@ -71,7 +66,6 @@ TEST_CASE( "Statistics (Line Feed Record-Separated)",
     // Header on first row
     CSVStat reader(",", "\"", 0);
     reader.read_csv("./tests/data/fake_data/ints_newline_sep.csv");
-    print_record(reader.get_col_names());
     reader.calc();
     
     // Expected Results
@@ -89,7 +83,6 @@ TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
     reader.read_csv("./tests/data/mimesis_data/persons.csv");
-    print_record(reader.get_col_names());
     reader.calc();
     
     // Expected Results

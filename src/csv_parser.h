@@ -80,7 +80,7 @@ namespace csv_parser {
     ///@{
     std::string sql_sanitize(std::string);
     std::vector<std::string> sql_sanitize(std::vector<std::string>);
-    std::vector<std::string> sqlite_types(std::string filename);
+    std::vector<std::string> sqlite_types(std::string filename, int nrows=50000);
     ///@}
 
     /**

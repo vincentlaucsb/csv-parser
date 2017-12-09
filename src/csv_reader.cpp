@@ -489,12 +489,17 @@ namespace csv_parser {
          *  does type-casting on values
          */
 
-        while (!this->eof) {
+        while (true) {
             if (!read_start || this->current_row == this->records.end()) {
-                this->clear(); // Pull more records
-                this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
-                this->current_row = this->records.begin();
-                read_start = true;
+                if (!this->eof) {
+                    this->clear(); // Pull more records
+                    this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
+                    this->current_row = this->records.begin();
+                    read_start = true;
+                }
+                else {
+                    return false;
+                }
             }
 
             std::vector<std::string>& temp = *(this->current_row);
@@ -507,26 +512,33 @@ namespace csv_parser {
                 dtype = data_type(*it);
                 dtypes.push_back(dtype);
 
-                switch (data_type(*it)) {
-                case 0: // Empty string
-                case 1: // String
+                try {
+                    switch (data_type(*it)) {
+                    case 0: // Empty string
+                    case 1: // String
+                        field = new std::string(*it);
+                        break;
+                    case 2: // Integer
+                        field = new long long int(std::stoll(*it));
+                        break;
+                    case 3: // Float
+                        field = new long double(std::stold(*it));
+                        break;
+                    }
+                }
+                catch (std::out_of_range) {
+                    // Huge ass number
+                    dtypes.pop_back();
+                    dtypes.push_back(1);
                     field = new std::string(*it);
-                    row.push_back(field);
-                    break;
-                case 2: // Integer
-                    field = new int(std::stoi(*it));
-                    row.push_back(field);
-                    break;
-                case 3: // Float
-                    field = new double(std::stold(*it));
-                    row.push_back(field);
-                default:
                     break;
                 }
+
+                row.push_back(field);
             }
             
             this->current_row++;
-            return !this->eof;
+            return true;
         }
 
         return false;
