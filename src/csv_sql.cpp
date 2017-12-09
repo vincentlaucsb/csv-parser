@@ -236,7 +236,7 @@ namespace csv_parser {
         _throw_on_error(sqlite3_finalize(insert_statement));
         _throw_on_error(sqlite3_close(db_handle));
 
-        if (error_message && strlen(error_message) > 0)
+        if (error_message && std::string(error_message).size() > 0)
             throw std::runtime_error(error_message);
 
         return 0;
