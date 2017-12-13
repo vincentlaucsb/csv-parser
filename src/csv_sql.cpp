@@ -41,6 +41,12 @@ namespace csv_parser {
         splitted.push_back(current_part);        
         return splitted;
     }
+
+    std::string get_filename_from_path(std::string path) {
+        /** Given a path containing /'s, extract the filename without extensions */
+        path = path_split(path).back();
+        return path.substr(0, path.size() - 3);
+    }
     
     std::string sql_sanitize(std::string col_name) {
         /** Sanitize column names for SQL
@@ -166,10 +172,8 @@ namespace csv_parser {
         CSVReader infile(guess_delim(csv_file));
 
         // Default file name is CSV file minus extension
-        if (table == "") {
-            table = path_split(csv_file).back();
-            table = table.substr(0, table.size() - 3);
-        }
+        if (table == "")
+            table = get_filename_from_path(csv_file);
         table = sql_sanitize(table);
 
         string create_stmt = create_table(csv_file, table);
@@ -250,17 +254,15 @@ namespace csv_parser {
         std::string column1, std::string column2) {
 
         // Sanitize Names
-        std::string table1 = sql_sanitize(filename1.substr(
-            0, filename1.size() - 4).c_str());
-        std::string table2 = sql_sanitize(filename2.substr(
-            0, filename2.size() - 4).c_str());
+        std::string table1 = sql_sanitize(get_filename_from_path(filename1));
+        std::string table2 = sql_sanitize(get_filename_from_path(filename2));
         column1 = sql_sanitize(column1);
         column2 = sql_sanitize(column2);
 
         // Create SQLite Database
         std::string db = "temp.sqlite";
         csv_to_sql(filename1, db);
-        csv_to_sql(filename2, db);        
+        csv_to_sql(filename2, db);
 
         sqlite3* db_handle;
         sqlite3_stmt* stmt_handle;
@@ -294,7 +296,7 @@ namespace csv_parser {
             &unused                      /* OUT: Pointer to unused portion of zSql */
         );
 
-        int keep_reading = 0;
+        bool write_col_names = true;
         int col_size = -1;
         string temp;
 
@@ -310,6 +312,19 @@ namespace csv_parser {
             else if (col_size == 0)
                 break;  // No results
 
+            // Write column names
+            if (write_col_names && col_size > 0) {
+                for (int i = 0; i < col_size; i++) {
+                    outfile_writer << sqlite3_column_name(stmt_handle, i);
+                    if (i + 1 != col_size)
+                        outfile_writer << ",";
+                }
+
+                outfile_writer << "\r\n";
+                write_col_names = false;
+            }
+
+            // Write a row
             for (int i = 0; i < col_size; i++) {
                 temp = std::string((char *)sqlite3_column_text(stmt_handle, i));
                 outfile_writer << csv_escape(temp);

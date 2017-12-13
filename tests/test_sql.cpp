@@ -88,3 +88,39 @@ TEST_CASE("CSV to SQL - ints.csv", "[test_to_sql_ints]") {
     sqlite3_finalize(get_count);
     sqlite3_close(db_handle);
 }
+
+TEST_CASE("CSV Join - ints", "[test_join_ints]") {
+    // Test join functionality
+    csv_join(
+        "./tests/data/fake_data/ints_squared.csv",
+        "./tests/data/fake_data/ints_cubed.csv",
+        "./tests/temp/ints_join.csv"
+    );
+
+    CSVReader reader;
+    vector<void *> row;
+    vector<int> dtypes;
+    bool test_col_names = true;
+    int* int_ptr;
+    int i = 1;
+
+    vector<string> col_names = { "a", "b", "c" };
+
+    while (reader.read_row("./tests/temp/ints_join.csv", row, dtypes)) {
+        if (test_col_names) {
+            REQUIRE(reader.get_col_names() == col_names);
+            test_col_names = false;
+        }
+
+        int_ptr = (int *)row[0];
+        REQUIRE(*int_ptr == i);
+
+        int_ptr = (int *)row[1];
+        REQUIRE(*int_ptr == pow(i, 2));
+
+        int_ptr = (int *)row[2];
+        REQUIRE(*int_ptr == pow(i, 3));
+
+        i++;
+    }
+}
