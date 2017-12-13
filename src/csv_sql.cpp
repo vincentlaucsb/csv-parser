@@ -1,3 +1,6 @@
+#define THROW_SQLITE_ERROR \
+throw std::runtime_error("[SQLite Error] " + std::string(error_message))
+
 #include "sqlite3.h"
 #include "csv_parser.h"
 #include <stdio.h>
@@ -169,34 +172,33 @@ namespace csv_parser {
         }
         table = sql_sanitize(table);
 
-        const char* create_stmt = create_table(csv_file, table).c_str();
-        const char* insert_stmt = insert_values(csv_file, table).c_str();
+        string create_stmt = create_table(csv_file, table);
+        string insert_stmt = insert_values(csv_file, table);
         char* error_message = new char[200];
         sqlite3* db_handle;
         const char * unused;
         sqlite3_stmt* insert_stmt_handle;
 
-        _throw_on_error(sqlite3_open(db.c_str(), &db_handle),
-            "Failed to open database");
+        if (sqlite3_open(db.c_str(), &db_handle))
+            throw std::runtime_error("Failed to open database");
 
         // 0's are callback function and argument to callback respectively
-        _throw_on_error(sqlite3_exec(db_handle, create_stmt, 0, 0, &error_message),
-            error_message);
-
+        if (sqlite3_exec(db_handle, (const char*)create_stmt.c_str(), 0, 0, &error_message) != 0)
+            THROW_SQLITE_ERROR;
+        
         /* Prepare a statement for inserting values
          * sqlite3_prepare_v2() is the preferred routine
          */
         _throw_on_error(sqlite3_prepare_v2(
-            db_handle,                   /* Database handle */
-            insert_stmt,                 /* SQL statement, UTF-8 encoded */
-            -1,                          /* Maximum length of zSql in bytes. */
-            &insert_stmt_handle,         /* OUT: Statement handle */
-            &unused                      /* OUT: Pointer to unused portion of zSql */
+            db_handle,                        /* Database handle */
+            (const char*)insert_stmt.c_str(), /* SQL statement, UTF-8 encoded */
+            -1,                               /* Maximum length of zSql in bytes. */
+            &insert_stmt_handle,              /* OUT: Statement handle */
+            &unused                           /* OUT: Pointer to unused portion of zSql */
         ));
 
-        _throw_on_error(sqlite3_exec(db_handle, "BEGIN TRANSACTION",
-            NULL, NULL, &error_message),
-            error_message);
+        if (sqlite3_exec(db_handle, "BEGIN TRANSACTION", NULL, NULL, &error_message) != 0)
+            THROW_SQLITE_ERROR;
 
         vector<void*> row = {};
         vector<int> dtypes;
@@ -235,9 +237,9 @@ namespace csv_parser {
             _throw_on_error(sqlite3_reset(insert_stmt_handle));  // Reset
         }
 
-        _throw_on_error(sqlite3_exec(db_handle, "COMMIT TRANSACTION",
-            NULL, NULL, &error_message),
-            error_message);
+        if (sqlite3_exec(db_handle, "COMMIT TRANSACTION", NULL, NULL, &error_message) != 0)
+            THROW_SQLITE_ERROR;
+        
         _throw_on_error(sqlite3_finalize(insert_stmt_handle));
         _throw_on_error(sqlite3_close(db_handle));
 
@@ -297,12 +299,10 @@ namespace csv_parser {
         string temp;
 
         while (true) {
-            keep_reading = sqlite3_step(stmt_handle);
-
             /* 100 --> More rows are available
              * 101 --> Done
              */
-            if (keep_reading == 101)
+            if (sqlite3_step(stmt_handle) == 101)
                 break;
 
             if (col_size < 0)
