@@ -10,7 +10,7 @@ SOURCES = $(subst src/main.cpp,,$(SOURCES_))
 OBJECTS = $(subst .cpp,.o,$(subst src/,$(BUILD_DIR)/,$(SOURCES)))
 
 TEST_SOURCES = $(wildcard tests/*.cpp)
-TEST_SOURCES_NO_EXT = $(subst .cpp,,$(TEST_SOURCES))
+TEST_SOURCES_NO_EXT = $(subst tests/,,$(subst .cpp,,$(TEST_SOURCES)))
 TEST_DIR = tests
 
 all: csv_parser test_all clean distclean
@@ -52,8 +52,8 @@ test_csv_parser: lib/sqlite3.o
 	#python3 $(TEST_DIR)/test_cli.py
 	
 code_cov: test_csv_parser
-	# mkdir -p test_results
-	# mv *.gcno *.gcda $(PWD)/test_results
+	mkdir -p test_results
+	mv *.gcno *.gcda $(PWD)/test_results
 	gcov $(TEST_SOURCES_NO_EXT) -o test_results --relative-only
 	mv *.gcov test_results
 	
