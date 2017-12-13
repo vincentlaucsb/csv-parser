@@ -1,4 +1,4 @@
-BUILD_DIR = 
+BUILD_DIR = build
 IDIR = src/
 SQLITE3 = lib/sqlite3
 CFLAGS = -ldl -pthread -std=c++11
@@ -7,12 +7,11 @@ TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 # Main Library
 SOURCES_ = $(wildcard src/*.cpp)
 SOURCES = $(subst src/main.cpp,,$(SOURCES_))
-OBJECTS = $(subst .cpp,.o,$(subst src/,$(BUILD_DIR),$(SOURCES)))
+OBJECTS = $(subst .cpp,.o,$(subst src/,$(BUILD_DIR)/,$(SOURCES)))
 
 TEST_SOURCES = $(wildcard tests/*.cpp)
-TEST_OBJECTS = $(subst .cpp,.o,$(subst tests/,,$(TEST_SOURCES)))
-
-TEST_DIR = tests/
+TEST_SOURCES_NO_EXT = $(subst .cpp,,$(TEST_SOURCES))
+TEST_DIR = tests
 
 all: csv_parser test_all clean distclean
 
@@ -25,36 +24,50 @@ lib/sqlite3.o:
 # Main Library
 csv_parser: lib/sqlite3.o
 	$(CXX) -c -O3 -Wall $(CFLAGS) $(SOURCES) -I$(IDIR)
-	ar -cvq $(BUILD_DIR)/csv_parser.a $(OBJECTS)
+	mkdir -p $(BUILD_DIR)
+	mv *.o $(BUILD_DIR)
 	
 cli: csv_parser lib/sqlite3.o
 	$(CXX) -o csv_parser $(OBJECTS) lib/sqlite3.o src/main.cpp -O3 -Wall $(CFLAGS)
+	mv csv_parser $(PWD)/bin
+	alias csv_parser='./$(PWD)/bin/csv_parser'
 
-test_all: lib/sqlite3.o
+test_all:
+	make test_csv_parser
+	#make test_cli
+	make code_cov
+	
+test_csv_parser: lib/sqlite3.o
+	# Compile
 	$(CXX) -o test_csv_parser lib/sqlite3.o $(SOURCES) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)/
+	
+	# Run
+	mkdir -p tests/temp
 	./test_csv_parser
 	
-	# CLI tests
-	cd tests && python test_cli.py
+	# Clean
+	rm -rf $(TEST_DIR)/temp
 	
-	# read_csv
-	rm -f test_read_csv
-	rm -f test.ndjson
+#test_cli:
+	#python3 $(TEST_DIR)/test_cli.py
 	
-	# csv_clean
-	rm -f tests/data/fake_data/ints2.csv
-	rm -f tests/data/fake_data/ints_skipline2.csv
-	rm -f tests/data/real_data/2016_Gaz_place_national.csv
+code_cov: test_csv_parser
+	# mkdir -p test_results
+	# mv *.gcno *.gcda $(PWD)/test_results
+	gcov $(TEST_SOURCES_NO_EXT) -o test_results --relative-only
+	mv *.gcov test_results
 	
-	# csv_sql
-	rm -f ints.sqlite
+code_cov_report:
+	cd test_results
+	lcov --capture --directory test_results --output-file coverage.info
+	genhtml coverage.info --output-directory out
 	
 .PHONY: all clean distclean
-
+	
 docs:
 	doxygen Doxyfile
 	
-clean:
-	rm -rf build
+clean:	
+	rm -rf test_csv_parser
 	
 distclean: clean

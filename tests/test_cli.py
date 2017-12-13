@@ -14,22 +14,24 @@ class CSVPrintTest(unittest.TestCase):
         
     def test_first_row(self):
         child = pexpect.spawn(
-            './csv_parser tests/data/fake_data/ints.csv')
+            '/home/csv-parser/bin/csv_parser /home/csv-parser/tests/data/fake_data/ints.csv',
+            timeout=1)
+            
         self.assertFalse(child.expect(
-            '\[0\]   A   B   C   D   E   F   G   H   I   J   '
+            '\[0\]\s+A\s+B\s+C\s+D\s+E\s+F\s+G\s+H\s+I\s+J\s+'
         ))
         
     def test_grep(self):
         # Regex search for two digit numbers
         child = pexpect.spawn(
-            './csv_parser grep tests/data/fake_data/ints.csv A "\d\d"'
+            '/home/csv-parser/bin/csv_parser grep /home/csv-parser/tests/data/fake_data/ints.csv A "\d\d"'
         )
+        
+        child.interact()
         
         self.assertFalse(child.expect(
             '20\s+20\s+20'
         ))
         
-'''
 if __name__ == '__main__':
     unittest.main()
-'''

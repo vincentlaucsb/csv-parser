@@ -72,9 +72,9 @@ TEST_CASE( "Test Reading CSV From Direct Input (pop_map())",
 
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
     string csv_string = ("A,B,C\r\n" // Header row
-                              "123,\"234,345\",456\r\n"
-                              "1,2,3\r\n"
-                              "1,2,3");
+                         "123,\"234,345\",456\r\n"
+                         "1,2,3\r\n"
+                         "1,2,3");
     CSVReader reader;
     reader.feed(csv_string);
     reader.end_feed();
@@ -190,10 +190,10 @@ TEST_CASE( "Test JSON Output", "[csv_to_json]") {
     reader.set_col_names(col_names);
     reader.feed(csv_string);
     reader.end_feed();
-    reader.to_json("test.ndjson");
+    reader.to_json("./tests/temp/test.ndjson");
     
     // Expected Results
-    std::ifstream test_file("test.ndjson");
+    std::ifstream test_file("./tests/temp/test.ndjson");
     string first_line;
     std::getline(test_file, first_line, '\n');
     REQUIRE( first_line == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\"}" );

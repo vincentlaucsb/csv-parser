@@ -29,14 +29,14 @@ TEST_CASE("Path Split", "[test_path_split]") {
 }
 
 TEST_CASE("CSV to SQL - ints.csv", "[test_to_sql_ints]") {
-    csv_to_sql("./tests/data/fake_data/ints.csv", "ints.sqlite");
+    csv_to_sql("./tests/data/fake_data/ints.csv", "./tests/temp/ints.sqlite");
     
     sqlite3* db_handle;
     sqlite3_stmt* get_mean;
     sqlite3_stmt* get_count;
     const char* unused;
     
-    sqlite3_open("ints.sqlite", &db_handle);
+    sqlite3_open("./tests/temp/ints.sqlite", &db_handle);
     
     // Assert Correct Number of Entries
     sqlite3_prepare_v2(db_handle, "SELECT count(*) FROM ints;", -1, &get_count, &unused);
