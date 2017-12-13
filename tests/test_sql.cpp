@@ -1,10 +1,12 @@
 #include "catch.hpp"
 #include "csv_parser.h"
 #include "sqlite3.h"
+#include <set>
 
 using namespace csv_parser;
 using std::vector;
 using std::string;
+using std::set;
 
 // Test Helpers
 TEST_CASE("SQL Sanitize", "[test_sql_sanitize]") {
@@ -17,6 +19,33 @@ TEST_CASE("SQL Sanitize", "[test_sql_sanitize]") {
     };
     
     REQUIRE(sql_sanitize(bad_boys) == expected);
+}
+
+// Test CSV-to-SQLite Data Type Guessing
+TEST_CASE("SQLite Types - Power Status", "[test_sqlite_types1]") {
+    vector<string> dtypes = sqlite_types("./tests/data/real_data/2009PowerStatus.txt");
+    REQUIRE(dtypes[0] == "string");
+    REQUIRE(dtypes[1] == "string");
+    REQUIRE(dtypes[2] == "integer");
+}
+
+TEST_CASE("SQLite Types - US Places", "[test_sqlite_types2]") {
+    vector<string> dtypes = sqlite_types(
+        "./tests/data/real_data/2016_Gaz_place_national.txt");
+    set<size_t> int_cols = { 1, 2, 4, 6, 7 };
+    set<size_t> float_cols = { 8, 9, 10, 11 };
+
+    for (size_t i = 0; i < dtypes.size(); i++) {
+        if (int_cols.find(i) != int_cols.end()) {
+            REQUIRE(dtypes[i] == "integer");
+        }
+        else if(float_cols.find(i) != float_cols.end()) {
+            REQUIRE(dtypes[i] == "float");
+        }
+        else {
+            REQUIRE(dtypes[i] == "string");
+        }
+    }
 }
 
 // Test Main Functionality

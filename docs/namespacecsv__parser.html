@@ -82,6 +82,9 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a678004501f691c819c192641d31d2329"><td class="memItemLeft" align="right" valign="top"><a id="a678004501f691c819c192641d31d2329"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>_throw_on_error</b> (int result)</td></tr>
+<tr class="separator:a678004501f691c819c192641d31d2329"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a819ee328f2fc7d31f3e60cbc0df423"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a5a819ee328f2fc7d31f3e60cbc0df423">getargs</a> (int argc, char *argv[], vector&lt; string &gt; &amp;args, vector&lt; string &gt; &amp;flags)</td></tr>
 <tr class="separator:a5a819ee328f2fc7d31f3e60cbc0df423"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d17cf90607083770b0db229f274d973"><td class="memTemplParams" colspan="2"><a id="a3d17cf90607083770b0db229f274d973"></a>
@@ -139,6 +142,8 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>col_pos</b> (std::stri
 <tr class="memitem:a5ff43577a72aaf62e8b35c28e7cd5fa2"><td class="memItemLeft" align="right" valign="top"><a id="a5ff43577a72aaf62e8b35c28e7cd5fa2"></a>
 std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>sql_sanitize</b> (std::vector&lt; std::string &gt;)</td></tr>
 <tr class="separator:a5ff43577a72aaf62e8b35c28e7cd5fa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a47223a9c6fffe08466090d59021f4230"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a47223a9c6fffe08466090d59021f4230">sqlite_types</a> (std::string filename, int nrows=50000)</td></tr>
+<tr class="separator:a47223a9c6fffe08466090d59021f4230"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">String Formatting Functions</div></td></tr>
 <tr class="memitem:afaa019228f129e0b9c8be638d97e36e4"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#afaa019228f129e0b9c8be638d97e36e4">rpad_trim</a> (string in, size_t n, size_t trim)</td></tr>
 <tr class="separator:afaa019228f129e0b9c8be638d97e36e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -594,6 +599,36 @@ template&lt;typename T &gt; </div>
 <li>Remove bad characters</li>
 <li>Place _ in front of numeric names</li>
 </ul>
+
+</div>
+</div>
+<a id="a47223a9c6fffe08466090d59021f4230"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a47223a9c6fffe08466090d59021f4230">&#9670;&nbsp;</a></span>sqlite_types()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; string &gt; csv_parser::sqlite_types </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>nrows</em> = <code>50000</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return the preferred data type for the columns of a file</p>
+<p>Return the preferred data type for the columns of a file </p>
 
 </div>
 </div>

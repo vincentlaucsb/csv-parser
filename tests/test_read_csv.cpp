@@ -243,7 +243,7 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
 }
 
 // read_row()
-TEST_CASE("Test read_row() void*", "[read_row_void]") {
+TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
     // Test that integers are type-casted properly
     string test_file = "./tests/data/fake_data/ints.csv";
     CSVReader reader(guess_delim(test_file));
@@ -254,9 +254,22 @@ TEST_CASE("Test read_row() void*", "[read_row_void]") {
     while (reader.read_row(test_file, row, dtypes)) {
         for (size_t i = 0; i < row.size(); i++) {
             int_ptr = (long long int*)row[i];
-
             REQUIRE( *int_ptr <= 100 );
             REQUIRE( dtypes[i] == 2 ); // Integer
+            delete int_ptr;
         }
+    }
+}
+
+TEST_CASE("Test read_row() void* - Power Status", "[read_row_void2]") {
+    string test_file = "./tests/data/real_data/2009PowerStatus.txt";
+    CSVReader reader(guess_delim(test_file));
+    vector<void*> row;
+    vector<int> dtypes;
+
+    while (reader.read_row(test_file, row, dtypes)) {
+        REQUIRE(dtypes[0] == 1);
+        REQUIRE(dtypes[1] == 1);
+        REQUIRE(dtypes[2] == 2);
     }
 }

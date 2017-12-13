@@ -92,6 +92,14 @@ namespace csv_parser {
         this->clear();
     }
 
+    void CSVStat::calc_csv(std::string filename, bool numeric, bool count, bool dtype) {
+        /** Lazily calculate statistics for a potentially very big file */
+        while (!this->eof) {
+            this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
+            this->calc(numeric, count, dtype);
+        }
+    }
+
     void CSVStat::calc_col(size_t i) {
         /** Calculate statistics for one column
          *  Meant to be executed by one thread/helper for calc()
@@ -100,9 +108,6 @@ namespace csv_parser {
         std::deque<vector<string>>::iterator current_record = this->records.begin();
         long double x_n;
 
-        if (this->records.size() > 0 && this->records.back().size() <= 1)
-            this->records.pop_back();
-        
         while (current_record != this->records.end()) {
             this->count((*current_record)[i], i);
             this->dtype((*current_record)[i], i);

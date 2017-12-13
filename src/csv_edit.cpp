@@ -67,14 +67,14 @@ namespace csv_parser {
         
         // Begin merging
         CSVWriter writer(outfile);
+        vector<string> row;
         
         for (string infile: in) {
-            delim = guess_delim(infile);
-            CSVReader reader(delim);
+            CSVReader reader(guess_delim(infile));
             reader.read_csv(infile);
             
-            while (!reader.empty())
-                writer.write_row(reader.pop());
+            while (reader.read_row(infile, row))
+                writer.write_row(row);
         }
 
         writer.close();

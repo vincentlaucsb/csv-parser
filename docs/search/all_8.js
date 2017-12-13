@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['iterator',['iterator',['../classcsv__parser_1_1CSVReader_1_1iterator.html',1,'csv_parser::CSVReader']]]
+  ['json_5fescape',['json_escape',['../namespacecsv__parser.html#a8059a19f300c431d46ab789c1dc1f100',1,'csv_parser']]]
 ];

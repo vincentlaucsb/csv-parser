@@ -121,7 +121,7 @@ namespace csv_parser {
          *  **Note**: end_feed() should be called after the last string
          */
 
-        std::string * str_buffer = &(this->records.back().back());
+        std::string * str_buffer = &(this->record_buffer.back());
 
         for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
             if (in[i] == this->delimiter) {
@@ -145,10 +145,7 @@ namespace csv_parser {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        if ((this->records.back()).size() > 1)
-            this->write_record();
-        else
-            this->records.pop_back();
+        this->write_record(this->record_buffer);
     }
 
     void CSVReader::process_possible_delim(std::string &in, size_t &index, std::string* &out) {
@@ -158,8 +155,8 @@ namespace csv_parser {
 
         if (!this->quote_escape) {
             // Case: Not being escaped --> Write field
-            this->records.back().push_back(std::string());
-            out = &(this->records.back().back());
+            this->record_buffer.push_back(std::string());
+            out = &(this->record_buffer.back());
         } else {
             *out += in[index]; // Treat as regular data
         }
@@ -175,10 +172,9 @@ namespace csv_parser {
             if ((in[index] == '\r') && (in[index + 1] == '\n')) {
                 index++;
             }
-            
-            // Write record
-            this->write_record();
-            out = &(this->records.back().back());
+
+            this->write_record(this->record_buffer);
+            out = &(this->record_buffer.back());
         } else {
             *out += in[index]; // Quote-escaped
         }
@@ -208,51 +204,47 @@ namespace csv_parser {
         }
     }
 
-    void CSVReader::write_record() {
+    void CSVReader::write_record(std::vector<std::string>& record) {
         /** Push the current row into a queue if it is the right length.
          *  Drop it otherwise.
          */
         
-        auto& record = this->records.back();
         size_t col_names_size = this->col_names.size();
         this->quote_escape = false;  // Unset all flags
         
-        if (this->row_num > this->header_row) {            
-            /* Workaround: CSV parser doesn't catch the last field if
-             * it is empty */             
-            if (record.size() + 1 == col_names_size)
-                record.push_back(std::string());
-            
+        if (this->row_num > this->header_row) {
             // Make sure record is of the right length
             if (record.size() == col_names_size) {
                 this->correct_rows++;
-                if (this->subset_flag) {
+
+                if (!this->subset_flag) {
+                    this->records.push_back({});
+                    record.swap(this->records.back());
+                }
+                else {
                     std::vector<std::string> subset_record;
                     for (size_t i = 0; i < this->subset.size(); i++)
-                        subset_record.push_back(record[ this->subset[i] ]);
-                    
-                    this->records.pop_back();
+                        subset_record.push_back(record[this->subset[i] ]);
                     this->records.push_back(subset_record);
                 }
             } else {
                 /* 1) Zero-length record, probably caused by extraneous newlines
                  * 2) Too short or too long
                  */
+                this->row_num--;
                 if (!record.empty() && this->bad_row_handler) {
-                    auto copy = this->records.back();
-                    this->records.pop_back();
+                    auto copy = record;
                     this->bad_row_handler(copy);
                 }
             }
         } else if (this->row_num == this->header_row) {
-            this->set_col_names(this->records.back());
-            this->records.pop_back();
+            this->set_col_names(record);
         } else {
             // Ignore rows before header row
         }
 
-        this->records.push_back(std::vector<std::string>{std::string()});
-        this->records.back().reserve(col_names_size);
+        record.clear();
+        record.push_back(std::string());
         this->row_num++;
     }
 
@@ -295,7 +287,6 @@ namespace csv_parser {
 
     void CSVReader::clear() {
         this->records.clear();
-        this->records.push_back(std::vector<std::string>{std::string()});
     }
 
     void CSVReader::_read_csv() {
@@ -455,7 +446,7 @@ namespace csv_parser {
         for (; n > 1; n--)
             new_rows.push_back(this->records[distribution(generator)]);
 
-        this->records.clear();
+        this->clear();
         this->records.swap(new_rows);
     }
 

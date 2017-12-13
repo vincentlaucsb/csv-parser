@@ -12,8 +12,7 @@ TEST_CASE( "Integrity Check via Statistics", "[csv_clean]" ) {
     
     // 100 ints (type 2) in all columns
     CSVStat stats;
-    stats.read_csv("./tests/temp/ints2.csv");
-    stats.calc();
+    stats.calc_csv("./tests/temp/ints2.csv");
 
     for (int i = 0; i < 10; i++) {
         REQUIRE( stats.get_dtypes()[i][2] == 100 );
@@ -29,8 +28,7 @@ TEST_CASE( "Test Line Skipping", "[csv_skiplines]" ) {
     
     // 100 ints (type 2) in all columns
     CSVStat stats;
-    stats.read_csv("./tests/temp/ints_skipline2.csv");
-    stats.calc();
+    stats.calc_csv("./tests/temp/ints_skipline2.csv");
 
     for (int i = 0; i < 10; i++) {
         REQUIRE( stats.get_dtypes()[i][2] == 100 );
@@ -45,8 +43,7 @@ TEST_CASE( "Converting Tab Delimited File", "[tsv_clean]" ) {
     
     // Calculate some statistics on the cleaned CSV to verify it's good
     CSVStat stats(",", "\"", 0);
-    stats.read_csv("./tests/temp/2016_Gaz_place_national.csv");
-    stats.calc();
+    stats.calc_csv("./tests/temp/2016_Gaz_place_national.csv");
     
     // 10 = INTPTLAT; 11 = INTPTLONG
     REQUIRE(ceil(stats.get_mean()[10]) == 39);

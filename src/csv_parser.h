@@ -167,7 +167,7 @@ namespace csv_parser {
             inline void process_possible_delim(std::string&, size_t&, std::string*&);
             inline void process_quote(std::string&, size_t&, std::string*&);
             inline void process_newline(std::string&, size_t&, std::string*&);
-            inline void write_record();
+            inline void write_record(std::vector<std::string>&);
                         
             // Helper methods
             inline std::string csv_to_json(std::vector<std::string>&);
@@ -183,11 +183,9 @@ namespace csv_parser {
             char quote_char;       /**< Quote character */
             bool quote_escape;     /**< Parsing flag */
             int header_row;        /**< Line number of the header row (zero-indexed) */
-            std::streampos last_pos = 0; /**< Line number of last row read from file */
 
             // read_row state
-            std::deque<std::vector<std::string>>::iterator current_row =
-                this->records.begin();
+            std::deque<std::vector<std::string>>::iterator current_row;
             bool read_start = false;
 
             // Multi-threading support
@@ -198,13 +196,17 @@ namespace csv_parser {
             std::condition_variable feed_cond;    /**< Wake up worker */
             
             // Buffers
-            std::deque< std::vector < std::string > > records = { { std::string() } }; /**< Queue of parsed CSV rows */
+            std::deque< std::vector
+                <std::string>> records;           /**< Queue of parsed CSV rows */
+            std::vector<std::string>              /**< Buffer for row being parsed */
+                record_buffer = { std::string() };
     };
     
     /** Class for calculating statistics from CSV files */
     class CSVStat: public CSVReader {
         public:
             void calc(bool numeric=true, bool count=true, bool dtype=true);
+            void calc_csv(std::string filename, bool numeric=true, bool count=true, bool dtype=true);
             std::vector<long double> get_mean();
             std::vector<long double> get_variance();
             std::vector<long double> get_mins();

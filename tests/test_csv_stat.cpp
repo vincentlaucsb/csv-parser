@@ -27,7 +27,6 @@ TEST_CASE(
     std::vector<long double> means = { 50.5, 50.5, 50.5 };
     std::vector<long double> mins = { 1, 1, 1 };
     std::vector<long double> maxes = { 100, 100, 100 };
-    
 
     REQUIRE( reader.get_mins() == mins );
     REQUIRE( reader.get_maxes() == maxes );
@@ -46,8 +45,7 @@ TEST_CASE(
 TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
-    reader.read_csv("./tests/data/fake_data/ints.csv");
-    reader.calc();
+    reader.calc_csv("./tests/data/fake_data/ints.csv");
     
     // Expected Results
     std::vector<long double> means = {
@@ -65,26 +63,21 @@ TEST_CASE( "Statistics (Line Feed Record-Separated)",
     "[read_csv_stat2]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
-    reader.read_csv("./tests/data/fake_data/ints_newline_sep.csv");
-    reader.calc();
-    
-    // Expected Results
-    std::vector<long double> means = {
+    reader.calc_csv("./tests/data/fake_data/ints_newline_sep.csv");
+    std::vector<long double> expected_means = {
         50.5, 50.5, 50.5, 50.5, 50.5,
         50.5, 50.5, 50.5, 50.5, 50.5
     };
     
-    REQUIRE( reader.get_mean() == means );
+    REQUIRE( reader.get_mean() == expected_means );
     REQUIRE( reader.get_mins()[0] == 1 );
     REQUIRE( reader.get_maxes()[0] == 100 );
     REQUIRE( ceil(reader.get_variance()[0]) == 842 );
 }
+
 TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     // Header on first row
     CSVStat reader(",", "\"", 0);
-    reader.read_csv("./tests/data/mimesis_data/persons.csv");
-    reader.calc();
-    
-    // Expected Results
+    reader.calc_csv("./tests/data/mimesis_data/persons.csv");
     REQUIRE( ceil(reader.get_mean()[1]) == 42 );
 }

@@ -5,8 +5,7 @@ CFLAGS = -ldl -pthread -std=c++11
 TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 
 # Main Library
-SOURCES_ = $(wildcard src/*.cpp)
-SOURCES = $(subst src/main.cpp,,$(SOURCES_))
+SOURCES = $(subst src/main.cpp,,$(wildcard src/*.cpp))
 OBJECTS = $(subst .cpp,.o,$(subst src/,$(BUILD_DIR)/,$(SOURCES)))
 
 TEST_SOURCES = $(wildcard tests/*.cpp)
@@ -33,19 +32,18 @@ cli: csv_parser lib/sqlite3.o
 	alias csv_parser='./$(PWD)/bin/csv_parser'
 
 test_all:
-	make test_csv_parser
+	make run_test_csv_parser
 	#make test_cli
 	make code_cov
 	
 test_csv_parser: lib/sqlite3.o
-	# Compile
 	$(CXX) -o test_csv_parser lib/sqlite3.o $(SOURCES) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)/
 	
-	# Run
+run_test_csv_parser: test_csv_parser
 	mkdir -p tests/temp
 	./test_csv_parser
 	
-	# Clean
+	# Test Clean-Up
 	rm -rf $(TEST_DIR)/temp
 	
 #test_cli:
@@ -54,7 +52,7 @@ test_csv_parser: lib/sqlite3.o
 code_cov: test_csv_parser
 	mkdir -p test_results
 	mv *.gcno *.gcda $(PWD)/test_results
-	gcov $(TEST_SOURCES_NO_EXT) -o test_results --relative-only
+	gcov $(SOURCES) -o test_results --relative-only
 	mv *.gcov test_results
 	
 code_cov_report:
