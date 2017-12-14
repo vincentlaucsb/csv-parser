@@ -82,7 +82,13 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac57741f8bf4eed7129d1704fd7d7b355"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Class for writing CSV files </p>
+<div class="textblock"><p>Class for writing CSV files.</p>
+<p>See <a class="el" href="namespacecsv__parser.html#a36fd737d1c1bb82eb2683cfe120d5970">csv_parser::csv_escape()</a> for a function that formats a non-CSV string.</p>
+<p>To write to a CSV file, one should</p><ol type="1">
+<li>Initialize a <a class="el" href="classcsv__parser_1_1CSVWriter.html">CSVWriter</a> with respect to some file</li>
+<li>Call <a class="el" href="classcsv__parser_1_1CSVWriter.html#a5c88acfa0a9e27bbb278d999b396d3ae">write_row()</a> on std::vector&lt;std::string&gt;s of unformatted text</li>
+<li><a class="el" href="classcsv__parser_1_1CSVWriter.html#a01bafc47dc4db1469ce6a6e3f02aedb0">close()</a> the file handle </li>
+</ol>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ac57741f8bf4eed7129d1704fd7d7b355"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac57741f8bf4eed7129d1704fd7d7b355">&#9670;&nbsp;</a></span>CSVWriter()</h2>
@@ -99,7 +105,12 @@ Public Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Open a file for writing </p>
+<p>Open a file for writing </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[out]</td><td class="paramname">outfile</td><td>Path of the file to be written to</td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
@@ -150,7 +161,8 @@ Public Member Functions</h2></td></tr>
 <p>Format a sequence of strings and write to CSV according to RFC 4180</p>
 <p><b>Note</b>: This does not check to make sure row lengths are consistent </p><dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">quote_minimal</td><td>Only quote fields if necessary</td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">record</td><td>Vector of strings to be formatted </td></tr>
+    <tr><td class="paramdir"></td><td class="paramname">quote_minimal</td><td>Only quote fields if necessary</td></tr>
   </table>
   </dd>
 </dl>
@@ -159,7 +171,7 @@ Public Member Functions</h2></td></tr>
 </div>
 <hr/>The documentation for this class was generated from the following files:<ul>
 <li>src/<a class="el" href="csv__parser_8h_source.html">csv_parser.h</a></li>
-<li>src/csv_writer.cpp</li>
+<li>src/<a class="el" href="csv__writer_8cpp.html">csv_writer.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- start footer part -->

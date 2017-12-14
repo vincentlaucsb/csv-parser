@@ -59,16 +59,30 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#namespaces">Namespaces</a> &#124;
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#func-members">Functions</a> &#124;
-<a href="#var-members">Variables</a>  </div>
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">csv_parser Namespace Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacecsv__parser_1_1extra"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1extra.html">extra</a></td></tr>
+<tr class="memdesc:namespacecsv__parser_1_1extra"><td class="mdescLeft">&#160;</td><td class="mdescRight">CSV reading/editing goodies built on top of the main library. <br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacecsv__parser_1_1helpers"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html">helpers</a></td></tr>
+<tr class="memdesc:namespacecsv__parser_1_1helpers"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper functions for various parts of the main library. <br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:namespacecsv__parser_1_1sql"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1sql.html">sql</a></td></tr>
+<tr class="memdesc:namespacecsv__parser_1_1sql"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper functions for SQL-related functionality. <br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVField.html">CSVField</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv__parser_1_1CSVFileInfo.html">CSVFileInfo</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a></td></tr>
@@ -82,154 +96,37 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a678004501f691c819c192641d31d2329"><td class="memItemLeft" align="right" valign="top"><a id="a678004501f691c819c192641d31d2329"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>_throw_on_error</b> (int result)</td></tr>
-<tr class="separator:a678004501f691c819c192641d31d2329"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38291f456a2c6ae47e3cd0cf4a8bdf2f"><td class="memItemLeft" align="right" valign="top"><a id="a38291f456a2c6ae47e3cd0cf4a8bdf2f"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>_throw_on_error</b> (int result, char *error_message=nullptr)</td></tr>
+<tr class="separator:a38291f456a2c6ae47e3cd0cf4a8bdf2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a819ee328f2fc7d31f3e60cbc0df423"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a5a819ee328f2fc7d31f3e60cbc0df423">getargs</a> (int argc, char *argv[], vector&lt; string &gt; &amp;args, vector&lt; string &gt; &amp;flags)</td></tr>
 <tr class="separator:a5a819ee328f2fc7d31f3e60cbc0df423"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3d17cf90607083770b0db229f274d973"><td class="memTemplParams" colspan="2"><a id="a3d17cf90607083770b0db229f274d973"></a>
-template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a3d17cf90607083770b0db229f274d973"><td class="memTemplItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><b>to_string</b> (vector&lt; T &gt; record)</td></tr>
-<tr class="separator:a3d17cf90607083770b0db229f274d973"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1dc368c4f671465822aca006fe5d72ea"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a1dc368c4f671465822aca006fe5d72ea"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a1dc368c4f671465822aca006fe5d72ea">_min_val_to_front</a> (list&lt; T &gt; &amp;seq)</td></tr>
-<tr class="separator:a1dc368c4f671465822aca006fe5d72ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac3c9b5e4be79155d34a9970a3978d35a"><td class="memTemplParams" colspan="2">template&lt;typename T1 , typename T2 &gt; </td></tr>
-<tr class="memitem:ac3c9b5e4be79155d34a9970a3978d35a"><td class="memTemplItemLeft" align="right" valign="top">map&lt; T1, T2 &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#ac3c9b5e4be79155d34a9970a3978d35a">top_n_values</a> (map&lt; T1, T2 &gt; in, size_t n)</td></tr>
-<tr class="separator:ac3c9b5e4be79155d34a9970a3978d35a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">CSV Functions</div></td></tr>
-<tr class="memitem:a2fe3b51fa67ed7fe4518574a93ab33d8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a2fe3b51fa67ed7fe4518574a93ab33d8">reformat</a> (std::string infile, std::string outfile, int skiplines)</td></tr>
-<tr class="separator:a2fe3b51fa67ed7fe4518574a93ab33d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a00fbd2268a599f02016ccf1687e7982d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a00fbd2268a599f02016ccf1687e7982d">merge</a> (std::string outfile, std::vector&lt; std::string &gt; in)</td></tr>
-<tr class="separator:a00fbd2268a599f02016ccf1687e7982d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ada90e1a038f812e44f332a9932175610"><td class="memItemLeft" align="right" valign="top"><a id="ada90e1a038f812e44f332a9932175610"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>csv_to_sql</b> (std::string csv_file, std::string db, std::string table=&quot;&quot;)</td></tr>
-<tr class="separator:ada90e1a038f812e44f332a9932175610"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0c87a02da047b87d2e5ebb2e5660f306"><td class="memItemLeft" align="right" valign="top"><a id="a0c87a02da047b87d2e5ebb2e5660f306"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_join</b> (std::string filename1, std::string filename2, std::string outfile, std::string column1=&quot;&quot;, std::string column2=&quot;&quot;)</td></tr>
-<tr class="separator:a0c87a02da047b87d2e5ebb2e5660f306"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab44572d370a535644f8c969afb3f1670"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#ab44572d370a535644f8c969afb3f1670">csv_escape</a> (std::string &amp;in, bool quote_minimal=true)</td></tr>
-<tr class="separator:ab44572d370a535644f8c969afb3f1670"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">Helpers</div></td></tr>
-<tr class="memitem:a199603fee5ac4bb317057dc14ad38c0a"><td class="memItemLeft" align="right" valign="top"><a id="a199603fee5ac4bb317057dc14ad38c0a"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>data_type</b> (std::string &amp;)</td></tr>
-<tr class="separator:a199603fee5ac4bb317057dc14ad38c0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adabf4c4daaf51e4f17d77cbdc38624d8"><td class="memItemLeft" align="right" valign="top"><a id="adabf4c4daaf51e4f17d77cbdc38624d8"></a>
-std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>path_split</b> (std::string)</td></tr>
-<tr class="separator:adabf4c4daaf51e4f17d77cbdc38624d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8059a19f300c431d46ab789c1dc1f100"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a8059a19f300c431d46ab789c1dc1f100">json_escape</a> (std::string)</td></tr>
-<tr class="separator:a8059a19f300c431d46ab789c1dc1f100"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">Search Functions</div></td></tr>
-<tr class="memitem:a39bdbe8bc0004d3d8593c2ce41681eba"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a39bdbe8bc0004d3d8593c2ce41681eba">head</a> (std::string infile, int nrow=100, std::string delim=&quot;&quot;, std::string quote=&quot;\, int header=0, std::vector&lt; int &gt; subset={})</td></tr>
-<tr class="separator:a39bdbe8bc0004d3d8593c2ce41681eba"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a70b01d23fc1efc65762a2eb993e31fdc"><td class="memItemLeft" align="right" valign="top"><a id="a70b01d23fc1efc65762a2eb993e31fdc"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>grep</b> (std::string infile, int col, std::string match, int max_rows=500, std::string delim=&quot;&quot;, std::string quote=&quot;\, int header=0, std::vector&lt; int &gt; subset={})</td></tr>
-<tr class="separator:a70b01d23fc1efc65762a2eb993e31fdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">Utility functions</div></td></tr>
-<tr class="memitem:ac7fc2dc2700585885829c43fd765a313"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#ac7fc2dc2700585885829c43fd765a313">guess_delim</a> (std::string filename)</td></tr>
-<tr class="separator:ac7fc2dc2700585885829c43fd765a313"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abbf02b1c5967562afd3882e04526299f"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#abbf02b1c5967562afd3882e04526299f">get_col_names</a> (std::string filename, std::string delim=&quot;,&quot;, std::string quote=&quot;\, int header=0)</td></tr>
-<tr class="separator:abbf02b1c5967562afd3882e04526299f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0ded7f8e0e4483337ee06a64ea324615"><td class="memItemLeft" align="right" valign="top"><a id="a0ded7f8e0e4483337ee06a64ea324615"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>col_pos</b> (std::string filename, std::string col_name, std::string delim=&quot;,&quot;, std::string quote=&quot;\, int header=0)</td></tr>
-<tr class="separator:a0ded7f8e0e4483337ee06a64ea324615"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a00c7922a42747b04a8f28dbcf3e79d15"><td class="memItemLeft" align="right" valign="top"><a id="a00c7922a42747b04a8f28dbcf3e79d15"></a>
-<a class="el" href="structcsv__parser_1_1CSVFileInfo.html">CSVFileInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><b>get_file_info</b> (std::string filename)</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Utility Functions</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>Functions for getting quick information from CSV files without writing a lot of code </p>
+</div></td></tr>
+<tr class="memitem:a36fd737d1c1bb82eb2683cfe120d5970"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a36fd737d1c1bb82eb2683cfe120d5970">csv_escape</a> (std::string &amp;, bool quote_minimal=true)</td></tr>
+<tr class="separator:a36fd737d1c1bb82eb2683cfe120d5970"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3515ddd7d99ec00940a187a3e36aa51"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#ab3515ddd7d99ec00940a187a3e36aa51">guess_delim</a> (std::string filename)</td></tr>
+<tr class="separator:ab3515ddd7d99ec00940a187a3e36aa51"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa43385bf3776490eb1ed4074b71cc2aa"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#aa43385bf3776490eb1ed4074b71cc2aa">get_col_names</a> (std::string filename, <a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv__parser.html#a92f546fe3ed0b6e40bdc7e89f376b8cb">GUESS_CSV</a>)</td></tr>
+<tr class="separator:aa43385bf3776490eb1ed4074b71cc2aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a69b916199477d7ea6c5116c27aca6a4f"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a69b916199477d7ea6c5116c27aca6a4f">get_col_pos</a> (std::string filename, std::string col_name, <a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv__parser.html#a92f546fe3ed0b6e40bdc7e89f376b8cb">GUESS_CSV</a>)</td></tr>
+<tr class="separator:a69b916199477d7ea6c5116c27aca6a4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a00c7922a42747b04a8f28dbcf3e79d15"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structcsv__parser_1_1CSVFileInfo.html">CSVFileInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a00c7922a42747b04a8f28dbcf3e79d15">get_file_info</a> (std::string filename)</td></tr>
 <tr class="separator:a00c7922a42747b04a8f28dbcf3e79d15"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">SQL Functions</div></td></tr>
-<tr class="memitem:aa2c2a0bad817823bf31cd47b128b99a6"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#aa2c2a0bad817823bf31cd47b128b99a6">sql_sanitize</a> (std::string)</td></tr>
-<tr class="separator:aa2c2a0bad817823bf31cd47b128b99a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5ff43577a72aaf62e8b35c28e7cd5fa2"><td class="memItemLeft" align="right" valign="top"><a id="a5ff43577a72aaf62e8b35c28e7cd5fa2"></a>
-std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>sql_sanitize</b> (std::vector&lt; std::string &gt;)</td></tr>
-<tr class="separator:a5ff43577a72aaf62e8b35c28e7cd5fa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a47223a9c6fffe08466090d59021f4230"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a47223a9c6fffe08466090d59021f4230">sqlite_types</a> (std::string filename, int nrows=50000)</td></tr>
-<tr class="separator:a47223a9c6fffe08466090d59021f4230"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">String Formatting Functions</div></td></tr>
-<tr class="memitem:afaa019228f129e0b9c8be638d97e36e4"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#afaa019228f129e0b9c8be638d97e36e4">rpad_trim</a> (string in, size_t n, size_t trim)</td></tr>
-<tr class="separator:afaa019228f129e0b9c8be638d97e36e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aec928bc6375f31a8027c8339b1ae9a6c"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#aec928bc6375f31a8027c8339b1ae9a6c">round</a> (vector&lt; long double &gt; in)</td></tr>
-<tr class="separator:aec928bc6375f31a8027c8339b1ae9a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">Pretty Printing Functions</div></td></tr>
-<tr class="memitem:a08d87523a99b36f138c1d39ffe86484b"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a08d87523a99b36f138c1d39ffe86484b">_get_col_widths</a> (vector&lt; vector&lt; string &gt;&gt; &amp;records, size_t max_col_width)</td></tr>
-<tr class="separator:a08d87523a99b36f138c1d39ffe86484b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:accdd850833ee8d9252e4a05f2364b7ef"><td class="memItemLeft" align="right" valign="top"><a id="accdd850833ee8d9252e4a05f2364b7ef"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>print_record</b> (std::vector&lt; std::string &gt; record)</td></tr>
-<tr class="separator:accdd850833ee8d9252e4a05f2364b7ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8993672ada7565218952bbd238cc9acd"><td class="memItemLeft" align="right" valign="top"><a id="a8993672ada7565218952bbd238cc9acd"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>print_table</b> (vector&lt; vector&lt; string &gt;&gt; &amp;records, int row_num, vector&lt; string &gt; row_names)</td></tr>
-<tr class="separator:a8993672ada7565218952bbd238cc9acd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
-<tr class="memitem:a2861dd5ff237bb8250aa023a7d1cc172"><td class="memItemLeft" align="right" valign="top"><a id="a2861dd5ff237bb8250aa023a7d1cc172"></a>
-const size_t&#160;</td><td class="memItemRight" valign="bottom"><b>ITERATION_CHUNK_SIZE</b> = 100000</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Global Constants</div></td></tr>
+<tr class="memitem:a2861dd5ff237bb8250aa023a7d1cc172"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a2861dd5ff237bb8250aa023a7d1cc172">ITERATION_CHUNK_SIZE</a> = 100000</td></tr>
 <tr class="separator:a2861dd5ff237bb8250aa023a7d1cc172"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92f546fe3ed0b6e40bdc7e89f376b8cb"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a92f546fe3ed0b6e40bdc7e89f376b8cb">GUESS_CSV</a> = { '\0', '&quot;', 0 }</td></tr>
+<tr class="separator:a92f546fe3ed0b6e40bdc7e89f376b8cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"></div><h2 class="groupheader">Function Documentation</h2>
-<a id="a08d87523a99b36f138c1d39ffe86484b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a08d87523a99b36f138c1d39ffe86484b">&#9670;&nbsp;</a></span>_get_col_widths()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; size_t &gt; csv_parser::_get_col_widths </td>
-          <td>(</td>
-          <td class="paramtype">vector&lt; vector&lt; string &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>records</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_col_width</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Given a list of string vectors representing rows to print, compute the width of each column</p>
-<p>Rules</p><ul>
-<li>Doesn't return column widths &gt; max_col_width</li>
-</ul>
-
-</div>
-</div>
-<a id="a1dc368c4f671465822aca006fe5d72ea"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1dc368c4f671465822aca006fe5d72ea">&#9670;&nbsp;</a></span>_min_val_to_front()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv_parser::_min_val_to_front </td>
-          <td>(</td>
-          <td class="paramtype">list&lt; T &gt; &amp;&#160;</td>
-          <td class="paramname"><em>seq</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Move the mapped element with the smallest value to the front </p>
-
-</div>
-</div>
-<a id="ab44572d370a535644f8c969afb3f1670"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab44572d370a535644f8c969afb3f1670">&#9670;&nbsp;</a></span>csv_escape()</h2>
+<a id="a36fd737d1c1bb82eb2683cfe120d5970"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a36fd737d1c1bb82eb2683cfe120d5970">&#9670;&nbsp;</a></span>csv_escape()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -255,21 +152,23 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 <p>Format a string to be RFC 4180-compliant </p><dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">quote_minimal</td><td>Only quote fields if necessary</td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">in</td><td>String to be CSV-formatted </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">quote_minimal</td><td>Only quote fields if necessary. If False, everything is quoted.</td></tr>
   </table>
   </dd>
 </dl>
 <p>Format a string to be RFC 4180-compliant </p><dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">quote_minimal</td><td>Only quote fields if necessary</td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">in</td><td>String to be CSV-formatted </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">quote_minimal</td><td>Only quote fields if necessary. If False, everything is quoted.</td></tr>
   </table>
   </dd>
 </dl>
 
 </div>
 </div>
-<a id="abbf02b1c5967562afd3882e04526299f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#abbf02b1c5967562afd3882e04526299f">&#9670;&nbsp;</a></span>get_col_names()</h2>
+<a id="aa43385bf3776490eb1ed4074b71cc2aa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa43385bf3776490eb1ed4074b71cc2aa">&#9670;&nbsp;</a></span>get_col_names()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -283,20 +182,8 @@ template&lt;typename T &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>delim</em> = <code>&quot;,&quot;</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>quote</em> = <code>&quot;\&quot;&quot;</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>header</em> = <code>0</code>&#160;</td>
+          <td class="paramtype"><a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
+          <td class="paramname"><em>format</em> = <code><a class="el" href="namespacecsv__parser.html#a92f546fe3ed0b6e40bdc7e89f376b8cb">GUESS_CSV</a></code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -305,8 +192,90 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Return a CSV's column names</p>
-<p>Return a CSV's column names </p>
+<p>Return a CSV's column names </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">filename</td><td>Path to CSV file </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">format</td><td>Format of the CSV file</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Return a CSV's column names </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">filename</td><td>Path to CSV file </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">format</td><td>Format of the CSV file</td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a69b916199477d7ea6c5116c27aca6a4f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a69b916199477d7ea6c5116c27aca6a4f">&#9670;&nbsp;</a></span>get_col_pos()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int csv_parser::get_col_pos </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>filename</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>col_name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
+          <td class="paramname"><em>format</em> = <code><a class="el" href="namespacecsv__parser.html#a92f546fe3ed0b6e40bdc7e89f376b8cb">GUESS_CSV</a></code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the position of a column in a CSV file </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">filename</td><td>Path to CSV file </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">col_name</td><td>Column whose position we should resolve </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">format</td><td>Format of the CSV file</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Find the position of a column in a CSV file </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">filename</td><td>Path to CSV file </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">col_name</td><td>Column whose position we should resolve </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">format</td><td>Format of the CSV file</td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a00c7922a42747b04a8f28dbcf3e79d15"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a00c7922a42747b04a8f28dbcf3e79d15">&#9670;&nbsp;</a></span>get_file_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structcsv__parser_1_1CSVFileInfo.html">CSVFileInfo</a> csv_parser::get_file_info </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>filename</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get basic information about a CSV file</p>
+<p>Get basic information about a CSV file </p>
 
 </div>
 </div>
@@ -351,14 +320,14 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="ac7fc2dc2700585885829c43fd765a313"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac7fc2dc2700585885829c43fd765a313">&#9670;&nbsp;</a></span>guess_delim()</h2>
+<a id="ab3515ddd7d99ec00940a187a3e36aa51"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab3515ddd7d99ec00940a187a3e36aa51">&#9670;&nbsp;</a></span>guess_delim()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::string csv_parser::guess_delim </td>
+          <td class="memname">char csv_parser::guess_delim </td>
           <td>(</td>
           <td class="paramtype">std::string&#160;</td>
           <td class="paramname"><em>filename</em></td><td>)</td>
@@ -379,295 +348,34 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="a39bdbe8bc0004d3d8593c2ce41681eba"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a39bdbe8bc0004d3d8593c2ce41681eba">&#9670;&nbsp;</a></span>head()</h2>
+<h2 class="groupheader">Variable Documentation</h2>
+<a id="a92f546fe3ed0b6e40bdc7e89f376b8cb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92f546fe3ed0b6e40bdc7e89f376b8cb">&#9670;&nbsp;</a></span>GUESS_CSV</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void csv_parser::head </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>infile</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>nrow</em> = <code>100</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>delim</em> = <code>&quot;&quot;</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>quote</em> = <code>&quot;\&quot;&quot;</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>header</em> = <code>0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; int &gt;&#160;</td>
-          <td class="paramname"><em>subset</em> = <code>{}</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
+          <td class="memname">const <a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a> csv_parser::GUESS_CSV = { '\0', '&quot;', 0 }</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Print out the first n rows of a CSV</p>
-<p>Print out the first n rows of a CSV </p>
+<p>A dummy variable used to indicate delimiter should be guessed </p>
 
 </div>
 </div>
-<a id="a8059a19f300c431d46ab789c1dc1f100"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8059a19f300c431d46ab789c1dc1f100">&#9670;&nbsp;</a></span>json_escape()</h2>
+<a id="a2861dd5ff237bb8250aa023a7d1cc172"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2861dd5ff237bb8250aa023a7d1cc172">&#9670;&nbsp;</a></span>ITERATION_CHUNK_SIZE</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::string csv_parser::json_escape </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>in</em></td><td>)</td>
-          <td></td>
+          <td class="memname">const size_t csv_parser::ITERATION_CHUNK_SIZE = 100000</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Given a CSV string, convert it to a JSON string with proper escaping as described by RFC 7159</p>
-<p>Given a CSV string, convert it to a JSON string with proper escaping as described by RFC 7159</p>
-
-</div>
-</div>
-<a id="a00fbd2268a599f02016ccf1687e7982d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a00fbd2268a599f02016ccf1687e7982d">&#9670;&nbsp;</a></span>merge()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv_parser::merge </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>outfile</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; std::string &gt;&#160;</td>
-          <td class="paramname"><em>in</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Merge several CSV files together </p><dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">delims</td><td>A list of delimiters</td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="a2fe3b51fa67ed7fe4518574a93ab33d8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a2fe3b51fa67ed7fe4518574a93ab33d8">&#9670;&nbsp;</a></span>reformat()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv_parser::reformat </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>infile</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>outfile</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>skiplines</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Reformat a CSV file </p>
-
-</div>
-</div>
-<a id="aec928bc6375f31a8027c8339b1ae9a6c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aec928bc6375f31a8027c8339b1ae9a6c">&#9670;&nbsp;</a></span>round()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; string &gt; csv_parser::round </td>
-          <td>(</td>
-          <td class="paramtype">vector&lt; long double &gt;&#160;</td>
-          <td class="paramname"><em>in</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Take a numeric vector and return a string vector with rounded numbers </p>
-
-</div>
-</div>
-<a id="afaa019228f129e0b9c8be638d97e36e4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afaa019228f129e0b9c8be638d97e36e4">&#9670;&nbsp;</a></span>rpad_trim()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">string csv_parser::rpad_trim </td>
-          <td>(</td>
-          <td class="paramtype">string&#160;</td>
-          <td class="paramname"><em>in</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>n</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>trim</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Add extra whitespace until string is n characters long Also trim string if it is too long</p>
-
-</div>
-</div>
-<a id="aa2c2a0bad817823bf31cd47b128b99a6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa2c2a0bad817823bf31cd47b128b99a6">&#9670;&nbsp;</a></span>sql_sanitize()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::string csv_parser::sql_sanitize </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>col_name</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Sanitize column names for SQL</p><ul>
-<li>Remove bad characters</li>
-<li>Place _ in front of numeric names</li>
-</ul>
-<p>Sanitize column names for SQL</p><ul>
-<li>Remove bad characters</li>
-<li>Place _ in front of numeric names</li>
-</ul>
-
-</div>
-</div>
-<a id="a47223a9c6fffe08466090d59021f4230"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a47223a9c6fffe08466090d59021f4230">&#9670;&nbsp;</a></span>sqlite_types()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vector&lt; string &gt; csv_parser::sqlite_types </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>filename</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>nrows</em> = <code>50000</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Return the preferred data type for the columns of a file</p>
-<p>Return the preferred data type for the columns of a file </p>
-
-</div>
-</div>
-<a id="ac3c9b5e4be79155d34a9970a3978d35a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac3c9b5e4be79155d34a9970a3978d35a">&#9670;&nbsp;</a></span>top_n_values()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T1 , typename T2 &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">map&lt;T1, T2&gt; csv_parser::top_n_values </td>
-          <td>(</td>
-          <td class="paramtype">map&lt; T1, T2 &gt;&#160;</td>
-          <td class="paramname"><em>in</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>n</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return a map with only the top n values </p>
+<p>For functions that lazy load a large CSV, this determines how many rows are read at a time </p>
 
 </div>
 </div>

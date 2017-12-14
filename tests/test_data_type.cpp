@@ -3,6 +3,7 @@
 #include <string>
 
 using namespace csv_parser;
+using helpers::data_type;
 
 TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string int_a("1");

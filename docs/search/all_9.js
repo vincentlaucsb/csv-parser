@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['last_5fpos',['last_pos',['../classcsv__parser_1_1CSVReader.html#ad322a8e1675990c82ba988e578b663b5',1,'csv_parser::CSVReader']]]
+  ['json_5fescape',['json_escape',['../namespacecsv__parser_1_1helpers.html#ac9e0e74a2a6e3e7397474fecf562a73d',1,'csv_parser::helpers']]]
 ];

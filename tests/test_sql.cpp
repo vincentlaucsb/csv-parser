@@ -4,6 +4,11 @@
 #include <set>
 
 using namespace csv_parser;
+using extra::csv_to_sql;
+using extra::csv_join;
+using helpers::path_split;
+using sql::sql_sanitize;
+using sql::sqlite_types;
 using std::vector;
 using std::string;
 using std::set;

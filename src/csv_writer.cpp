@@ -4,9 +4,12 @@ using std::vector;
 using std::string;
 
 namespace csv_parser {
+    /** @file */
     std::string csv_escape(std::string& in, bool quote_minimal) {
         /** Format a string to be RFC 4180-compliant
-         *  @param      quote_minimal   Only quote fields if necessary
+         *  @param[in]  in              String to be CSV-formatted
+         *  @param[out] quote_minimal   Only quote fields if necessary.
+         *                              If False, everything is quoted.
          */
 
         std::string new_string = "\""; // Start initial quote escape sequence
@@ -36,7 +39,9 @@ namespace csv_parser {
     }
 
     CSVWriter::CSVWriter(std::string outfile) {
-        /** Open a file for writing */
+        /** Open a file for writing
+         *  @param[out] outfile Path of the file to be written to
+         */
         this->outfile = std::ofstream(outfile, std::ios_base::binary);
     }
 
@@ -44,6 +49,7 @@ namespace csv_parser {
         /** Format a sequence of strings and write to CSV according to RFC 4180
          *
          *  **Note**: This does not check to make sure row lengths are consistent
+         *  @param[in]  record          Vector of strings to be formatted
          *  @param      quote_minimal   Only quote fields if necessary
          */
 

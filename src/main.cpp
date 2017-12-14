@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
         else if (command == "join")
             return cli_join(str_args);
 		else
-            head(command, 100); // Assume first arg is a filename
+            extra::head(command, 100); // Assume first arg is a filename
 	}
     catch (std::runtime_error e) {
         std::cerr << e.what() << std::endl;
@@ -189,39 +189,39 @@ int cli_stat(vector<string> str_args) {
     std::string filename = str_args.at(0);
     file_exists(str_args.at(0));
    
-    CSVStat calc(guess_delim(filename));
-    (&calc)->bad_row_handler = &print_record;
+    CSVStat calc(filename);
+    (&calc)->bad_row_handler = &helpers::print_record;
     vector<string> row;
 
-    while(calc.read_row(filename, row))
+    while(calc.read_row(row))
         calc.calc();
 
     vector<string> col_names = calc.get_col_names();
     vector<map<string, int>> counts = calc.get_counts();
     vector<vector<string>> print_rows = {
         col_names,
-        round(calc.get_mean()),
-        round(calc.get_variance()),
-        round(calc.get_mins()),
-        round(calc.get_maxes())
+        helpers::round(calc.get_mean()),
+        helpers::round(calc.get_variance()),
+        helpers::round(calc.get_mins()),
+        helpers::round(calc.get_maxes())
     };
     vector<string> row_names = { "", "Mean", "Variance", "Min", "Max" };
 
     // Print basic stats
-    print_table(print_rows, -1, row_names);
+    helpers::print_table(print_rows, -1, row_names);
     print("");
 
     // Print counts
     for (size_t i = 0; i < col_names.size(); i++) {
         std::cout << "Counts for " << col_names[i] << std::endl;
-        map<string, int> temp = top_n_values(counts[i], 10);
+        map<string, int> temp = helpers::top_n_values(counts[i], 10);
 
         for (auto it = temp.begin(); it != temp.end(); ++it) {
             print_rows.push_back(
                 vector<string>({ it->first, std::to_string(it->second) }));
         }
 
-        print_table(print_rows);
+        helpers::print_table(print_rows);
         print("");
     }
 
@@ -231,17 +231,18 @@ int cli_stat(vector<string> str_args) {
 int cli_info(string filename) {
     CSVFileInfo info = get_file_info(filename);
     vector<vector<string>> records;
-    auto info_p = &info;
-    print(info_p->filename);
-    
-    records.push_back({"Delimiter", info_p->delim});
-    records.push_back({"Rows", std::to_string(info_p->n_rows) });
-    records.push_back({"Columns", std::to_string(info_p->n_cols) });
+    std::string delim = "";
+    delim += info.delim;
 
-    for (size_t i = 0; i < info_p->col_names.size(); i++)
-        records.push_back({"[" + std::to_string(i) + "]", info_p->col_names[i]});
+    print(info.filename);
+    records.push_back({"Delimiter", delim});
+    records.push_back({"Rows", std::to_string(info.n_rows) });
+    records.push_back({"Columns", std::to_string(info.n_cols) });
 
-    print_table(records, -1);
+    for (size_t i = 0; i < info.col_names.size(); i++)
+        records.push_back({"[" + std::to_string(i) + "]", info.col_names[i]});
+
+    helpers::print_table(records, -1);
     return 0;
 }
 
@@ -250,7 +251,7 @@ int cli_csv(vector<string> str_args) {
         throw std::runtime_error("Please specify an input and an output file.");
     }
     else if (str_args.size() == 2) {
-        reformat(str_args.at(0), str_args.at(1));  // Single CSV input
+        extra::reformat(str_args.at(0), str_args.at(1));  // Single CSV input
     }
     else {
         string outfile = str_args.back();
@@ -258,7 +259,7 @@ int cli_csv(vector<string> str_args) {
         if (file_exists(outfile))
             throw std::runtime_error("Output file already exists. Please specify "
                 "a fresh CSV file to write to.");
-        merge(outfile, str_args);
+        extra::merge(outfile, str_args);
     }
     
     return 0;
@@ -287,12 +288,11 @@ int cli_grep(vector<string> str_args) {
             "column number, and regular expression.");
 
     string filename = str_args.at(0);
-    string delim = guess_delim(filename);
     string reg_exp = join(str_args, 2, str_args.size());
 
     try {
         size_t col = std::stoi(str_args[1]);
-        size_t n_cols = get_col_names(filename, delim).size();
+        size_t n_cols = get_col_names(filename).size();
 
         // Assert column position exists
         if (col + 1 > n_cols) {
@@ -300,14 +300,14 @@ int cli_grep(vector<string> str_args) {
                 std::to_string(n_cols) + " columns");
         }
 
-        grep(filename, col, reg_exp, 500, delim);
+        extra::grep(filename, col, reg_exp, 500);
     }
     catch (std::invalid_argument) {
-        int col = col_pos(filename, str_args[1]);
+        int col = get_col_pos(filename, str_args[1]);
         if (col == -1)
             throw std::runtime_error("Could not find a column named " + str_args[1]);
         else
-            grep(filename, col, reg_exp, 500, delim);
+            extra::grep(filename, col, reg_exp, 500);
     }
     
     return 0;
@@ -316,7 +316,6 @@ int cli_grep(vector<string> str_args) {
 int cli_rearrange(vector<string> str_args) {
     string filename = str_args.at(0);
     string outfile = str_args.at(1);
-    string delim = guess_delim(filename);
     vector<int> columns = {};
     int col_index = -1;
 
@@ -326,7 +325,7 @@ int cli_rearrange(vector<string> str_args) {
             columns.push_back(std::stoi(str_args[i]));
         }
         catch (std::invalid_argument) {
-            col_index = col_pos(filename, str_args[i]);
+            col_index = get_col_pos(filename, str_args[i]);
             if (col_index == -1)
                 throw std::runtime_error("Could not find a column named " + str_args[i]);
             else
@@ -334,16 +333,13 @@ int cli_rearrange(vector<string> str_args) {
         }
     }
 
-    CSVReader reader(delim, "\"", 0, columns);
+    CSVReader reader(filename, GUESS_CSV, columns);
     CSVWriter writer(outfile);
-    bool write_col_names = false;
     vector<string> row;
 
-    while (reader.read_row(filename, row)) {
-        if (!write_col_names)
-            writer.write_row(reader.get_col_names());
+    writer.write_row(reader.get_col_names());
+    while (reader.read_row(row))
         writer.write_row(row);
-    }
 
     writer.close();
     return 0;
@@ -352,7 +348,7 @@ int cli_rearrange(vector<string> str_args) {
 int cli_sql(vector<string> str_args) {
     string csv_file = str_args.at(0);
     string db_file = str_args.at(1);
-    csv_to_sql(csv_file, db_file);
+    extra::csv_to_sql(csv_file, db_file);
     return 0;
 }
 
@@ -366,6 +362,6 @@ int cli_join(vector<string> str_args) {
     if (str_args.size() >= 5)
         column2 = str_args.at(4);
 
-    csv_join(file1, file2, outfile, column1, column2);
+    extra::csv_join(file1, file2, outfile, column1, column2);
     return 0;
 }

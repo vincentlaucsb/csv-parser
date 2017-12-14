@@ -3,7 +3,9 @@
 #include <random>
 
 namespace csv_parser {
-    /** @file */
+    /** @file
+     *  Defines all functionality needed for basic CSV parsing
+     */
 
     char guess_delim(std::string filename) {
         /** Guess the delimiter of a delimiter separated values file
@@ -18,7 +20,7 @@ namespace csv_parser {
         std::vector<char> delims = { ',', '|', '\t', ';', '^' };
         char current_delim;
         int max_rows = 0;
-        int max_cols = 0;
+        size_t max_cols = 0;
 
         for (size_t i = 0; i < delims.size(); i++) {
             CSVReader guesser(delims[i]);
@@ -35,14 +37,21 @@ namespace csv_parser {
     }
     
     std::vector<std::string> get_col_names(std::string filename, CSVFormat format) {
-        /** Return a CSV's column names */
+        /** Return a CSV's column names
+         *  @param[in] filename  Path to CSV file
+         *  @param[in] format    Format of the CSV file
+         */
         CSVReader reader(filename, format);
         reader.close();
         return reader.get_col_names();
     }
 
     int get_col_pos(std::string filename, std::string col_name, CSVFormat format) {
-        /** Resolve column position from column name */
+        /** Find the position of a column in a CSV file
+         *  @param[in] filename  Path to CSV file
+         *  @param[in] col_name  Column whose position we should resolve
+         *  @param[in] format    Format of the CSV file
+         */
         std::vector<std::string> col_names = get_col_names(filename, format);
 
         auto it = std::find(col_names.begin(), col_names.end(), col_name);
@@ -57,6 +66,10 @@ namespace csv_parser {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
         std::vector<std::string> row;
+
+        /* Loop over entire file without doing anything
+         * except for counting up the number of rows
+         */
         while (reader.read_row(row));
 
         CSVFileInfo info = {
@@ -71,7 +84,15 @@ namespace csv_parser {
     }
 
     CSVReader::CSVReader(std::string filename, CSVFormat format, std::vector<int> _subset) {
-        /** Create a CSVReader over a file */
+        /** Create a CSVReader over a file. This constructor
+         *  first reads the first 100 rows of a CSV file. After that, you can
+         *  lazily iterate over a file by repeatedly calling any one of the 
+         *  CSVReader::read_row() functions
+         *
+         *  @param[in] filename  Path to CSV file
+         *  @param[in] format    Format of the CSV file
+         *  @param[in] subset    Indices of columns to keep (default: keep all)
+         */
         if (format.delim == '\0')
             delimiter = guess_delim(filename);
         else
@@ -83,7 +104,8 @@ namespace csv_parser {
 
         // Begin reading CSV
         read_csv(filename, 100, false);
-        this->current_row = this->records.begin();
+        read_start = true;
+        current_row = records.begin();
     }
 
     CSVFormat CSVReader::get_format() {
@@ -96,9 +118,14 @@ namespace csv_parser {
     }
 
     void CSVReader::set_col_names(std::vector<std::string> col_names) {
-        /** - Set or override the CSV's column names
+        /** Set or override the CSV's column names
+         * 
+         *  #### Significance
          *  - When parsing, rows that are shorter or longer than the list 
          *    of column names get dropped
+         *  - These column names are also used when creating CSV/JSON/SQLite3 files
+         *
+         *  @param[in] col_names Column names
          */
         
         this->col_names = col_names;
@@ -254,38 +281,6 @@ namespace csv_parser {
         this->row_num++;
     }
 
-    std::vector<std::string> CSVReader::pop(bool front) {
-        /** - Remove and return the first CSV row
-         *  - Considering using empty() to avoid popping from an empty queue
-         */
-
-        std::vector<std::string> record;
-
-        if (front) {
-            record = this->records.front();
-            this->records.pop_front();
-        }
-        else {
-            record = this->records.back();
-            this->records.pop_back();
-        }
-
-        return record;
-    }
-
-    std::map<std::string, std::string> CSVReader::pop_map(bool front) {
-        /** - Remove and return the first CSV row as a std::map
-         *  - Considering using empty() to avoid popping from an empty queue
-         */
-        std::vector< std::string > record = this->pop(front);
-        std::map< std::string, std::string > record_map;
-
-        for (size_t i = 0; i < subset.size(); i++)
-            record_map[this->subset_col_names[i]] = record[i];
-
-        return record_map;
-    }
-
     bool CSVReader::empty() {
         /** Indicates whether or not the queue still contains CSV rows */
         return this->records.empty();
@@ -385,10 +380,10 @@ namespace csv_parser {
              * Recall data_type() returns 2 for ints and 3 for floats
              */
             
-            if (data_type(record[i]) > 1)
+            if (helpers::data_type(record[i]) > 1)
                 json_record += record[i];
             else
-                json_record += "\"" + json_escape(record[i]) + "\"";
+                json_record += "\"" + helpers::json_escape(record[i]) + "\"";
 
             if (i + 1 != record.size())
                 json_record += ",";
@@ -442,6 +437,7 @@ namespace csv_parser {
 
         return output;
     }
+
     /*
     void CSVReader::sample(int n) {
          Take a random uniform sample (with replacement) of n rows
@@ -458,15 +454,30 @@ namespace csv_parser {
     */
 
     bool CSVReader::read_row(std::vector<std::string> &row) {
-        /** Iterate over a potentially larger than RAM file 
-         *  storing the parsed results in row
+        /** Retrieve rows parsed by CSVReader in FIFO order.
+         *   - If CSVReader was initialized with respect to a file, then this lazily
+         *     iterates over the file until no more rows are available.
          *
-         *  Returns True if file is still open, False otherwise
+         *  #### Return Value
+         *  Returns True if more rows are available, False otherwise.
+         *
+         *  #### Alternatives 
+         *  If you want automatic type casting of values, then consider
+         *   - CSVReader::read_row(std::vector<CSVField> &row) or
+         *   - CSVReader::read_row(std::vector<void *>&, std::vector<int>&, bool*)
+         *
+         *  @param[out] row A vector of strings where the read row will be stored
          */
         while (true) {
+            if (!read_start) {
+                this->read_start = true;
+                this->current_row = this->records.begin();
+            }
+
             if (this->current_row == this->records.end()) {
-                if (!this->eof) {
-                    this->clear();
+                this->clear();
+
+                if (!this->eof && this->infile) {
                     this->read_csv("", ITERATION_CHUNK_SIZE, false);
                     this->current_row = this->records.begin();
                 }
@@ -488,13 +499,27 @@ namespace csv_parser {
         bool *overflow)
     {
         /** Same as read_row(std::string, std::vector<std::string> &row) but
-         *  does type-casting on values
+         *  does type-casting on values. Consider using 
+         *  CSVReader::read_row(std::vector<CSVField> &row)
+         *  for a safer alternative.
+         *
+         *  @param[out] row      Where the row's values will be stored
+         *  @param[out] dtypes   Used for storing data type information
+         *  @param[out] overflow If specified, used to indicate if previous value
+         *                       couldn't be type-casted due to a
+         *                       std::out_of_range error
          */
 
         while (true) {
+            if (!read_start) {
+                this->read_start = true;
+                this->current_row = this->records.begin();
+            }
+
             if (this->current_row == this->records.end()) {
-                if (!this->eof) {
-                    this->clear();
+                this->clear();
+
+                if (!this->eof && this->infile) {
                     this->read_csv("", ITERATION_CHUNK_SIZE, false);
                     this->current_row = this->records.begin();
                 }
@@ -510,11 +535,11 @@ namespace csv_parser {
             dtypes.clear();
 
             for (auto it = temp.begin(); it != temp.end(); ++it) {
-                dtype = data_type(*it);
+                dtype = helpers::data_type(*it);
                 dtypes.push_back(dtype);
 
                 try {
-                    switch (data_type(*it)) {
+                    switch (helpers::data_type(*it)) {
                     case 0: // Empty string
                     case 1: // String
                         field = new std::string(*it);
@@ -552,7 +577,18 @@ namespace csv_parser {
     }
 
     bool CSVReader::read_row(std::vector<CSVField> &row) {
-        /** Like read_row(std::vector<void*> &row, std::vector<int>) but safer */
+        /** Perform automatic type-casting when retrieving rows
+         *  - This is implemented on top of 
+         *    read_row(std::vector<void*> &row, std::vector<int> &dtypes)
+         *    but is much safer
+         *  - This is also much faster and more robust than calling std::stoi()
+         *    on the values of a std::vector<std::string>
+         *
+         *  **Note:** See the documentation for CSVField to see how to work
+         *  with the output of this function
+         *
+         *  @param[out] row A vector of strings where the read row will be stored
+         */
         std::vector<void*> in_row;
         std::vector<CSVField> out_row;
         std::vector<int> dtypes;
@@ -568,45 +604,11 @@ namespace csv_parser {
 
         return false;
     }
-    
-    std::string json_escape(std::string in) {
-        /** Given a CSV string, convert it to a JSON string with proper
-         *  escaping as described by RFC 7159
-         */
 
-        std::string out;
-        
-        for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
-            switch (in[i]) {
-                case '"':
-                    // Assuming quotes come in pairs due to CSV escaping
-                    out += "\\\"";
-                    i++; // Skip over next quote
-                    break;
-                case '\\':
-                    out += "\\\\";
-                    break;
-                case '/':
-                    out += "\\/";
-                    break;
-                case '\r':
-                    out += "\\\r";
-                    break;
-                case '\n':
-                    out += "\\\n";
-                    break;
-                case '\t':
-                    out += "\\\t";
-                    break;
-                default:
-                    out += in[i];
-            }
-        }
-        
-        return out;
-    }
+    //
+    // CSVField
+    //
 
-    /** CSVField */
     int CSVField::is_int() {
         /** Returns:
           *  - 1: If data type is an integer
@@ -642,7 +644,11 @@ namespace csv_parser {
     }
 
     bool CSVField::is_string() {
-        /** Returns True if data type is a string */
+        /** Returns True if the field's data type is a string
+         * 
+         * **Note**: This returns False if the field is an empty string,
+         * in which case calling is_null() yields True.
+        */
         return (this->dtype == 1);
     }
 
@@ -652,6 +658,11 @@ namespace csv_parser {
     }
 
     std::string CSVField::get_string() {
+        /** Retrieve a string value, throwing an error if the field is 
+         *  not a string
+         *
+         *  **Note**: This can also be used to retrieve empty fields
+         */
         if (this->dtype <= 1 || this->overflow) {
             std::string* ptr = (std::string*)this->data_ptr;
             std::string ret = *ptr;
@@ -664,6 +675,10 @@ namespace csv_parser {
     }
 
     long long int CSVField::get_int() {
+        /** Safely retrieve an integral value, throwing an error if 
+         *  the field is not an integer or type-casting will cause an
+         *  integer overflow.
+         */
         if (this->dtype == 2) {
             if (!this->overflow) {
                 long long int* ptr = (long long int*)this->data_ptr;
@@ -672,7 +687,7 @@ namespace csv_parser {
                 return ret;
             }
             else {
-                throw std::runtime_error("[TypeError] Integer overflow: Use get_string(() instead.");
+                throw std::runtime_error("[TypeError] Integer overflow: Use get_string() instead.");
             }
         }
         else {
@@ -681,6 +696,10 @@ namespace csv_parser {
     }
 
     long double CSVField::get_float() {
+        /** Safely retrieve a floating point value, throwing an error if
+         *  the field is not a floating point number or type-casting will
+         *  cause an overflow
+         */
         if (this->dtype == 3) {
             if (!this->overflow) {
                 long double* ptr = (long double*)this->data_ptr;
@@ -689,11 +708,50 @@ namespace csv_parser {
                 return ret;
             }
             else {
-                throw std::runtime_error("[TypeError] Float overflow: Use get_string(() instead.");
+                throw std::runtime_error("[TypeError] Float overflow: Use get_string() instead.");
             }
         }
         else {
             throw std::runtime_error("[TypeError] Not a float.");
+        }
+    }
+
+    namespace helpers {
+        std::string json_escape(std::string in) {
+            /** Given a CSV string, convert it to a JSON string with proper
+            *  escaping as described by RFC 7159
+            */
+
+            std::string out;
+
+            for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
+                switch (in[i]) {
+                case '"':
+                    // Assuming quotes come in pairs due to CSV escaping
+                    out += "\\\"";
+                    i++; // Skip over next quote
+                    break;
+                case '\\':
+                    out += "\\\\";
+                    break;
+                case '/':
+                    out += "\\/";
+                    break;
+                case '\r':
+                    out += "\\\r";
+                    break;
+                case '\n':
+                    out += "\\\n";
+                    break;
+                case '\t':
+                    out += "\\\t";
+                    break;
+                default:
+                    out += in[i];
+                }
+            }
+
+            return out;
         }
     }
 }

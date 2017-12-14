@@ -93,7 +93,9 @@ namespace csv_parser {
     }
 
     void CSVStat::calc_csv(std::string filename, bool numeric, bool count, bool dtype) {
-        /** Lazily calculate statistics for a potentially very big file */
+        /** Lazily calculate statistics for a potentially very big file. 
+         *  This method is a wrapper on top of CSVStat::calc();
+         */
         while (!this->eof) {
             this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
             this->calc(numeric, count, dtype);
@@ -101,8 +103,10 @@ namespace csv_parser {
     }
 
     void CSVStat::calc_col(size_t i) {
-        /** Calculate statistics for one column
-         *  Meant to be executed by one thread/helper for calc()
+        /** Worker thread which calculates statistics for one column.
+         *  Intended to be called from CSVStat::calc().
+         * 
+         *  @param[out] i Column index
          */
 
         std::deque<vector<string>>::iterator current_record = this->records.begin();
@@ -116,7 +120,7 @@ namespace csv_parser {
             try {
                 // Using data_type() to check if field is numeric is faster
                 // than catching stold() errors
-                if (data_type((*current_record)[i]) >= 2) {
+                if (helpers::data_type((*current_record)[i]) >= 2) {
                     x_n = std::stold((*current_record)[i]);
 
                     // This actually calculates mean AND variance
@@ -134,8 +138,11 @@ namespace csv_parser {
     }
 
     void CSVStat::dtype(std::string &record, size_t &i) {
-        // Given a record update the type counter
-        int type = data_type(record);
+        /** Given a record update the type counter
+         *  @param[in]  record Data observation
+         *  @param[out] i      The column index that should be updated
+         */
+        int type = helpers::data_type(record);
         
         if (this->dtypes[i].find(type) !=
             this->dtypes[i].end()) {
@@ -148,7 +155,10 @@ namespace csv_parser {
     }
 
     void CSVStat::count(std::string &record, size_t &i) {
-        /** Given a record update the frequency counter */
+        /** Given a record update the frequency counter
+         *  @param[in]  record Data observation
+         *  @param[out] i      The column index that should be updated
+         */
         if (this->counts[i].find(record) !=
             this->counts[i].end()) {
             // Increment count
@@ -160,7 +170,10 @@ namespace csv_parser {
     }
 
     void CSVStat::min_max(long double &x_n, size_t &i) {
-        /** Update current minimum and maximum */
+        /** Update current minimum and maximum
+         *  @param[in]  x_n Data observation
+         *  @param[out] i   The column index that should be updated
+         */
         if (isnan(this->mins[i])) {
             this->mins[i] = x_n;
         } if (isnan(this->maxes[i])) {
@@ -176,8 +189,11 @@ namespace csv_parser {
     }
 
     void CSVStat::variance(long double &x_n, size_t &i) {
-        // Given a record update rolling mean and variance for all columns
-        // using Welford's Algorithm
+        /** Given a record update rolling mean and variance for all columns
+         *  using Welford's Algorithm
+         *  @param[in]  x_n Data observation
+         *  @param[out] i   The column index that should be updated
+         */
         long double * current_rolling_mean = &this->rolling_means[i];
         long double * current_rolling_var = &this->rolling_vars[i];
         float * current_n = &this->n[i];

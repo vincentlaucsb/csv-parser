@@ -4,6 +4,7 @@
 #include "getargs.h"
 
 using namespace csv_parser;
+using namespace csv_parser::helpers;
 using std::vector;
 using std::string;
 

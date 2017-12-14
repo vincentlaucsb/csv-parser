@@ -2,6 +2,8 @@
 #include "catch.hpp"
 
 using namespace csv_parser;
+using extra::reformat;
+using extra::merge;
 
 TEST_CASE( "Integrity Check via Statistics", "[csv_clean]" ) {
     // Header on first row

@@ -39,35 +39,20 @@ TEST_CASE("get_file_info() Test", "[test_file_info]") {
 // Test Main Functions
 TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     string csv_string("A,B,C\r\n" // Header row
-                           "123,234,345\r\n"
-                           "1,2,3\r\n"
-                           "1,2,3");
+                      "123,234,345\r\n"
+                      "1,2,3\r\n"
+                      "1,2,3");
 
     // Feed Strings
     CSVReader reader;
+    vector<string> row;
     reader.feed(csv_string);
     reader.end_feed();
     
     // Expected Results
+    reader.read_row(row);
     vector<string> first_row = {"123", "234", "345"};
-    REQUIRE( reader.pop() == first_row );
-}
-
-TEST_CASE( "Test Reading CSV From Direct Input (pop_map())",
-           "[read_csv_pop_map]" ) {
-    string csv_string("A,B,C\r\n" // Header row
-                           "123,234,345\r\n"
-                           "1,2,3\r\n"
-                           "1,2,3");
-    CSVReader reader;
-    reader.feed(csv_string);
-    reader.end_feed();
-    
-    // Expected Results
-    std::map<string, string> first_row = {
-        {"A", "123"}, {"B", "234"}, {"C", "345"}
-    };
-    REQUIRE( reader.pop_map() == first_row );
+    REQUIRE( row == first_row );
 }
 
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
@@ -76,12 +61,14 @@ TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
                          "1,2,3\r\n"
                          "1,2,3");
     CSVReader reader;
+    vector<string> row;
     reader.feed(csv_string);
     reader.end_feed();
     
     // Expected Results
+    reader.read_row(row);
     vector<string> first_row = {"123", "234,345", "456"};
-    REQUIRE( reader.pop() == first_row );
+    REQUIRE( row == first_row );
 }
 
 TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
@@ -90,12 +77,14 @@ TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
                               "1,2,3\r\n"
                               "1,2,3");
     CSVReader reader;
+    vector<string> row;
     reader.feed(csv_string);
     reader.end_feed();
     
     // Expected Results
+    reader.read_row(row);
     vector<string> first_row = {"123", "234\n,345", "456"};
-    REQUIRE( reader.pop() == first_row );
+    REQUIRE( row == first_row );
 }
 
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
@@ -104,12 +93,14 @@ TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
                               "123,\"\",456\r\n");
     
     CSVReader reader;
+    vector<string> row;
     reader.feed(csv_string);
     reader.end_feed();
     
     // Expected Results
+    reader.read_row(row);
     vector<string> correct_row = {"123", "", "456"};
-    REQUIRE( reader.pop() == correct_row ); // First Row
+    REQUIRE( row == correct_row );
 }
 
 TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
@@ -121,19 +112,29 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
         "123,\"234\"345\",456\r\n");
     
     CSVReader reader;
+    vector<string> row;
     reader.feed(csv_string);
     reader.end_feed();
     
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = {"123", "234\"345", "456"};
-    REQUIRE( reader.pop() == correct_row ); // First Row
-    REQUIRE( reader.pop() == correct_row ); // Second Row
+
+    // First Row
+    reader.read_row(row);
+    REQUIRE( row == correct_row );
+
+    // Second Row
+    reader.read_row(row);
+    REQUIRE( row == correct_row );
 }
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
     CSVReader reader;
     reader.read_csv("./tests/data/real_data/2015_StateDepartment.csv");
+
+    vector<string> row;
+    reader.read_row(row); // Populate row with first line
     
     // Expected Results
     vector<string> col_names = {
@@ -156,7 +157,7 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
         ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
         "08/02/2016","",""
     };
-    REQUIRE( reader.pop() == first_row );
+    REQUIRE( row == first_row );
     REQUIRE( reader.get_col_names() == col_names );
     
     // Can confirm with MS Excel, etc...
@@ -164,8 +165,8 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
 }
 
 TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
-    // Same file as above
-    vector<int> subset = {0, 1, 2, 3, 4};    
+    vector<int> subset = {0, 1, 2, 3, 4};
+    vector<string> row;
     CSVReader reader(',', '"', 0, subset);
     reader.read_csv("./tests/data/real_data/2015_StateDepartment.csv");
     
@@ -176,7 +177,8 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
         "Year","Entity Type","Entity Group","Entity Name","Department / Subdivision"
     };
     
-    REQUIRE( reader.pop() == first_row );
+    reader.read_row(row);
+    REQUIRE( row == first_row );
     REQUIRE( reader.get_col_names() == col_names);
     REQUIRE( reader.row_num == 246498 );
 }
@@ -264,6 +266,7 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvfield]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
     vector<CSVField> row;
     int i = 0;
+    bool caught_error = false;
 
     while (reader.read_row(row)) {
         // Assert correct types
@@ -276,6 +279,26 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvfield]") {
             REQUIRE(row[0].get_string() == "12/31/2009");
             REQUIRE(row[1].get_string() == "Beaver Valley 1");
             REQUIRE(row[2].get_int() == 100);
+
+            // Assert misusing API throws the appropriate errors
+            try {
+                row[0].get_int();
+            }
+            catch (std::runtime_error) {
+                caught_error = true;
+            }
+
+            REQUIRE(caught_error);
+            caught_error = false;
+
+            try {
+                row[0].get_float();
+            }
+            catch (std::runtime_error) {
+                caught_error = true;
+            }
+
+            REQUIRE(caught_error);
         }
 
         i++;

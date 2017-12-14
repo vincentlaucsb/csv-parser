@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['header_5frow',['header_row',['../classcsv__parser_1_1CSVReader.html#acd14fad85ecdbdce9cccd149ec3b32bc',1,'csv_parser::CSVReader']]]
+  ['guess_5fcsv',['GUESS_CSV',['../namespacecsv__parser.html#a92f546fe3ed0b6e40bdc7e89f376b8cb',1,'csv_parser']]]
 ];

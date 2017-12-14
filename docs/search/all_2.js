@@ -1,20 +1,28 @@
 var searchData=
 [
   ['calc',['calc',['../classcsv__parser_1_1CSVStat.html#a32b28d3a0b3944f5cff141dc7842dd01',1,'csv_parser::CSVStat']]],
+  ['calc_5fcsv',['calc_csv',['../classcsv__parser_1_1CSVStat.html#a8d8c0129fe00556ec292392aa9b448e6',1,'csv_parser::CSVStat']]],
   ['close',['close',['../classcsv__parser_1_1CSVReader.html#a971735c2c31280fad116005043d3044e',1,'csv_parser::CSVReader::close()'],['../classcsv__parser_1_1CSVWriter.html#a01bafc47dc4db1469ce6a6e3f02aedb0',1,'csv_parser::CSVWriter::close()']]],
   ['col_5fnames',['col_names',['../classcsv__parser_1_1CSVReader.html#afbc71dfcaee5f3c8eac3d7c4a453327c',1,'csv_parser::CSVReader']]],
   ['correct_5frows',['correct_rows',['../classcsv__parser_1_1CSVReader.html#ad896101155e12ba6b7372264889cb31a',1,'csv_parser::CSVReader']]],
+  ['create_5ftable',['create_table',['../namespacecsv__parser_1_1sql.html#abec74d652296550b05335332136bf313',1,'csv_parser::sql']]],
   ['csv_5fedit_2ecpp',['csv_edit.cpp',['../csv__edit_8cpp.html',1,'']]],
-  ['csv_5fescape',['csv_escape',['../namespacecsv__parser.html#ab44572d370a535644f8c969afb3f1670',1,'csv_parser']]],
+  ['csv_5fescape',['csv_escape',['../namespacecsv__parser.html#a36fd737d1c1bb82eb2683cfe120d5970',1,'csv_parser']]],
   ['csv_5fparser',['csv_parser',['../namespacecsv__parser.html',1,'']]],
   ['csv_5fparser_2eh',['csv_parser.h',['../csv__parser_8h.html',1,'']]],
   ['csv_5freader_2ecpp',['csv_reader.cpp',['../csv__reader_8cpp.html',1,'']]],
   ['csv_5fsearch_2ecpp',['csv_search.cpp',['../csv__search_8cpp.html',1,'']]],
+  ['csv_5fsql_2ecpp',['csv_sql.cpp',['../csv__sql_8cpp.html',1,'']]],
   ['csv_5fstat_2ecpp',['csv_stat.cpp',['../csv__stat_8cpp.html',1,'']]],
   ['csv_5fto_5fjson',['csv_to_json',['../classcsv__parser_1_1CSVReader.html#a6283865922956f606c4634003bd2514f',1,'csv_parser::CSVReader']]],
+  ['csv_5fwriter_2ecpp',['csv_writer.cpp',['../csv__writer_8cpp.html',1,'']]],
+  ['csvfield',['CSVField',['../classcsv__parser_1_1CSVField.html',1,'csv_parser']]],
   ['csvfileinfo',['CSVFileInfo',['../structcsv__parser_1_1CSVFileInfo.html',1,'csv_parser']]],
   ['csvformat',['CSVFormat',['../structcsv__parser_1_1CSVFormat.html',1,'csv_parser']]],
-  ['csvreader',['CSVReader',['../classcsv__parser_1_1CSVReader.html',1,'csv_parser']]],
+  ['csvreader',['CSVReader',['../classcsv__parser_1_1CSVReader.html',1,'csv_parser::CSVReader'],['../classcsv__parser_1_1CSVReader.html#a92da35e2dad634a9f9bb1684d1c017e1',1,'csv_parser::CSVReader::CSVReader()']]],
   ['csvstat',['CSVStat',['../classcsv__parser_1_1CSVStat.html',1,'csv_parser']]],
-  ['csvwriter',['CSVWriter',['../classcsv__parser_1_1CSVWriter.html',1,'csv_parser::CSVWriter'],['../classcsv__parser_1_1CSVWriter.html#ac57741f8bf4eed7129d1704fd7d7b355',1,'csv_parser::CSVWriter::CSVWriter()']]]
+  ['csvwriter',['CSVWriter',['../classcsv__parser_1_1CSVWriter.html',1,'csv_parser::CSVWriter'],['../classcsv__parser_1_1CSVWriter.html#ac57741f8bf4eed7129d1704fd7d7b355',1,'csv_parser::CSVWriter::CSVWriter()']]],
+  ['extra',['extra',['../namespacecsv__parser_1_1extra.html',1,'csv_parser']]],
+  ['helpers',['helpers',['../namespacecsv__parser_1_1helpers.html',1,'csv_parser']]],
+  ['sql',['sql',['../namespacecsv__parser_1_1sql.html',1,'csv_parser']]]
 ];

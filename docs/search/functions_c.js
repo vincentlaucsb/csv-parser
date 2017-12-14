@@ -1,5 +1,8 @@
 var searchData=
 [
-  ['to_5fjson',['to_json',['../classcsv__parser_1_1CSVReader.html#aa98608f45266dd26c2952ae141f0601a',1,'csv_parser::CSVReader::to_json(std::string filename, bool append=false)'],['../classcsv__parser_1_1CSVReader.html#af2497ecce07abea481c51427b8c9efb4',1,'csv_parser::CSVReader::to_json()']]],
-  ['top_5fn_5fvalues',['top_n_values',['../namespacecsv__parser.html#ac3c9b5e4be79155d34a9970a3978d35a',1,'csv_parser']]]
+  ['read_5fcsv',['read_csv',['../classcsv__parser_1_1CSVReader.html#a2d925f5ae93669c1ba6643eace07d7a1',1,'csv_parser::CSVReader']]],
+  ['read_5frow',['read_row',['../classcsv__parser_1_1CSVReader.html#a1a9c2ec5e3ae0af2dba36ca1cd75876e',1,'csv_parser::CSVReader::read_row(std::vector&lt; std::string &gt; &amp;row)'],['../classcsv__parser_1_1CSVReader.html#a3eed81b9dcf75e154c9fe09720eaf2cd',1,'csv_parser::CSVReader::read_row(std::vector&lt; void *&gt; &amp;row, std::vector&lt; int &gt; &amp;dtypes, bool *overflow=nullptr)'],['../classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3',1,'csv_parser::CSVReader::read_row(std::vector&lt; CSVField &gt; &amp;row)']]],
+  ['reformat',['reformat',['../namespacecsv__parser_1_1extra.html#ab2a8638dcbd62df09220431b7fbac8cc',1,'csv_parser::extra']]],
+  ['round',['round',['../namespacecsv__parser_1_1helpers.html#a8207ea956373d02f52ac470640d7f84b',1,'csv_parser::helpers']]],
+  ['rpad_5ftrim',['rpad_trim',['../namespacecsv__parser_1_1helpers.html#a7acc2f783a805e7669e66e013df2870f',1,'csv_parser::helpers']]]
 ];
