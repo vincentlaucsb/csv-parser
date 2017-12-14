@@ -1,6 +1,5 @@
 #include "csv_parser.h"
 #include "catch.hpp"
-#include <string>
 
 using namespace csv_parser;
 
@@ -42,7 +41,7 @@ TEST_CASE( "Converting Tab Delimited File", "[tsv_clean]" ) {
     );
     
     // Calculate some statistics on the cleaned CSV to verify it's good
-    CSVStat stats(",", "\"", 0);
+    CSVStat stats(',', '"', 0);
     stats.calc_csv("./tests/temp/2016_Gaz_place_national.csv");
     
     // 10 = INTPTLAT; 11 = INTPTLONG

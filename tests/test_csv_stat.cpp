@@ -9,7 +9,7 @@ TEST_CASE(
     "Calculating Statistics from Direct Input",
     "[read_csv_stat_direct]" ) {
     // Header on first row
-    CSVStat reader(",", "\"", -1);
+    CSVStat reader(',', '"', -1);
     reader.set_col_names({"A", "B", "C"});
     std::string int_str;
     std::string int_list;
@@ -44,7 +44,7 @@ TEST_CASE(
 
 TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
     // Header on first row
-    CSVStat reader(",", "\"", 0);
+    CSVStat reader(',', '"', 0);
     reader.calc_csv("./tests/data/fake_data/ints.csv");
     
     // Expected Results
@@ -62,7 +62,7 @@ TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
 TEST_CASE( "Statistics (Line Feed Record-Separated)",
     "[read_csv_stat2]" ) {
     // Header on first row
-    CSVStat reader(",", "\"", 0);
+    CSVStat reader(',', '"', 0);
     reader.calc_csv("./tests/data/fake_data/ints_newline_sep.csv");
     std::vector<long double> expected_means = {
         50.5, 50.5, 50.5, 50.5, 50.5,
@@ -77,7 +77,7 @@ TEST_CASE( "Statistics (Line Feed Record-Separated)",
 
 TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     // Header on first row
-    CSVStat reader(",", "\"", 0);
+    CSVStat reader(',', '"', 0);
     reader.calc_csv("./tests/data/mimesis_data/persons.csv");
     REQUIRE( ceil(reader.get_mean()[1]) == 42 );
 }

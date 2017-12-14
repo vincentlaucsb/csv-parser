@@ -271,7 +271,7 @@ int cli_json(vector<string> str_args) {
     if (str_args.size() > 1)
         outfile = str_args[1];
 
-    CSVReader reader(guess_delim(filename));
+    CSVReader reader(filename);
     while (!reader.eof) {
         reader.read_csv(filename, ITERATION_CHUNK_SIZE, false);
         reader.to_json(outfile, true);

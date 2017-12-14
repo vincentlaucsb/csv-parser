@@ -8,18 +8,14 @@ namespace csv_parser {
 
     void reformat(std::string infile, std::string outfile, int skiplines) {
         /** Reformat a CSV file */
-        CSVReader reader(guess_delim(infile));
+        CSVReader reader(infile);
         CSVWriter writer(outfile);
         vector<string> row;
-        bool write_col_names = false;
+        writer.write_row(reader.get_col_names());
 
-        while(reader.read_row(infile, row)) {
-            if (!write_col_names)
-                writer.write_row(reader.get_col_names());
-            
+        while(reader.read_row(row)) {
             for (; skiplines > 0; skiplines--)
-                reader.read_row(infile, row);
-
+                reader.read_row(row);
             writer.write_row(row);
         }
 
@@ -33,7 +29,6 @@ namespace csv_parser {
          *  @param delims A list of delimiters
          */
         std::set<string> col_names = {};
-        std::string delim;
         vector<string> first_col_names;
         vector<string> temp_col_names;
         
@@ -44,15 +39,13 @@ namespace csv_parser {
             
             if (col_names.empty()) {
                 // Read first CSV
-                delim = guess_delim(infile);
-                first_col_names = get_col_names(infile, delim, "\"", 0);
+                first_col_names = get_col_names(infile);
                 
                 for (string cname: first_col_names) {
                     col_names.insert(cname);
                 }
             } else {
-                delim = guess_delim(infile);
-                temp_col_names = get_col_names(infile, delim, "\"", 0);
+                temp_col_names = get_col_names(infile);
                 
                 if (temp_col_names.size() < col_names.size()) {
                     throw std::runtime_error("Inconsistent columns.");
@@ -70,10 +63,8 @@ namespace csv_parser {
         vector<string> row;
         
         for (string infile: in) {
-            CSVReader reader(guess_delim(infile));
-            reader.read_csv(infile);
-            
-            while (reader.read_row(infile, row))
+            CSVReader reader(infile);          
+            while (reader.read_row(row))
                 writer.write_row(row);
         }
 

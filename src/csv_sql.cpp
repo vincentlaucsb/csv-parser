@@ -133,9 +133,8 @@ namespace csv_parser {
 
     std::string create_table(std::string filename, std::string table) {
         /** Generate a CREATE TABLE statement */
-        CSVReader temp(guess_delim(filename));
-        temp.read_csv(filename, 100, true);
-
+        CSVReader temp(filename);
+        temp.close();
         string sql_stmt = "CREATE TABLE " + table + " (";
         vector<string> col_names = sql_sanitize(temp.get_col_names());
         vector<string> col_types = sqlite_types(filename);
@@ -152,8 +151,8 @@ namespace csv_parser {
 
     std::string insert_values(std::string filename, std::string table) {
         /** Generate an INSERT VALUES statement */
-        CSVReader temp(guess_delim(filename));
-        temp.read_csv(filename, 100, true);
+        CSVReader temp(filename);
+        temp.close();
         vector<string> col_names = temp.get_col_names();
         string sql_stmt = "INSERT INTO " + table + " VALUES (";
         
@@ -169,7 +168,7 @@ namespace csv_parser {
     }
 
     int csv_to_sql(std::string csv_file, std::string db, std::string table) {
-        CSVReader infile(guess_delim(csv_file));
+        CSVReader infile(csv_file);
 
         // Default file name is CSV file minus extension
         if (table == "")
@@ -210,7 +209,7 @@ namespace csv_parser {
         int* int_ptr;
         double* dbl_ptr;
 
-        while (infile.read_row(csv_file, row, dtypes)) {
+        while (infile.read_row(row, dtypes)) {
             for (size_t i = 0; i < row.size(); i++) {
                 switch (dtypes[i]) {
                 case 0: // Empty String

@@ -97,30 +97,18 @@ TEST_CASE("CSV Join - ints", "[test_join_ints]") {
         "./tests/temp/ints_join.csv"
     );
 
-    CSVReader reader;
-    vector<void *> row;
+    CSVReader reader("./tests/temp/ints_join.csv");
+    vector<CSVField> row;
     vector<int> dtypes;
-    bool test_col_names = true;
-    int* int_ptr;
     int i = 1;
 
-    vector<string> col_names = { "a", "b", "c" };
+    REQUIRE(reader.get_col_names() == vector<string>({ "a", "b", "c" }));
 
-    while (reader.read_row("./tests/temp/ints_join.csv", row, dtypes)) {
-        if (test_col_names) {
-            REQUIRE(reader.get_col_names() == col_names);
-            test_col_names = false;
-        }
-
-        int_ptr = (int *)row[0];
-        REQUIRE(*int_ptr == i);
-
-        int_ptr = (int *)row[1];
-        REQUIRE(*int_ptr == pow(i, 2));
-
-        int_ptr = (int *)row[2];
-        REQUIRE(*int_ptr == pow(i, 3));
-
+    while (reader.read_row(row)) {
+        REQUIRE(row[0].is_int() == 1);
+        REQUIRE(row[0].get_int() == i);
+        REQUIRE(row[1].get_int() == pow(i,2));
+        REQUIRE(row[2].get_int() == pow(i,3));
         i++;
     }
 }

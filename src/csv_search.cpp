@@ -8,19 +8,14 @@ using std::string;
 namespace csv_parser {
     /** @file */
 
-    void head(std::string infile, int nrow,
-        std::string delim, std::string quote, int header,
-        std::vector<int> subset) {
+    void head(std::string infile, int nrow, std::vector<int> subset) {
         /** Print out the first n rows of a CSV */
-        if (delim == "")
-            delim = guess_delim(infile);
-
-        CSVReader reader(delim, quote, header, subset);
+        CSVReader reader(infile);
         vector<string> row;
         vector<vector<string>> records = {};
         int i = 0;
 
-        while (reader.read_row(infile, row)) {
+        while (reader.read_row(row)) {
             if (records.empty())
                 records.push_back(reader.get_col_names());
 
@@ -47,14 +42,11 @@ namespace csv_parser {
         std::smatch matches;
         const int orig_max_rows = max_rows;
 
-        if (delim == "")
-            delim = guess_delim(infile);
-
-        CSVReader reader(delim);
+        CSVReader reader(infile);
         vector<string> row;
         vector<vector<string>> records = {};
         
-        while (reader.read_row(infile, row)) {
+        while (reader.read_row(row)) {
             if (records.empty())
                 records.push_back(reader.get_col_names());
 

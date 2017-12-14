@@ -15,6 +15,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <memory>
 
 namespace csv_parser {    
     /** @file */
@@ -22,16 +23,38 @@ namespace csv_parser {
     const size_t ITERATION_CHUNK_SIZE = 100000;
 
     struct CSVFormat {
-        std::string delim;
-        std::string quote_char;
+        char delim;
+        char quote_char;
+        int header;
     };
+
+    const CSVFormat CSV_NULL_FORMAT = { '\0', '"', 0 };
 
     struct CSVFileInfo {
         std::string filename;
         std::vector<std::string> col_names;
-        std::string delim;
+        char delim;
         int n_rows;
         int n_cols;
+    };
+
+    /** Class for representing CSV fields (other than std::string) */
+    class CSVField {
+    public:
+        CSVField(void * _data_ptr, int _type, bool _overflow = false) :
+            data_ptr(_data_ptr), dtype(_type), overflow(_overflow) {};
+
+        bool is_null();
+        bool is_string();
+        int is_int();
+        int is_float();
+        std::string get_string();
+        long long int get_int();
+        long double get_float();
+    private:
+        void * data_ptr;
+        bool overflow;
+        int dtype;
     };
 
     /** @name Helpers
@@ -56,11 +79,11 @@ namespace csv_parser {
     /** @name Utility functions
       */
     ///@{
-    std::string guess_delim(std::string filename);
+    char guess_delim(std::string filename);
     std::vector<std::string> get_col_names(std::string filename,
-        std::string delim = ",", std::string quote = "\"", int header = 0);
-    int col_pos(std::string filename, std::string col_name,
-        std::string delim = ",", std::string quote = "\"", int header = 0);
+        CSVFormat format=CSV_NULL_FORMAT);
+    int get_col_pos(std::string filename, std::string col_name,
+        CSVFormat format = CSV_NULL_FORMAT);
     CSVFileInfo get_file_info(std::string filename);
     ///@}
 
@@ -100,7 +123,7 @@ namespace csv_parser {
              *  Functions for reading CSV files
              */
             ///@{
-            void read_csv(std::string filename, int nrows=-1, bool close=true);
+            void read_csv(std::string filename, int nrows = -1, bool close = true);
             std::vector<std::string> get_col_names();
             void set_col_names(std::vector<std::string>);
             void feed(std::string &in);
@@ -111,9 +134,11 @@ namespace csv_parser {
              *  Functions for doing stuff with less code
              */
             ///@{
-            bool read_row(std::string filename, std::vector<std::string> &row);
-            bool read_row(std::string filename, std::vector<void*> &row, std::vector<int> &dtypes);
-
+            bool read_row(std::vector<std::string> &row);
+            bool read_row(std::vector<void*> &row,
+                std::vector<int> &dtypes, bool *overflow=nullptr);
+            bool read_row(std::vector<CSVField> &row);
+            CSVFormat get_format();
             ///@}
             
             /** @name Output
@@ -146,11 +171,20 @@ namespace csv_parser {
             int row_num = 0;       /**< How many lines have been parsed so far */
             int correct_rows = 0;  /**< How many correct rows (minus header) have been parsed so far */
 
+            /** @name Constructors */
+            ///@{
             CSVReader(
-                std::string delim=",",
-                std::string quote="\"",
-                int header=0,
-                std::vector<int> subset_= std::vector<int>{});
+                std::string filename,
+                CSVFormat format = CSV_NULL_FORMAT,
+                std::vector<int> _subset = {});
+
+            CSVReader(
+                char _delim = ',',
+                char _quote = '"',
+                int _header = 0,
+                std::vector<int>_subset = {}) :
+                delimiter(_delim), quote_char(_quote), header_row(_header), subset(_subset) {};
+            ///@}
 
             std::deque<std::vector<std::string>>::iterator begin() {
                 /** Return an iterator over the rows CSVReader has parsed so far */
@@ -179,10 +213,10 @@ namespace csv_parser {
             bool subset_flag = false; /**< Set to true if we need to subset data */
                       
             // CSV settings and flags
-            char delimiter;        /**< Delimiter character */
-            char quote_char;       /**< Quote character */
-            bool quote_escape;     /**< Parsing flag */
-            int header_row;        /**< Line number of the header row (zero-indexed) */
+            char delimiter;                /**< Delimiter character */
+            char quote_char;               /**< Quote character */
+            bool quote_escape = false;     /**< Parsing flag */
+            int header_row;                /**< Line number of the header row (zero-indexed) */
 
             // read_row state
             std::deque<std::vector<std::string>>::iterator current_row;

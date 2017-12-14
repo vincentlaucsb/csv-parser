@@ -7,22 +7,22 @@ using std::string;
 
 // guess_delim()
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
-    int pos = col_pos(
+    int pos = get_col_pos(
         "./tests/data/real_data/2015_StateDepartment.csv",
         "Entity Type");
     REQUIRE(pos == 1);
 }
 
 TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
-    string delim = guess_delim(
+    char delim = guess_delim(
         "./tests/data/real_data/2009PowerStatus.txt");
-    REQUIRE(delim == "|");
+    REQUIRE(delim == '|');
 }
 
 TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
-    string delim = guess_delim(
+    char delim = guess_delim(
         "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
-    REQUIRE(delim == ";");
+    REQUIRE(delim == ';');
 }
 
 // get_file_info()
@@ -30,7 +30,7 @@ TEST_CASE("get_file_info() Test", "[test_file_info]") {
     CSVFileInfo info = get_file_info(
         "./tests/data/real_data/2009PowerStatus.txt");
         
-    REQUIRE(info.delim == "|");
+    REQUIRE(info.delim == '|');
     REQUIRE(info.n_rows == 37960); // Can confirm with Excel
     REQUIRE(info.n_cols == 3);
     REQUIRE(info.col_names == vector<string>({"ReportDt", "Unit", "Power"}));
@@ -166,7 +166,7 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
 TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
     // Same file as above
     vector<int> subset = {0, 1, 2, 3, 4};    
-    CSVReader reader(",", "\"", 0, subset);
+    CSVReader reader(',', '"', 0, subset);
     reader.read_csv("./tests/data/real_data/2015_StateDepartment.csv");
     
     // Expected Results
@@ -186,7 +186,7 @@ TEST_CASE( "Test JSON Output", "[csv_to_json]") {
     vector<string> col_names = {"A", "B", "C"};
     
     // Feed Strings
-    CSVReader reader(",", "\"", -1);
+    CSVReader reader(',', '"', -1);
     reader.set_col_names(col_names);
     reader.feed(csv_string);
     reader.end_feed();
@@ -245,13 +245,12 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
 // read_row()
 TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
     // Test that integers are type-casted properly
-    string test_file = "./tests/data/fake_data/ints.csv";
-    CSVReader reader(guess_delim(test_file));
+    CSVReader reader("./tests/data/fake_data/ints.csv");
     vector<void*> row;
     vector<int> dtypes;
     long long int* int_ptr;
 
-    while (reader.read_row(test_file, row, dtypes)) {
+    while (reader.read_row(row, dtypes)) {
         for (size_t i = 0; i < row.size(); i++) {
             int_ptr = (long long int*)row[i];
             REQUIRE( *int_ptr <= 100 );
@@ -261,15 +260,24 @@ TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
     }
 }
 
-TEST_CASE("Test read_row() void* - Power Status", "[read_row_void2]") {
-    string test_file = "./tests/data/real_data/2009PowerStatus.txt";
-    CSVReader reader(guess_delim(test_file));
-    vector<void*> row;
-    vector<int> dtypes;
+TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvfield]") {
+    CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
+    vector<CSVField> row;
+    int i = 0;
 
-    while (reader.read_row(test_file, row, dtypes)) {
-        REQUIRE(dtypes[0] == 1);
-        REQUIRE(dtypes[1] == 1);
-        REQUIRE(dtypes[2] == 2);
+    while (reader.read_row(row)) {
+        // Assert correct types
+        REQUIRE(row[0].is_string());
+        REQUIRE(row[1].is_string());
+        REQUIRE(row[2].is_int() == 1);
+
+        // Spot check
+        if (i == 2) {
+            REQUIRE(row[0].get_string() == "12/31/2009");
+            REQUIRE(row[1].get_string() == "Beaver Valley 1");
+            REQUIRE(row[2].get_int() == 100);
+        }
+
+        i++;
     }
 }
