@@ -16,6 +16,7 @@ var searchData=
   ['csv_5fsql_2ecpp',['csv_sql.cpp',['../csv__sql_8cpp.html',1,'']]],
   ['csv_5fstat_2ecpp',['csv_stat.cpp',['../csv__stat_8cpp.html',1,'']]],
   ['csv_5fto_5fjson',['csv_to_json',['../classcsv__parser_1_1CSVReader.html#a6283865922956f606c4634003bd2514f',1,'csv_parser::CSVReader']]],
+  ['csv_5fto_5fsql',['csv_to_sql',['../namespacecsv__parser_1_1extra.html#a820671b48bcf793e548f55b5b06b8298',1,'csv_parser::extra']]],
   ['csv_5fwriter_2ecpp',['csv_writer.cpp',['../csv__writer_8cpp.html',1,'']]],
   ['csvfield',['CSVField',['../classcsv__parser_1_1CSVField.html',1,'csv_parser']]],
   ['csvfileinfo',['CSVFileInfo',['../structcsv__parser_1_1CSVFileInfo.html',1,'csv_parser']]],

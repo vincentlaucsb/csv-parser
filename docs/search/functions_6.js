@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['get_5fcol_5fnames',['get_col_names',['../namespacecsv__parser.html#aa43385bf3776490eb1ed4074b71cc2aa',1,'csv_parser']]],
+  ['get_5fcol_5fnames',['get_col_names',['../classcsv__parser_1_1sql_1_1SQLiteResultSet.html#ab0a55532dfe598b488ab421ff6315952',1,'csv_parser::sql::SQLiteResultSet::get_col_names()'],['../namespacecsv__parser.html#aa43385bf3776490eb1ed4074b71cc2aa',1,'csv_parser::get_col_names()']]],
   ['get_5fcol_5fpos',['get_col_pos',['../namespacecsv__parser.html#a69b916199477d7ea6c5116c27aca6a4f',1,'csv_parser']]],
   ['get_5fcounts',['get_counts',['../classcsv__parser_1_1CSVStat.html#aa2d75b76cf4dedf8197e96de8d3a43b3',1,'csv_parser::CSVStat']]],
   ['get_5fdtypes',['get_dtypes',['../classcsv__parser_1_1CSVStat.html#ae97d0911dc87ee54d6802d2fd5a7883a',1,'csv_parser::CSVStat']]],
@@ -12,6 +12,8 @@ var searchData=
   ['get_5fmaxes',['get_maxes',['../classcsv__parser_1_1CSVStat.html#a1b478c5df4cfd87ef81820062acc3583',1,'csv_parser::CSVStat']]],
   ['get_5fmean',['get_mean',['../classcsv__parser_1_1CSVStat.html#a981ea291714e629213e8b23829de2c1c',1,'csv_parser::CSVStat']]],
   ['get_5fmins',['get_mins',['../classcsv__parser_1_1CSVStat.html#afeba9dae570d3167a979272240cf4ab3',1,'csv_parser::CSVStat']]],
+  ['get_5fnumber',['get_number',['../classcsv__parser_1_1CSVField.html#a726f7c5c2aca5dac2c25085d072c4bfa',1,'csv_parser::CSVField']]],
+  ['get_5frow',['get_row',['../classcsv__parser_1_1sql_1_1SQLiteResultSet.html#a63de53839ec9dbc50ff00725d566523c',1,'csv_parser::sql::SQLiteResultSet']]],
   ['get_5fstring',['get_string',['../classcsv__parser_1_1CSVField.html#a5722d577e830b168341dafb3a7c3e801',1,'csv_parser::CSVField']]],
   ['get_5fvariance',['get_variance',['../classcsv__parser_1_1CSVStat.html#ab4800e53c5d7d263b733457b14ff7120',1,'csv_parser::CSVStat']]],
   ['getargs',['getargs',['../namespacecsv__parser.html#ac347575fa3b7bbdc52da45ed3809c85b',1,'csv_parser']]],

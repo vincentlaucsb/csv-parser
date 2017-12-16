@@ -1,7 +1,7 @@
 var searchData=
 [
   ['read_5fcsv',['read_csv',['../classcsv__parser_1_1CSVReader.html#a2d925f5ae93669c1ba6643eace07d7a1',1,'csv_parser::CSVReader']]],
-  ['read_5frow',['read_row',['../classcsv__parser_1_1CSVReader.html#a1a9c2ec5e3ae0af2dba36ca1cd75876e',1,'csv_parser::CSVReader::read_row(std::vector&lt; std::string &gt; &amp;row)'],['../classcsv__parser_1_1CSVReader.html#a38d3c643cb9632b9cc76f2d1d566b2a3',1,'csv_parser::CSVReader::read_row(std::vector&lt; void *&gt; &amp;row, std::vector&lt; DataType &gt; &amp;dtypes, bool *overflow=nullptr)'],['../classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3',1,'csv_parser::CSVReader::read_row(std::vector&lt; CSVField &gt; &amp;row)']]],
+  ['read_5frow',['read_row',['../classcsv__parser_1_1CSVReader.html#a1a9c2ec5e3ae0af2dba36ca1cd75876e',1,'csv_parser::CSVReader::read_row(std::vector&lt; std::string &gt; &amp;row)'],['../classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3',1,'csv_parser::CSVReader::read_row(std::vector&lt; CSVField &gt; &amp;row)']]],
   ['record_5fbuffer',['record_buffer',['../classcsv__parser_1_1CSVReader.html#aca47a459c1c3050918378909e55dc79c',1,'csv_parser::CSVReader']]],
   ['records',['records',['../classcsv__parser_1_1CSVReader.html#a37e7c095f77d9eec152ace15cbc5dd45',1,'csv_parser::CSVReader']]],
   ['reformat',['reformat',['../namespacecsv__parser_1_1extra.html#ab2a8638dcbd62df09220431b7fbac8cc',1,'csv_parser::extra']]],

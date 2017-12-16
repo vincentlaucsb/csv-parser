@@ -53,24 +53,62 @@ namespace csv_parser {
         _float
     };
 
-    /** A data type for representing CSV values that have been type-casted
-     *  that is more sophisticated than a bare void * pointer
-     */
+    /** A data type for representing CSV values that have been type-casted */
     class CSVField {
     public:
-        CSVField(void * _data_ptr = nullptr, DataType _type = _null, bool _overflow = false);
-        ~CSVField();
-
+        /** @name Type Information */
+        ///@{
         bool is_null();
         bool is_string();
         int is_int();
         int is_float();
+        DataType dtype; /**< Store this field's data type enumeration as given by csv_parser::DataType */
+        ///@}
+
+        /** @name Value Retrieval */
+        ///@{
         std::string get_string();
         long long int get_int();
         long double get_float();
-        DataType dtype;
+        template <typename T>
+        inline T get_number() {
+            /** Safely retrieve an integral or floating point value, throwing an error if
+            *  the field is not an number or type-casting will cause an overflow.
+            *
+            *  **Note:** Integer->float and float->integer conversions are implicity performed.
+            */
+            if (!this->overflow) {
+                if (this->dtype == _int)
+                    return this->int_data;
+                else if (this->dtype == _float)
+                    return this->dbl_data;
+                else
+                    throw std::runtime_error("[TypeError] Not a number.");
+            }
+            else {
+                throw std::runtime_error("[TypeError] Overflow: Use get_string() instead.");
+            }
+        }
+        ///@}
+
+        friend class CSVReader; // So CSVReader::read_row() can create CSVFields
+
     private:
-        void * data_ptr;
+        /** Construct a CSVField from a std::string */
+        CSVField(const std::string data = "", const DataType _type = _null, const bool _overflow = false) :
+            str_data(data), dtype(_type), overflow(_overflow) {};
+
+        /** Construct a CSVField from an int */
+        CSVField(const long long int data, const DataType _type = _int, const bool _overflow = false) :
+            int_data(data), dtype(_type), overflow(_overflow) {};
+
+        /** Construct a CSVField from double */
+        CSVField(const long double data, const DataType _type = _float, const bool _overflow = false) :
+            dbl_data(data), dtype(_type), overflow(_overflow) {};
+
+        std::string str_data;
+        long long int int_data;
+        long double dbl_data;
         bool overflow;
     };
 
@@ -157,8 +195,6 @@ namespace csv_parser {
             /** @name Retrieving CSV Rows */
             ///@{
             bool read_row(std::vector<std::string> &row);
-            bool read_row(std::vector<void*> &row,
-                std::vector<DataType> &dtypes, bool *overflow = nullptr);
             bool read_row(std::vector<CSVField> &row);
             ///@}
 

@@ -248,16 +248,12 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
 TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
     // Test that integers are type-casted properly
     CSVReader reader("./tests/data/fake_data/ints.csv");
-    vector<void*> row;
-    vector<DataType> dtypes;
-    long long int* int_ptr;
+    vector<CSVField> row;
 
-    while (reader.read_row(row, dtypes)) {
+    while (reader.read_row(row)) {
         for (size_t i = 0; i < row.size(); i++) {
-            int_ptr = (long long int*)row[i];
-            REQUIRE( *int_ptr <= 100 );
-            REQUIRE( dtypes[i] == _int );
-            delete int_ptr;
+            REQUIRE( row[i].get_int() <= 100 );
+            REQUIRE( row[i].dtype == _int );
         }
     }
 }

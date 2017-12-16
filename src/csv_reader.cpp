@@ -493,22 +493,16 @@ namespace csv_parser {
         return false;
     }
 
-    bool CSVReader::read_row(std::vector<void*> &row, 
-        std::vector<DataType> &dtypes,
-        bool *overflow)
-    {
-        /** Same as read_row(std::string, std::vector<std::string> &row) but
-         *  does type-casting on values. Consider using 
-         *  CSVReader::read_row(std::vector<CSVField> &row)
-         *  for a safer alternative.
+    bool CSVReader::read_row(std::vector<CSVField> &row) {
+        /** Perform automatic type-casting when retrieving rows
+         *  - Much faster and more robust than calling std::stoi()
+         *    on the values of a std::vector<std::string>
          *
-         *  @param[out] row      Where the row's values will be stored
-         *  @param[out] dtypes   Used for storing data type information
-         *  @param[out] overflow If specified, used to indicate if previous value
-         *                       couldn't be type-casted due to a
-         *                       std::out_of_range error
+         *  **Note:** See the documentation for CSVField to see how to work
+         *  with the output of this function
+         *
+         *  @param[out] row A vector of strings where the read row will be stored
          */
-
         while (true) {
             if (!read_start) {
                 this->read_start = true;
@@ -528,76 +522,38 @@ namespace csv_parser {
             }
 
             std::vector<std::string>& temp = *(this->current_row);
+            CSVField field;
             DataType dtype;
-            void * field;
+            bool overflow = false;
             row.clear();
-            dtypes.clear();
 
             for (auto it = temp.begin(); it != temp.end(); ++it) {
                 dtype = helpers::data_type(*it);
-                dtypes.push_back(dtype);
 
                 try {
                     switch (helpers::data_type(*it)) {
                     case _null:   // Empty string
                     case _string:
-                        field = new std::string(*it);
+                        field = CSVField(*it, dtype, false);
                         break;
                     case _int:
-                        field = new long long int(std::stoll(*it));
+                        field = CSVField(std::stoll(*it), dtype, overflow);
                         break;
                     case _float:
-                        field = new long double(std::stold(*it));
+                        field = CSVField(std::stold(*it), dtype, overflow);
                         break;
                     }
-
-                    if (overflow)
-                        *overflow = false;
                 }
                 catch (std::out_of_range) {
                     // Huge ass number
-                    dtypes.pop_back();
-                    dtypes.push_back(_string);
-                    field = new std::string(*it);
+                    field = CSVField(*it, dtype, true);
                     break;
-
-                    if (overflow)
-                        *overflow = true;
                 }
 
                 row.push_back(field);
             }
-            
+
             this->current_row++;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool CSVReader::read_row(std::vector<CSVField> &row) {
-        /** Perform automatic type-casting when retrieving rows
-         *  - This is implemented on top of 
-         *    read_row(std::vector<void*> &row, std::vector<int> &dtypes)
-         *    but is much safer
-         *  - This is also much faster and more robust than calling std::stoi()
-         *    on the values of a std::vector<std::string>
-         *
-         *  **Note:** See the documentation for CSVField to see how to work
-         *  with the output of this function
-         *
-         *  @param[out] row A vector of strings where the read row will be stored
-         */
-        std::vector<void*> in_row;
-        std::vector<CSVField> out_row;
-        std::vector<DataType> dtypes;
-        bool overflow;
-
-        while (this->read_row(in_row, dtypes, &overflow)) {
-            out_row.clear();
-            for (size_t i = 0; i < in_row.size(); i++)
-                out_row.push_back(CSVField(in_row[i], dtypes[i], overflow));
-            row.swap(out_row);
             return true;
         }
 
@@ -607,33 +563,6 @@ namespace csv_parser {
     //
     // CSVField
     //
-
-    CSVField::CSVField(void * _data_ptr, DataType _type, bool _overflow) {
-        data_ptr = _data_ptr;
-        dtype = _type;
-        overflow = _overflow;
-    }
-
-    CSVField::~CSVField() {
-        switch (this->dtype) {
-            case _null:
-            case _string: {
-                std::string* str_ptr = (std::string*) this->data_ptr;
-                delete str_ptr;
-                break;
-            }
-            case _int: {
-                long long int* int_ptr = (long long int*) this->data_ptr;
-                delete int_ptr;
-                break;
-            }
-            case _float: {
-                long double* dbl_ptr = (long double*)this->data_ptr;
-                delete dbl_ptr;
-                break;
-            }
-        }
-    }
 
     int CSVField::is_int() {
         /** Returns:
@@ -673,7 +602,7 @@ namespace csv_parser {
         /** Returns True if the field's data type is a string
          * 
          * **Note**: This returns False if the field is an empty string,
-         * in which case calling is_null() yields True.
+         * in which case calling CSVField::is_null() yields True.
         */
         return (this->dtype == 1);
     }
@@ -690,53 +619,24 @@ namespace csv_parser {
          *  **Note**: This can also be used to retrieve empty fields
          */
         if (this->dtype <= 1 || this->overflow) {
-            std::string* ptr = (std::string*)this->data_ptr;
-            return *ptr;
+            return this->str_data;
         }
         else {
             if (this->dtype == _int)
-                return std::to_string(this->get_int());
+                return std::to_string(this->get_number<long long int>());
             else
-                return std::to_string(this->get_float());
+                return std::to_string(this->get_number<long double>());
         }
     }
 
     long long int CSVField::get_int() {
-        /** Safely retrieve an integral value, throwing an error if 
-         *  the field is not an integer or type-casting will cause an
-         *  integer overflow.
-         */
-        if (this->dtype == _int) {
-            if (!this->overflow) {
-                long long int* ptr = (long long int*)this->data_ptr;
-                return *ptr;
-            }
-            else {
-                throw std::runtime_error("[TypeError] Integer overflow: Use get_string() instead.");
-            }
-        }
-        else {
-            throw std::runtime_error("[TypeError] Not an integer.");
-        }
+        /** Shorthand for CSVField::get_number<long long int>() */
+        return this->get_number<long long int>();
     }
 
     long double CSVField::get_float() {
-        /** Safely retrieve a floating point value, throwing an error if
-         *  the field is not a floating point number or type-casting will
-         *  cause an overflow
-         */
-        if (this->dtype == _float) {
-            if (!this->overflow) {
-                long double* ptr = (long double*)this->data_ptr;
-                return *ptr;
-            }
-            else {
-                throw std::runtime_error("[TypeError] Float overflow: Use get_string() instead.");
-            }
-        }
-        else {
-            throw std::runtime_error("[TypeError] Not a float.");
-        }
+        /** Shorthand for CSVField::get_number<long double>() */
+        return this->get_number<long double>();
     }
 
     namespace helpers {

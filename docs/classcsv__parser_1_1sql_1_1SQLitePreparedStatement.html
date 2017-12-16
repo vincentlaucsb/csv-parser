@@ -77,17 +77,16 @@ $(function() {
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a9d935ffc00546dd991cfd929d90a511d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#a9d935ffc00546dd991cfd929d90a511d">SQLitePreparedStatement</a> (<a class="el" href="classcsv__parser_1_1sql_1_1SQLiteConn.html">SQLiteConn</a> &amp;conn, std::string &amp;stmt)</td></tr>
 <tr class="separator:a9d935ffc00546dd991cfd929d90a511d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2f30f07c4c3e14e9f41854f89f2befd5"><td class="memItemLeft" align="right" valign="top"><a id="a2f30f07c4c3e14e9f41854f89f2befd5"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>bind</b> (size_t &amp;i, std::string &amp;value, sqlite3_destructor_type dest=SQLITE_TRANSIENT)</td></tr>
+<tr class="memitem:a2f30f07c4c3e14e9f41854f89f2befd5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#a2f30f07c4c3e14e9f41854f89f2befd5">bind</a> (size_t &amp;i, std::string &amp;value, sqlite3_destructor_type dest=SQLITE_TRANSIENT)</td></tr>
 <tr class="separator:a2f30f07c4c3e14e9f41854f89f2befd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a923555acb61a348f5b4fe3f7dd8dcc9f"><td class="memTemplParams" colspan="2"><a id="a923555acb61a348f5b4fe3f7dd8dcc9f"></a>
-template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a923555acb61a348f5b4fe3f7dd8dcc9f"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><b>bind_int</b> (size_t &amp;i, T &amp;value)</td></tr>
+<tr class="memitem:a923555acb61a348f5b4fe3f7dd8dcc9f"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a923555acb61a348f5b4fe3f7dd8dcc9f"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#a923555acb61a348f5b4fe3f7dd8dcc9f">bind_int</a> (size_t &amp;i, T &amp;value)</td></tr>
 <tr class="separator:a923555acb61a348f5b4fe3f7dd8dcc9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9d6c55f7592b055bca995dc28061d0b4"><td class="memTemplParams" colspan="2"><a id="a9d6c55f7592b055bca995dc28061d0b4"></a>
-template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a9d6c55f7592b055bca995dc28061d0b4"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><b>bind_double</b> (size_t &amp;i, T &amp;value)</td></tr>
+<tr class="memitem:a9d6c55f7592b055bca995dc28061d0b4"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a9d6c55f7592b055bca995dc28061d0b4"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#a9d6c55f7592b055bca995dc28061d0b4">bind_double</a> (size_t &amp;i, T &amp;value)</td></tr>
 <tr class="separator:a9d6c55f7592b055bca995dc28061d0b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adfee79272d67b79b4ac38b9f5e9a9595"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#adfee79272d67b79b4ac38b9f5e9a9595">~SQLitePreparedStatement</a> ()</td></tr>
+<tr class="separator:adfee79272d67b79b4ac38b9f5e9a9595"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adbb2a133ca86c9206f760d2e2c0d87ec"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#adbb2a133ca86c9206f760d2e2c0d87ec">next</a> ()</td></tr>
 <tr class="separator:adbb2a133ca86c9206f760d2e2c0d87ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -103,7 +102,9 @@ sqlite3_stmt *&#160;</td><td class="memItemRight" valign="bottom"><b>statement</
 const char *&#160;</td><td class="memItemRight" valign="bottom"><b>unused</b></td></tr>
 <tr class="separator:a3106998106e2af6009dac48225d4bf65"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>An interface for executing and iterating through SQL statements </p>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a9d935ffc00546dd991cfd929d90a511d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9d935ffc00546dd991cfd929d90a511d">&#9670;&nbsp;</a></span>SQLitePreparedStatement()</h2>
 
@@ -137,11 +138,166 @@ const char *&#160;</td><td class="memItemRight" valign="bottom"><b>unused</b></t
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Prepare a SQL statement </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">conn</td><td>An active SQLite connection </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">stmt</td><td>A SQL query that should be prepared</td></tr>
+  </table>
+  </dd>
+</dl>
 <p>Prepare a query for execution </p>
 
 </div>
 </div>
+<a id="adfee79272d67b79b4ac38b9f5e9a9595"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adfee79272d67b79b4ac38b9f5e9a9595">&#9670;&nbsp;</a></span>~SQLitePreparedStatement()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">csv_parser::sql::SQLitePreparedStatement::~SQLitePreparedStatement </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Call sqlite3_finalize() when this object goes out of scope </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a2f30f07c4c3e14e9f41854f89f2befd5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2f30f07c4c3e14e9f41854f89f2befd5">&#9670;&nbsp;</a></span>bind()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv_parser::sql::SQLitePreparedStatement::bind </td>
+          <td>(</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string &amp;&#160;</td>
+          <td class="paramname"><em>value</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">sqlite3_destructor_type&#160;</td>
+          <td class="paramname"><em>dest</em> = <code>SQLITE_TRANSIENT</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Bind text values to the statement</p>
+<p><b>Note:</b> This function is zero-indexed while sqlite3_bind_* is 1-indexed</p>
+
+</div>
+</div>
+<a id="a9d6c55f7592b055bca995dc28061d0b4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9d6c55f7592b055bca995dc28061d0b4">&#9670;&nbsp;</a></span>bind_double()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv_parser::sql::SQLitePreparedStatement::bind_double </td>
+          <td>(</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">T &amp;&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Bind floating point values to the statement </p>
+
+</div>
+</div>
+<a id="a923555acb61a348f5b4fe3f7dd8dcc9f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a923555acb61a348f5b4fe3f7dd8dcc9f">&#9670;&nbsp;</a></span>bind_int()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv_parser::sql::SQLitePreparedStatement::bind_int </td>
+          <td>(</td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>i</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">T &amp;&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Bind integer values to the statement </p>
+
+</div>
+</div>
 <a id="adbb2a133ca86c9206f760d2e2c0d87ec"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#adbb2a133ca86c9206f760d2e2c0d87ec">&#9670;&nbsp;</a></span>next()</h2>
 
@@ -164,7 +320,7 @@ const char *&#160;</td><td class="memItemRight" valign="bottom"><b>unused</b></t
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Call after binding values to execute statement </p>
+<p>Call after <a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html#a2f30f07c4c3e14e9f41854f89f2befd5">bind()</a>-ing values to execute statement </p>
 
 </div>
 </div>

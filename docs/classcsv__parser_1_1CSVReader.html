@@ -114,8 +114,6 @@ Public Member Functions</h2></td></tr>
 <tr><td colspan="2"><div class="groupHeader">Retrieving CSV Rows</div></td></tr>
 <tr class="memitem:a1a9c2ec5e3ae0af2dba36ca1cd75876e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a1a9c2ec5e3ae0af2dba36ca1cd75876e">read_row</a> (std::vector&lt; std::string &gt; &amp;row)</td></tr>
 <tr class="separator:a1a9c2ec5e3ae0af2dba36ca1cd75876e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a38d3c643cb9632b9cc76f2d1d566b2a3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a38d3c643cb9632b9cc76f2d1d566b2a3">read_row</a> (std::vector&lt; void *&gt; &amp;row, std::vector&lt; <a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">DataType</a> &gt; &amp;dtypes, bool *overflow=nullptr)</td></tr>
-<tr class="separator:a38d3c643cb9632b9cc76f2d1d566b2a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f571ef31901d5120eddeafcd379d9a3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3">read_row</a> (std::vector&lt; <a class="el" href="classcsv__parser_1_1CSVField.html">CSVField</a> &gt; &amp;row)</td></tr>
 <tr class="separator:a1f571ef31901d5120eddeafcd379d9a3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">CSV Metadata</div></td></tr>
@@ -642,7 +640,7 @@ std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b
 </div>
 </div>
 <a id="a1a9c2ec5e3ae0af2dba36ca1cd75876e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1a9c2ec5e3ae0af2dba36ca1cd75876e">&#9670;&nbsp;</a></span>read_row() <span class="overload">[1/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1a9c2ec5e3ae0af2dba36ca1cd75876e">&#9670;&nbsp;</a></span>read_row() <span class="overload">[1/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -675,51 +673,8 @@ std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b
 
 </div>
 </div>
-<a id="a38d3c643cb9632b9cc76f2d1d566b2a3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a38d3c643cb9632b9cc76f2d1d566b2a3">&#9670;&nbsp;</a></span>read_row() <span class="overload">[2/3]</span></h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool csv_parser::CSVReader::read_row </td>
-          <td>(</td>
-          <td class="paramtype">std::vector&lt; void *&gt; &amp;&#160;</td>
-          <td class="paramname"><em>row</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::vector&lt; <a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">DataType</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>dtypes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool *&#160;</td>
-          <td class="paramname"><em>overflow</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Same as read_row(std::string, std::vector&lt;std::string&gt; &amp;row) but does type-casting on values. Consider using <a class="el" href="classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3">CSVReader::read_row(std::vector&lt;CSVField&gt; &amp;row)</a> for a safer alternative.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramdir">[out]</td><td class="paramname">row</td><td>Where the row's values will be stored </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">dtypes</td><td>Used for storing data type information </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">overflow</td><td>If specified, used to indicate if previous value couldn't be type-casted due to a std::out_of_range error</td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
 <a id="a1f571ef31901d5120eddeafcd379d9a3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1f571ef31901d5120eddeafcd379d9a3">&#9670;&nbsp;</a></span>read_row() <span class="overload">[3/3]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a1f571ef31901d5120eddeafcd379d9a3">&#9670;&nbsp;</a></span>read_row() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -734,8 +689,7 @@ std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b
       </table>
 </div><div class="memdoc">
 <p>Perform automatic type-casting when retrieving rows</p><ul>
-<li>This is implemented on top of read_row(std::vector&lt;void*&gt; &amp;row, std::vector&lt;int&gt; &amp;dtypes) but is much safer</li>
-<li>This is also much faster and more robust than calling std::stoi() on the values of a std::vector&lt;std::string&gt;</li>
+<li>Much faster and more robust than calling std::stoi() on the values of a std::vector&lt;std::string&gt;</li>
 </ul>
 <p><b>Note:</b> See the documentation for <a class="el" href="classcsv__parser_1_1CSVField.html">CSVField</a> to see how to work with the output of this function</p>
 <dl class="params"><dt>Parameters</dt><dd>

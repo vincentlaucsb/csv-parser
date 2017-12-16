@@ -73,28 +73,134 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:aeba13c1825dfb77308254c3bc89539fa"><td class="memItemLeft" align="right" valign="top"><a id="aeba13c1825dfb77308254c3bc89539fa"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>SQLiteConn</b> (std::string db_name)</td></tr>
+<tr class="memitem:aeba13c1825dfb77308254c3bc89539fa"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLiteConn.html#aeba13c1825dfb77308254c3bc89539fa">SQLiteConn</a> (std::string db_name)</td></tr>
 <tr class="separator:aeba13c1825dfb77308254c3bc89539fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abd70047e943fc4e6b072a7fb4ba598de"><td class="memItemLeft" align="right" valign="top"><a id="abd70047e943fc4e6b072a7fb4ba598de"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>exec</b> (std::string query)</td></tr>
+<tr class="memitem:abd70047e943fc4e6b072a7fb4ba598de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLiteConn.html#abd70047e943fc4e6b072a7fb4ba598de">exec</a> (std::string query)</td></tr>
 <tr class="separator:abd70047e943fc4e6b072a7fb4ba598de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad41e47db737512642213eef2280712c6"><td class="memItemLeft" align="right" valign="top"><a id="ad41e47db737512642213eef2280712c6"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>close</b> ()</td></tr>
 <tr class="separator:ad41e47db737512642213eef2280712c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a251e515d08269c234355cb6c17e957f3"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLiteConn.html#a251e515d08269c234355cb6c17e957f3">~SQLiteConn</a> ()</td></tr>
+<tr class="separator:a251e515d08269c234355cb6c17e957f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:ad2e66dca6a5245556eb46274354b4240"><td class="memItemLeft" align="right" valign="top"><a id="ad2e66dca6a5245556eb46274354b4240"></a>
 sqlite3 *&#160;</td><td class="memItemRight" valign="bottom"><b>db</b></td></tr>
 <tr class="separator:ad2e66dca6a5245556eb46274354b4240"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae29d0e88b86e2dba62a76ad37a03c7a8"><td class="memItemLeft" align="right" valign="top"><a id="ae29d0e88b86e2dba62a76ad37a03c7a8"></a>
-sqlite3_stmt *&#160;</td><td class="memItemRight" valign="bottom"><b>statement</b></td></tr>
-<tr class="separator:ae29d0e88b86e2dba62a76ad37a03c7a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7ecba71be0d9c47961392252f19b5bf6"><td class="memItemLeft" align="right" valign="top"><a id="a7ecba71be0d9c47961392252f19b5bf6"></a>
-char *&#160;</td><td class="memItemRight" valign="bottom"><b>error_message</b></td></tr>
+<tr class="memitem:a7ecba71be0d9c47961392252f19b5bf6"><td class="memItemLeft" align="right" valign="top">char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLiteConn.html#a7ecba71be0d9c47961392252f19b5bf6">error_message</a></td></tr>
 <tr class="separator:a7ecba71be0d9c47961392252f19b5bf6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>A connection to a SQLite database </p>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a id="aeba13c1825dfb77308254c3bc89539fa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aeba13c1825dfb77308254c3bc89539fa">&#9670;&nbsp;</a></span>SQLiteConn()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">csv_parser::sql::SQLiteConn::SQLiteConn </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>db_name</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Open a connection to a SQLite3 database </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">db_name</td><td>Path to SQLite3 database</td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a251e515d08269c234355cb6c17e957f3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a251e515d08269c234355cb6c17e957f3">&#9670;&nbsp;</a></span>~SQLiteConn()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">csv_parser::sql::SQLiteConn::~SQLiteConn </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Close connection when this object gets destroyed </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a id="abd70047e943fc4e6b072a7fb4ba598de"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abd70047e943fc4e6b072a7fb4ba598de">&#9670;&nbsp;</a></span>exec()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv_parser::sql::SQLiteConn::exec </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>query</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Execute a query that doesn't return anything </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">query</td><td>A SQL query</td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="a7ecba71be0d9c47961392252f19b5bf6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7ecba71be0d9c47961392252f19b5bf6">&#9670;&nbsp;</a></span>error_message</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">char* csv_parser::sql::SQLiteConn::error_message</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Raw database handle </p>
+
+</div>
+</div>
 <hr/>The documentation for this class was generated from the following file:<ul>
 <li>src/<a class="el" href="csv__sql_8cpp.html">csv_sql.cpp</a></li>
 </ul>

@@ -395,30 +395,26 @@ namespace csv_parser {
             sql::SQLitePreparedStatement insert_stmt(db, insert_query);
             db.exec("BEGIN TRANSACTION");
 
-            vector<void*> row = {};
-            vector<DataType> dtypes;
-            string* str_ptr;
-            long long int* int_ptr;
-            long double* dbl_ptr;
+            vector<CSVField> row;
+            std::string str_value;
+            long long int int_value;
+            long double dbl_value;
 
-            while (infile.read_row(row, dtypes)) {
+            while (infile.read_row(row)) {
                 for (size_t i = 0; i < row.size(); i++) {
-                    switch (dtypes[i]) {
+                    switch (row[i].dtype) {
                     case _null: // Empty String
                     case _string:
-                        str_ptr = (string*)(row[i]);
-                        insert_stmt.bind(i, *str_ptr);
-                        delete str_ptr;
+                        str_value = row[i].get_string();
+                        insert_stmt.bind(i, str_value);
                         break;
                     case _int:
-                        int_ptr = (long long int*)(row[i]);
-                        insert_stmt.bind_int(i, *int_ptr);
-                        delete int_ptr;
+                        int_value = row[i].get_int();
+                        insert_stmt.bind_int(i, int_value);
                         break;
                     case _float:
-                        dbl_ptr = (long double*)(row[i]);
-                        insert_stmt.bind_double(i, *dbl_ptr);
-                        delete dbl_ptr;
+                        dbl_value = row[i].get_float();
+                        insert_stmt.bind_double(i, dbl_value);
                         break;
                     }
                 }
