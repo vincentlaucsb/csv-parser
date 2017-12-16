@@ -465,7 +465,8 @@ namespace csv_parser {
                     table1.c_str(), table2.c_str(), column1.c_str(), column2.c_str());
             }
 
-            sql::SQLiteResultSet results(db, std::string(join_statement));
+            std::string join_statement_ = join_statement;
+            sql::SQLiteResultSet results(db, join_statement_);
             bool write_col_names = true;
 
             while (results.next_result()) {
