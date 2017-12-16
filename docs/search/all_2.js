@@ -2,6 +2,7 @@ var searchData=
 [
   ['calc',['calc',['../classcsv__parser_1_1CSVStat.html#a32b28d3a0b3944f5cff141dc7842dd01',1,'csv_parser::CSVStat']]],
   ['calc_5fcsv',['calc_csv',['../classcsv__parser_1_1CSVStat.html#a8d8c0129fe00556ec292392aa9b448e6',1,'csv_parser::CSVStat']]],
+  ['cli_5fstat',['cli_stat',['../main_8cpp.html#a6dd80eab4deb10178bc828d6ab760d21',1,'main.cpp']]],
   ['close',['close',['../classcsv__parser_1_1CSVReader.html#a971735c2c31280fad116005043d3044e',1,'csv_parser::CSVReader::close()'],['../classcsv__parser_1_1CSVWriter.html#a01bafc47dc4db1469ce6a6e3f02aedb0',1,'csv_parser::CSVWriter::close()']]],
   ['col_5fnames',['col_names',['../classcsv__parser_1_1CSVReader.html#afbc71dfcaee5f3c8eac3d7c4a453327c',1,'csv_parser::CSVReader']]],
   ['correct_5frows',['correct_rows',['../classcsv__parser_1_1CSVReader.html#ad896101155e12ba6b7372264889cb31a',1,'csv_parser::CSVReader']]],

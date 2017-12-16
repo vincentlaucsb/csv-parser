@@ -4,7 +4,7 @@ namespace csv_parser {
     namespace helpers {
         /** @file */
 
-        int data_type(std::string &in) {
+        DataType data_type(std::string &in) {
             /** Distinguishes numeric from other text values. Used by various 
              *  type casting functions, like csv_parser::CSVReader::read_row()
              * 
@@ -23,7 +23,7 @@ namespace csv_parser {
 
             // Empty string --> NULL
             if (in.size() == 0)
-                return 0;
+                return _null;
 
             bool ws_allowed = true;
             bool neg_allowed = true;
@@ -42,14 +42,14 @@ namespace csv_parser {
                         }
                         else {
                             // Ex: '510 123 4567'
-                            return 1;
+                            return _string;
                         }
                     }
                     break;
                 case '-':
                     if (!neg_allowed) {
                         // Ex: '510-123-4567'
-                        return 1;
+                        return _string;
                     }
                     else {
                         neg_allowed = false;
@@ -57,7 +57,7 @@ namespace csv_parser {
                     break;
                 case '.':
                     if (!dot_allowed) {
-                        return 1;
+                        return _string;
                     }
                     else {
                         dot_allowed = false;
@@ -67,7 +67,7 @@ namespace csv_parser {
                 default:
                     if (isdigit(in[i])) {
                         if (!digit_allowed) {
-                            return 1;
+                            return _string;
                         }
                         else if (ws_allowed) {
                             // Ex: '510 456'
@@ -76,7 +76,7 @@ namespace csv_parser {
                         has_digit = true;
                     }
                     else {
-                        return 1;
+                        return _string;
                     }
                 }
             }
@@ -84,15 +84,15 @@ namespace csv_parser {
             // No non-numeric/non-whitespace characters found
             if (has_digit) {
                 if (prob_float) {
-                    return 3;
+                    return _float;
                 }
                 else {
-                    return 2;
+                    return _int;
                 }
             }
             else {
                 // Just whitespace
-                return 0;
+                return _null;
             }
         }
     }

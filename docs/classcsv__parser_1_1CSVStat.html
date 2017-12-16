@@ -64,8 +64,6 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pro-methods">Protected Member Functions</a> &#124;
-<a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classcsv__parser_1_1CSVStat-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">csv_parser::CSVStat Class Reference</div>  </div>
@@ -78,9 +76,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a32b28d3a0b3944f5cff141dc7842dd01"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a32b28d3a0b3944f5cff141dc7842dd01">calc</a> (bool numeric=true, bool count=true, bool <a class="el" href="classcsv__parser_1_1CSVStat.html#ab93fcaf2bf8734f8d024b267562fab9a">dtype</a>=true)</td></tr>
+<tr class="memitem:a32b28d3a0b3944f5cff141dc7842dd01"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a32b28d3a0b3944f5cff141dc7842dd01">calc</a> (bool numeric=true, bool count=true, bool dtype=true)</td></tr>
 <tr class="separator:a32b28d3a0b3944f5cff141dc7842dd01"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8d8c0129fe00556ec292392aa9b448e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a8d8c0129fe00556ec292392aa9b448e6">calc_csv</a> (std::string filename, bool numeric=true, bool count=true, bool <a class="el" href="classcsv__parser_1_1CSVStat.html#ab93fcaf2bf8734f8d024b267562fab9a">dtype</a>=true)</td></tr>
+<tr class="memitem:a8d8c0129fe00556ec292392aa9b448e6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a8d8c0129fe00556ec292392aa9b448e6">calc_csv</a> (std::string filename, bool numeric=true, bool count=true, bool dtype=true)</td></tr>
 <tr class="separator:a8d8c0129fe00556ec292392aa9b448e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a981ea291714e629213e8b23829de2c1c"><td class="memItemLeft" align="right" valign="top">std::vector&lt; long double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a981ea291714e629213e8b23829de2c1c">get_mean</a> ()</td></tr>
 <tr class="separator:a981ea291714e629213e8b23829de2c1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -90,10 +88,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:afeba9dae570d3167a979272240cf4ab3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b478c5df4cfd87ef81820062acc3583"><td class="memItemLeft" align="right" valign="top">std::vector&lt; long double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a1b478c5df4cfd87ef81820062acc3583">get_maxes</a> ()</td></tr>
 <tr class="separator:a1b478c5df4cfd87ef81820062acc3583"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1e536f35c4f2c9bac9e6b50b9bc703af"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::map&lt; std::string, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a1e536f35c4f2c9bac9e6b50b9bc703af">get_counts</a> ()</td></tr>
-<tr class="separator:a1e536f35c4f2c9bac9e6b50b9bc703af"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9c35bf37b84eef9980ed25392767eb58"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::map&lt; int, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#a9c35bf37b84eef9980ed25392767eb58">get_dtypes</a> ()</td></tr>
-<tr class="separator:a9c35bf37b84eef9980ed25392767eb58"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa2d75b76cf4dedf8197e96de8d3a43b3"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::unordered_map&lt; std::string, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#aa2d75b76cf4dedf8197e96de8d3a43b3">get_counts</a> ()</td></tr>
+<tr class="separator:aa2d75b76cf4dedf8197e96de8d3a43b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae97d0911dc87ee54d6802d2fd5a7883a"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::unordered_map&lt; int, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#ae97d0911dc87ee54d6802d2fd5a7883a">get_dtypes</a> ()</td></tr>
+<tr class="separator:ae97d0911dc87ee54d6802d2fd5a7883a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classcsv__parser_1_1CSVReader"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classcsv__parser_1_1CSVReader')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classcsv__parser_1_1CSVReader.html">csv_parser::CSVReader</a></td></tr>
 <tr class="memitem:a7c3b770303d7bdd40300a075465c7115 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">std::deque&lt; std::vector&lt; std::string &gt; &gt;::iterator&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a7c3b770303d7bdd40300a075465c7115">begin</a> ()</td></tr>
 <tr class="separator:a7c3b770303d7bdd40300a075465c7115 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -112,8 +110,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a2d925f5ae93669c1ba6643eace07d7a1 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1a9c2ec5e3ae0af2dba36ca1cd75876e inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a1a9c2ec5e3ae0af2dba36ca1cd75876e">read_row</a> (std::vector&lt; std::string &gt; &amp;row)</td></tr>
 <tr class="separator:a1a9c2ec5e3ae0af2dba36ca1cd75876e inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3eed81b9dcf75e154c9fe09720eaf2cd inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a3eed81b9dcf75e154c9fe09720eaf2cd">read_row</a> (std::vector&lt; void *&gt; &amp;row, std::vector&lt; int &gt; &amp;dtypes, bool *overflow=nullptr)</td></tr>
-<tr class="separator:a3eed81b9dcf75e154c9fe09720eaf2cd inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38d3c643cb9632b9cc76f2d1d566b2a3 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a38d3c643cb9632b9cc76f2d1d566b2a3">read_row</a> (std::vector&lt; void *&gt; &amp;row, std::vector&lt; <a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">DataType</a> &gt; &amp;dtypes, bool *overflow=nullptr)</td></tr>
+<tr class="separator:a38d3c643cb9632b9cc76f2d1d566b2a3 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f571ef31901d5120eddeafcd379d9a3 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3">read_row</a> (std::vector&lt; <a class="el" href="classcsv__parser_1_1CSVField.html">CSVField</a> &gt; &amp;row)</td></tr>
 <tr class="separator:a1f571ef31901d5120eddeafcd379d9a3 inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ba40d0e153203bc2c4e33702383f0df inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structcsv__parser_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a9ba40d0e153203bc2c4e33702383f0df">get_format</a> ()</td></tr>
@@ -135,10 +133,20 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>clear</b> ()</td></tr
 <tr class="memitem:a971735c2c31280fad116005043d3044e inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a971735c2c31280fad116005043d3044e">close</a> ()</td></tr>
 <tr class="separator:a971735c2c31280fad116005043d3044e inherit pub_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
-Protected Member Functions</h2></td></tr>
-<tr class="memitem:ab93fcaf2bf8734f8d024b267562fab9a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVStat.html#ab93fcaf2bf8734f8d024b267562fab9a">dtype</a> (std::string &amp;, size_t &amp;)</td></tr>
-<tr class="separator:ab93fcaf2bf8734f8d024b267562fab9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
+Additional Inherited Members</h2></td></tr>
+<tr class="inherit_header pub_attribs_classcsv__parser_1_1CSVReader"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classcsv__parser_1_1CSVReader')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classcsv__parser_1_1CSVReader.html">csv_parser::CSVReader</a></td></tr>
+<tr class="memitem:af86682dacb7e35a004bf920589cd56b3 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#af86682dacb7e35a004bf920589cd56b3">row_num</a> = 0</td></tr>
+<tr class="separator:af86682dacb7e35a004bf920589cd56b3 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad896101155e12ba6b7372264889cb31a inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#ad896101155e12ba6b7372264889cb31a">correct_rows</a> = 0</td></tr>
+<tr class="separator:ad896101155e12ba6b7372264889cb31a inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af11c02f1a977e61239f6a3ac8c9e840b inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">void(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#af11c02f1a977e61239f6a3ac8c9e840b">bad_row_handler</a> )(std::vector&lt; std::string &gt;)</td></tr>
+<tr class="separator:af11c02f1a977e61239f6a3ac8c9e840b inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b33590aabe616188d4631cfa3fe229e inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top"><a id="a4b33590aabe616188d4631cfa3fe229e"></a>
+std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b></td></tr>
+<tr class="separator:a4b33590aabe616188d4631cfa3fe229e inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af81b5b989e74194d135902a3e9422380 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#af81b5b989e74194d135902a3e9422380">eof</a> = false</td></tr>
+<tr class="separator:af81b5b989e74194d135902a3e9422380 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classcsv__parser_1_1CSVReader"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classcsv__parser_1_1CSVReader')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classcsv__parser_1_1CSVReader.html">csv_parser::CSVReader</a></td></tr>
 <tr class="memitem:a6283865922956f606c4634003bd2514f inherit pro_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a6283865922956f606c4634003bd2514f">csv_to_json</a> (std::vector&lt; std::string &gt; &amp;)</td></tr>
 <tr class="separator:a6283865922956f606c4634003bd2514f inherit pro_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -152,12 +160,6 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a2150bc512ac7a8bbc5021fdcd15ffeb6 inherit pro_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a61df74330cf927f0e1259243f0968201 inherit pro_methods_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a61df74330cf927f0e1259243f0968201">_read_csv</a> ()</td></tr>
 <tr class="separator:a61df74330cf927f0e1259243f0968201 inherit pro_methods_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
-Protected Attributes</h2></td></tr>
-<tr class="memitem:a4ad667d163c89007d504a53e59377f6b"><td class="memItemLeft" align="right" valign="top"><a id="a4ad667d163c89007d504a53e59377f6b"></a>
-std::map&lt; int, std::map&lt; int, int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>dtypes</b></td></tr>
-<tr class="separator:a4ad667d163c89007d504a53e59377f6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classcsv__parser_1_1CSVReader"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classcsv__parser_1_1CSVReader')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classcsv__parser_1_1CSVReader.html">csv_parser::CSVReader</a></td></tr>
 <tr class="memitem:a2ea11e91ae7a916e3785ea816efb1df9 inherit pro_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a2ea11e91ae7a916e3785ea816efb1df9">delimiter</a></td></tr>
 <tr class="separator:a2ea11e91ae7a916e3785ea816efb1df9 inherit pro_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -195,21 +197,6 @@ std::FILE *&#160;</td><td class="memItemRight" valign="bottom"><b>infile</b> = n
 <tr class="separator:a628d0c1e076c4ab580f7f8ea746a9f78 inherit pro_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4fa8ac943e5ce9e3a6bbfa259d48db37 inherit pro_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#a4fa8ac943e5ce9e3a6bbfa259d48db37">feed_cond</a></td></tr>
 <tr class="separator:a4fa8ac943e5ce9e3a6bbfa259d48db37 inherit pro_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
-Additional Inherited Members</h2></td></tr>
-<tr class="inherit_header pub_attribs_classcsv__parser_1_1CSVReader"><td colspan="2" onclick="javascript:toggleInherit('pub_attribs_classcsv__parser_1_1CSVReader')"><img src="closed.png" alt="-"/>&#160;Public Attributes inherited from <a class="el" href="classcsv__parser_1_1CSVReader.html">csv_parser::CSVReader</a></td></tr>
-<tr class="memitem:af86682dacb7e35a004bf920589cd56b3 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#af86682dacb7e35a004bf920589cd56b3">row_num</a> = 0</td></tr>
-<tr class="separator:af86682dacb7e35a004bf920589cd56b3 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad896101155e12ba6b7372264889cb31a inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#ad896101155e12ba6b7372264889cb31a">correct_rows</a> = 0</td></tr>
-<tr class="separator:ad896101155e12ba6b7372264889cb31a inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af11c02f1a977e61239f6a3ac8c9e840b inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">void(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#af11c02f1a977e61239f6a3ac8c9e840b">bad_row_handler</a> )(std::vector&lt; std::string &gt;)</td></tr>
-<tr class="separator:af11c02f1a977e61239f6a3ac8c9e840b inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4b33590aabe616188d4631cfa3fe229e inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top"><a id="a4b33590aabe616188d4631cfa3fe229e"></a>
-std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b></td></tr>
-<tr class="separator:a4b33590aabe616188d4631cfa3fe229e inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af81b5b989e74194d135902a3e9422380 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVReader.html#af81b5b989e74194d135902a3e9422380">eof</a> = false</td></tr>
-<tr class="separator:af81b5b989e74194d135902a3e9422380 inherit pub_attribs_classcsv__parser_1_1CSVReader"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class for calculating statistics from CSV files </p>
@@ -297,57 +284,14 @@ std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b
 
 </div>
 </div>
-<a id="ab93fcaf2bf8734f8d024b267562fab9a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ab93fcaf2bf8734f8d024b267562fab9a">&#9670;&nbsp;</a></span>dtype()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv_parser::CSVStat::dtype </td>
-          <td>(</td>
-          <td class="paramtype">std::string &amp;&#160;</td>
-          <td class="paramname"><em>record</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t &amp;&#160;</td>
-          <td class="paramname"><em>i</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Given a record update the type counter </p><dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">record</td><td>Data observation </td></tr>
-    <tr><td class="paramdir">[out]</td><td class="paramname">i</td><td>The column index that should be updated</td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<a id="a1e536f35c4f2c9bac9e6b50b9bc703af"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e536f35c4f2c9bac9e6b50b9bc703af">&#9670;&nbsp;</a></span>get_counts()</h2>
+<a id="aa2d75b76cf4dedf8197e96de8d3a43b3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa2d75b76cf4dedf8197e96de8d3a43b3">&#9670;&nbsp;</a></span>get_counts()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt; std::map&lt; std::string, int &gt; &gt; csv_parser::CSVStat::get_counts </td>
+          <td class="memname">std::vector&lt; std::unordered_map&lt; std::string, int &gt; &gt; csv_parser::CSVStat::get_counts </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -358,14 +302,14 @@ std::string&#160;</td><td class="memItemRight" valign="bottom"><b>infile_name</b
 
 </div>
 </div>
-<a id="a9c35bf37b84eef9980ed25392767eb58"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9c35bf37b84eef9980ed25392767eb58">&#9670;&nbsp;</a></span>get_dtypes()</h2>
+<a id="ae97d0911dc87ee54d6802d2fd5a7883a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae97d0911dc87ee54d6802d2fd5a7883a">&#9670;&nbsp;</a></span>get_dtypes()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::vector&lt; std::map&lt; int, int &gt; &gt; csv_parser::CSVStat::get_dtypes </td>
+          <td class="memname">std::vector&lt; std::unordered_map&lt; int, int &gt; &gt; csv_parser::CSVStat::get_dtypes </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>

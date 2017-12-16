@@ -19,8 +19,8 @@ TEST_CASE("Test Command Line Argument Parsing", "[test_getargs]") {
         "3\""
     };
 
-    vector<string> args;
-    vector<string> flags;
+    deque<string> args;
+    deque<string> flags;
 
     getargs(argc, argv, args, flags);
 
@@ -39,8 +39,8 @@ TEST_CASE("Malformed Input", "[test_getargs_fail]") {
         "3" // No quote escape termination --> should fail
     };
 
-    vector<string> args;
-    vector<string> flags;
+    deque<string> args;
+    deque<string> flags;
 
     int fail = getargs(argc, argv, args, flags);
     REQUIRE(fail == 1);

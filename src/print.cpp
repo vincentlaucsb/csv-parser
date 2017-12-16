@@ -10,9 +10,9 @@ namespace csv_parser {
     namespace helpers {
         string rpad_trim(string in, size_t n, size_t trim) {
             /**
-             * Add extra whitespace until string is n characters long
-             * Also trim string if it is too long
-             */
+            * Add extra whitespace until string is n characters long
+            * Also trim string if it is too long
+            */
             std::string new_str = in;
 
             if (in.size() <= trim) {
@@ -27,15 +27,23 @@ namespace csv_parser {
         }
 
         vector<string> round(vector<long double> in) {
-            /** Take a numeric vector and return a string vector with rounded numbers */
+            /**
+             * Take a numeric vector and return a string vector with rounded numbers
+             * Also replace NaNs with empty strings
+             */
             vector<string> new_vec;
             char buffer[100];
             string rounded;
 
             for (auto num = std::begin(in); num != std::end(in); ++num) {
-                snprintf(buffer, 100, "%.2Lf", *num);
-                rounded = std::string(buffer);
-                new_vec.push_back(rounded);
+                if (isnan(*num)) {
+                    new_vec.push_back("");
+                }
+                else {
+                    snprintf(buffer, 100, "%.2Lf", *num);
+                    rounded = std::string(buffer);
+                    new_vec.push_back(rounded);
+                }
             }
 
             return new_vec;
@@ -45,11 +53,11 @@ namespace csv_parser {
             vector<vector<string>> &records,
             size_t max_col_width) {
             /** Given a list of string vectors representing rows to print,
-             *  compute the width of each column
-             *
-             *  Rules
-             *   - Doesn't return column widths > max_col_width
-             */
+            *  compute the width of each column
+            *
+            *  Rules
+            *   - Doesn't return column widths > max_col_width
+            */
 
             vector<size_t> col_widths = {};
             bool first_row = true;
@@ -87,14 +95,19 @@ namespace csv_parser {
             std::cout << std::endl;
         }
 
-        void print_table(vector<vector<string>> &records, int row_num, vector<string> row_names) {
+        void print_table(
+            vector<vector<string>> &records,
+            int row_num,
+            vector<string> row_names,
+            bool header
+        ) {
             /*
-             * Set row_num to -1 to disable row number printing
-             * Or set row_names to disable number printing
-             */
+            * Set row_num to -1 to disable row number printing
+            * Or set row_names to disable number printing
+            */
 
-             /* Find out width of each column */
-            vector<size_t> col_widths = _get_col_widths(records, 80);
+            /* Find out width of each column */
+            vector<size_t> col_widths = _get_col_widths(records, 100);
             const int orig_row_num = row_num;
 
             // Set size of row names column
@@ -116,14 +129,27 @@ namespace csv_parser {
             for (size_t current_row = 0, rlen = records.size();
                 current_row < rlen; current_row++) {
 
-                if (!row_names.empty())
+                // Hide row number for first row if header=true
+                if (!row_names.empty()) {
                     std::cout << rpad_trim(*(row_name_p++), row_name_width);
-                else if (row_num >= 0)
-                    std::cout << rpad_trim("[" + std::to_string(row_num++) + "]", row_name_width);
+                }
+                else if (row_num >= 0) {
+                    if (header && (row_num == orig_row_num))
+                        std::cout << rpad_trim(" ", row_name_width);
+                    else
+                        std::cout << rpad_trim("[" + std::to_string(row_num) + "]", row_name_width);
+                    row_num++;
+                }
 
                 // Print out one row --> Break if necessary
                 while (temp_row_width < 80 && col_width_p != col_widths.size()) {
                     temp_col_size = col_widths[col_width_p];
+
+                    /*
+                    if (header && (row_num == orig_row_num + 1))
+                        std::cout << rpad_trim("----", temp_col_size) << std::endl;
+                    else
+                    */
                     std::cout << rpad_trim(*(cursor[current_row]), temp_col_size);
 
                     temp_row_width += temp_col_size;
@@ -138,9 +164,11 @@ namespace csv_parser {
 
                 // Check if we need to restart the loop
                 if ((current_row + 1 == rlen) && cursor[0] != records[0].end()) {
+                    if (!row_names.empty())
+                        row_name_p = row_names.begin();
+
                     std::cout << std::endl;
                     row_num = orig_row_num;
-                    row_name_p = row_names.begin();
                     col_width_base = col_width_p = cursor[0] - records[0].begin();
                     current_row = -1;
                 }

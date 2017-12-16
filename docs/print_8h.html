@@ -73,7 +73,7 @@ $(function() {
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;list&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
-<code>#include &lt;map&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 </div>
 <p><a href="print_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -94,9 +94,9 @@ template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a4cb6eb188a455054898f9a880beae901"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a4cb6eb188a455054898f9a880beae901"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#a4cb6eb188a455054898f9a880beae901">csv_parser::helpers::_min_val_to_front</a> (list&lt; T &gt; &amp;seq)</td></tr>
 <tr class="separator:a4cb6eb188a455054898f9a880beae901"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae25be8703b8094f57da7128ba72a654c"><td class="memTemplParams" colspan="2">template&lt;typename T1 , typename T2 &gt; </td></tr>
-<tr class="memitem:ae25be8703b8094f57da7128ba72a654c"><td class="memTemplItemLeft" align="right" valign="top">map&lt; T1, T2 &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#ae25be8703b8094f57da7128ba72a654c">csv_parser::helpers::top_n_values</a> (map&lt; T1, T2 &gt; in, size_t n)</td></tr>
-<tr class="separator:ae25be8703b8094f57da7128ba72a654c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae8ccf1d6c83782c687e81f4832baa3e6"><td class="memTemplParams" colspan="2">template&lt;typename T1 , typename T2 &gt; </td></tr>
+<tr class="memitem:ae8ccf1d6c83782c687e81f4832baa3e6"><td class="memTemplItemLeft" align="right" valign="top">unordered_map&lt; T1, T2 &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#ae8ccf1d6c83782c687e81f4832baa3e6">csv_parser::helpers::top_n_values</a> (unordered_map&lt; T1, T2 &gt; in, size_t n)</td></tr>
+<tr class="separator:ae8ccf1d6c83782c687e81f4832baa3e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">String Formatting Functions</div></td></tr>
 <tr class="memitem:a7acc2f783a805e7669e66e013df2870f"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#a7acc2f783a805e7669e66e013df2870f">csv_parser::helpers::rpad_trim</a> (string in, size_t n, size_t trim)</td></tr>
 <tr class="separator:a7acc2f783a805e7669e66e013df2870f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -108,9 +108,9 @@ template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a7d272ee1ceb8437aa8b37cfc12d75120"><td class="memItemLeft" align="right" valign="top"><a id="a7d272ee1ceb8437aa8b37cfc12d75120"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::helpers::print_record</b> (std::vector&lt; std::string &gt; record)</td></tr>
 <tr class="separator:a7d272ee1ceb8437aa8b37cfc12d75120"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acd4a3126ba77c11f9a8dae9089f6134a"><td class="memItemLeft" align="right" valign="top"><a id="acd4a3126ba77c11f9a8dae9089f6134a"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::helpers::print_table</b> (vector&lt; vector&lt; string &gt;&gt; &amp;records, int row_num, vector&lt; string &gt; row_names)</td></tr>
-<tr class="separator:acd4a3126ba77c11f9a8dae9089f6134a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab3a2b43f581aa92cd88fd90206e3323b"><td class="memItemLeft" align="right" valign="top"><a id="ab3a2b43f581aa92cd88fd90206e3323b"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::helpers::print_table</b> (vector&lt; vector&lt; string &gt;&gt; &amp;records, int row_num, vector&lt; string &gt; row_names, bool header)</td></tr>
+<tr class="separator:ab3a2b43f581aa92cd88fd90206e3323b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- start footer part -->

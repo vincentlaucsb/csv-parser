@@ -23,7 +23,7 @@ namespace csv_parser {
                 i++;
 
                 if (i%nrow == 0) {
-                    helpers::print_table(records, i - nrow);
+                    helpers::print_table(records, i - nrow, {}, true);
                     std::cout << std::endl
                         << "Press Enter to continue printing, or q or Ctrl + C to quit."
                         << std::endl << std::endl;

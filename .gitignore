@@ -1,6 +1,19 @@
 # Build
 bin/
 
+# Visual Studio
+Debug/
+Release/
+.vs
+*.sln
+*.vcxproj
+*.vcxproj.*
+*.pdb
+*.iobj
+*.ipdb
+*.log
+*.tlog
+
 # Compiled Object files
 *.slo
 *.lo
@@ -76,15 +89,6 @@ Desktop.ini
 
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
-
-# Visual Studio
-Debug/
-Release/
-.vs
-*.sln
-*.vcxproj
-*.vcxproj.*
-
 
 # Windows Installer files
 *.cab

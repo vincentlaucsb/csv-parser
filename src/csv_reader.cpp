@@ -1,5 +1,4 @@
 #include "csv_parser.h"
-#include <algorithm>
 #include <random>
 
 namespace csv_parser {
@@ -495,7 +494,7 @@ namespace csv_parser {
     }
 
     bool CSVReader::read_row(std::vector<void*> &row, 
-        std::vector<int> &dtypes,
+        std::vector<DataType> &dtypes,
         bool *overflow)
     {
         /** Same as read_row(std::string, std::vector<std::string> &row) but
@@ -529,7 +528,7 @@ namespace csv_parser {
             }
 
             std::vector<std::string>& temp = *(this->current_row);
-            int dtype;
+            DataType dtype;
             void * field;
             row.clear();
             dtypes.clear();
@@ -540,14 +539,14 @@ namespace csv_parser {
 
                 try {
                     switch (helpers::data_type(*it)) {
-                    case 0: // Empty string
-                    case 1: // String
+                    case _null:   // Empty string
+                    case _string:
                         field = new std::string(*it);
                         break;
-                    case 2: // Integer
+                    case _int:
                         field = new long long int(std::stoll(*it));
                         break;
-                    case 3: // Float
+                    case _float:
                         field = new long double(std::stold(*it));
                         break;
                     }
@@ -558,7 +557,7 @@ namespace csv_parser {
                 catch (std::out_of_range) {
                     // Huge ass number
                     dtypes.pop_back();
-                    dtypes.push_back(1);
+                    dtypes.push_back(_string);
                     field = new std::string(*it);
                     break;
 
@@ -591,7 +590,7 @@ namespace csv_parser {
          */
         std::vector<void*> in_row;
         std::vector<CSVField> out_row;
-        std::vector<int> dtypes;
+        std::vector<DataType> dtypes;
         bool overflow;
 
         while (this->read_row(in_row, dtypes, &overflow)) {
@@ -609,12 +608,39 @@ namespace csv_parser {
     // CSVField
     //
 
+    CSVField::CSVField(void * _data_ptr, DataType _type, bool _overflow) {
+        data_ptr = _data_ptr;
+        dtype = _type;
+        overflow = _overflow;
+    }
+
+    CSVField::~CSVField() {
+        switch (this->dtype) {
+            case _null:
+            case _string: {
+                std::string* str_ptr = (std::string*) this->data_ptr;
+                delete str_ptr;
+                break;
+            }
+            case _int: {
+                long long int* int_ptr = (long long int*) this->data_ptr;
+                delete int_ptr;
+                break;
+            }
+            case _float: {
+                long double* dbl_ptr = (long double*)this->data_ptr;
+                delete dbl_ptr;
+                break;
+            }
+        }
+    }
+
     int CSVField::is_int() {
         /** Returns:
-          *  - 1: If data type is an integer
-          *  - -1: If data type is an integer but can't fit in a long long int
-          *  - 0: Not an integer
-          */
+         *   - 1: If data type is an integer
+         *   - -1: If data type is an integer but can't fit in a long long int
+         *   - 0: Not an integer
+         */
         if (this->dtype == 2) {
             if (this->overflow)
                 return -1;
@@ -628,10 +654,10 @@ namespace csv_parser {
 
     int CSVField::is_float() {
         /** Returns:
-        *  - 1: If data type is a float
-        *  - -1: If data type is a float but can't fit in a long double
-        *  - 0: Not a float
-        */
+         *  - 1: If data type is a float
+         *  - -1: If data type is a float but can't fit in a long double
+         *  - 0: Not a float
+         */
         if (this->dtype == 3) {
             if (this->overflow)
                 return -1;
@@ -658,19 +684,20 @@ namespace csv_parser {
     }
 
     std::string CSVField::get_string() {
-        /** Retrieve a string value, throwing an error if the field is 
-         *  not a string
+        /** Retrieve a string value. If the value is numeric, it will be
+         *  type-casted using std::to_string()
          *
          *  **Note**: This can also be used to retrieve empty fields
          */
         if (this->dtype <= 1 || this->overflow) {
             std::string* ptr = (std::string*)this->data_ptr;
-            std::string ret = *ptr;
-            delete ptr;
-            return ret;
+            return *ptr;
         }
         else {
-            throw std::runtime_error("[TypeError] Not a string.");
+            if (this->dtype == _int)
+                return std::to_string(this->get_int());
+            else
+                return std::to_string(this->get_float());
         }
     }
 
@@ -679,12 +706,10 @@ namespace csv_parser {
          *  the field is not an integer or type-casting will cause an
          *  integer overflow.
          */
-        if (this->dtype == 2) {
+        if (this->dtype == _int) {
             if (!this->overflow) {
                 long long int* ptr = (long long int*)this->data_ptr;
-                long long int ret = *ptr;
-                delete ptr;
-                return ret;
+                return *ptr;
             }
             else {
                 throw std::runtime_error("[TypeError] Integer overflow: Use get_string() instead.");
@@ -700,12 +725,10 @@ namespace csv_parser {
          *  the field is not a floating point number or type-casting will
          *  cause an overflow
          */
-        if (this->dtype == 3) {
+        if (this->dtype == _float) {
             if (!this->overflow) {
                 long double* ptr = (long double*)this->data_ptr;
-                long double ret = *ptr;
-                delete ptr;
-                return ret;
+                return *ptr;
             }
             else {
                 throw std::runtime_error("[TypeError] Float overflow: Use get_string() instead.");
@@ -719,8 +742,8 @@ namespace csv_parser {
     namespace helpers {
         std::string json_escape(std::string in) {
             /** Given a CSV string, convert it to a JSON string with proper
-            *  escaping as described by RFC 7159
-            */
+             *  escaping as described by RFC 7159
+             */
 
             std::string out;
 

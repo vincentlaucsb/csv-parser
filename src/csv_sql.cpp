@@ -1,25 +1,29 @@
 #define THROW_SQLITE_ERROR \
 throw std::runtime_error("[SQLite Error] " + std::string(error_message))
 
+#define PRINT_SQLITE_ERROR(a) \
+throw std::runtime_error("[SQLite Error] " + std::string(a))
+
 #include "sqlite3.h"
 #include "csv_parser.h"
+#include "print.h"
 #include <stdio.h>
 
 using std::vector;
 using std::string;
-using std::map;
 
 namespace csv_parser {
     /** @file */
     namespace helpers {
         std::vector<std::string> path_split(std::string path) {
-            /** Split a UNIX path into a string vector */
+            /** Split a file path into a string vector */
 
             vector<string> splitted;
             string current_part;
 
             for (size_t i = 0; i < path.size(); i++) {
                 switch (path[i]) {
+                case '\\': // Muh Windows
                 case '/':
                     splitted.push_back(current_part);
                     current_part.clear();
@@ -42,12 +46,198 @@ namespace csv_parser {
     }
 
     namespace sql {
+        void explain_sqlite_error(int error_code) {
+            /** https://sqlite.org/rescode.html */
+
+            switch (error_code) {
+            // No error
+            case 0:
+            case 100:
+            case 101:
+                break;
+            case 7:
+                PRINT_SQLITE_ERROR("Out of memory");
+            case 11:
+                PRINT_SQLITE_ERROR("Database has been corrupted");
+            case 13:
+                PRINT_SQLITE_ERROR("Out of disk space");
+            case 14:
+                PRINT_SQLITE_ERROR("Could not open file");
+            case 25:
+                PRINT_SQLITE_ERROR("Value out of range");
+            case 26:
+                PRINT_SQLITE_ERROR("Not a SQLite database");
+            default:
+                PRINT_SQLITE_ERROR(std::to_string(error_code));
+            }
+        }
+
+        /** A connection to a SQLite database */
+        class SQLiteConn {
+        public:
+            SQLiteConn(std::string db_name) {
+                /** Open a connection to a SQLite3 database
+                 *  @param[in] db_name Path to SQLite3 database
+                 */
+                if (sqlite3_open(db_name.c_str(), &db))
+                    throw std::runtime_error("Failed to open database");
+                else
+                    db_open = true;
+            };
+
+            void exec(std::string query) {
+                /** Execute a query that doesn't return anything
+                 *  @param[in] query A SQL query
+                 */
+                if (sqlite3_exec(this->db,
+                    (const char*)query.c_str(),
+                    0,  // Callback
+                    0,  // Arg to callback
+                    &error_message))
+                    THROW_SQLITE_ERROR;
+            }
+
+            void close() {
+                if (db_open) { // Prevent double frees
+                    sqlite3_close(this->db);
+                    db_open = false;
+                }
+            }
+
+            ~SQLiteConn() {
+                /** Close connection when this object gets destroyed */
+                this->close();
+            }
+
+            sqlite3* db;              /** Raw database handle */
+            char * error_message;     /** Buffer for error messages */
+
+        private:
+            bool db_open = true;
+        };
+
+        // Verbosity levels approaching Java
+        /** An interface for executing and iterating through SQL statements */
+        class SQLitePreparedStatement {
+        public:
+            SQLitePreparedStatement(SQLiteConn& conn, std::string& stmt) {
+                /** Prepare a SQL statement
+                 *  @param[in]  conn An active SQLite connection
+                 *  @param[out] stmt A SQL query that should be prepared
+                 */
+
+                this->conn = &conn;
+
+                /** Prepare a query for execution */
+                int result = sqlite3_prepare_v2(
+                    conn.db,                     /* Database handle */
+                    (const char *)stmt.c_str(),  /* SQL statement, UTF-8 encoded */
+                    stmt.size(),                 /* Maximum length of zSql in bytes. */
+                    &(this->statement),          /* OUT: Statement handle */
+                    &(this->unused)              /* OUT: Pointer to unused portion of zSql */
+                );
+
+                explain_sqlite_error(result);
+            }
+
+            void bind(size_t& i, std::string& value,
+                sqlite3_destructor_type dest=SQLITE_TRANSIENT) {
+                /** Bind text values to the statement
+                 *
+                 *  **Note:** This function is zero-indexed while
+                 *  sqlite3_bind_* is 1-indexed
+                 */
+                sqlite3_bind_text(
+                    this->statement,    // Pointer to prepared statement
+                    i + 1,              // Index of parameter to set
+                    value.c_str(),      // Value to bind
+                    value.size(),       // Size of string in bytes
+                    dest);              // String destructor
+            }
+
+            template <typename T>
+            void bind_int(size_t& i, T& value) {
+                /** Bind integer values to the statement */
+                sqlite3_bind_int64(this->statement, i + 1, value);
+            }
+
+            template <typename T>
+            void bind_double(size_t& i, T& value) {
+                /** Bind floating point values to the statement */
+                sqlite3_bind_double(this->statement, i + 1, value);
+            }
+
+            ~SQLitePreparedStatement() {
+                /** Call sqlite3_finalize() when this object goes out of scope */
+                sqlite3_finalize(this->statement);
+            }
+
+            void next() {
+                /** Call after bind()-ing values to execute statement */
+                if (sqlite3_step(this->statement) != 101 || sqlite3_reset(this->statement) != 0)
+                    throw std::runtime_error("Error executing prepared statement.");
+            }
+
+        protected:
+            SQLiteConn* conn;
+            sqlite3_stmt* statement;
+            const char * unused;
+        };
+
+        /** Used for prepared statements that result queries we want to read */
+        class SQLiteResultSet : SQLitePreparedStatement {
+        public:
+            std::vector<std::string> get_col_names() {
+                /** Retrieve the column names of a SQL query result */
+                std::vector<std::string> ret;
+                int col_size = this->num_cols();
+                for (int i = 0; i < col_size; i++)
+                    ret.push_back(sqlite3_column_name(this->statement, i));
+
+                return ret;
+            }
+
+            std::vector<std::string> get_row() {
+                /** After calling next_result(), use this to type-cast
+                 *  the next row from a query into a string vector
+                 */
+                std::vector<std::string> ret;
+                int col_size = this->num_cols();
+
+                for (int i = 0; i < col_size; i++) {
+                    ret.push_back(std::string((char *)
+                        sqlite3_column_text(this->statement, i)));
+                }
+
+                return ret;
+            }
+
+            int num_cols() {
+                /** Returns the number of columns in a SQL query result */
+                return sqlite3_column_count(this->statement);
+            }
+
+            bool next_result() {
+                /** Retrieves the next row from the a SQL result set,
+                 *  or returns False if we're done
+                 */
+
+                /* 100 --> More rows are available
+                 * 101 --> Done
+                 */
+                return (sqlite3_step(this->statement) == 100);
+            }
+
+            using SQLitePreparedStatement::SQLitePreparedStatement;
+        private:
+        };
+
         std::string sql_sanitize(std::string col_name) {
             /** Sanitize column names for SQL
-             *   - Remove bad characters
-             *   - Replace spaces with underscore
-             *   - Place _ in front of numeric names
-             */
+            *   - Remove bad characters
+            *   - Replace spaces with underscore
+            *   - Place _ in front of numeric names
+            */
             string new_str;
 
             for (size_t i = 0; i < col_name.size(); i++) {
@@ -85,9 +275,9 @@ namespace csv_parser {
 
         vector<string> sqlite_types(std::string filename, int nrows) {
             /** Return the preferred data type for the columns of a file
-             * @param[in] filename Path to CSV file
-             * @param[in] nrows    Number of rows to examine
-             */
+            * @param[in] filename Path to CSV file
+            * @param[in] nrows    Number of rows to examine
+            */
             CSVStat stat(guess_delim(filename));
             stat.read_csv(filename, nrows, true);
             stat.calc(false, false, true);
@@ -149,8 +339,8 @@ namespace csv_parser {
 
         std::string insert_values(std::string filename, std::string table) {
             /** Generate an INSERT VALUES statement with placeholders
-             *  in accordance with the SQLite C API
-             */
+            *  in accordance with the SQLite C API
+            */
 
             CSVReader temp(filename);
             temp.close();
@@ -182,7 +372,14 @@ namespace csv_parser {
     }
 
     namespace extra {
-        void csv_to_sql(std::string csv_file, std::string db, std::string table) {
+        void csv_to_sql(std::string csv_file, std::string db_name, std::string table) {
+            /** Convert a CSV file into a SQLite3 database
+             *  @param[in]  csv_file  Path to CSV file
+             *  @param[out] db_name   Path to SQLite database
+             *                        (will be created if it doesn't exist)
+             *  @param[out] table     Name of the table (default: filename)
+             */
+
             CSVReader infile(csv_file);
 
             // Default file name is CSV file minus extension
@@ -190,76 +387,43 @@ namespace csv_parser {
                 table = helpers::get_filename_from_path(csv_file);
             table = sql::sql_sanitize(table);
 
-            string create_stmt = sql::create_table(csv_file, table);
-            string insert_stmt = sql::insert_values(csv_file, table);
-            char* error_message = new char[200];
-            sqlite3* db_handle;
-            const char * unused;
-            sqlite3_stmt* insert_stmt_handle;
-
-            if (sqlite3_open(db.c_str(), &db_handle))
-                throw std::runtime_error("Failed to open database");
-
-            // 0's are callback function and argument to callback respectively
-            if (sqlite3_exec(db_handle, (const char*)create_stmt.c_str(), 0, 0, &error_message) != 0)
-                THROW_SQLITE_ERROR;
-
-            /* Prepare a statement for inserting values
-             * sqlite3_prepare_v2() is the preferred routine
-             */
-            _throw_on_error(sqlite3_prepare_v2(
-                db_handle,                        /* Database handle */
-                (const char*)insert_stmt.c_str(), /* SQL statement, UTF-8 encoded */
-                -1,                               /* Maximum length of zSql in bytes. */
-                &insert_stmt_handle,              /* OUT: Statement handle */
-                &unused                           /* OUT: Pointer to unused portion of zSql */
-            ));
-
-            if (sqlite3_exec(db_handle, "BEGIN TRANSACTION", NULL, NULL, &error_message) != 0)
-                THROW_SQLITE_ERROR;
+            sql::SQLiteConn db(db_name);
+            db.exec(sql::create_table(csv_file, table));
+            sql::SQLitePreparedStatement insert_stmt(db, sql::insert_values(csv_file, table));
+            db.exec("BEGIN TRANSACTION");
 
             vector<void*> row = {};
-            vector<int> dtypes;
+            vector<DataType> dtypes;
             string* str_ptr;
-            int* int_ptr;
-            double* dbl_ptr;
+            long long int* int_ptr;
+            long double* dbl_ptr;
 
             while (infile.read_row(row, dtypes)) {
                 for (size_t i = 0; i < row.size(); i++) {
                     switch (dtypes[i]) {
-                    case 0: // Empty String
-                    case 1: // String
+                    case _null: // Empty String
+                    case _string:
                         str_ptr = (string*)(row[i]);
-                        _throw_on_error(sqlite3_bind_text(
-                            insert_stmt_handle, // Pointer to prepared statement
-                            i + 1,              // Index of parameter to set
-                            str_ptr->c_str(),   // Value to bind
-                            str_ptr->size(),    // Size of string in bytes
-                            SQLITE_TRANSIENT)); // String destructor
+                        insert_stmt.bind(i, *str_ptr);
                         delete str_ptr;
                         break;
-                    case 2:
-                        int_ptr = (int*)(row[i]);
-                        _throw_on_error(sqlite3_bind_int64(insert_stmt_handle, i + 1, *int_ptr));
+                    case _int:
+                        int_ptr = (long long int*)(row[i]);
+                        insert_stmt.bind_int(i, *int_ptr);
                         delete int_ptr;
                         break;
-                    case 3:
-                        dbl_ptr = (double*)(row[i]);
-                        _throw_on_error(sqlite3_bind_double(insert_stmt_handle, i + 1, *dbl_ptr));
+                    case _float:
+                        dbl_ptr = (long double*)(row[i]);
+                        insert_stmt.bind_double(i, *dbl_ptr);
                         delete dbl_ptr;
                         break;
                     }
                 }
 
-                _throw_on_error(sqlite3_step(insert_stmt_handle));
-                _throw_on_error(sqlite3_reset(insert_stmt_handle));  // Reset
+                insert_stmt.next();
             }
 
-            if (sqlite3_exec(db_handle, "COMMIT TRANSACTION", NULL, NULL, &error_message) != 0)
-                THROW_SQLITE_ERROR;
-
-            _throw_on_error(sqlite3_finalize(insert_stmt_handle));
-            _throw_on_error(sqlite3_close(db_handle));
+            db.exec("COMMIT TRANSACTION");
         }
 
         void csv_join(std::string filename1, std::string filename2, std::string outfile,
@@ -274,18 +438,14 @@ namespace csv_parser {
             column2 = sql::sql_sanitize(column2);
 
             // Create SQLite Database
-            std::string db = "temp.sqlite";
-            csv_to_sql(filename1, db);
-            csv_to_sql(filename2, db);
+            std::string db_name = "temp.sqlite";
+            csv_to_sql(filename1, db_name);
+            csv_to_sql(filename2, db_name);
 
-            sqlite3* db_handle;
+            CSVWriter writer(outfile);
+            sql::SQLiteConn db(db_name);
             sqlite3_stmt* stmt_handle;
-            char* error_message;
             const char * unused;
-
-            // Open database connection and CSV file
-            int db_success = sqlite3_open(db.c_str(), &db_handle);
-            std::ofstream outfile_writer(outfile, std::ios_base::binary);
 
             // Compose Join Statement
             char join_statement[500];
@@ -302,57 +462,39 @@ namespace csv_parser {
                     table1.c_str(), table2.c_str(), column1.c_str(), column2.c_str());
             }
 
-            sqlite3_prepare_v2(
-                db_handle,                   /* Database handle */
-                join_statement,              /* SQL statement, UTF-8 encoded */
-                -1,                          /* Maximum length of zSql in bytes. */
-                &stmt_handle,                /* OUT: Statement handle */
-                &unused                      /* OUT: Pointer to unused portion of zSql */
-            );
-
+            sql::SQLiteResultSet results(db, std::string(join_statement));
             bool write_col_names = true;
-            int col_size = -1;
-            string temp;
 
-            while (true) {
-                /* 100 --> More rows are available
-                 * 101 --> Done
-                 */
-                if (sqlite3_step(stmt_handle) == 101)
-                    break;
-
-                if (col_size < 0)
-                    col_size = sqlite3_column_count(stmt_handle);
-                else if (col_size == 0)
-                    break;  // No results
-
+            while (results.next_result()) {
                 // Write column names
-                if (write_col_names && col_size > 0) {
-                    for (int i = 0; i < col_size; i++) {
-                        outfile_writer << sqlite3_column_name(stmt_handle, i);
-                        if (i + 1 != col_size)
-                            outfile_writer << ",";
-                    }
-
-                    outfile_writer << "\r\n";
+                if (write_col_names) {
+                    writer.write_row(results.get_col_names());
                     write_col_names = false;
                 }
 
-                // Write a row
-                for (int i = 0; i < col_size; i++) {
-                    temp = std::string((char *)sqlite3_column_text(stmt_handle, i));
-                    outfile_writer << csv_parser::csv_escape(temp);
-
-                    if (i + 1 != col_size)
-                        outfile_writer << ",";
-                }
-
-                outfile_writer << "\r\n";
+                writer.write_row(results.get_row());
             }
 
-            sqlite3_finalize(stmt_handle);
-            sqlite3_close(db_handle);
+            db.close();
             remove("temp.sqlite");
+        }
+
+        void sql_query(std::string db_name, std::string query) {
+            sql::SQLiteConn db(db_name);
+            sql::SQLiteResultSet rs(db, query);
+            bool add_col_names = true;
+            vector<vector<string>> print_rows;
+
+            for (int i = 0; rs.next_result() && i < 100; i++) {
+                if (add_col_names) {
+                    print_rows.push_back(rs.get_col_names());
+                    add_col_names = false;
+                }
+
+                print_rows.push_back(rs.get_row());
+            }
+
+            helpers::print_table(print_rows);
         }
     }
 }

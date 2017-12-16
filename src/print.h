@@ -2,11 +2,11 @@
 #include <vector>
 #include <list>
 #include <string>
-#include <map>
+#include <unordered_map>
 
 using std::vector;
 using std::string;
-using std::map;
+using std::unordered_map;
 using std::list;
 
 namespace csv_parser {
@@ -26,7 +26,8 @@ namespace csv_parser {
         vector<size_t> _get_col_widths(vector<vector<string>>&, size_t);
         void print_record(std::vector<std::string> record);
         void print_table(vector<vector<string>> &records,
-            int row_num = 0, vector<string> row_names = {});
+            int row_num = 0, vector<string> row_names = {},
+            bool header=false);
         ///@}
 
         template<typename T>
@@ -41,7 +42,7 @@ namespace csv_parser {
 
         template<typename T>
         inline void _min_val_to_front(list<T>& seq) {
-            /** Move the mapped element with the smallest value to the front */
+            /** Move the unordered_mapped element with the smallest value to the front */
             auto min_p = seq.begin();
             for (auto it = seq.begin(); it != seq.end(); ++it)
                 if ((*it)->second < (*min_p)->second)
@@ -56,9 +57,9 @@ namespace csv_parser {
         }
 
         template<typename T1, typename T2>
-        inline map<T1, T2> top_n_values(map<T1, T2> in, size_t n) {
-            /** Return a map with only the top n values */
-            list<typename map<T1, T2>::iterator> top_n; // Ptrs to top values
+        inline unordered_map<T1, T2> top_n_values(unordered_map<T1, T2> in, size_t n) {
+            /** Return a unordered_map with only the top n values */
+            list<typename unordered_map<T1, T2>::iterator> top_n; // Ptrs to top values
 
             // Initialize with first n values
             auto it = in.begin();
@@ -67,7 +68,7 @@ namespace csv_parser {
 
             _min_val_to_front(top_n);  // Keep smallest value at front
 
-            // Loop through map
+            // Loop through unordered_map
             for (; it != in.end(); ++it) {
                 if (it->second > (top_n.front())->second) {
                     top_n.pop_front();      // Swap values
@@ -76,11 +77,11 @@ namespace csv_parser {
                 }
             }
 
-            map<T1, T2> new_map;
+            unordered_map<T1, T2> new_unordered_map;
             for (auto it = top_n.begin(); it != top_n.end(); ++it)
-                new_map[(*it)->first] = in[(*it)->first];
+                new_unordered_map[(*it)->first] = in[(*it)->first];
 
-            return new_map;
+            return new_unordered_map;
         }
     }
 }

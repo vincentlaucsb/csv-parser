@@ -10,12 +10,11 @@
 #include <vector>
 #include <deque>
 #include <math.h>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <memory>
 
 namespace csv_parser {
     /** @file */
@@ -39,13 +38,28 @@ namespace csv_parser {
         int n_cols;
     };
 
+    /** Enumerates the different CSV field types that are
+     *  recognized by this library
+     *  
+     *  - 0. Null (empty string)
+     *  - 1. String
+     *  - 2. Integer
+     *  - 3. Floating Point Number
+     */
+    enum DataType {
+        _null,
+        _string,
+        _int,
+        _float
+    };
+
     /** A data type for representing CSV values that have been type-casted
      *  that is more sophisticated than a bare void * pointer
      */
     class CSVField {
     public:
-        CSVField(void * _data_ptr, int _type, bool _overflow = false) :
-            data_ptr(_data_ptr), dtype(_type), overflow(_overflow) {};
+        CSVField(void * _data_ptr = nullptr, DataType _type = _null, bool _overflow = false);
+        ~CSVField();
 
         bool is_null();
         bool is_string();
@@ -54,10 +68,10 @@ namespace csv_parser {
         std::string get_string();
         long long int get_int();
         long double get_float();
+        DataType dtype;
     private:
         void * data_ptr;
         bool overflow;
-        int dtype;
     };
 
     /** @name Global Constants */
@@ -144,7 +158,7 @@ namespace csv_parser {
             ///@{
             bool read_row(std::vector<std::string> &row);
             bool read_row(std::vector<void*> &row,
-                std::vector<int> &dtypes, bool *overflow = nullptr);
+                std::vector<DataType> &dtypes, bool *overflow = nullptr);
             bool read_row(std::vector<CSVField> &row);
             ///@}
 
@@ -265,15 +279,9 @@ namespace csv_parser {
             std::vector<long double> get_variance();
             std::vector<long double> get_mins();
             std::vector<long double> get_maxes();
-            std::vector< std::map<std::string, int> > get_counts();
-            std::vector< std::map<int, int> > get_dtypes();
+            std::vector< std::unordered_map<std::string, int> > get_counts();
+            std::vector< std::unordered_map<int, int> > get_dtypes();
             using CSVReader::CSVReader;
-        protected:
-            // Statistic calculators
-            void dtype(std::string&, size_t&);
-            
-            // Map column indices to counters
-            std::map<int, std::map<int, int>> dtypes;
         private:
             // An array of rolling averages
             // Each index corresponds to the rolling mean for the column at said index
@@ -281,16 +289,16 @@ namespace csv_parser {
             std::vector<long double> rolling_vars;
             std::vector<long double> mins;
             std::vector<long double> maxes;
+            std::vector<std::unordered_map<std::string, int>> counts;
+            std::vector<std::unordered_map<int, int>> dtypes;
             std::vector<float> n;
             
             // Statistic calculators
             void variance(long double&, size_t&);
             void count(std::string&, size_t&);
             void min_max(long double&, size_t&);
+            void dtype(std::string&, size_t&);
             void calc_col(size_t);
-            
-            // Map column indices to counters
-            std::map<int, std::map<std::string, int>> counts;
     };
 
     /** Class for writing CSV files.
@@ -336,6 +344,7 @@ namespace csv_parser {
             std::string table = "");
         void csv_join(std::string filename1, std::string filename2, std::string outfile,
             std::string column1 = "", std::string column2 = "");
+        void sql_query(std::string dbname, std::string query);
         ///@}
     }
 
@@ -346,7 +355,7 @@ namespace csv_parser {
     namespace helpers {
         /** @name Data Type Inference */
         ///@{
-        int data_type(std::string&);
+        DataType data_type(std::string&);
         ///@}
 
         /** @name Path Handling */

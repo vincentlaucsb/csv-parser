@@ -61,6 +61,7 @@ $(function() {
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#nested-classes">Classes</a> &#124;
+<a href="#enum-members">Enumerations</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">csv_parser Namespace Reference</div>  </div>
@@ -94,13 +95,22 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVWriter.html">CSVWriter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:a03f8033c8888fe85e15b4f501730f6cd"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">DataType</a> { <b>_null</b>, 
+<b>_string</b>, 
+<b>_int</b>, 
+<b>_float</b>
+ }</td></tr>
+<tr class="separator:a03f8033c8888fe85e15b4f501730f6cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a38291f456a2c6ae47e3cd0cf4a8bdf2f"><td class="memItemLeft" align="right" valign="top"><a id="a38291f456a2c6ae47e3cd0cf4a8bdf2f"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>_throw_on_error</b> (int result, char *error_message=nullptr)</td></tr>
 <tr class="separator:a38291f456a2c6ae47e3cd0cf4a8bdf2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5a819ee328f2fc7d31f3e60cbc0df423"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a5a819ee328f2fc7d31f3e60cbc0df423">getargs</a> (int argc, char *argv[], vector&lt; string &gt; &amp;args, vector&lt; string &gt; &amp;flags)</td></tr>
-<tr class="separator:a5a819ee328f2fc7d31f3e60cbc0df423"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac347575fa3b7bbdc52da45ed3809c85b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#ac347575fa3b7bbdc52da45ed3809c85b">getargs</a> (int argc, char *argv[], deque&lt; string &gt; &amp;args, deque&lt; string &gt; &amp;flags)</td></tr>
+<tr class="separator:ac347575fa3b7bbdc52da45ed3809c85b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Utility Functions</div></td></tr>
 <tr><td colspan="2"><div class="groupText"><p>Functions for getting quick information from CSV files without writing a lot of code </p>
 </div></td></tr>
@@ -124,7 +134,29 @@ Variables</h2></td></tr>
 <tr class="separator:a92f546fe3ed0b6e40bdc7e89f376b8cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"></div><h2 class="groupheader">Function Documentation</h2>
+<div class="textblock"></div><h2 class="groupheader">Enumeration Type Documentation</h2>
+<a id="a03f8033c8888fe85e15b4f501730f6cd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03f8033c8888fe85e15b4f501730f6cd">&#9670;&nbsp;</a></span>DataType</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">csv_parser::DataType</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Enumerates the different CSV field types that are recognized by this library</p>
+<ol type="1">
+<li>Null (empty string)</li>
+<li>String</li>
+<li>Integer</li>
+<li>Floating Point Number </li>
+</ol>
+
+</div>
+</div>
+<h2 class="groupheader">Function Documentation</h2>
 <a id="a36fd737d1c1bb82eb2683cfe120d5970"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a36fd737d1c1bb82eb2683cfe120d5970">&#9670;&nbsp;</a></span>csv_escape()</h2>
 
@@ -279,8 +311,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="a5a819ee328f2fc7d31f3e60cbc0df423"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5a819ee328f2fc7d31f3e60cbc0df423">&#9670;&nbsp;</a></span>getargs()</h2>
+<a id="ac347575fa3b7bbdc52da45ed3809c85b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac347575fa3b7bbdc52da45ed3809c85b">&#9670;&nbsp;</a></span>getargs()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -300,13 +332,13 @@ Variables</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramtype">deque&lt; string &gt; &amp;&#160;</td>
           <td class="paramname"><em>args</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">vector&lt; string &gt; &amp;&#160;</td>
+          <td class="paramtype">deque&lt; string &gt; &amp;&#160;</td>
           <td class="paramname"><em>flags</em>&#160;</td>
         </tr>
         <tr>

@@ -64,7 +64,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#enum-members">Enumerations</a>  </div>
   <div class="headertitle">
 <div class="title">csv_parser.h File Reference</div>  </div>
 </div><!--header-->
@@ -79,12 +80,11 @@ $(function() {
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;math.h&gt;</code><br />
-<code>#include &lt;map&gt;</code><br />
+<code>#include &lt;unordered_map&gt;</code><br />
 <code>#include &lt;set&gt;</code><br />
 <code>#include &lt;thread&gt;</code><br />
 <code>#include &lt;mutex&gt;</code><br />
 <code>#include &lt;condition_variable&gt;</code><br />
-<code>#include &lt;memory&gt;</code><br />
 </div>
 <p><a href="csv__parser_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -116,6 +116,15 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacecsv__parser_1_1sql"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1sql.html">csv_parser::sql</a></td></tr>
 <tr class="memdesc:namespacecsv__parser_1_1sql"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper functions for SQL-related functionality. <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
+Enumerations</h2></td></tr>
+<tr class="memitem:a03f8033c8888fe85e15b4f501730f6cd"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">csv_parser::DataType</a> { <b>_null</b>, 
+<b>_string</b>, 
+<b>_int</b>, 
+<b>_float</b>
+ }</td></tr>
+<tr class="separator:a03f8033c8888fe85e15b4f501730f6cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -154,9 +163,12 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::extra::cs
 <tr class="memitem:a7ada1cd59037cfabcb8562b9409fd6e0"><td class="memItemLeft" align="right" valign="top"><a id="a7ada1cd59037cfabcb8562b9409fd6e0"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::extra::csv_join</b> (std::string filename1, std::string filename2, std::string outfile, std::string column1=&quot;&quot;, std::string column2=&quot;&quot;)</td></tr>
 <tr class="separator:a7ada1cd59037cfabcb8562b9409fd6e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a61c932f4a03b51f7591c8909247ba55d"><td class="memItemLeft" align="right" valign="top"><a id="a61c932f4a03b51f7591c8909247ba55d"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::extra::sql_query</b> (std::string dbname, std::string query)</td></tr>
+<tr class="separator:a61c932f4a03b51f7591c8909247ba55d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Data Type Inference</div></td></tr>
-<tr class="memitem:ab89cfc801373d3435a8621e42d207a16"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#ab89cfc801373d3435a8621e42d207a16">csv_parser::helpers::data_type</a> (std::string &amp;)</td></tr>
-<tr class="separator:ab89cfc801373d3435a8621e42d207a16"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aecd8a7b2a69b950d8907ee93352675ca"><td class="memItemLeft" align="right" valign="top">DataType&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#aecd8a7b2a69b950d8907ee93352675ca">csv_parser::helpers::data_type</a> (std::string &amp;)</td></tr>
+<tr class="separator:aecd8a7b2a69b950d8907ee93352675ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Path Handling</div></td></tr>
 <tr class="memitem:a205bf496f9b5cf671ace7d2b72d21104"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1helpers.html#a205bf496f9b5cf671ace7d2b72d21104">csv_parser::helpers::path_split</a> (std::string)</td></tr>
 <tr class="separator:a205bf496f9b5cf671ace7d2b72d21104"><td class="memSeparator" colspan="2">&#160;</td></tr>

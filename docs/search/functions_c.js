@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['read_5fcsv',['read_csv',['../classcsv__parser_1_1CSVReader.html#a2d925f5ae93669c1ba6643eace07d7a1',1,'csv_parser::CSVReader']]],
-  ['read_5frow',['read_row',['../classcsv__parser_1_1CSVReader.html#a1a9c2ec5e3ae0af2dba36ca1cd75876e',1,'csv_parser::CSVReader::read_row(std::vector&lt; std::string &gt; &amp;row)'],['../classcsv__parser_1_1CSVReader.html#a3eed81b9dcf75e154c9fe09720eaf2cd',1,'csv_parser::CSVReader::read_row(std::vector&lt; void *&gt; &amp;row, std::vector&lt; int &gt; &amp;dtypes, bool *overflow=nullptr)'],['../classcsv__parser_1_1CSVReader.html#a1f571ef31901d5120eddeafcd379d9a3',1,'csv_parser::CSVReader::read_row(std::vector&lt; CSVField &gt; &amp;row)']]],
-  ['reformat',['reformat',['../namespacecsv__parser_1_1extra.html#ab2a8638dcbd62df09220431b7fbac8cc',1,'csv_parser::extra']]],
-  ['round',['round',['../namespacecsv__parser_1_1helpers.html#a8207ea956373d02f52ac470640d7f84b',1,'csv_parser::helpers']]],
-  ['rpad_5ftrim',['rpad_trim',['../namespacecsv__parser_1_1helpers.html#a7acc2f783a805e7669e66e013df2870f',1,'csv_parser::helpers']]]
+  ['path_5fsplit',['path_split',['../namespacecsv__parser_1_1helpers.html#a205bf496f9b5cf671ace7d2b72d21104',1,'csv_parser::helpers']]],
+  ['process_5fnewline',['process_newline',['../classcsv__parser_1_1CSVReader.html#a2c75b439cd8585a02996ef9db4742566',1,'csv_parser::CSVReader']]],
+  ['process_5fpossible_5fdelim',['process_possible_delim',['../classcsv__parser_1_1CSVReader.html#a541d25951108a566f1380e25808a57a6',1,'csv_parser::CSVReader']]],
+  ['process_5fquote',['process_quote',['../classcsv__parser_1_1CSVReader.html#a2b89cf56b9b56de70500e4d43ce48b13',1,'csv_parser::CSVReader']]]
 ];

@@ -1,6 +1,6 @@
 # Yet Another... CSV Parser
 [![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
-[![Coverage Status](https://coveralls.io/repos/github/vincentlaucsb/csv-parser/badge.svg?branch=master)](https://coveralls.io/github/vincentlaucsb/csv-parser?branch=master)
+[![codecov](https://codecov.io/gh/vincentlaucsb/csv-parser/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentlaucsb/csv-parser)
 
 ## Why?
 There's plenty of other CSV parsers in the wild, but I had a hard time 

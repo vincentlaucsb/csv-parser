@@ -1,5 +1,6 @@
 #include "csv_parser.h"
 
+using std::unordered_map;
 using std::vector;
 using std::string;
 
@@ -44,18 +45,18 @@ namespace csv_parser {
         return ret;
     }
 
-    std::vector< std::map<std::string, int> > CSVStat::get_counts() {
+    std::vector< std::unordered_map<std::string, int> > CSVStat::get_counts() {
         /** Get counts for each column */
-        std::vector< std::map<std::string, int> > ret;        
+        vector<unordered_map<string, int>> ret;        
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->counts[i]);
         }
         return ret;
     }
 
-    std::vector< std::map<int, int> > CSVStat::get_dtypes() {
+    std::vector< std::unordered_map<int, int> > CSVStat::get_dtypes() {
         /** Get data type counts for each column */
-        std::vector< std::map<int, int> > ret;        
+        std::vector< std::unordered_map<int, int> > ret;        
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->dtypes[i]);
         }
@@ -70,6 +71,8 @@ namespace csv_parser {
          */
 
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+            dtypes.push_back({});
+            counts.push_back({});
             rolling_means.push_back(0);
             rolling_vars.push_back(0);
             mins.push_back(NAN);

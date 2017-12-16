@@ -249,14 +249,14 @@ TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
     // Test that integers are type-casted properly
     CSVReader reader("./tests/data/fake_data/ints.csv");
     vector<void*> row;
-    vector<int> dtypes;
+    vector<DataType> dtypes;
     long long int* int_ptr;
 
     while (reader.read_row(row, dtypes)) {
         for (size_t i = 0; i < row.size(); i++) {
             int_ptr = (long long int*)row[i];
             REQUIRE( *int_ptr <= 100 );
-            REQUIRE( dtypes[i] == 2 ); // Integer
+            REQUIRE( dtypes[i] == _int );
             delete int_ptr;
         }
     }
@@ -276,9 +276,9 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvfield]") {
 
         // Spot check
         if (i == 2) {
+            REQUIRE(row[2].get_int() == 100);
             REQUIRE(row[0].get_string() == "12/31/2009");
             REQUIRE(row[1].get_string() == "Beaver Valley 1");
-            REQUIRE(row[2].get_int() == 100);
 
             // Assert misusing API throws the appropriate errors
             try {

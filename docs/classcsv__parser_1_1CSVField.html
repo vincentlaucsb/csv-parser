@@ -64,6 +64,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="classcsv__parser_1_1CSVField-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">csv_parser::CSVField Class Reference</div>  </div>
@@ -74,9 +75,9 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a6205c18af692f7fbf885639486002b3f"><td class="memItemLeft" align="right" valign="top"><a id="a6205c18af692f7fbf885639486002b3f"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>CSVField</b> (void *_data_ptr, int _type, bool _overflow=false)</td></tr>
-<tr class="separator:a6205c18af692f7fbf885639486002b3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a50e265b214dba3fba6453e84248740fc"><td class="memItemLeft" align="right" valign="top"><a id="a50e265b214dba3fba6453e84248740fc"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>CSVField</b> (void *_data_ptr=nullptr, <a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">DataType</a> _type=_null, bool _overflow=false)</td></tr>
+<tr class="separator:a50e265b214dba3fba6453e84248740fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0efea2dbaa1824430a677c503f091db3"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVField.html#a0efea2dbaa1824430a677c503f091db3">is_null</a> ()</td></tr>
 <tr class="separator:a0efea2dbaa1824430a677c503f091db3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab80e3370d68fe90960bf7194b99b0dcb"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVField.html#ab80e3370d68fe90960bf7194b99b0dcb">is_string</a> ()</td></tr>
@@ -91,6 +92,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac01cfff0ad2fd60b638fd879b0888a70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeedbb7b80920a6e35c2a092ed8fa7dc4"><td class="memItemLeft" align="right" valign="top">long double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1CSVField.html#aeedbb7b80920a6e35c2a092ed8fa7dc4">get_float</a> ()</td></tr>
 <tr class="separator:aeedbb7b80920a6e35c2a092ed8fa7dc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:af1a6f78da76f9a609061dc6952e56da0"><td class="memItemLeft" align="right" valign="top"><a id="af1a6f78da76f9a609061dc6952e56da0"></a>
+<a class="el" href="namespacecsv__parser.html#a03f8033c8888fe85e15b4f501730f6cd">DataType</a>&#160;</td><td class="memItemRight" valign="bottom"><b>dtype</b></td></tr>
+<tr class="separator:af1a6f78da76f9a609061dc6952e56da0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A data type for representing CSV values that have been type-casted that is more sophisticated than a bare void * pointer </p>
@@ -145,7 +152,7 @@ Public Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Retrieve a string value, throwing an error if the field is not a string</p>
+<p>Retrieve a string value. If the value is numeric, it will be type-casted using std::to_string()</p>
 <p><b>Note</b>: This can also be used to retrieve empty fields</p>
 
 </div>

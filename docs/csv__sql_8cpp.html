@@ -63,6 +63,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#define-members">Macros</a> &#124;
 <a href="#func-members">Functions</a>  </div>
@@ -72,8 +73,18 @@ $(function() {
 <div class="contents">
 <div class="textblock"><code>#include &quot;sqlite3.h&quot;</code><br />
 <code>#include &quot;<a class="el" href="csv__parser_8h_source.html">csv_parser.h</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="print_8h_source.html">print.h</a>&quot;</code><br />
 <code>#include &lt;stdio.h&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLiteConn.html">csv_parser::sql::SQLiteConn</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLitePreparedStatement.html">csv_parser::sql::SQLitePreparedStatement</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv__parser_1_1sql_1_1SQLiteResultSet.html">csv_parser::sql::SQLiteResultSet</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacecsv__parser"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser.html">csv_parser</a></td></tr>
@@ -93,9 +104,14 @@ Macros</h2></td></tr>
 <tr class="memitem:a27b5c27f9fdcc6d98019cbd730c8eab8"><td class="memItemLeft" align="right" valign="top"><a id="a27b5c27f9fdcc6d98019cbd730c8eab8"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>THROW_SQLITE_ERROR</b>&#160;&#160;&#160;throw std::runtime_error(&quot;[SQLite Error] &quot; + std::string(error_message))</td></tr>
 <tr class="separator:a27b5c27f9fdcc6d98019cbd730c8eab8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a16ff9765fd77e3e900051dfbdee15f11"><td class="memItemLeft" align="right" valign="top"><a id="a16ff9765fd77e3e900051dfbdee15f11"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>PRINT_SQLITE_ERROR</b>(a)&#160;&#160;&#160;throw std::runtime_error(&quot;[SQLite Error] &quot; + std::string(a))</td></tr>
+<tr class="separator:a16ff9765fd77e3e900051dfbdee15f11"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:aa7fc22a9aa578d8256845730ef67090d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv__parser_1_1sql.html#aa7fc22a9aa578d8256845730ef67090d">csv_parser::sql::explain_sqlite_error</a> (int error_code)</td></tr>
+<tr class="separator:aa7fc22a9aa578d8256845730ef67090d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38291f456a2c6ae47e3cd0cf4a8bdf2f"><td class="memItemLeft" align="right" valign="top"><a id="a38291f456a2c6ae47e3cd0cf4a8bdf2f"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::_throw_on_error</b> (int result, char *error_message=nullptr)</td></tr>
 <tr class="separator:a38291f456a2c6ae47e3cd0cf4a8bdf2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -126,6 +142,9 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::extra::cs
 <tr class="memitem:a7ada1cd59037cfabcb8562b9409fd6e0"><td class="memItemLeft" align="right" valign="top"><a id="a7ada1cd59037cfabcb8562b9409fd6e0"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::extra::csv_join</b> (std::string filename1, std::string filename2, std::string outfile, std::string column1=&quot;&quot;, std::string column2=&quot;&quot;)</td></tr>
 <tr class="separator:a7ada1cd59037cfabcb8562b9409fd6e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a61c932f4a03b51f7591c8909247ba55d"><td class="memItemLeft" align="right" valign="top"><a id="a61c932f4a03b51f7591c8909247ba55d"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>csv_parser::extra::sql_query</b> (std::string dbname, std::string query)</td></tr>
+<tr class="separator:a61c932f4a03b51f7591c8909247ba55d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- start footer part -->

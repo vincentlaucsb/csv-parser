@@ -63,6 +63,7 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#define-members">Macros</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">main.cpp File Reference</div>  </div>
@@ -73,49 +74,58 @@ $(function() {
 <code>#include &quot;getargs.h&quot;</code><br />
 <code>#include &lt;set&gt;</code><br />
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
+Macros</h2></td></tr>
+<tr class="memitem:af9c8bea412f5a573061621aa001c224c"><td class="memItemLeft" align="right" valign="top"><a id="af9c8bea412f5a573061621aa001c224c"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>print</b>(a)&#160;&#160;&#160;std::cout &lt;&lt; a &lt;&lt; std::endl</td></tr>
+<tr class="separator:af9c8bea412f5a573061621aa001c224c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab591911c6ab2bf304b92b862f7d78f41"><td class="memItemLeft" align="right" valign="top"><a id="ab591911c6ab2bf304b92b862f7d78f41"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>hrule</b>(a)&#160;&#160;&#160;std::cout &lt;&lt; (rep(&quot;-&quot;, a)) &lt;&lt; std::endl;</td></tr>
+<tr class="separator:ab591911c6ab2bf304b92b862f7d78f41"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aca953b4d1629f79e7c2e9a5f9ae30c69"><td class="memItemLeft" align="right" valign="top"><a id="aca953b4d1629f79e7c2e9a5f9ae30c69"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>skip</b>&#160;&#160;&#160;std::cout &lt;&lt; std::endl</td></tr>
+<tr class="separator:aca953b4d1629f79e7c2e9a5f9ae30c69"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab1caf937999693e604b897ce33aab3d1"><td class="memItemLeft" align="right" valign="top"><a id="ab1caf937999693e604b897ce33aab3d1"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>indent</b>(a,  b)&#160;&#160;&#160;std::cout &lt;&lt; rep(&quot;  &quot;, b) &lt;&lt; a &lt;&lt; std::endl</td></tr>
+<tr class="separator:ab1caf937999693e604b897ce33aab3d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:a134d9cdfb13e0a267f30655322f1d65d"><td class="memItemLeft" align="right" valign="top"><a id="a134d9cdfb13e0a267f30655322f1d65d"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_info</b> (string)</td></tr>
 <tr class="separator:a134d9cdfb13e0a267f30655322f1d65d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6045759a5354de204b24cbd8a3e23c1b"><td class="memItemLeft" align="right" valign="top"><a id="a6045759a5354de204b24cbd8a3e23c1b"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_csv</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:a6045759a5354de204b24cbd8a3e23c1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2c67815cbddc2d8d1661ace65b6c7076"><td class="memItemLeft" align="right" valign="top"><a id="a2c67815cbddc2d8d1661ace65b6c7076"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_sample</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:a2c67815cbddc2d8d1661ace65b6c7076"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a95c06d4a45d4075211a29c9fe6b4b453"><td class="memItemLeft" align="right" valign="top"><a id="a95c06d4a45d4075211a29c9fe6b4b453"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_json</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:a95c06d4a45d4075211a29c9fe6b4b453"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaef7dcb321dbba8b5b5c5a1d1f880956"><td class="memItemLeft" align="right" valign="top"><a id="aaef7dcb321dbba8b5b5c5a1d1f880956"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_stat</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:aaef7dcb321dbba8b5b5c5a1d1f880956"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a66cf77ea29ca487fa2c83c694a448887"><td class="memItemLeft" align="right" valign="top"><a id="a66cf77ea29ca487fa2c83c694a448887"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_grep</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:a66cf77ea29ca487fa2c83c694a448887"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad12820a5f383980653a502e04861817c"><td class="memItemLeft" align="right" valign="top"><a id="ad12820a5f383980653a502e04861817c"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_rearrange</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:ad12820a5f383980653a502e04861817c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afe791c7ffb947abcdf92c09118e26240"><td class="memItemLeft" align="right" valign="top"><a id="afe791c7ffb947abcdf92c09118e26240"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_sql</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:afe791c7ffb947abcdf92c09118e26240"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a93326a4440cce54dc4dabc9bca526bb1"><td class="memItemLeft" align="right" valign="top"><a id="a93326a4440cce54dc4dabc9bca526bb1"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_join</b> (vector&lt; string &gt;)</td></tr>
-<tr class="separator:a93326a4440cce54dc4dabc9bca526bb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a34e64c5e96d5edc6ca83c6f6d45102cb"><td class="memItemLeft" align="right" valign="top"><a id="a34e64c5e96d5edc6ca83c6f6d45102cb"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_csv</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:a34e64c5e96d5edc6ca83c6f6d45102cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a288c9e332bf84718176140f7ff22b8cb"><td class="memItemLeft" align="right" valign="top"><a id="a288c9e332bf84718176140f7ff22b8cb"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_sample</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:a288c9e332bf84718176140f7ff22b8cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a938a67b0ac03138f2095f7134d57d3c6"><td class="memItemLeft" align="right" valign="top"><a id="a938a67b0ac03138f2095f7134d57d3c6"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_json</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:a938a67b0ac03138f2095f7134d57d3c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6dd80eab4deb10178bc828d6ab760d21"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="main_8cpp.html#a6dd80eab4deb10178bc828d6ab760d21">cli_stat</a> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:a6dd80eab4deb10178bc828d6ab760d21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae525fdd917c4f7d6ffae1fc9fd226a43"><td class="memItemLeft" align="right" valign="top"><a id="ae525fdd917c4f7d6ffae1fc9fd226a43"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_grep</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:ae525fdd917c4f7d6ffae1fc9fd226a43"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3abdc9d3bf92e76957f16cfbb3b3050"><td class="memItemLeft" align="right" valign="top"><a id="af3abdc9d3bf92e76957f16cfbb3b3050"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_rearrange</b> (deque&lt; string &gt;, deque&lt; string &gt;)</td></tr>
+<tr class="separator:af3abdc9d3bf92e76957f16cfbb3b3050"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adbb35caa2cb60d48226532f75b57e6cd"><td class="memItemLeft" align="right" valign="top"><a id="adbb35caa2cb60d48226532f75b57e6cd"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_sql</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:adbb35caa2cb60d48226532f75b57e6cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4abb81093264dd484bc7659309b7c67a"><td class="memItemLeft" align="right" valign="top"><a id="a4abb81093264dd484bc7659309b7c67a"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_query</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:a4abb81093264dd484bc7659309b7c67a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a364c367f90a20ea8f1d878b430c7a2f2"><td class="memItemLeft" align="right" valign="top"><a id="a364c367f90a20ea8f1d878b430c7a2f2"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>cli_join</b> (deque&lt; string &gt;)</td></tr>
+<tr class="separator:a364c367f90a20ea8f1d878b430c7a2f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ab8b2497d595e37e8acf059cc473ced"><td class="memItemLeft" align="right" valign="top"><a id="a9ab8b2497d595e37e8acf059cc473ced"></a>
 string&#160;</td><td class="memItemRight" valign="bottom"><b>rep</b> (string in, int n)</td></tr>
 <tr class="separator:a9ab8b2497d595e37e8acf059cc473ced"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ada5fa40ef11dbf273979ee1d73e6cacc"><td class="memItemLeft" align="right" valign="top"><a id="ada5fa40ef11dbf273979ee1d73e6cacc"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>print</b> (string in=&quot;&quot;, int ntabs=0)</td></tr>
-<tr class="separator:ada5fa40ef11dbf273979ee1d73e6cacc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad1f701fdfd43d6c6bfe240fdf91407e1"><td class="memTemplParams" colspan="2"><a id="ad1f701fdfd43d6c6bfe240fdf91407e1"></a>
-template&lt;typename T &gt; </td></tr>
-<tr class="memitem:ad1f701fdfd43d6c6bfe240fdf91407e1"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><b>join</b> (vector&lt; T &gt; in, int a, int b, string delim=&quot; &quot;)</td></tr>
-<tr class="separator:ad1f701fdfd43d6c6bfe240fdf91407e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a996ca205bc442935cc0f7a8b98f076d6"><td class="memTemplParams" colspan="2"><a id="a996ca205bc442935cc0f7a8b98f076d6"></a>
-template&lt;&gt; </td></tr>
-<tr class="memitem:a996ca205bc442935cc0f7a8b98f076d6"><td class="memTemplItemLeft" align="right" valign="top">string&#160;</td><td class="memTemplItemRight" valign="bottom"><b>join</b> (vector&lt; string &gt; in, int a, int b, string delim)</td></tr>
-<tr class="separator:a996ca205bc442935cc0f7a8b98f076d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d45de26c195aa76d18be49a8a3180d6"><td class="memItemLeft" align="right" valign="top"><a id="a3d45de26c195aa76d18be49a8a3180d6"></a>
+string&#160;</td><td class="memItemRight" valign="bottom"><b>join</b> (deque&lt; string &gt; in, int a, int b, string delim=&quot; &quot;)</td></tr>
+<tr class="separator:a3d45de26c195aa76d18be49a8a3180d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a853216ac51aa181669ff4d3de74058a7"><td class="memItemLeft" align="right" valign="top"><a id="a853216ac51aa181669ff4d3de74058a7"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>print_help</b> ()</td></tr>
 <tr class="separator:a853216ac51aa181669ff4d3de74058a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -126,6 +136,30 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>file_exists</b> (stri
 int&#160;</td><td class="memItemRight" valign="bottom"><b>main</b> (int argc, char *argv[])</td></tr>
 <tr class="separator:a0ddf1224851353fc92bfbff6f499fa97"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<h2 class="groupheader">Function Documentation</h2>
+<a id="a6dd80eab4deb10178bc828d6ab760d21"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6dd80eab4deb10178bc828d6ab760d21">&#9670;&nbsp;</a></span>cli_stat()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int cli_stat </td>
+          <td>(</td>
+          <td class="paramtype">deque&lt; string &gt;&#160;</td>
+          <td class="paramname"><em>str_args</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Print counts</p>
+<p>Formatting:</p><ul>
+<li>Stack counts horizontally</li>
+<li>Let print_table() do the line breaking</li>
+</ul>
+
+</div>
+</div>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

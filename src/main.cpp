@@ -1,26 +1,33 @@
 /** @file */
 /* Command Line Interface for CSV Parser */
 
-# include "csv_parser.h"
-# include "print.h"
-# include "getargs.h"
-# include <set>
+// b is number of "tabs" (2 spaces) preceeding b
+#define print(a) std::cout << a << std::endl
+#define hrule(a) std::cout << (rep("-", a)) << std::endl;
+#define skip std::cout << std::endl
+#define indent(a, b) std::cout << rep("  ", b) << a << std::endl
+
+#include "csv_parser.h"
+#include "print.h"
+#include "getargs.h"
+#include <set>
 
 using namespace csv_parser;
 using std::vector;
 using std::deque;
 using std::string;
-using std::map;
+using std::unordered_map;
 
 int cli_info(string);
-int cli_csv(vector<string>);
-int cli_sample(vector<string>);
-int cli_json(vector<string>);
-int cli_stat(vector<string>);
-int cli_grep(vector<string>);
-int cli_rearrange(vector<string>);
-int cli_sql(vector<string>);
-int cli_join(vector<string>);
+int cli_csv(deque<string>);
+int cli_sample(deque<string>);
+int cli_json(deque<string>);
+int cli_stat(deque<string>);
+int cli_grep(deque<string>);
+int cli_rearrange(deque<string>, deque<string>);
+int cli_sql(deque<string>);
+int cli_query(deque<string>);
+int cli_join(deque<string>);
 
 string rep(string in, int n) {
     // Repeat and concatenate a string multiple times
@@ -33,29 +40,7 @@ string rep(string in, int n) {
     return new_str;
 }
 
-void print(string in="", int ntabs=0) {
-	for (int i = 0; i < ntabs; i++)
-        std::cout << rep(" ", 2); // 2 spaces per "tab"
-	std::cout << in << std::endl;
-}
-
-template<typename T>
-string join(vector<T> in, int a, int b, string delim=" ") {
-	string ret_str;
-
-	for (int i = a; i < b; i++) {
-		ret_str += in[i].to_string();
-
-		if (i + 1 != b) {
-			ret_str += delim;
-		}
-	}
-
-	return ret_str;
-}
-
-template<>
-string join(vector<string> in, int a, int b, string delim) {
+string join(deque<string> in, int a, int b, string delim=" ") {
 	string ret_str;
 
 	for (int i = a; i < b; i++) {
@@ -71,38 +56,39 @@ string join(vector<string> in, int a, int b, string delim) {
 
 void print_help() {
     print("CSV Parser");
-    print("");
+    skip;
 
     print("Basic Usage");
-    print(rep("-", 80));
+    hrule(80);
     print("csv-parser [command] [arguments]");
     print(" - If no command is specified, the parser pretty prints the file to the terminal");
     print(" - Escape spaces with quotes");
-    print();
+    skip;
 
     // Searching
     print("Search Commands");
-    print(rep("-", 80));
+    hrule(80);
 
-    print("info [file]", 1);
-    print("Display basic CSV information", 2);
-    print();
+    indent("info [file]", 1);
+    indent("Display basic CSV information", 2);
+    skip;
 
-    print("grep [file] [column name/number] [regex]", 1);
-    print("Print all rows matching a regular expression", 2);
-    print();
+    indent("grep [file] [column name/number] [regex]", 1);
+    indent("Print all rows matching a regular expression", 2);
+    skip;
 
-    print("stat [file]", 1);
-    print("Calculate statistics", 2);
-    print();
+    indent("stat [file]", 1);
+    indent("Calculate statistics", 2);
+    skip;
 
     // Reformatting
     print("Reformating Commands");
-    print(rep("-", 80));
+    hrule(80);
 
-    print("csv [input 1] [input 2] ... [output]", 1);
-    print("Reformat one or more input files into a single RFC 1480 compliant CSV file", 2);
-    print();
+    indent("csv [input 1] [input 2] ... [output]", 1);
+    indent("Reformat one or more input files into a "
+           "single RFC 1480 compliant CSV file", 2);
+    skip;
 
     /*
     print("sample [input] [output] [n]", 1);
@@ -110,20 +96,25 @@ void print_help() {
     print();
     */
 
-    print("json [input] [output]", 1);
-    print("Newline Delimited JSON Output", 2);
-    print();
+    indent("json [input] [output]", 1);
+    indent("Newline Delimited JSON Output", 2);
+    skip;
 
     // Advanced
     print("Advanced");
-    print(rep("-", 80));
+    hrule(80);
 
-    print("sql [input] [output]", 1);
-    print("Transform CSV file into a SQLite3 database", 2);
-    print();
+    indent("sql [input] [output]", 1);
+    indent("Transform CSV file into a SQLite3 database", 2);
+    skip;
 
-    print("join [input 1] [input 2]", 1);
-    print("Join two CSV files on their common fields", 2);
+    indent("query [filename] [query]", 1);
+    indent("Query a SQLite database", 2);
+    skip;
+
+    indent("join [input 1] [input 2]", 1);
+    indent("Join two CSV files on their common fields", 2);
+    skip;
 }
 
 bool file_exists(string filename) {
@@ -136,11 +127,12 @@ bool file_exists(string filename) {
 int main(int argc, char* argv[]) {
     string command;
     string delim = "";
-	vector<string> str_args;
-    vector<string> flags;
+	deque<string> str_args;
+    deque<string> flags;
 
 	if (argc == 1) {
 		print_help();
+        return 0;
 	}
     else {
         int fail = getargs(argc, argv, str_args, flags);
@@ -149,6 +141,23 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         else {
+            if (std::find(flags.begin(), flags.end(), "stdin") != flags.end()) {
+                // Grab stuff from standard input
+                std::ofstream temp_file("temp.txt", std::ios_base::binary);
+                std::string temp;
+
+                while (std::getline(std::cin, temp)) {
+                    if (temp.empty())
+                        break;
+
+                    temp_file << temp;
+                    temp_file << "\n";
+                    temp.clear();
+                }
+
+                str_args.push_front("temp.txt");
+            }
+
             command = str_args[0];
             str_args.erase(str_args.begin());
         }
@@ -161,14 +170,16 @@ int main(int argc, char* argv[]) {
             return cli_grep(str_args);
         else if (command == "stat")
             return cli_stat(str_args);
-		else if (command == "csv")
+        else if (command == "csv")
             return cli_csv(str_args);
-		else if (command == "json")
+        else if (command == "json")
             return cli_json(str_args);
         else if (command == "rearrange")
-            return cli_rearrange(str_args);
+            return cli_rearrange(str_args, flags);
         else if (command == "sql")
             return cli_sql(str_args);
+        else if (command == "query")
+            return cli_query(str_args);
         else if (command == "join")
             return cli_join(str_args);
 		else
@@ -185,19 +196,16 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-int cli_stat(vector<string> str_args) {
+int cli_stat(deque<string> str_args) {
     std::string filename = str_args.at(0);
     file_exists(str_args.at(0));
    
-    CSVStat calc(filename);
+    CSVStat calc;
     (&calc)->bad_row_handler = &helpers::print_record;
-    vector<string> row;
-
-    while(calc.read_row(row))
-        calc.calc();
+    calc.calc_csv(filename);
 
     vector<string> col_names = calc.get_col_names();
-    vector<map<string, int>> counts = calc.get_counts();
+    vector<unordered_map<string, int>> counts = calc.get_counts();
     vector<vector<string>> print_rows = {
         col_names,
         helpers::round(calc.get_mean()),
@@ -207,24 +215,58 @@ int cli_stat(vector<string> str_args) {
     };
     vector<string> row_names = { "", "Mean", "Variance", "Min", "Max" };
 
+    // Introduction
+    std::cout << filename << " - " << "Full Statistics Report" << std::endl;
+    print(rep("=", 120)); skip;
+    
     // Print basic stats
+    print("Summary Statistics");
+    hrule(120); skip;
     helpers::print_table(print_rows, -1, row_names);
-    print("");
+    skip;
 
-    // Print counts
+    /**
+     * Print counts
+     *
+     * Formatting:
+     *  - Stack counts horizontally
+     *  - Let print_table() do the line breaking
+     */
+
+    // Reserve space for 10 rows + 1 header
+    for (int i = 0; i < 11; i++)
+        print_rows.push_back({});
+
+    // Loop over columns
+    print("Frequency Counts - Top 10 Most Common Values");
+    hrule(120); skip;
+
+    auto current_row = print_rows.begin();
+
     for (size_t i = 0; i < col_names.size(); i++) {
-        std::cout << "Counts for " << col_names[i] << std::endl;
-        map<string, int> temp = helpers::top_n_values(counts[i], 10);
+        current_row = print_rows.begin();
 
+        // Add header
+        current_row->push_back(col_names[i]);
+
+        // Add counts
+        unordered_map<string, int> temp = helpers::top_n_values(counts[i], 10);
+
+        size_t j = 0;
         for (auto it = temp.begin(); it != temp.end(); ++it) {
-            print_rows.push_back(
-                vector<string>({ it->first, std::to_string(it->second) }));
+            current_row++;
+            current_row->push_back(it->first + ":   " + std::to_string(it->second));
+            j++;
         }
 
-        helpers::print_table(print_rows);
-        print("");
+        // If there are less than 10 items in this column, add filler
+        for (; j < 10; j++) {
+            current_row++;
+            current_row->push_back("");
+        }
     }
 
+    helpers::print_table(print_rows, -1);
     return 0;
 }
 
@@ -246,7 +288,7 @@ int cli_info(string filename) {
     return 0;
 }
 
-int cli_csv(vector<string> str_args) {
+int cli_csv(deque<string> str_args) {
     if (str_args.size() < 2) {
         throw std::runtime_error("Please specify an input and an output file.");
     }
@@ -256,17 +298,20 @@ int cli_csv(vector<string> str_args) {
     else {
         string outfile = str_args.back();
         str_args.pop_back();
+        vector<string> temp;
+        temp.assign(str_args.begin(), str_args.end());
+
         if (file_exists(outfile))
             throw std::runtime_error("Output file already exists. Please specify "
                 "a fresh CSV file to write to.");
-        extra::merge(outfile, str_args);
+        extra::merge(outfile, temp);
     }
     
     return 0;
 }
 
 
-int cli_json(vector<string> str_args) {
+int cli_json(deque<string> str_args) {
     string filename = str_args.at(0);
     string outfile(filename + ".ndjson");
     if (str_args.size() > 1)
@@ -282,7 +327,7 @@ int cli_json(vector<string> str_args) {
     return 0;
 }
 
-int cli_grep(vector<string> str_args) {
+int cli_grep(deque<string> str_args) {
     if (str_args.size() < 3)
         throw std::runtime_error("Please specify an input file,"
             "column number, and regular expression.");
@@ -313,9 +358,15 @@ int cli_grep(vector<string> str_args) {
     return 0;
 }
 
-int cli_rearrange(vector<string> str_args) {
+int cli_rearrange(deque<string> str_args, deque<string> flags) {
     string filename = str_args.at(0);
-    string outfile = str_args.at(1);
+    string outfile;
+    bool stdout_ = false;
+
+    if (std::find(flags.begin(), flags.end(), "stdout") != flags.end())
+        stdout_ = true;
+    else
+        outfile = str_args.at(1);
     vector<int> columns = {};
     int col_index = -1;
 
@@ -334,25 +385,55 @@ int cli_rearrange(vector<string> str_args) {
     }
 
     CSVReader reader(filename, GUESS_CSV, columns);
-    CSVWriter writer(outfile);
     vector<string> row;
 
-    writer.write_row(reader.get_col_names());
-    while (reader.read_row(row))
-        writer.write_row(row);
+    if (stdout_) {
+        while (reader.read_row(row)) {
+            for (size_t i = 0; i < row.size(); i++) {
+                std::cout << csv_escape(row[i]);
+                if (i + 1 != row.size())
+                    std::cout << ",";
+            }
 
-    writer.close();
+            std::cout << "\r\n";
+        }
+    }
+    else {
+        CSVWriter writer(outfile);
+        writer.write_row(reader.get_col_names());
+        while (reader.read_row(row))
+            writer.write_row(row);
+
+        writer.close();
+    }
+
     return 0;
 }
 
-int cli_sql(vector<string> str_args) {
+int cli_sql(deque<string> str_args) {
     string csv_file = str_args.at(0);
-    string db_file = str_args.at(1);
+    string db_file;
+
+    if (str_args.size() > 1) {
+        db_file = str_args.at(1);
+    }
+    else {
+        db_file = helpers::get_filename_from_path(csv_file) + ".sqlite";
+        std::cout << "Outputting database to " << db_file << std::endl;
+    }
+
     extra::csv_to_sql(csv_file, db_file);
     return 0;
 }
 
-int cli_join(vector<string> str_args) {
+int cli_query(deque<string> str_args) {
+    string db_name = str_args.at(0);
+    string query = str_args.at(1);
+    extra::sql_query(db_name, query);
+    return 0;
+}
+
+int cli_join(deque<string> str_args) {
     string file1 = str_args.at(0), file2 = str_args.at(1);
     string outfile = str_args.at(2);
     string column1(""), column2("");
