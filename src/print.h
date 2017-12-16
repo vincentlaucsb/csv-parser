@@ -3,6 +3,7 @@
 #include <list>
 #include <string>
 #include <unordered_map>
+#include <math.h>
 
 using std::vector;
 using std::string;

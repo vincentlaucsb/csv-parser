@@ -388,8 +388,11 @@ namespace csv_parser {
             table = sql::sql_sanitize(table);
 
             sql::SQLiteConn db(db_name);
-            db.exec(sql::create_table(csv_file, table));
-            sql::SQLitePreparedStatement insert_stmt(db, sql::insert_values(csv_file, table));
+            std::string create_query = sql::create_table(csv_file, table);
+            std::string insert_query = sql::insert_values(csv_file, table);
+
+            db.exec(create_query);
+            sql::SQLitePreparedStatement insert_stmt(db, insert_query);
             db.exec("BEGIN TRANSACTION");
 
             vector<void*> row = {};
