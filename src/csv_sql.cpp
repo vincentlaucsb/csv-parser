@@ -1,13 +1,7 @@
-#define THROW_SQLITE_ERROR \
-throw std::runtime_error("[SQLite Error] " + std::string(error_message))
-
-#define PRINT_SQLITE_ERROR(a) \
-throw std::runtime_error("[SQLite Error] " + std::string(a))
-
-#include "sqlite3.h"
 #include "csv_parser.h"
 #include "print.h"
 #include <stdio.h>
+#include <set>
 
 using std::vector;
 using std::string;
@@ -15,223 +9,40 @@ using std::string;
 namespace csv_parser {
     /** @file */
     namespace helpers {
-        std::vector<std::string> path_split(std::string path) {
-            /** Split a file path into a string vector */
-
-            vector<string> splitted;
-            string current_part;
-
-            for (size_t i = 0; i < path.size(); i++) {
-                switch (path[i]) {
-                case '\\': // Muh Windows
-                case '/':
-                    splitted.push_back(current_part);
-                    current_part.clear();
-                    break;
-                default:
-                    current_part += path[i];
+        std::vector<std::string> split(
+            const std::string& str,
+            const std::set<char>& delims) {
+            /** Split a string by delimiter */
+            vector<string> splitted = { "" };
+           
+            for (auto it = str.begin(); it != str.end(); ++it) {
+                if (delims.find(*it) == delims.end()) {
+                    splitted.back() += *it;
+                }
+                else {
+                    // Delimiter
+                    splitted.push_back("");
                 }
             }
 
-            // Push remainder
-            splitted.push_back(current_part);
             return splitted;
         }
 
-        std::string get_filename_from_path(std::string path) {
+        std::vector<std::string> path_split(const std::string path) {
+            /** Split a file path into a string vector */
+            return split(path, {'\\', '/'});
+        }
+
+        std::string get_filename_from_path(const std::string path) {
             /** Given a path containing /'s, extract the filename without extensions */
-            path = helpers::path_split(path).back();
-            return path.substr(0, path.size() - 3);
+            std::string filename = path_split(path).back();
+
+            // Strip out extension
+            return split(filename, {'.'}).front();
         }
     }
 
     namespace sql {
-        void explain_sqlite_error(int error_code) {
-            /** https://sqlite.org/rescode.html */
-
-            switch (error_code) {
-            // No error
-            case 0:
-            case 100:
-            case 101:
-                break;
-            case 7:
-                PRINT_SQLITE_ERROR("Out of memory");
-            case 11:
-                PRINT_SQLITE_ERROR("Database has been corrupted");
-            case 13:
-                PRINT_SQLITE_ERROR("Out of disk space");
-            case 14:
-                PRINT_SQLITE_ERROR("Could not open file");
-            case 25:
-                PRINT_SQLITE_ERROR("Value out of range");
-            case 26:
-                PRINT_SQLITE_ERROR("Not a SQLite database");
-            default:
-                PRINT_SQLITE_ERROR(std::to_string(error_code));
-            }
-        }
-
-        /** A connection to a SQLite database */
-        class SQLiteConn {
-        public:
-            SQLiteConn(std::string db_name) {
-                /** Open a connection to a SQLite3 database
-                 *  @param[in] db_name Path to SQLite3 database
-                 */
-                if (sqlite3_open(db_name.c_str(), &db))
-                    throw std::runtime_error("Failed to open database");
-                else
-                    db_open = true;
-            };
-
-            void exec(std::string query) {
-                /** Execute a query that doesn't return anything
-                 *  @param[in] query A SQL query
-                 */
-                if (sqlite3_exec(this->db,
-                    (const char*)query.c_str(),
-                    0,  // Callback
-                    0,  // Arg to callback
-                    &error_message))
-                    THROW_SQLITE_ERROR;
-            }
-
-            void close() {
-                if (db_open) { // Prevent double frees
-                    sqlite3_close(this->db);
-                    db_open = false;
-                }
-            }
-
-            ~SQLiteConn() {
-                /** Close connection when this object gets destroyed */
-                this->close();
-            }
-
-            sqlite3* db;              /** Raw database handle */
-            char * error_message;     /** Buffer for error messages */
-
-        private:
-            bool db_open = true;
-        };
-
-        // Verbosity levels approaching Java
-        /** An interface for executing and iterating through SQL statements */
-        class SQLitePreparedStatement {
-        public:
-            SQLitePreparedStatement(SQLiteConn& conn, std::string& stmt) {
-                /** Prepare a SQL statement
-                 *  @param[in]  conn An active SQLite connection
-                 *  @param[out] stmt A SQL query that should be prepared
-                 */
-
-                this->conn = &conn;
-
-                /** Prepare a query for execution */
-                int result = sqlite3_prepare_v2(
-                    conn.db,                     /* Database handle */
-                    (const char *)stmt.c_str(),  /* SQL statement, UTF-8 encoded */
-                    stmt.size(),                 /* Maximum length of zSql in bytes. */
-                    &(this->statement),          /* OUT: Statement handle */
-                    &(this->unused)              /* OUT: Pointer to unused portion of zSql */
-                );
-
-                explain_sqlite_error(result);
-            }
-
-            void bind(size_t& i, std::string& value,
-                sqlite3_destructor_type dest=SQLITE_TRANSIENT) {
-                /** Bind text values to the statement
-                 *
-                 *  **Note:** This function is zero-indexed while
-                 *  sqlite3_bind_* is 1-indexed
-                 */
-                sqlite3_bind_text(
-                    this->statement,    // Pointer to prepared statement
-                    i + 1,              // Index of parameter to set
-                    value.c_str(),      // Value to bind
-                    value.size(),       // Size of string in bytes
-                    dest);              // String destructor
-            }
-
-            template <typename T>
-            void bind_int(size_t& i, T& value) {
-                /** Bind integer values to the statement */
-                sqlite3_bind_int64(this->statement, i + 1, value);
-            }
-
-            template <typename T>
-            void bind_double(size_t& i, T& value) {
-                /** Bind floating point values to the statement */
-                sqlite3_bind_double(this->statement, i + 1, value);
-            }
-
-            ~SQLitePreparedStatement() {
-                /** Call sqlite3_finalize() when this object goes out of scope */
-                sqlite3_finalize(this->statement);
-            }
-
-            void next() {
-                /** Call after bind()-ing values to execute statement */
-                if (sqlite3_step(this->statement) != 101 || sqlite3_reset(this->statement) != 0)
-                    throw std::runtime_error("Error executing prepared statement.");
-            }
-
-        protected:
-            SQLiteConn* conn;
-            sqlite3_stmt* statement;
-            const char * unused;
-        };
-
-        /** Used for prepared statements that result queries we want to read */
-        class SQLiteResultSet : SQLitePreparedStatement {
-        public:
-            std::vector<std::string> get_col_names() {
-                /** Retrieve the column names of a SQL query result */
-                std::vector<std::string> ret;
-                int col_size = this->num_cols();
-                for (int i = 0; i < col_size; i++)
-                    ret.push_back(sqlite3_column_name(this->statement, i));
-
-                return ret;
-            }
-
-            std::vector<std::string> get_row() {
-                /** After calling next_result(), use this to type-cast
-                 *  the next row from a query into a string vector
-                 */
-                std::vector<std::string> ret;
-                int col_size = this->num_cols();
-
-                for (int i = 0; i < col_size; i++) {
-                    ret.push_back(std::string((char *)
-                        sqlite3_column_text(this->statement, i)));
-                }
-
-                return ret;
-            }
-
-            int num_cols() {
-                /** Returns the number of columns in a SQL query result */
-                return sqlite3_column_count(this->statement);
-            }
-
-            bool next_result() {
-                /** Retrieves the next row from the a SQL result set,
-                 *  or returns False if we're done
-                 */
-
-                /* 100 --> More rows are available
-                 * 101 --> Done
-                 */
-                return (sqlite3_step(this->statement) == 100);
-            }
-
-            using SQLitePreparedStatement::SQLitePreparedStatement;
-        private:
-        };
-
         std::string sql_sanitize(std::string col_name) {
             /** Sanitize column names for SQL
             *   - Remove bad characters
@@ -269,7 +80,7 @@ namespace csv_parser {
         std::vector<std::string> sql_sanitize(std::vector<std::string> col_names) {
             vector<string> new_vec;
             for (auto it = col_names.begin(); it != col_names.end(); ++it)
-                new_vec.push_back(sql::sql_sanitize(*it));
+                new_vec.push_back(sql_sanitize(*it));
             return new_vec;
         }
 
@@ -324,8 +135,8 @@ namespace csv_parser {
             CSVReader temp(filename);
             temp.close();
             string sql_stmt = "CREATE TABLE " + table + " (";
-            vector<string> col_names = sql::sql_sanitize(temp.get_col_names());
-            vector<string> col_types = sql::sqlite_types(filename);
+            vector<string> col_names = sql_sanitize(temp.get_col_names());
+            vector<string> col_types = sqlite_types(filename);
 
             for (size_t i = 0; i < col_names.size(); i++) {
                 sql_stmt += col_names[i] + " " + col_types[i];
@@ -387,12 +198,12 @@ namespace csv_parser {
                 table = helpers::get_filename_from_path(csv_file);
             table = sql::sql_sanitize(table);
 
-            sql::SQLiteConn db(db_name);
+            sqlite_api::SQLiteConn db(db_name);
             std::string create_query = sql::create_table(csv_file, table);
             std::string insert_query = sql::insert_values(csv_file, table);
 
             db.exec(create_query);
-            sql::SQLitePreparedStatement insert_stmt(db, insert_query);
+            sqlite_api::SQLitePreparedStatement insert_stmt(db, insert_query);
             db.exec("BEGIN TRANSACTION");
 
             vector<CSVField> row;
@@ -442,8 +253,7 @@ namespace csv_parser {
             csv_to_sql(filename2, db_name);
 
             CSVWriter writer(outfile);
-            sql::SQLiteConn db(db_name);
-            sqlite3_stmt* stmt_handle;
+            sqlite_api::SQLiteConn db(db_name);
             const char * unused;
 
             // Compose Join Statement
@@ -462,7 +272,7 @@ namespace csv_parser {
             }
 
             std::string join_statement_ = join_statement;
-            sql::SQLiteResultSet results(db, join_statement_);
+            sqlite_api::SQLiteResultSet results(db, join_statement_);
             bool write_col_names = true;
 
             while (results.next_result()) {
@@ -477,24 +287,6 @@ namespace csv_parser {
 
             db.close();
             remove("temp.sqlite");
-        }
-
-        void sql_query(std::string db_name, std::string query) {
-            sql::SQLiteConn db(db_name);
-            sql::SQLiteResultSet rs(db, query);
-            bool add_col_names = true;
-            vector<vector<string>> print_rows;
-
-            for (int i = 0; rs.next_result() && i < 100; i++) {
-                if (add_col_names) {
-                    print_rows.push_back(rs.get_col_names());
-                    add_col_names = false;
-                }
-
-                print_rows.push_back(rs.get_row());
-            }
-
-            helpers::print_table(print_rows);
         }
     }
 }

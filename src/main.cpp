@@ -1,15 +1,17 @@
 /** @file */
 /* Command Line Interface for CSV Parser */
 
-// b is number of "tabs" (2 spaces) preceeding b
 #define print(a) std::cout << a << std::endl
 #define hrule(a) std::cout << (rep("-", a)) << std::endl;
 #define skip std::cout << std::endl
 #define indent(a, b) std::cout << rep("  ", b) << a << std::endl
 
+#include "assert.h"
 #include "csv_parser.h"
 #include "print.h"
 #include "getargs.h"
+#include "string.h"
+#include <regex>
 #include <set>
 
 using namespace csv_parser;
@@ -427,9 +429,91 @@ int cli_sql(deque<string> str_args) {
 }
 
 int cli_query(deque<string> str_args) {
+    const size_t page_row_limit = 100;
     string db_name = str_args.at(0);
-    string query = str_args.at(1);
-    extra::sql_query(db_name, query);
+    string query;
+
+    if (str_args.size() < 2) {
+        // Enter into interactive mode
+        sqlite_api::SQLiteConn db(db_name);
+        sqlite_api::SQLiteResultSet results(db, "SELECT sql FROM sqlite_master");
+
+        /** Expected valaue of rows:
+         *  A sequence of CREATE TABLE queries used to create the database schema, e.g.
+         *
+         *  CREATE TABLE table (A text, B int);
+         *  CREATE TABLE table (A text, B int);
+         */
+        vector<vector<string>> rows;
+        while (results.next_result())
+            rows.push_back(results.get_row());
+
+        if (!rows.empty())
+            assert(rows[0].size() == 1);
+
+        // Parse the table names and column names
+        vector<vector<string>> print_rows = { {} };
+        auto print_rows_it = print_rows.begin();
+        std::regex table_name("CREATE TABLE\\s(.*)\\s\\(");
+        std::regex columns("\\((.*)\\)");
+        std::smatch tab_match; // Should capture table name
+        std::smatch col_match; // Should capture A text, B int
+
+        for (auto it = rows.begin(); it != rows.end(); ++it) {
+            std::regex_search(it->at(0), tab_match, table_name);
+            std::regex_search(it->at(0), col_match, columns);
+            print_rows_it->push_back((std::string)tab_match[0]);
+            print_rows_it->push_back((std::string)col_match[0]);
+            print_rows_it++;
+        }
+
+        std::cout << "Database Schema" << std::endl;
+        print(rep("=", 120)); skip;
+        helpers::print_table(print_rows);
+
+        results.close();
+
+        sqlite_api::SQLiteConn db2(db_name);
+        sqlite_api::SQLiteResultSet query_results(db2);
+        std::string temp;
+        print("Enter a query");
+        std::cout << ">> ";
+        while (std::getline(std::cin, temp)) {
+            if (temp == "q") {
+                break;
+            }
+            else if (temp.empty()) {
+                for (size_t i = 0; i < page_row_limit && query_results.next_result(); i++)
+                    print_rows.push_back(query_results.get_row());
+
+                if (print_rows.empty())
+                    break;
+                else
+                    helpers::print_table(print_rows);
+            }
+            else {
+                query_results.prepare(temp);
+                for (size_t i = 0; i < page_row_limit && query_results.next_result(); i++)
+                    print_rows.push_back(query_results.get_row());
+                helpers::print_table(print_rows);
+            }
+
+            std::cout << std::endl
+                << "Press Enter to continue printing, or q or Ctrl + C to quit."
+                << std::endl << std::endl;
+       }
+    }
+    else {
+        query = str_args.at(1);
+        sqlite_api::SQLiteConn db(db_name);
+        sqlite_api::SQLiteResultSet results(db, query);
+        vector<vector<string>> print_rows;
+
+        for (size_t i = 0; i < page_row_limit && results.next_result(); i++)
+            print_rows.push_back(results.get_row());
+        helpers::print_table(print_rows);
+    }
+
     return 0;
 }
 

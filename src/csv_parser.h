@@ -1,5 +1,6 @@
 /** @csv_parser */
 
+#include "sqlite_cpp.h"
 #include <stdexcept>
 #include <cstdio>
 #include <iostream>
@@ -380,7 +381,6 @@ namespace csv_parser {
             std::string table = "");
         void csv_join(std::string filename1, std::string filename2, std::string outfile,
             std::string column1 = "", std::string column2 = "");
-        void sql_query(std::string dbname, std::string query);
         ///@}
     }
 
