@@ -4,26 +4,18 @@ bin/
 # Visual Studio
 Debug/
 Release/
-.vs
+.vs/
 *.sln
-*.vcxproj
-*.vcxproj.*
+*.vcxproj*
 *.pdb
-*.iobj
-*.ipdb
-*.log
-*.tlog
+*.i*
+*.*log
 
 # Compiled Object files
 *.slo
 *.lo
 *.o
 *.obj
-
-# Unzipped Dependencies
-sqlite3/
-sqlite3.c
-sqlite3.h
 
 # Precompiled Headers
 *.gch
