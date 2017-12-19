@@ -1,6 +1,5 @@
 /** @csv_parser */
 
-#include "sqlite_cpp.h"
 #include <stdexcept>
 #include <cstdio>
 #include <iostream>

@@ -1,4 +1,5 @@
 #include "csv_parser.h"
+#include "sqlite_cpp.h"
 #include "print.h"
 #include <stdio.h>
 #include <set>
@@ -198,18 +199,17 @@ namespace csv_parser {
                 table = helpers::get_filename_from_path(csv_file);
             table = sql::sql_sanitize(table);
 
-            sqlite_api::SQLiteConn db(db_name);
+            SQLite::Conn db(db_name);
             std::string create_query = sql::create_table(csv_file, table);
-            std::string insert_query = sql::insert_values(csv_file, table);
-
             db.exec(create_query);
-            sqlite_api::SQLitePreparedStatement insert_stmt(db, insert_query);
-            db.exec("BEGIN TRANSACTION");
+
+            std::string insert_query = sql::insert_values(csv_file, table);
+            auto insert_stmt = db.prepare(insert_query);
 
             vector<CSVField> row;
             std::string str_value;
             long long int int_value;
-            long double dbl_value;
+            double dbl_value;
 
             while (infile.read_row(row)) {
                 for (size_t i = 0; i < row.size(); i++) {
@@ -221,11 +221,11 @@ namespace csv_parser {
                         break;
                     case _int:
                         int_value = row[i].get_int();
-                        insert_stmt.bind_int(i, int_value);
+                        insert_stmt.bind(i, int_value);
                         break;
                     case _float:
                         dbl_value = row[i].get_float();
-                        insert_stmt.bind_double(i, dbl_value);
+                        insert_stmt.bind(i, dbl_value);
                         break;
                     }
                 }
@@ -233,7 +233,7 @@ namespace csv_parser {
                 insert_stmt.next();
             }
 
-            db.exec("COMMIT TRANSACTION");
+            insert_stmt.commit();
         }
 
         void csv_join(std::string filename1, std::string filename2, std::string outfile,
@@ -253,7 +253,7 @@ namespace csv_parser {
             csv_to_sql(filename2, db_name);
 
             CSVWriter writer(outfile);
-            sqlite_api::SQLiteConn db(db_name);
+            SQLite::Conn db(db_name);
             const char * unused;
 
             // Compose Join Statement
@@ -272,10 +272,10 @@ namespace csv_parser {
             }
 
             std::string join_statement_ = join_statement;
-            sqlite_api::SQLiteResultSet results(db, join_statement_);
+            auto results = db.query(join_statement_);
             bool write_col_names = true;
 
-            while (results.next_result()) {
+            while (results.next()) {
                 // Write column names
                 if (write_col_names) {
                     writer.write_row(results.get_col_names());

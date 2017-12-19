@@ -8,6 +8,7 @@
 
 #include "assert.h"
 #include "csv_parser.h"
+#include "sqlite_cpp.h"
 #include "print.h"
 #include "getargs.h"
 #include "string.h"
@@ -431,12 +432,12 @@ int cli_sql(deque<string> str_args) {
 int cli_query(deque<string> str_args) {
     const size_t page_row_limit = 100;
     string db_name = str_args.at(0);
+    SQLite::Conn db(db_name);
     string query;
 
     if (str_args.size() < 2) {
         // Enter into interactive mode
-        sqlite_api::SQLiteConn db(db_name);
-        sqlite_api::SQLiteResultSet results(db, "SELECT sql FROM sqlite_master");
+        auto results = db.query("SELECT sql FROM sqlite_master");
 
         /** Expected valaue of rows:
          *  A sequence of CREATE TABLE queries used to create the database schema, e.g.
@@ -445,7 +446,7 @@ int cli_query(deque<string> str_args) {
          *  CREATE TABLE table (A text, B int);
          */
         vector<vector<string>> rows;
-        while (results.next_result())
+        while (results.next())
             rows.push_back(results.get_row());
 
         if (!rows.empty())
@@ -470,46 +471,41 @@ int cli_query(deque<string> str_args) {
         std::cout << "Database Schema" << std::endl;
         print(rep("=", 120)); skip;
         helpers::print_table(print_rows);
-
         results.close();
 
-        sqlite_api::SQLiteConn db2(db_name);
-        sqlite_api::SQLiteResultSet query_results(db2);
-        std::string temp;
+        std::string user_input;
         print("Enter a query");
         std::cout << ">> ";
-        while (std::getline(std::cin, temp)) {
-            if (temp == "q") {
+
+        while (std::getline(std::cin, user_input)) {
+            if (user_input == "q") {
                 break;
             }
-            else if (temp.empty()) {
-                for (size_t i = 0; i < page_row_limit && query_results.next_result(); i++)
-                    print_rows.push_back(query_results.get_row());
-
-                if (print_rows.empty())
-                    break;
-                else
-                    helpers::print_table(print_rows);
-            }
             else {
-                query_results.prepare(temp);
-                for (size_t i = 0; i < page_row_limit && query_results.next_result(); i++)
-                    print_rows.push_back(query_results.get_row());
-                helpers::print_table(print_rows);
-            }
+                auto query = db.query(user_input);
+                while (std::getline(std::cin, user_input)) {
+                    if (user_input == "q") {
+                        break;
+                    }
+                    else {
+                        for (size_t i = 0; i < page_row_limit && query.next(); i++)
+                            print_rows.push_back(query.get_row());
+                        helpers::print_table(print_rows);
+                    }
 
-            std::cout << std::endl
-                << "Press Enter to continue printing, or q or Ctrl + C to quit."
-                << std::endl << std::endl;
+                    std::cout << std::endl
+                        << "Press Enter to continue printing, or q or Ctrl + C to quit."
+                        << std::endl << std::endl;
+                }
+            }
        }
     }
     else {
         query = str_args.at(1);
-        sqlite_api::SQLiteConn db(db_name);
-        sqlite_api::SQLiteResultSet results(db, query);
+        auto results = db.query(query);
         vector<vector<string>> print_rows;
 
-        for (size_t i = 0; i < page_row_limit && results.next_result(); i++)
+        for (size_t i = 0; i < page_row_limit && results.next(); i++)
             print_rows.push_back(results.get_row());
         helpers::print_table(print_rows);
     }

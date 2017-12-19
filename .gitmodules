@@ -1,3 +1,6 @@
 [submodule "tests/data"]
 	path = tests/data
 	url = https://github.com/vincentlaucsb/csv-data.git
+[submodule "lib/sqlite-cpp"]
+	path = lib/sqlite-cpp
+	url = https://github.com/vincentlaucsb/sqlite-cpp.git

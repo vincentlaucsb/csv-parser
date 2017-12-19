@@ -1,6 +1,7 @@
 BUILD_DIR = build
 IDIR = src/
-SQLITE3 = lib/sqlite3
+SQLITE_CPP = lib/sqlite-cpp
+SQLITE3 = $(SQLITE_CPP)/lib
 CFLAGS = -ldl -pthread -std=c++11
 TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 
@@ -16,12 +17,13 @@ all: csv_parser test_all clean distclean
 
 # SQLite3
 lib/sqlite3.o:
-	unzip lib/sqlite-amalgamation-3210000.zip
-	mv sqlite-amalgamation-3210000 $(PWD)/$(SQLITE3)
-	$(CC) -c -o $(PWD)/lib/sqlite3.o -O3 $(SQLITE3)/sqlite3.c -pthread -ldl -I$(SQLITE3)/
+	$(CC) -c -o lib/sqlite3.o -O3 $(SQLITE3)/sqlite3.c -pthread -ldl -I$(SQLITE3)/
+	
+lib/sqlite_cpp.o: lib/sqlite3.o
+	$(CXX) -c -o lib/sqlite_cpp.o -O3 $(SQLITE_CPP)/src/sqlite_cpp.cpp -pthread -ldl -I$(SQLITE_CPP)/src/
 
-# Main Library
-csv_parser: lib/sqlite3.o
+# Main Libraryc
+csv_parser: lib/sqlite_cpp.o
 	$(CXX) -c -O3 -Wall $(CFLAGS) $(SOURCES) -I$(IDIR)
 	mkdir -p $(BUILD_DIR)
 	mv *.o $(BUILD_DIR)
@@ -36,8 +38,8 @@ test_all:
 	#make test_cli
 	make code_cov
 	
-test_csv_parser: lib/sqlite3.o
-	$(CXX) -o test_csv_parser lib/sqlite3.o $(SOURCES) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)/
+test_csv_parser: lib/sqlite_cpp.o
+	$(CXX) -o test_csv_parser lib/sqlite3.o lib/sqlite_cpp.o $(SOURCES) $(TEST_SOURCES) $(TFLAGS) -I$(SQLITE3)/ -I$(SQLITE_CPP)/src
 	
 run_test_csv_parser: test_csv_parser
 	mkdir -p tests/temp
