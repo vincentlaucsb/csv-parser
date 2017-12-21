@@ -3,10 +3,8 @@ matrix:
     - os: linux
       addons:
         apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - g++-6
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-6', 'valgrind']
 dist: trusty
 sudo: required
 language:

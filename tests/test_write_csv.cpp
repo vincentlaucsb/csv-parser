@@ -1,9 +1,7 @@
 #include "catch.hpp"
 #include "csv_parser.h"
-#include <string>
-#include <vector>
 
-using namespace csv_parser;
+using namespace csv;
 
 TEST_CASE("CSV Comma Escape", "[test_csv_comma]") {
     std::string input = "Furthermore, this should be quoted.";

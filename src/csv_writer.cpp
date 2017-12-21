@@ -3,7 +3,7 @@
 using std::vector;
 using std::string;
 
-namespace csv_parser {
+namespace csv {
     /** @file */
     std::string csv_escape(std::string& in, bool quote_minimal) {
         /** Format a string to be RFC 4180-compliant

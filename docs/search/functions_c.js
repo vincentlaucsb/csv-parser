@@ -1,7 +1,4 @@
 var searchData=
 [
-  ['path_5fsplit',['path_split',['../namespacecsv__parser_1_1helpers.html#a205bf496f9b5cf671ace7d2b72d21104',1,'csv_parser::helpers']]],
-  ['process_5fnewline',['process_newline',['../classcsv__parser_1_1CSVReader.html#a2c75b439cd8585a02996ef9db4742566',1,'csv_parser::CSVReader']]],
-  ['process_5fpossible_5fdelim',['process_possible_delim',['../classcsv__parser_1_1CSVReader.html#a541d25951108a566f1380e25808a57a6',1,'csv_parser::CSVReader']]],
-  ['process_5fquote',['process_quote',['../classcsv__parser_1_1CSVReader.html#a2b89cf56b9b56de70500e4d43ce48b13',1,'csv_parser::CSVReader']]]
+  ['to_5fjson',['to_json',['../classcsv_1_1CSVReader.html#a717c3b0f882eda0429e9eab2eeaa45e0',1,'csv::CSVReader::to_json(std::string filename, bool append=false)'],['../classcsv_1_1CSVReader.html#a2294ba92fa1d24e02a0584bb09a1b2da',1,'csv::CSVReader::to_json()']]]
 ];

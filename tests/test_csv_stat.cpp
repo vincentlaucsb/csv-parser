@@ -1,9 +1,6 @@
 #include "catch.hpp"
 #include "csv_parser.h"
-#include <string>
-#include <vector>
-
-using namespace csv_parser;
+using namespace csv;
 
 TEST_CASE(
     "Calculating Statistics from Direct Input",

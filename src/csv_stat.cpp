@@ -4,7 +4,7 @@ using std::unordered_map;
 using std::vector;
 using std::string;
 
-namespace csv_parser {
+namespace csv {
     /** @file
       * Calculates statistics from CSV files
       */

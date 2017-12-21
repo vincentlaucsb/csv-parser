@@ -1,6 +1,6 @@
 # include "csv_parser.h"
 
-namespace csv_parser {
+namespace csv {
     namespace helpers {
         /** @file */
 

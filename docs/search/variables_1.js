@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['col_5fnames',['col_names',['../classcsv__parser_1_1CSVReader.html#afbc71dfcaee5f3c8eac3d7c4a453327c',1,'csv_parser::CSVReader']]],
-  ['correct_5frows',['correct_rows',['../classcsv__parser_1_1CSVReader.html#ad896101155e12ba6b7372264889cb31a',1,'csv_parser::CSVReader']]]
+  ['col_5fnames',['col_names',['../classcsv_1_1CSVReader.html#abf0fa7c2e7215684dc99e748d573175e',1,'csv::CSVReader']]],
+  ['correct_5frows',['correct_rows',['../classcsv_1_1CSVReader.html#abf613a1519eb7f9ed4c069397f8722ef',1,'csv::CSVReader']]]
 ];

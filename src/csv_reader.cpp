@@ -1,7 +1,7 @@
 #include "csv_parser.h"
 #include <random>
 
-namespace csv_parser {
+namespace csv {
     /** @file
      *  Defines all functionality needed for basic CSV parsing
      */

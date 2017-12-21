@@ -1,7 +1,8 @@
+#include <stdio.h> // remove()
 #include "catch.hpp"
 #include "csv_parser.h"
 
-using namespace csv_parser;
+using namespace csv;
 using std::vector;
 using std::string;
 
@@ -184,6 +185,7 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
 }
 
 TEST_CASE( "Test JSON Output", "[csv_to_json]") {
+    const char * output = "./tests/temp/test.ndjson";
     string csv_string("I,Like,Turtles\r\n");
     vector<string> col_names = {"A", "B", "C"};
     
@@ -192,13 +194,16 @@ TEST_CASE( "Test JSON Output", "[csv_to_json]") {
     reader.set_col_names(col_names);
     reader.feed(csv_string);
     reader.end_feed();
-    reader.to_json("./tests/temp/test.ndjson");
+    reader.to_json(output);
     
     // Expected Results
-    std::ifstream test_file("./tests/temp/test.ndjson");
+    std::ifstream test_file(output);
     string first_line;
     std::getline(test_file, first_line, '\n');
     REQUIRE( first_line == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\"}" );
+    test_file.close();
+
+    REQUIRE(remove(output) == 0);
 }
 
 TEST_CASE( "Test JSON Output (Memory)", "[csv_to_json_mem]") {

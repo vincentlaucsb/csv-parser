@@ -1,4 +1,4 @@
-/** @csv_parser */
+/** @csv */
 
 #include <stdexcept>
 #include <cstdio>
@@ -11,16 +11,15 @@
 #include <deque>
 #include <math.h>
 #include <unordered_map>
-#include <set>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 
-namespace csv_parser {
+namespace csv {
     /** @file */
 
     /** Stores information about how to parse a CSV file
-     *   - Can be used to initialize a csv_parser::CSVReader() object
+     *   - Can be used to initialize a csv::CSVReader() object
      *   - The preferred way to pass CSV format information between functions
      */
     struct CSVFormat {
@@ -62,7 +61,7 @@ namespace csv_parser {
         bool is_string();
         int is_int();
         int is_float();
-        DataType dtype; /**< Store this field's data type enumeration as given by csv_parser::DataType */
+        DataType dtype; /**< Store this field's data type enumeration as given by csv::DataType */
         ///@}
 
         /** @name Value Retrieval */
@@ -339,7 +338,7 @@ namespace csv_parser {
 
     /** Class for writing CSV files.
      *
-     *  See csv_parser::csv_escape() for a function that formats a non-CSV string.
+     *  See csv::csv_escape() for a function that formats a non-CSV string.
      *
      *  To write to a CSV file, one should
      *   -# Initialize a CSVWriter with respect to some file
@@ -356,35 +355,7 @@ namespace csv_parser {
     };
 
     /**
-     * @namespace csv_parser::extra
-     * @brief CSV reading/editing goodies built on top of the main library
-     */
-    namespace extra {
-        /** @name Search Functions */
-        ///@{
-        void head(std::string infile, int nrow = 100, std::vector<int> subset = {});
-        void grep(std::string infile, int col, std::string match, int max_rows = 500);
-        ///@}
-
-        /** @name Editing Functions
-         *  Functions for editing existing CSV files
-         */
-        void reformat(std::string infile, std::string outfile, int skiplines = 0);
-        void merge(std::string outfile, std::vector<std::string> in);
-
-        /** @name SQLite Functions
-         *  Functions built using the SQLite3 API
-         */
-        ///@{
-        void csv_to_sql(std::string csv_file, std::string db,
-            std::string table = "");
-        void csv_join(std::string filename1, std::string filename2, std::string outfile,
-            std::string column1 = "", std::string column2 = "");
-        ///@}
-    }
-
-    /**
-     * @namespace csv_parser::helpers
+     * @namespace csv::helpers
      * @brief Helper functions for various parts of the main library
      */
     namespace helpers {
@@ -393,34 +364,9 @@ namespace csv_parser {
         DataType data_type(std::string&);
         ///@}
 
-        /** @name Path Handling */
-        ///@{
-        std::vector<std::string> path_split(std::string);
-        std::string get_filename_from_path(std::string path);
-        ///@}
-
         /** @name JSON Support */
         ///@{
         std::string json_escape(std::string);
-        ///@}
-    }
-
-    /**
-     * @namespace csv_parser::sql
-     * @brief Helper functions for SQL-related functionality
-     */
-    namespace sql {
-        /** @name SQL Functions */
-        ///@{
-        std::string sql_sanitize(std::string);
-        std::vector<std::string> sql_sanitize(std::vector<std::string>);
-        std::vector<std::string> sqlite_types(std::string filename, int nrows = 50000);
-        ///@}
-
-        /** @name Dynamic SQL Generation */
-        ///@{
-        std::string create_table(std::string, std::string);
-        std::string insert_values(std::string, std::string);
         ///@}
     }
 }

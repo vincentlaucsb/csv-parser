@@ -1,10 +1,7 @@
 var searchData=
 [
-  ['empty',['empty',['../classcsv__parser_1_1CSVReader.html#a30347e8268f7923114a0d70bcb5cd079',1,'csv_parser::CSVReader']]],
-  ['end',['end',['../classcsv__parser_1_1CSVReader.html#aacc22067e1256989f888b68090bb8c5d',1,'csv_parser::CSVReader']]],
-  ['end_5ffeed',['end_feed',['../classcsv__parser_1_1CSVReader.html#af1f7ff587fa3697b8f679139ab86699f',1,'csv_parser::CSVReader']]],
-  ['eof',['eof',['../classcsv__parser_1_1CSVReader.html#af81b5b989e74194d135902a3e9422380',1,'csv_parser::CSVReader']]],
-  ['error_5fmessage',['error_message',['../classcsv__parser_1_1sql_1_1SQLiteConn.html#a7ecba71be0d9c47961392252f19b5bf6',1,'csv_parser::sql::SQLiteConn']]],
-  ['exec',['exec',['../classcsv__parser_1_1sql_1_1SQLiteConn.html#abd70047e943fc4e6b072a7fb4ba598de',1,'csv_parser::sql::SQLiteConn']]],
-  ['explain_5fsqlite_5ferror',['explain_sqlite_error',['../namespacecsv__parser_1_1sql.html#aa7fc22a9aa578d8256845730ef67090d',1,'csv_parser::sql']]]
+  ['empty',['empty',['../classcsv_1_1CSVReader.html#af76525fbd9c1793e0f6345661e82a0fe',1,'csv::CSVReader']]],
+  ['end',['end',['../classcsv_1_1CSVReader.html#ab913c5a8a01afd3440a59b02f9802282',1,'csv::CSVReader']]],
+  ['end_5ffeed',['end_feed',['../classcsv_1_1CSVReader.html#a8ac02ea6f091b18f9ef9c9a793d4c3bd',1,'csv::CSVReader']]],
+  ['eof',['eof',['../classcsv_1_1CSVReader.html#af6a3bdb4715baad337d81307b0406c85',1,'csv::CSVReader']]]
 ];
