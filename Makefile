@@ -23,7 +23,7 @@ test_all:
 	make run_test_csv_parser
 	make code_cov
 	
-test_csv_parser: lib/sqlite_cpp.o
+test_csv_parser:
 	$(CXX) -o test_csv_parser $(SOURCES) $(TEST_SOURCES) $(TFLAGS)
 	
 run_test_csv_parser: test_csv_parser
