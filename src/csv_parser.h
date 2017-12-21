@@ -354,6 +354,14 @@ namespace csv {
             std::ofstream outfile;
     };
 
+    /** @name Editing Functions
+     *  Functions for editing existing CSV files
+     */
+    ///@{
+    void reformat(std::string infile, std::string outfile, int skiplines = 0);
+    void merge(std::string outfile, std::vector<std::string> in);
+    ///}
+
     /**
      * @namespace csv::helpers
      * @brief Helper functions for various parts of the main library

@@ -70,7 +70,7 @@ $(function() {
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacecsv_1_1helpers"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv_1_1helpers.html">helpers</a></td></tr>
-<tr class="memdesc:namespacecsv_1_1helpers"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper functions for various parts of the main library. <br /></td></tr>
+<tr class="memdesc:namespacecsv_1_1helpers"><td class="mdescLeft">&#160;</td><td class="mdescRight">} <br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -112,6 +112,13 @@ Functions</h2></td></tr>
 <tr class="separator:a5c9baf3fe1e0aa19ff348070e6ff20c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a98331a859686ffccb26cbc8331b54a81"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structcsv_1_1CSVFileInfo.html">CSVFileInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a98331a859686ffccb26cbc8331b54a81">get_file_info</a> (std::string filename)</td></tr>
 <tr class="separator:a98331a859686ffccb26cbc8331b54a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Editing Functions</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>Functions for editing existing CSV files </p>
+</div></td></tr>
+<tr class="memitem:a5896616940428e50bbf1e88676fa8747"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a5896616940428e50bbf1e88676fa8747">reformat</a> (std::string infile, std::string outfile, int skiplines=0)</td></tr>
+<tr class="separator:a5896616940428e50bbf1e88676fa8747"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade4192a3f4ad4f3f8a51c3707db7b1ce"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ade4192a3f4ad4f3f8a51c3707db7b1ce">merge</a> (std::string outfile, std::vector&lt; std::string &gt; in)</td></tr>
+<tr class="separator:ade4192a3f4ad4f3f8a51c3707db7b1ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
@@ -324,6 +331,98 @@ Variables</h2></td></tr>
 <li>"Winner" is based on which delimiter has the most number of correctly parsed rows + largest number of columns</li>
 <li><b>Note:</b> Assumes that whatever the dialect, all records are newline separated</li>
 </ul>
+
+</div>
+</div>
+<a id="ade4192a3f4ad4f3f8a51c3707db7b1ce"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade4192a3f4ad4f3f8a51c3707db7b1ce">&#9670;&nbsp;</a></span>merge()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv::merge </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>outfile</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::vector&lt; std::string &gt;&#160;</td>
+          <td class="paramname"><em>in</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Merge several CSV files together </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[out]</td><td class="paramname">outfile</td><td>Path to file to write to </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">in</td><td>Vector of paths to input files</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Merge several CSV files together </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[out]</td><td class="paramname">outfile</td><td>Path to file to write to </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">in</td><td>Vector of paths to input files</td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a5896616940428e50bbf1e88676fa8747"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5896616940428e50bbf1e88676fa8747">&#9670;&nbsp;</a></span>reformat()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv::reformat </td>
+          <td>(</td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>infile</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string&#160;</td>
+          <td class="paramname"><em>outfile</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>skiplines</em> = <code>0</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Reformat a CSV file </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">infile</td><td>Path to existing CSV file </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">outfile</td><td>Path to file to write to </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">skiplines</td><td>Number of lines past header to skip</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Reformat a CSV file </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">infile</td><td>Path to existing CSV file </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">outfile</td><td>Path to file to write to </td></tr>
+    <tr><td class="paramdir">[out]</td><td class="paramname">skiplines</td><td>Number of lines past header to skip</td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>
