@@ -6,7 +6,7 @@ using std::string;
 
 namespace csv {
     /** @file */
-    std::string csv_escape(std::string& in, bool quote_minimal) {
+    std::string csv_escape(const std::string& in, const bool quote_minimal) {
         /** Format a string to be RFC 4180-compliant
          *  @param[in]  in              String to be CSV-formatted
          *  @param[out] quote_minimal   Only quote fields if necessary.

@@ -6,7 +6,7 @@ namespace csv {
      *  Defines all functionality needed for basic CSV parsing
      */
 
-    char guess_delim(std::string filename) {
+    char guess_delim(const std::string filename) {
         /** Guess the delimiter of a delimiter separated values file
          *  by scanning the first 100 lines
          *
@@ -35,7 +35,7 @@ namespace csv {
         return current_delim;
     }
     
-    std::vector<std::string> get_col_names(std::string filename, CSVFormat format) {
+    std::vector<std::string> get_col_names(const std::string filename, CSVFormat format) {
         /** Return a CSV's column names
          *  @param[in] filename  Path to CSV file
          *  @param[in] format    Format of the CSV file
@@ -45,7 +45,10 @@ namespace csv {
         return reader.get_col_names();
     }
 
-    int get_col_pos(std::string filename, std::string col_name, CSVFormat format) {
+    int get_col_pos(
+        const std::string filename,
+        const std::string col_name,
+        const CSVFormat format) {
         /** Find the position of a column in a CSV file
          *  @param[in] filename  Path to CSV file
          *  @param[in] col_name  Column whose position we should resolve
@@ -60,7 +63,7 @@ namespace csv {
             return -1;
     }
 
-    CSVFileInfo get_file_info(std::string filename) {
+    CSVFileInfo get_file_info(const std::string filename) {
         /** Get basic information about a CSV file */
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
@@ -147,7 +150,7 @@ namespace csv {
         return this->subset_col_names;
     }
 
-    void CSVReader::feed(std::string &in) {
+    void CSVReader::feed(const std::string &in) {
         /** Parse a CSV-formatted string. Incomplete CSV fragments can be 
          *  joined together by calling feed() on them sequentially.
          *  **Note**: end_feed() should be called after the last string
@@ -180,7 +183,8 @@ namespace csv {
         this->write_record(this->record_buffer);
     }
 
-    void CSVReader::process_possible_delim(std::string &in, size_t &index, std::string* &out) {
+    void CSVReader::process_possible_delim(
+        const std::string &in, size_t &index, std::string* &out) {
         /** Process a delimiter character and determine if it is a field
          *  separator
          */
@@ -194,7 +198,8 @@ namespace csv {
         }
     }
 
-    void CSVReader::process_newline(std::string &in, size_t &index, std::string* &out) {
+    void CSVReader::process_newline(
+        const std::string &in, size_t &index, std::string* &out) {
         /** Process a newline character and determine if it is a record
          *  separator        
          */
@@ -212,7 +217,8 @@ namespace csv {
         }
     }
 
-    void CSVReader::process_quote(std::string &in, size_t &index, std::string* &out) {
+    void CSVReader::process_quote(
+        const std::string &in, size_t &index, std::string* &out) {
         /** Determine if the usage of a quote is valid or fix it
          */
         if (this->quote_escape) {
@@ -352,6 +358,7 @@ namespace csv {
         this->feed_buffer.push_back(buffer);
         this->feed_buffer.push_back(nullptr); // Termination signal
         this->feed_cond.notify_one();
+        delete line_buffer;
         lock.unlock();
         worker.join();
 

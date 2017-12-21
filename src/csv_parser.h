@@ -127,13 +127,14 @@ namespace csv {
       * without writing a lot of code
       */
     ///@{
-    std::string csv_escape(std::string&, bool quote_minimal=true);
-    char guess_delim(std::string filename);
-    std::vector<std::string> get_col_names(std::string filename,
-        CSVFormat format=GUESS_CSV);
-    int get_col_pos(std::string filename, std::string col_name,
-        CSVFormat format = GUESS_CSV);
-    CSVFileInfo get_file_info(std::string filename);
+    std::string csv_escape(const std::string&, const bool quote_minimal=true);
+    char guess_delim(const std::string filename);
+    std::vector<std::string> get_col_names(
+        const std::string filename,
+        const CSVFormat format=GUESS_CSV);
+    int get_col_pos(const std::string filename, const std::string col_name,
+        const CSVFormat format = GUESS_CSV);
+    CSVFileInfo get_file_info(const std::string filename);
     ///@}
 
     /** The main class for parsing CSV files
@@ -179,7 +180,7 @@ namespace csv {
              *  before finally calling end_feed()
              */
             ///@{
-            void feed(std::string &in);
+            void feed(const std::string &in);
             void end_feed();
             ///@}
 
@@ -252,9 +253,9 @@ namespace csv {
              *  These functions are called by feed(std::string&).
              */
             ///@{
-            inline void process_possible_delim(std::string&, size_t&, std::string*&);
-            inline void process_quote(std::string&, size_t&, std::string*&);
-            inline void process_newline(std::string&, size_t&, std::string*&);
+            inline void process_possible_delim(const std::string&, size_t&, std::string*&);
+            inline void process_quote(const std::string&, size_t&, std::string*&);
+            inline void process_newline(const std::string&, size_t&, std::string*&);
             inline void write_record(std::vector<std::string>&);
             ///@}
                         
