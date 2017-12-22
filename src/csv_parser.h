@@ -95,15 +95,15 @@ namespace csv {
     private:
         /** Construct a CSVField from a std::string */
         CSVField(const std::string data = "", const DataType _type = _null, const bool _overflow = false) :
-            str_data(data), dtype(_type), overflow(_overflow) {};
+            dtype(_type), str_data(data), overflow(_overflow) {};
 
         /** Construct a CSVField from an int */
         CSVField(const long long int data, const DataType _type = _int, const bool _overflow = false) :
-            int_data(data), dtype(_type), overflow(_overflow) {};
+            dtype(_type), int_data(data), overflow(_overflow) {};
 
         /** Construct a CSVField from double */
         CSVField(const long double data, const DataType _type = _float, const bool _overflow = false) :
-            dbl_data(data), dtype(_type), overflow(_overflow) {};
+            dtype(_type), dbl_data(data), overflow(_overflow) {};
 
         std::string str_data;
         long long int int_data;

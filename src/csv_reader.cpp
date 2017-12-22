@@ -358,7 +358,7 @@ namespace csv {
         this->feed_buffer.push_back(buffer);
         this->feed_buffer.push_back(nullptr); // Termination signal
         this->feed_cond.notify_one();
-        delete line_buffer;
+        delete[] line_buffer;
         lock.unlock();
         worker.join();
 
