@@ -128,6 +128,7 @@ namespace csv {
         // Begin merging
         CSVWriter writer(outfile);
         vector<string> row;
+        writer.write_row(first_col_names);
 
         for (string infile : in) {
             CSVReader reader(infile);
