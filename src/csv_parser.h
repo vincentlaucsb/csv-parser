@@ -175,6 +175,8 @@ namespace csv {
                 delimiter(_delim), quote_char(_quote), header_row(_header), subset(_subset) {};
             ///@}
 
+            ~CSVReader();
+
             /** @name Reading In-Memory Strings
              *  You can piece together incomplete CSV fragments by calling feed() on them
              *  before finally calling end_feed()
@@ -253,9 +255,9 @@ namespace csv {
              *  These functions are called by feed(std::string&).
              */
             ///@{
-            inline void process_possible_delim(const std::string&, size_t&, std::string*&);
-            inline void process_quote(const std::string&, size_t&, std::string*&);
-            inline void process_newline(const std::string&, size_t&, std::string*&);
+            inline void process_possible_delim(const std::string::const_iterator&, std::string&);
+            inline void process_quote(std::string::const_iterator&, std::string&);
+            inline void process_newline(std::string::const_iterator&, std::string&);
             inline void write_record(std::vector<std::string>&);
             ///@}
                         
@@ -375,7 +377,7 @@ namespace csv {
 
         /** @name JSON Support */
         ///@{
-        std::string json_escape(std::string);
+        std::string json_escape(const std::string&);
         ///@}
     }
 }

@@ -41,7 +41,6 @@ namespace csv {
          *  @param[in] format    Format of the CSV file
          */
         CSVReader reader(filename, format);
-        reader.close();
         return reader.get_col_names();
     }
 
@@ -68,10 +67,6 @@ namespace csv {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
         std::vector<std::string> row;
-
-        /* Loop over entire file without doing anything
-         * except for counting up the number of rows
-         */
         while (reader.read_row(row));
 
         CSVFileInfo info = {
@@ -108,6 +103,11 @@ namespace csv {
         read_csv(filename, 100, false);
         read_start = true;
         current_row = records.begin();
+    }
+
+    CSVReader::~CSVReader() {
+        /** Close any open file handles */
+        this->close();
     }
 
     CSVFormat CSVReader::get_format() {
@@ -156,21 +156,19 @@ namespace csv {
          *  **Note**: end_feed() should be called after the last string
          */
 
-        std::string * str_buffer = &(this->record_buffer.back());
-
-        for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
-            if (in[i] == this->delimiter) {
-                this->process_possible_delim(in, i, str_buffer);
-            } else if (in[i] == this->quote_char) {
-                this->process_quote(in, i, str_buffer);
+        for (auto it = in.begin(), it_end = in.end(); it != it_end; ++it) {
+            if (*it == this->delimiter) {
+                this->process_possible_delim(it, this->record_buffer.back());
+            } else if (*it == this->quote_char) {
+                this->process_quote(it, this->record_buffer.back());
             } else {
-                switch(in[i]) {
+                switch(*it) {
                     case '\r':
                     case '\n':
-                        this->process_newline(in, i, str_buffer);
+                        this->process_newline(it, this->record_buffer.back());
                         break;
                     default:
-                        *str_buffer += in[i];
+                        this->record_buffer.back() += *it;
                 }
             }
         }
@@ -183,61 +181,51 @@ namespace csv {
         this->write_record(this->record_buffer);
     }
 
-    void CSVReader::process_possible_delim(
-        const std::string &in, size_t &index, std::string* &out) {
-        /** Process a delimiter character and determine if it is a field
+    void CSVReader::process_possible_delim(const std::string::const_iterator& in,
+        std::string& out) {
+        /** Process a delimiter character and determine if it is a field 
          *  separator
          */
 
-        if (!this->quote_escape) {
-            // Case: Not being escaped --> Write field
+        if (!this->quote_escape) // Make a new field
             this->record_buffer.push_back(std::string());
-            out = &(this->record_buffer.back());
-        } else {
-            *out += in[index]; // Treat as regular data
-        }
+        else // Treat as a regular character
+            out += *in;
     }
 
-    void CSVReader::process_newline(
-        const std::string &in, size_t &index, std::string* &out) {
+    void CSVReader::process_newline(std::string::const_iterator &in, std::string &out) {
         /** Process a newline character and determine if it is a record
          *  separator        
          */
         if (!this->quote_escape) {
             // Case: Carriage Return Line Feed, Carriage Return, or Line Feed
             // => End of record -> Write record
-            if ((in[index] == '\r') && (in[index + 1] == '\n')) {
-                index++;
-            }
-
+            if ((*in == '\r') && (*(in + 1) == '\n'))
+                ++in;
             this->write_record(this->record_buffer);
-            out = &(this->record_buffer.back());
-        } else {
-            *out += in[index]; // Quote-escaped
+        }
+        else { // Treat as a regular character
+            out += *in;
         }
     }
 
-    void CSVReader::process_quote(
-        const std::string &in, size_t &index, std::string* &out) {
-        /** Determine if the usage of a quote is valid or fix it
-         */
+    void CSVReader::process_quote(std::string::const_iterator &in, std::string &out) {
+        /** Determine if the usage of a quote is valid or fix it */
         if (this->quote_escape) {
-            if ((in[index + 1] == this->delimiter) || 
-                (in[index + 1] == '\r') ||
-                (in[index + 1] == '\n')) {
+            if ((*(in + 1) == this->delimiter) || 
+                (*(in + 1) == '\r') ||
+                (*(in + 1) == '\n')) {
                 // Case: End of field
                 this->quote_escape = false;
             } else {
                 // Note: This may fix single quotes (not strictly valid)
-                *out += in[index];
-                if (in[index + 1] == this->quote_char)
-                    index++;  // Case: Two consecutive quotes
+                out += *in;
+                if (*(in + 1) == this->quote_char)
+                    ++in;  // Case: Two consecutive quotes
             }
         } else {
-			/* Add index > 0 to prevent string index errors
-             * Case: Previous character was delimiter
-             */
-            if (index > 0 && in[index - 1] == this->delimiter)
+             // Case: Previous character was delimiter
+            if (*(in - 1) == this->delimiter)
                 this->quote_escape = true;
         }
     }
@@ -277,9 +265,7 @@ namespace csv {
             }
         } else if (this->row_num == this->header_row) {
             this->set_col_names(record);
-        } else {
-            // Ignore rows before header row
-        }
+        } // else: Ignore rows before header row
 
         record.clear();
         record.push_back(std::string());
@@ -335,12 +321,10 @@ namespace csv {
 
         while (nrows <= -1 || nrows > 0) {
             char * result = std::fgets(line_buffer, sizeof(char[10000]), this->infile);            
-            if (result == NULL || std::feof(this->infile)) {
+            if (result == NULL || std::feof(this->infile))
                 break;
-            }
-            else {
+            else
                 *buffer += line_buffer;
-            }
 
             nrows--;
 
@@ -362,30 +346,29 @@ namespace csv {
         lock.unlock();
         worker.join();
 
-        if (std::feof(this->infile) || (close && !this->eof)) {
+        if (std::feof(this->infile)) {
             this->end_feed();
-            this->eof = true;
             this->close();
         }
     }
 
     void CSVReader::close() {
-        std::fclose(this->infile);
+        if (this->infile && std::feof(this->infile)) {
+            this->eof = true;
+            std::fclose(this->infile);
+        }
     }
     
     std::string CSVReader::csv_to_json(std::vector<std::string>& record) {
         /** Helper method for both to_json() methods */
         std::string json_record = "{";
-        std::string * col_name;
         
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
-            col_name = &this->subset_col_names[i];
-            json_record += "\"" + *col_name + "\":";
+            json_record += "\"" + helpers::json_escape(this->subset_col_names[i]) + "\":";
             
             /* Quote strings but not numeric fields
              * Recall data_type() returns 2 for ints and 3 for floats
              */
-            
             if (helpers::data_type(record[i]) > 1)
                 json_record += record[i];
             else
@@ -395,8 +378,7 @@ namespace csv {
                 json_record += ",";
         }
 
-        json_record += "}";
-        return json_record;
+        return json_record += "}";
     }
 
     void CSVReader::to_json(std::string filename, bool append) {
@@ -647,19 +629,18 @@ namespace csv {
     }
 
     namespace helpers {
-        std::string json_escape(std::string in) {
+        std::string json_escape(const std::string& in) {
             /** Given a CSV string, convert it to a JSON string with proper
              *  escaping as described by RFC 7159
              */
 
             std::string out;
+            out.reserve(in.size());
 
-            for (size_t i = 0, ilen = in.length(); i < ilen; i++) {
-                switch (in[i]) {
+            for (auto it = in.begin(); it != in.end(); ++it) {
+                switch (*it) {
                 case '"':
-                    // Assuming quotes come in pairs due to CSV escaping
                     out += "\\\"";
-                    i++; // Skip over next quote
                     break;
                 case '\\':
                     out += "\\\\";
@@ -677,7 +658,7 @@ namespace csv {
                     out += "\\\t";
                     break;
                 default:
-                    out += in[i];
+                    out += *it;
                 }
             }
 
