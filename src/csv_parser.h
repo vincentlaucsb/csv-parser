@@ -128,7 +128,7 @@ namespace csv {
       */
     ///@{
     std::string csv_escape(const std::string&, const bool quote_minimal=true);
-    char guess_delim(const std::string filename);
+    CSVFormat guess_format(const std::string filename);
     std::vector<std::string> get_col_names(
         const std::string filename,
         const CSVFormat format=GUESS_CSV);
@@ -147,7 +147,7 @@ namespace csv {
      *  - By default, rows that are too short or too long are dropped
      *  - A custom callback can be registered by setting bad_row_handler
      */
-    class CSVReader {        
+    class CSVReader {
         public:
             /** @name Constructors
              *  There are two constructors, both suited for different purposes
@@ -233,12 +233,6 @@ namespace csv {
             void close();            /**< Close the open file handler */
             ///@}
 
-            /** @name Parsing Callbacks */
-            ///@{
-            void(*bad_row_handler)(std::vector<std::string>) =
-                nullptr; /**< Callback for rows that are too short */
-            ///@}
-
             std::deque<std::vector<std::string>>::iterator begin() {
                 /** Return an iterator over the rows CSVReader has parsed so far */
                 return this->records.begin();
@@ -259,6 +253,7 @@ namespace csv {
             inline void process_quote(std::string::const_iterator&, std::string&);
             inline void process_newline(std::string::const_iterator&, std::string&);
             inline void write_record(std::vector<std::string>&);
+            virtual void bad_row_handler(std::vector<std::string>);
             ///@}
                         
             // Helper methods
@@ -337,6 +332,34 @@ namespace csv {
             void min_max(long double&, size_t&);
             void dtype(std::string&, size_t&);
             void calc_col(size_t);
+    };
+
+    /** Class for guessing the delimiter & header row number of CSV files */
+    class CSVGuesser {
+        struct Guesser: public CSVReader {
+            using CSVReader::CSVReader;
+            void bad_row_handler(std::vector<std::string> record) override;
+            friend CSVGuesser;
+
+            // Frequency counter of row length
+            std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
+
+            // Map row lengths to row num where they first occurred
+            std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
+        };
+
+    public:
+        CSVGuesser(const std::string _filename) : filename(_filename) {};
+        std::vector<char> delims = { ',', '|', '\t', ';', '^' };
+        void guess_delim();
+        bool first_guess();
+        void second_guess();
+
+        char delim;
+        int header_row = 0;
+
+    private:
+        std::string filename;
     };
 
     /** Class for writing CSV files.

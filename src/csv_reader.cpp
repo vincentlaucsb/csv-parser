@@ -6,7 +6,32 @@ namespace csv {
      *  Defines all functionality needed for basic CSV parsing
      */
 
-    char guess_delim(const std::string filename) {
+    CSVFormat guess_format(const std::string filename) {
+        CSVGuesser guesser(filename);
+        guesser.guess_delim();
+        return { guesser.delim, '"', guesser.header_row };
+    }
+
+    void CSVReader::bad_row_handler(std::vector<std::string> record) {};
+
+    void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
+        if (row_tally.find(record.size()) != row_tally.end()) row_tally[record.size()]++;
+        else {
+            row_tally[record.size()] = 1;
+            row_when[record.size()] = this->row_num + 1;
+        }
+    }
+
+    void CSVGuesser::guess_delim() {
+        /** Guess the delimiter of a DSV by scanning the first 100 lines by
+         *  First assuming that the header is on the first row
+         *  If the first guess returns too few rows, then we move to the second
+         *  guess method
+         */
+        if (!first_guess()) second_guess();
+    }
+
+    bool CSVGuesser::first_guess() {
         /** Guess the delimiter of a delimiter separated values file
          *  by scanning the first 100 lines
          *
@@ -14,9 +39,10 @@ namespace csv {
          *    of correctly parsed rows + largest number of columns
          *  -  **Note:** Assumes that whatever the dialect, all records
          *     are newline separated
+         *  
+         *  Returns True if guess was a good one and second guess isn't needed
          */
 
-        std::vector<char> delims = { ',', '|', '\t', ';', '^' };
         char current_delim;
         int max_rows = 0;
         size_t max_cols = 0;
@@ -26,13 +52,47 @@ namespace csv {
             guesser.read_csv(filename, 100);
             if ((guesser.row_num >= max_rows) &&
                 (guesser.get_col_names().size() > max_cols)) {
-                max_rows = guesser.row_num > max_rows;
+                max_rows = guesser.row_num;
                 max_cols = guesser.get_col_names().size();
                 current_delim = delims[i];
             }
         }
 
-        return current_delim;
+        this->delim = current_delim;
+
+        // If there are only a few rows/columns, trying guessing again
+        return (max_rows > 10 && max_cols > 2);
+    }
+
+    void CSVGuesser::second_guess() {
+        /* For each delimiter, find out which row length was most common.
+         * The delimiter with the longest mode row length wins.
+         * Then, the line number of the header row is the first row with
+         * the mode row length.
+         */
+
+        char current_delim;
+        size_t max_rlen = 0;
+        size_t header = 0;
+
+        for (auto it = delims.begin(); it != delims.end(); ++it) {
+            Guesser guess(*it);
+            guess.read_csv(filename, 100);
+
+            // Most common row length
+            auto max = std::max_element(guess.row_tally.begin(), guess.row_tally.end(),
+                [](const std::pair<size_t, size_t>& x,
+                    const std::pair<size_t, size_t>& y) {
+                return x.second < y.second; });
+
+            if (max->first > max_rlen) {
+                max_rlen = max->first;
+                current_delim = guess.delimiter;
+                header = guess.row_when[max_rlen];
+            }
+        }
+
+        this->header_row = header;
     }
     
     std::vector<std::string> get_col_names(const std::string filename, CSVFormat format) {
@@ -90,11 +150,11 @@ namespace csv {
          *  @param[in] format    Format of the CSV file
          *  @param[in] subset    Indices of columns to keep (default: keep all)
          */
-        if (format.delim == '\0')
-            delimiter = guess_delim(filename);
-        else
-            delimiter = format.delim;
 
+        if (format.delim == '\0')
+            format = guess_format(filename);
+            
+        delimiter = format.delim;
         quote_char = format.quote_char;
         header_row = format.header;
         subset = _subset;
@@ -258,10 +318,8 @@ namespace csv {
                  * 2) Too short or too long
                  */
                 this->row_num--;
-                if (!record.empty() && this->bad_row_handler) {
-                    auto copy = record;
-                    this->bad_row_handler(copy);
-                }
+                if (!record.empty())
+                    bad_row_handler(record);
             }
         } else if (this->row_num == this->header_row) {
             this->set_col_names(record);
@@ -356,6 +414,7 @@ namespace csv {
         if (this->infile && std::feof(this->infile)) {
             this->eof = true;
             std::fclose(this->infile);
+            this->infile = nullptr;
         }
     }
     

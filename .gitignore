@@ -5,8 +5,6 @@ bin/
 Debug/
 Release/
 .vs/
-*.sln
-*.vcxproj*
 *.pdb
 *.i*
 *.*log

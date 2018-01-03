@@ -15,15 +15,24 @@ TEST_CASE("col_pos() Test", "[test_col_pos]") {
 }
 
 TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
-    char delim = guess_delim(
+    CSVFormat format = guess_format(
         "./tests/data/real_data/2009PowerStatus.txt");
-    REQUIRE(delim == '|');
+    REQUIRE(format.delim == '|');
+    REQUIRE(format.header == 0);
 }
 
 TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
-    char delim = guess_delim(
+    CSVFormat format = guess_format(
         "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
-    REQUIRE(delim == ';');
+    REQUIRE(format.delim == ';');
+    REQUIRE(format.header == 0);
+}
+
+TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
+    CSVFormat format = guess_format(
+        "./tests/data/fake_data/ints_comments.csv");
+    REQUIRE(format.delim == ',');
+    REQUIRE(format.header == 5);
 }
 
 // get_file_info()
