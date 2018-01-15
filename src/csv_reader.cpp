@@ -46,15 +46,20 @@ namespace csv {
         CSVFormat format = DEFAULT_CSV;
         char current_delim;
         int max_rows = 0;
+        int temp_rows = 0;
         size_t max_cols = 0;
 
         for (size_t i = 0; i < delims.size(); i++) {
             format.delim = delims[i];
-
             CSVReader guesser(this->filename, {}, format, false);
+           
+            // WORKAROUND on Unix systems because certain newlines
+            // get double counted
+            // temp_rows = guesser.correct_rows;
+            temp_rows = std::min(guesser.correct_rows, 100);
             if ((guesser.row_num >= max_rows) &&
                 (guesser.get_col_names().size() > max_cols)) {
-                max_rows = guesser.row_num;
+                max_rows = temp_rows;
                 max_cols = guesser.get_col_names().size();
                 current_delim = delims[i];
             }
