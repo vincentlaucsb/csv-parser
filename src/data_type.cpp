@@ -4,7 +4,7 @@ namespace csv {
     namespace helpers {
         /** @file */
 
-        DataType data_type(std::string &in) {
+        DataType data_type(const std::string &in) {
             /** Distinguishes numeric from other text values. Used by various 
              *  type casting functions, like csv_parser::CSVReader::read_row()
              * 

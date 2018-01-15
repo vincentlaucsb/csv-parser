@@ -70,44 +70,34 @@ TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
                          "123,\"234,345\",456\r\n"
                          "1,2,3\r\n"
                          "1,2,3");
-    CSVReader reader;
+
+    CSVReader reader = parse(csv_string);
     vector<string> row;
-    reader.feed(csv_string);
-    reader.end_feed();
     
     // Expected Results
     reader.read_row(row);
-    vector<string> first_row = {"123", "234,345", "456"};
-    REQUIRE( row == first_row );
+    REQUIRE( row == vector<string>({"123", "234,345", "456"}));
 }
 
 TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
     string csv_string = ("A,B,C\r\n" // Header row
-                              "123,\"234\n,345\",456\r\n"
-                              "1,2,3\r\n"
-                              "1,2,3");
-    CSVReader reader;
+                         "123,\"234\n,345\",456\r\n"
+                         "1,2,3\r\n"
+                         "1,2,3");
+
+    CSVReader reader = parse(csv_string, DEFAULT_CSV);
     vector<string> row;
-    reader.feed(csv_string);
-    reader.end_feed();
-    
-    // Expected Results
     reader.read_row(row);
-    vector<string> first_row = {"123", "234\n,345", "456"};
-    REQUIRE( row == first_row );
+    REQUIRE( row == vector<string>({ "123", "234\n,345", "456" }) );
 }
 
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
     // Per RFC 1480, escaped quotes should be doubled up
     string csv_string = ("A,B,C\r\n" // Header row
-                              "123,\"\",456\r\n");
+                         "123,\"\",456\r\n");
     
-    CSVReader reader;
+    CSVReader reader = parse(csv_string, DEFAULT_CSV);
     vector<string> row;
-    reader.feed(csv_string);
-    reader.end_feed();
-    
-    // Expected Results
     reader.read_row(row);
     vector<string> correct_row = {"123", "", "456"};
     REQUIRE( row == correct_row );
@@ -121,11 +111,9 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
         // Only a single quote --> Not valid but correct it
         "123,\"234\"345\",456\r\n");
     
-    CSVReader reader;
+    CSVReader reader = parse(csv_string, DEFAULT_CSV);
     vector<string> row;
-    reader.feed(csv_string);
-    reader.end_feed();
-    
+   
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = {"123", "234\"345", "456"};
 
@@ -140,9 +128,8 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
-    CSVReader reader;
-    reader.read_csv("./tests/data/real_data/2015_StateDepartment.csv");
-
+    CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv",
+        {}, DEFAULT_CSV, true);
     vector<string> row;
     reader.read_row(row); // Populate row with first line
     
@@ -175,12 +162,11 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
 }
 
 TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
-    vector<int> subset = {0, 1, 2, 3, 4};
-    vector<string> row;
-    CSVReader reader(',', '"', 0, subset);
-    reader.read_csv("./tests/data/real_data/2015_StateDepartment.csv");
+    CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv",
+        { 0, 1, 2, 3, 4 }, DEFAULT_CSV, true);
     
     // Expected Results
+    vector<string> row;
     vector<string> first_row = {
         "2015","State Department","","Administrative Law, Office of", "" };
     vector<string> col_names = {
@@ -196,13 +182,9 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
 TEST_CASE( "Test JSON Output", "[csv_to_json]") {
     const char * output = "./tests/temp/test.ndjson";
     string csv_string("I,Like,Turtles\r\n");
-    vector<string> col_names = {"A", "B", "C"};
     
     // Feed Strings
-    CSVReader reader(',', '"', -1);
-    reader.set_col_names(col_names);
-    reader.feed(csv_string);
-    reader.end_feed();
+    CSVReader reader = parse(csv_string, DEFAULT_CSV, { "A", "B", "C" });
     reader.to_json(output);
     
     // Expected Results
@@ -220,13 +202,8 @@ TEST_CASE( "Test JSON Output (Memory)", "[csv_to_json_mem]") {
         "A,B,C,D\r\n" // Header row
         "I,Like,Turtles,1\r\n"
         "I,Like,Turtles,2\r\n");
-    vector<string> turtles;
-    
-    // Feed Strings
-    CSVReader reader;
-    reader.feed(csv_string);
-    reader.end_feed();
-    turtles = reader.to_json();
+    CSVReader reader = parse(csv_string);
+    vector<string> turtles = reader.to_json();
     
     // Expected Results
     REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\",\"D\":1}");
@@ -242,13 +219,8 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
         "I,\"Like\t\",Turtles,1\r\n"   // Tab escape test
         "I,\"Like/\",Turtles,1\r\n"    // Slash escape test
         );
-    vector<string> turtles;
-    
-    // Feed Strings
-    CSVReader reader;
-    reader.feed(csv_string);
-    reader.end_feed();
-    turtles = reader.to_json();
+    CSVReader reader = parse(csv_string);
+    vector<string> turtles = reader.to_json();
     
     // Expected Results
     REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\\\"\",\"C\":\"Turtles\",\"D\":1}");
@@ -259,7 +231,7 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
 }
 
 // read_row()
-TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
+TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
     // Test that integers are type-casted properly
     CSVReader reader("./tests/data/fake_data/ints.csv");
     vector<CSVField> row;
@@ -272,13 +244,35 @@ TEST_CASE("Test read_row() void* - Easy", "[read_row_void1]") {
     }
 }
 
-TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvfield]") {
+TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
+    string csv_string = (
+        "A,B,C\r\n" // Header row
+        "123,\"234\"\"345\",456\r\n"
+        "123,\"234\"345\",456\r\n");
+
+    CSVReader reader;
+    vector<string> row;
+    reader.feed(csv_string);
+    reader.end_feed();
+
+    // Expected Results: Double " is an escape for a single "
+    vector<string> correct_row = { "123", "234\"345", "456" };
+
+    // First Row
+    reader.read_row(row);
+    REQUIRE(row == correct_row);
+
+    // Second Row
+    reader.read_row(row);
+    REQUIRE(row == correct_row);
+}
+
+TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
     vector<CSVField> row;
-    int i = 0;
     bool caught_error = false;
 
-    while (reader.read_row(row)) {
+    for (size_t i = 0; reader.read_row(row); i++) {
         // Assert correct types
         REQUIRE(row[0].is_string());
         REQUIRE(row[1].is_string());
@@ -310,7 +304,5 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvfield]") {
 
             REQUIRE(caught_error);
         }
-
-        i++;
     }
 }

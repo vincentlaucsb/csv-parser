@@ -29,21 +29,18 @@ TEST_CASE("CSV Quote All", "[test_csv_quote_all]") {
     REQUIRE(csv_escape(input, false) == correct);
 }
 
-
 TEST_CASE("Integrity Check via Statistics", "[csv_clean]") {
-    const char * output = "./tests/temp/ints2.csv";
-
     // Header on first row
+    const char * output = "./tests/temp/ints2.csv";
     reformat("./tests/data/fake_data/ints.csv", output);
 
     // 100 ints (type 2) in all columns
-    CSVStat stats;
-    stats.calc_csv(output);
-
-    for (int i = 0; i < 10; i++) {
+    CSVStat stats(output);
+    for (int i = 0; i < 10; i++)
         REQUIRE(stats.get_dtypes()[i][2] == 100);
-    }
 
+    // Clean-up
+    stats.close();
     REQUIRE(remove(output) == 0);
 }
 
@@ -52,13 +49,12 @@ TEST_CASE("Test Line Skipping", "[csv_skiplines]") {
     reformat("./tests/data/fake_data/ints_skipline.csv", output, 1);
 
     // 100 ints (type 2) in all columns
-    CSVStat stats;
-    stats.calc_csv(output);
-
-    for (int i = 0; i < 10; i++) {
+    CSVStat stats(output);
+    for (int i = 0; i < 10; i++)
         REQUIRE(stats.get_dtypes()[i][2] == 100);
-    }
-
+    
+    // Clean-up
+    stats.close();
     REQUIRE(remove(output) == 0);
 }
 
@@ -67,12 +63,13 @@ TEST_CASE("Converting Tab Delimited File", "[tsv_clean]") {
     reformat("./tests/data/real_data/2016_Gaz_place_national.txt", output);
 
     // Calculate some statistics on the cleaned CSV to verify it's good
-    CSVStat stats(',', '"', 0);
-    stats.calc_csv(output);
-
     // 10 = INTPTLAT; 11 = INTPTLONG
+    CSVStat stats(output);
     REQUIRE(ceil(stats.get_mean()[10]) == 39);
     REQUIRE(ceil(stats.get_mean()[10]) == 39);
+
+    // Clean-up
+    stats.close();
     REQUIRE(remove(output) == 0);
 }
 
@@ -83,5 +80,6 @@ TEST_CASE("CSV Merge", "[csv_merge]") {
         "./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2016_c20170816.csv",
         "./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2017_c20170816.csv" });
 
+    // Clean-up
     REQUIRE(remove("./tests/temp/StormEvents.csv") == 0);
 }

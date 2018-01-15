@@ -70,10 +70,10 @@ namespace csv {
 
     void reformat(std::string infile, std::string outfile, int skiplines) {
         /** Reformat a CSV file
-        *  @param[in]  infile    Path to existing CSV file
-        *  @param[out] outfile   Path to file to write to
-        *  @param[out] skiplines Number of lines past header to skip
-        */
+         *  @param[in]  infile    Path to existing CSV file
+         *  @param[out] outfile   Path to file to write to
+         *  @param[out] skiplines Number of lines past header to skip
+         */
 
         CSVReader reader(infile);
         CSVWriter writer(outfile);
@@ -91,9 +91,10 @@ namespace csv {
 
     void merge(std::string outfile, std::vector<std::string> in) {
         /** Merge several CSV files together
-        *  @param[out] outfile Path to file to write to
-        *  @param[in]  in      Vector of paths to input files
-        */
+         *  @param[out] outfile Path to file to write to
+         *  @param[in]  in      Vector of paths to input files
+         */
+
         std::set<string> col_names = {};
         vector<string> first_col_names;
         vector<string> temp_col_names;

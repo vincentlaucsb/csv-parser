@@ -43,13 +43,15 @@ namespace csv {
          *  Returns True if guess was a good one and second guess isn't needed
          */
 
+        CSVFormat format = DEFAULT_CSV;
         char current_delim;
         int max_rows = 0;
         size_t max_cols = 0;
 
         for (size_t i = 0; i < delims.size(); i++) {
-            CSVReader guesser(delims[i]);
-            guesser.read_csv(filename, 100);
+            format.delim = delims[i];
+
+            CSVReader guesser(this->filename, {}, format, false);
             if ((guesser.row_num >= max_rows) &&
                 (guesser.get_col_names().size() > max_cols)) {
                 max_rows = guesser.row_num;
@@ -71,12 +73,14 @@ namespace csv {
          * the mode row length.
          */
 
+        CSVFormat format = DEFAULT_CSV;
         char current_delim;
         size_t max_rlen = 0;
         size_t header = 0;
 
         for (auto it = delims.begin(); it != delims.end(); ++it) {
-            Guesser guess(*it);
+            format.delim = *it;
+            Guesser guess(format);
             guess.read_csv(filename, 100);
 
             // Most common row length
@@ -95,12 +99,43 @@ namespace csv {
         this->header_row = header;
     }
     
+    CSVReader::CSVReader(const CSVReader& other) {
+        /** Copy constructor - only meant to be used by parse() for reading
+         *  in-memory strings
+         *
+         *  Copies CSV format information and parsed records
+         */
+
+        delimiter = other.delimiter;
+        quote_char = other.quote_char;
+        header_row = other.header_row;
+        subset = other.subset;
+        col_names = other.col_names;
+        subset_col_names = other.subset_col_names;
+        records = other.records;
+    }
+
+    CSVReader parse(const std::string in, CSVFormat format, 
+        std::vector<std::string> col_names) {
+        /** Parse an in-memory CSV string */
+        if (!col_names.empty()) // Use provided column names
+            format.header = -1;
+
+        CSVReader parser(format);
+        if (!col_names.empty())
+            parser.set_col_names(col_names);
+
+        parser.feed(in);
+        parser.end_feed();
+        return parser;
+    }
+
     std::vector<std::string> get_col_names(const std::string filename, CSVFormat format) {
         /** Return a CSV's column names
          *  @param[in] filename  Path to CSV file
          *  @param[in] format    Format of the CSV file
          */
-        CSVReader reader(filename, format);
+        CSVReader reader(filename, {}, format);
         return reader.get_col_names();
     }
 
@@ -140,7 +175,17 @@ namespace csv {
         return info;
     }
 
-    CSVReader::CSVReader(std::string filename, CSVFormat format, std::vector<int> _subset) {
+    CSVReader::CSVReader(CSVFormat format, std::vector<int> _subset) :
+        delimiter(format.delim), quote_char(format.quote_char),
+        header_row(format.header), subset(_subset) {
+        if (!format.col_names.empty()) {
+            this->header_row = -1;
+            this->set_col_names(format.col_names);
+        }
+    };
+
+    CSVReader::CSVReader(std::string filename, std::vector<int> _subset,
+        CSVFormat format, bool read_all) {
         /** Create a CSVReader over a file. This constructor
          *  first reads the first 100 rows of a CSV file. After that, you can
          *  lazily iterate over a file by repeatedly calling any one of the 
@@ -149,6 +194,7 @@ namespace csv {
          *  @param[in] filename  Path to CSV file
          *  @param[in] format    Format of the CSV file
          *  @param[in] subset    Indices of columns to keep (default: keep all)
+         *  @param[in] read_all  Read entire CSV into memory (default: False)
          */
 
         if (format.delim == '\0')
@@ -160,9 +206,10 @@ namespace csv {
         subset = _subset;
 
         // Begin reading CSV
-        read_csv(filename, 100, false);
-        read_start = true;
-        current_row = records.begin();
+        if (read_all)
+            read_csv(filename, -1);
+        else
+            read_csv(filename, 100, false);
     }
 
     CSVReader::~CSVReader() {
@@ -170,12 +217,13 @@ namespace csv {
         this->close();
     }
 
-    CSVFormat CSVReader::get_format() {
+    const CSVFormat CSVReader::get_format() {
         /** Return the format of the original raw CSV */
         return {
             this->delimiter,
             this->quote_char,
-            this->header_row
+            this->header_row,
+            this->col_names
         };
     }
 
@@ -191,22 +239,19 @@ namespace csv {
          */
         
         this->col_names = col_names;
-        
         if (this->subset.size() > 0) {
             this->subset_flag = true;
-            for (size_t i = 0; i < this->subset.size(); i++) {
+            for (size_t i = 0; i < this->subset.size(); i++)
                 subset_col_names.push_back(col_names[this->subset[i]]);
-            }
         } else {
             // "Subset" is every column
-            for (size_t i = 0; i < this->col_names.size(); i++) {
+            for (size_t i = 0; i < this->col_names.size(); i++)
                 this->subset.push_back(i);
-            }
             subset_col_names = col_names;
         }
     }
 
-    std::vector<std::string> CSVReader::get_col_names() {
+    const std::vector<std::string> CSVReader::get_col_names() {
         return this->subset_col_names;
     }
 
@@ -367,8 +412,6 @@ namespace csv {
 
         if (!this->infile) {
             this->infile = std::fopen(filename.c_str(), "r");
-            this->infile_name = filename;
-
             if (!this->infile)
                 throw std::runtime_error("Cannot open file " + filename);
         }
@@ -411,8 +454,7 @@ namespace csv {
     }
 
     void CSVReader::close() {
-        if (this->infile && std::feof(this->infile)) {
-            this->eof = true;
+        if (this->infile) {
             std::fclose(this->infile);
             this->infile = nullptr;
         }
@@ -516,21 +558,15 @@ namespace csv {
          *  @param[out] row A vector of strings where the read row will be stored
          */
         while (true) {
-            if (!read_start) {
-                this->read_start = true;
-                this->current_row = this->records.begin();
-            }
-
             if (this->current_row == this->records.end()) {
                 this->clear();
 
-                if (!this->eof && this->infile) {
+                if (!this->eof()) {
                     this->read_csv("", ITERATION_CHUNK_SIZE, false);
                     this->current_row = this->records.begin();
                 }
-                else {
+                else
                     break;
-                }
             }
 
             row.swap(*(this->current_row));
@@ -552,21 +588,15 @@ namespace csv {
          *  @param[out] row A vector of strings where the read row will be stored
          */
         while (true) {
-            if (!read_start) {
-                this->read_start = true;
-                this->current_row = this->records.begin();
-            }
-
             if (this->current_row == this->records.end()) {
                 this->clear();
 
-                if (!this->eof && this->infile) {
+                if (!this->eof()) {
                     this->read_csv("", ITERATION_CHUNK_SIZE, false);
                     this->current_row = this->records.begin();
                 }
-                else {
+                else
                     break;
-                }
             }
 
             std::vector<std::string>& temp = *(this->current_row);

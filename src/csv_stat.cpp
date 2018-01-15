@@ -9,6 +9,23 @@ namespace csv {
       * Calculates statistics from CSV files
       */
 
+    CSVStat::CSVStat(std::string filename, std::vector<int> subset,
+        StatsOptions options, CSVFormat format) : CSVReader(filename, subset, format) {
+        /** Lazily calculate statistics for a potentially very big file. */
+        while (!this->eof()) {
+            this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
+            this->calc(options);
+        }
+
+        if (!this->records.empty())
+            this->calc(options);
+    }
+
+    void CSVStat::end_feed() {
+        CSVReader::end_feed();
+        this->calc();
+    }
+
     std::vector<long double> CSVStat::get_mean() {
         /** Return current means */
         std::vector<long double> ret;        
@@ -63,13 +80,8 @@ namespace csv {
         return ret;
     }
 
-    void CSVStat::calc(bool numeric, bool count, bool dtype) {
-        /** Go through all records and calculate specified statistics
-         *  @param   numeric Calculate all numeric related statistics
-         *  @param   count   Create frequency counter for field values
-         *  @param   dtype   Calculate data type statistics
-         */
-
+    void CSVStat::calc(StatsOptions options) {
+        /** Go through all records and calculate specified statistics */
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             dtypes.push_back({});
             counts.push_back({});
@@ -93,16 +105,6 @@ namespace csv {
         }
 
         this->clear();
-    }
-
-    void CSVStat::calc_csv(std::string filename, bool numeric, bool count, bool dtype) {
-        /** Lazily calculate statistics for a potentially very big file. 
-         *  This method is a wrapper on top of CSVStat::calc();
-         */
-        while (!this->eof) {
-            this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
-            this->calc(numeric, count, dtype);
-        }
     }
 
     void CSVStat::calc_col(size_t i) {
