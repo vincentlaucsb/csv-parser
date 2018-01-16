@@ -120,16 +120,9 @@ namespace csv {
         records = other.records;
     }
 
-    CSVReader parse(const std::string in, CSVFormat format, 
-        std::vector<std::string> col_names) {
+    CSVReader parse(const std::string in, CSVFormat format) {
         /** Parse an in-memory CSV string */
-        if (!col_names.empty()) // Use provided column names
-            format.header = -1;
-
         CSVReader parser(format);
-        if (!col_names.empty())
-            parser.set_col_names(col_names);
-
         parser.feed(in);
         parser.end_feed();
         return parser;
@@ -378,11 +371,6 @@ namespace csv {
         record.clear();
         record.push_back(std::string());
         this->row_num++;
-    }
-
-    bool CSVReader::empty() {
-        /** Indicates whether or not the queue still contains CSV rows */
-        return this->records.empty();
     }
 
     void CSVReader::clear() {
@@ -659,9 +647,8 @@ namespace csv {
             else
                 return 1;
         }
-        else {
-            return 2;
-        }
+        else
+            return 0;
     }
 
     int CSVField::is_float() {
@@ -676,9 +663,8 @@ namespace csv {
             else
                 return 1;
         }
-        else {
-            return 2;
-        }
+        else
+            return 0;
     }
 
     bool CSVField::is_string() {

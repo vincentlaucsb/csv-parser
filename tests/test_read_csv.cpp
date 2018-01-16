@@ -181,10 +181,10 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
 
 TEST_CASE( "Test JSON Output", "[csv_to_json]") {
     const char * output = "./tests/temp/test.ndjson";
-    string csv_string("I,Like,Turtles\r\n");
-    
-    // Feed Strings
-    CSVReader reader = parse(csv_string, DEFAULT_CSV, { "A", "B", "C" });
+
+    CSVFormat format = DEFAULT_CSV;
+    format.col_names = { "A", "B", "C" };
+    CSVReader reader = parse("I,Like,Turtles\r\n", format);
     reader.to_json(output);
     
     // Expected Results
@@ -245,26 +245,33 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
 }
 
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
+    CSVFormat format = DEFAULT_CSV;
+    format.col_names = { "A", "B" };
+
     string csv_string = (
-        "A,B,C\r\n" // Header row
-        "123,\"234\"\"345\",456\r\n"
-        "123,\"234\"345\",456\r\n");
+        "3.14,9999\r\n"
+        "60,70\r\n"
+        ",\r\n");
 
-    CSVReader reader;
-    vector<string> row;
-    reader.feed(csv_string);
-    reader.end_feed();
-
-    // Expected Results: Double " is an escape for a single "
-    vector<string> correct_row = { "123", "234\"345", "456" };
+    CSVReader reader = parse(csv_string, format);
+    vector<CSVField> row;
 
     // First Row
     reader.read_row(row);
-    REQUIRE(row == correct_row);
+    REQUIRE(row[0].is_float());
+    REQUIRE(row[0].get_string().substr(0, 4) == "3.14");
 
     // Second Row
     reader.read_row(row);
-    REQUIRE(row == correct_row);
+    REQUIRE(row[0].is_int());
+    REQUIRE(row[1].is_int());
+    REQUIRE(row[0].get_string() == "60");
+    REQUIRE(row[1].get_string() == "70");
+
+    // Third Row
+    reader.read_row(row);
+    REQUIRE(row[0].is_null());
+    REQUIRE(row[1].is_null());
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {

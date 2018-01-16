@@ -212,7 +212,6 @@ namespace csv {
             void to_json(std::string filename, bool append = false);
             std::vector<std::string> to_json();
             void clear();
-            bool empty();
             //void sample(int n);
             ///@}
 
@@ -226,8 +225,7 @@ namespace csv {
             void close();               /**< Close the open file handler */
             ///@}
 
-            friend CSVReader parse(const std::string, CSVFormat format,
-                std::vector<std::string>);
+            friend CSVReader parse(const std::string, CSVFormat format);
 
         protected:
             inline std::string csv_to_json(std::vector<std::string>&);
@@ -385,10 +383,7 @@ namespace csv {
      */
     ///@{
     std::string csv_escape(const std::string&, const bool quote_minimal = true);
-
-    CSVReader parse(const std::string in, CSVFormat format = DEFAULT_CSV,
-        std::vector<std::string> col_names = {});
-
+    CSVReader parse(const std::string in, CSVFormat format = DEFAULT_CSV);
     CSVFileInfo get_file_info(const std::string filename);
     CSVFormat guess_format(const std::string filename);
 
