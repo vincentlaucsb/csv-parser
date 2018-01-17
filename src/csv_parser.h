@@ -73,6 +73,7 @@ namespace csv {
         ///@{
         bool is_null();
         bool is_string();
+        bool is_number();
         int is_int();
         int is_float();
         DataType dtype; /**< Store this field's data type enumeration as given by csv::DataType */

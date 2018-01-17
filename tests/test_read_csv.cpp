@@ -258,13 +258,13 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
 
     // First Row
     reader.read_row(row);
-    REQUIRE(row[0].is_float());
+    REQUIRE((row[0].is_float() && row[0].is_number()));
     REQUIRE(row[0].get_string().substr(0, 4) == "3.14");
 
     // Second Row
     reader.read_row(row);
-    REQUIRE(row[0].is_int());
-    REQUIRE(row[1].is_int());
+    REQUIRE((row[0].is_int() && row[0].is_number()));
+    REQUIRE((row[1].is_int() && row[1].is_number()));
     REQUIRE(row[0].get_string() == "60");
     REQUIRE(row[1].get_string() == "70");
 

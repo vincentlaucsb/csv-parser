@@ -63,7 +63,8 @@ $(function() {
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">csv_reader.cpp File Reference</div>  </div>
 </div><!--header-->
@@ -81,20 +82,22 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a3708239bc4d6baae52dfa9ad377fc073"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv_1_1helpers.html#a3708239bc4d6baae52dfa9ad377fc073">csv::helpers::json_escape</a> (const std::string &amp;)</td></tr>
+<tr class="separator:a3708239bc4d6baae52dfa9ad377fc073"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Utility Functions</div></td></tr>
 <tr><td colspan="2"><div class="groupText"><p>Functions for getting quick information from CSV files without writing a lot of code </p>
 </div></td></tr>
-<tr class="memitem:a837f1ae97de6b48cda7cdc39f8316d98"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a837f1ae97de6b48cda7cdc39f8316d98">csv::guess_delim</a> (std::string filename)</td></tr>
-<tr class="separator:a837f1ae97de6b48cda7cdc39f8316d98"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afffa5ea52af9d626cb1b0ade111ba1be"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#afffa5ea52af9d626cb1b0ade111ba1be">csv::get_col_names</a> (std::string filename, CSVFormat format=GUESS_CSV)</td></tr>
-<tr class="separator:afffa5ea52af9d626cb1b0ade111ba1be"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5c9baf3fe1e0aa19ff348070e6ff20c0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a5c9baf3fe1e0aa19ff348070e6ff20c0">csv::get_col_pos</a> (std::string filename, std::string col_name, CSVFormat format=GUESS_CSV)</td></tr>
-<tr class="separator:a5c9baf3fe1e0aa19ff348070e6ff20c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a98331a859686ffccb26cbc8331b54a81"><td class="memItemLeft" align="right" valign="top">CSVFileInfo&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a98331a859686ffccb26cbc8331b54a81">csv::get_file_info</a> (std::string filename)</td></tr>
-<tr class="separator:a98331a859686ffccb26cbc8331b54a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr><td colspan="2"><div class="groupHeader">JSON Support</div></td></tr>
-<tr class="memitem:a4b4aa009ec3bbccf1549202725b86ff7"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv_1_1helpers.html#a4b4aa009ec3bbccf1549202725b86ff7">csv::helpers::json_escape</a> (std::string)</td></tr>
-<tr class="separator:a4b4aa009ec3bbccf1549202725b86ff7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae527939691c50d083f3841d86e6ff181"><td class="memItemLeft" align="right" valign="top"><a id="ae527939691c50d083f3841d86e6ff181"></a>
+CSVFormat&#160;</td><td class="memItemRight" valign="bottom"><b>csv::guess_format</b> (const std::string filename)</td></tr>
+<tr class="separator:ae527939691c50d083f3841d86e6ff181"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac34ba66f30b9390200266d00c4bca6dd"><td class="memItemLeft" align="right" valign="top">CSVReader&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ac34ba66f30b9390200266d00c4bca6dd">csv::parse</a> (const std::string in, CSVFormat format=DEFAULT_CSV)</td></tr>
+<tr class="separator:ac34ba66f30b9390200266d00c4bca6dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab228d4dae996f843fafab524659eca30"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ab228d4dae996f843fafab524659eca30">csv::get_col_names</a> (const std::string filename, const CSVFormat format=GUESS_CSV)</td></tr>
+<tr class="separator:ab228d4dae996f843fafab524659eca30"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4821f3b169d8426223015c07dc09ff46"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a4821f3b169d8426223015c07dc09ff46">csv::get_col_pos</a> (const std::string filename, const std::string col_name, const CSVFormat format=GUESS_CSV)</td></tr>
+<tr class="separator:a4821f3b169d8426223015c07dc09ff46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afea85c2171ef1a17f877c4b0fc0cb86f"><td class="memItemLeft" align="right" valign="top">CSVFileInfo&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#afea85c2171ef1a17f877c4b0fc0cb86f">csv::get_file_info</a> (const std::string filename)</td></tr>
+<tr class="separator:afea85c2171ef1a17f877c4b0fc0cb86f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines all functionality needed for basic CSV parsing </p>

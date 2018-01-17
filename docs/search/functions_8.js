@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['json_5fescape',['json_escape',['../namespacecsv_1_1helpers.html#a4b4aa009ec3bbccf1549202725b86ff7',1,'csv::helpers']]]
+  ['merge',['merge',['../namespacecsv.html#ade4192a3f4ad4f3f8a51c3707db7b1ce',1,'csv']]]
 ];

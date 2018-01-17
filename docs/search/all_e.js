@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['set_5fcol_5fnames',['set_col_names',['../classcsv_1_1CSVReader.html#aa1a5092137a71af1a9e2a61e3f9e051d',1,'csv::CSVReader']]],
-  ['subset',['subset',['../classcsv_1_1CSVReader.html#aef7be0cbb3ef7abe8ac57efd4955899e',1,'csv::CSVReader']]],
-  ['subset_5fflag',['subset_flag',['../classcsv_1_1CSVReader.html#a5f73769dd5372238d9eb40b1820c0c7c',1,'csv::CSVReader']]]
+  ['to_5fjson',['to_json',['../classcsv_1_1CSVReader.html#a717c3b0f882eda0429e9eab2eeaa45e0',1,'csv::CSVReader::to_json(std::string filename, bool append=false)'],['../classcsv_1_1CSVReader.html#a2294ba92fa1d24e02a0584bb09a1b2da',1,'csv::CSVReader::to_json()']]]
 ];

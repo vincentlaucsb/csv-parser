@@ -61,7 +61,8 @@ $(function() {
   <div class="summary">
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#enum-members">Enumerations</a>  </div>
+<a href="#enum-members">Enumerations</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
 <div class="title">csv Namespace Reference</div>  </div>
 </div><!--header-->
@@ -81,11 +82,15 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVGuesser.html">CSVGuesser</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html">CSVReader</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVStat.html">CSVStat</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVWriter.html">CSVWriter</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv_1_1StatsOptions.html">StatsOptions</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
@@ -99,19 +104,6 @@ Enumerations</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr><td colspan="2"><div class="groupHeader">Utility Functions</div></td></tr>
-<tr><td colspan="2"><div class="groupText"><p>Functions for getting quick information from CSV files without writing a lot of code </p>
-</div></td></tr>
-<tr class="memitem:af35ebe44c2b8605c9152e1b857c4fe0d"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#af35ebe44c2b8605c9152e1b857c4fe0d">csv_escape</a> (std::string &amp;, bool quote_minimal=true)</td></tr>
-<tr class="separator:af35ebe44c2b8605c9152e1b857c4fe0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a837f1ae97de6b48cda7cdc39f8316d98"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a837f1ae97de6b48cda7cdc39f8316d98">guess_delim</a> (std::string filename)</td></tr>
-<tr class="separator:a837f1ae97de6b48cda7cdc39f8316d98"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afffa5ea52af9d626cb1b0ade111ba1be"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#afffa5ea52af9d626cb1b0ade111ba1be">get_col_names</a> (std::string filename, <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a>)</td></tr>
-<tr class="separator:afffa5ea52af9d626cb1b0ade111ba1be"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5c9baf3fe1e0aa19ff348070e6ff20c0"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a5c9baf3fe1e0aa19ff348070e6ff20c0">get_col_pos</a> (std::string filename, std::string col_name, <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a>)</td></tr>
-<tr class="separator:a5c9baf3fe1e0aa19ff348070e6ff20c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a98331a859686ffccb26cbc8331b54a81"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structcsv_1_1CSVFileInfo.html">CSVFileInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a98331a859686ffccb26cbc8331b54a81">get_file_info</a> (std::string filename)</td></tr>
-<tr class="separator:a98331a859686ffccb26cbc8331b54a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Editing Functions</div></td></tr>
 <tr><td colspan="2"><div class="groupText"><p>Functions for editing existing CSV files </p>
 </div></td></tr>
@@ -119,14 +111,35 @@ Functions</h2></td></tr>
 <tr class="separator:a5896616940428e50bbf1e88676fa8747"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ade4192a3f4ad4f3f8a51c3707db7b1ce"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ade4192a3f4ad4f3f8a51c3707db7b1ce">merge</a> (std::string outfile, std::vector&lt; std::string &gt; in)</td></tr>
 <tr class="separator:ade4192a3f4ad4f3f8a51c3707db7b1ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Utility Functions</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>Functions for getting quick information from CSV files without writing a lot of code </p>
+</div></td></tr>
+<tr class="memitem:a89ea9f08e2780f0b36caa54f3c79a2fa"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a89ea9f08e2780f0b36caa54f3c79a2fa">csv_escape</a> (const std::string &amp;, const bool quote_minimal=true)</td></tr>
+<tr class="separator:a89ea9f08e2780f0b36caa54f3c79a2fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac34ba66f30b9390200266d00c4bca6dd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classcsv_1_1CSVReader.html">CSVReader</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ac34ba66f30b9390200266d00c4bca6dd">parse</a> (const std::string in, <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#ae5efeba17998ae0b741f10201c77a9cb">DEFAULT_CSV</a>)</td></tr>
+<tr class="separator:ac34ba66f30b9390200266d00c4bca6dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afea85c2171ef1a17f877c4b0fc0cb86f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structcsv_1_1CSVFileInfo.html">CSVFileInfo</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#afea85c2171ef1a17f877c4b0fc0cb86f">get_file_info</a> (const std::string filename)</td></tr>
+<tr class="separator:afea85c2171ef1a17f877c4b0fc0cb86f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae527939691c50d083f3841d86e6ff181"><td class="memItemLeft" align="right" valign="top"><a id="ae527939691c50d083f3841d86e6ff181"></a>
+<a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><b>guess_format</b> (const std::string filename)</td></tr>
+<tr class="separator:ae527939691c50d083f3841d86e6ff181"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab228d4dae996f843fafab524659eca30"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ab228d4dae996f843fafab524659eca30">get_col_names</a> (const std::string filename, const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a>)</td></tr>
+<tr class="separator:ab228d4dae996f843fafab524659eca30"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4821f3b169d8426223015c07dc09ff46"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a4821f3b169d8426223015c07dc09ff46">get_col_pos</a> (const std::string filename, const std::string col_name, const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a>)</td></tr>
+<tr class="separator:a4821f3b169d8426223015c07dc09ff46"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
 Variables</h2></td></tr>
+<tr class="memitem:a2cd22fc4bd789a0ff81e8c8c8079c69b"><td class="memItemLeft" align="right" valign="top"><a id="a2cd22fc4bd789a0ff81e8c8c8079c69b"></a>
+const <a class="el" href="structcsv_1_1StatsOptions.html">StatsOptions</a>&#160;</td><td class="memItemRight" valign="bottom"><b>ALL_STATS</b> = { true, true, true }</td></tr>
+<tr class="separator:a2cd22fc4bd789a0ff81e8c8c8079c69b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Global Constants</div></td></tr>
 <tr class="memitem:a82452d316c535c04ad187c1863b1e228"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">ITERATION_CHUNK_SIZE</a> = 100000</td></tr>
 <tr class="separator:a82452d316c535c04ad187c1863b1e228"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a934424955c1b950cd80a5f0a1e7faaf1"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a> = { '\0', '&quot;', 0 }</td></tr>
+<tr class="memitem:a934424955c1b950cd80a5f0a1e7faaf1"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a> = { '\0', '&quot;', 0, {} }</td></tr>
 <tr class="separator:a934424955c1b950cd80a5f0a1e7faaf1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae5efeba17998ae0b741f10201c77a9cb"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ae5efeba17998ae0b741f10201c77a9cb">DEFAULT_CSV</a> = { ',', '&quot;', 0, {} }</td></tr>
+<tr class="separator:ae5efeba17998ae0b741f10201c77a9cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"></div><h2 class="groupheader">Enumeration Type Documentation</h2>
@@ -152,8 +165,8 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Function Documentation</h2>
-<a id="af35ebe44c2b8605c9152e1b857c4fe0d"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#af35ebe44c2b8605c9152e1b857c4fe0d">&#9670;&nbsp;</a></span>csv_escape()</h2>
+<a id="a89ea9f08e2780f0b36caa54f3c79a2fa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a89ea9f08e2780f0b36caa54f3c79a2fa">&#9670;&nbsp;</a></span>csv_escape()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -161,13 +174,13 @@ Variables</h2></td></tr>
         <tr>
           <td class="memname">std::string csv::csv_escape </td>
           <td>(</td>
-          <td class="paramtype">std::string &amp;&#160;</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>in</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool&#160;</td>
+          <td class="paramtype">const bool&#160;</td>
           <td class="paramname"><em>quote_minimal</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
@@ -194,8 +207,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="afffa5ea52af9d626cb1b0ade111ba1be"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afffa5ea52af9d626cb1b0ade111ba1be">&#9670;&nbsp;</a></span>get_col_names()</h2>
+<a id="ab228d4dae996f843fafab524659eca30"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab228d4dae996f843fafab524659eca30">&#9670;&nbsp;</a></span>get_col_names()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -203,13 +216,13 @@ Variables</h2></td></tr>
         <tr>
           <td class="memname">std::vector&lt; std::string &gt; csv::get_col_names </td>
           <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
+          <td class="paramtype">const std::string&#160;</td>
           <td class="paramname"><em>filename</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
+          <td class="paramtype">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
           <td class="paramname"><em>format</em> = <code><a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a></code>&#160;</td>
         </tr>
         <tr>
@@ -236,8 +249,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="a5c9baf3fe1e0aa19ff348070e6ff20c0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5c9baf3fe1e0aa19ff348070e6ff20c0">&#9670;&nbsp;</a></span>get_col_pos()</h2>
+<a id="a4821f3b169d8426223015c07dc09ff46"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4821f3b169d8426223015c07dc09ff46">&#9670;&nbsp;</a></span>get_col_pos()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -245,19 +258,19 @@ Variables</h2></td></tr>
         <tr>
           <td class="memname">int csv::get_col_pos </td>
           <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
+          <td class="paramtype">const std::string&#160;</td>
           <td class="paramname"><em>filename</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">std::string&#160;</td>
+          <td class="paramtype">const std::string&#160;</td>
           <td class="paramname"><em>col_name</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
+          <td class="paramtype">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
           <td class="paramname"><em>format</em> = <code><a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a></code>&#160;</td>
         </tr>
         <tr>
@@ -286,8 +299,8 @@ Variables</h2></td></tr>
 
 </div>
 </div>
-<a id="a98331a859686ffccb26cbc8331b54a81"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a98331a859686ffccb26cbc8331b54a81">&#9670;&nbsp;</a></span>get_file_info()</h2>
+<a id="afea85c2171ef1a17f877c4b0fc0cb86f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afea85c2171ef1a17f877c4b0fc0cb86f">&#9670;&nbsp;</a></span>get_file_info()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -295,7 +308,7 @@ Variables</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="structcsv_1_1CSVFileInfo.html">CSVFileInfo</a> csv::get_file_info </td>
           <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
+          <td class="paramtype">const std::string&#160;</td>
           <td class="paramname"><em>filename</em></td><td>)</td>
           <td></td>
         </tr>
@@ -303,34 +316,6 @@ Variables</h2></td></tr>
 </div><div class="memdoc">
 <p>Get basic information about a CSV file</p>
 <p>Get basic information about a CSV file </p>
-
-</div>
-</div>
-<a id="a837f1ae97de6b48cda7cdc39f8316d98"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a837f1ae97de6b48cda7cdc39f8316d98">&#9670;&nbsp;</a></span>guess_delim()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">char csv::guess_delim </td>
-          <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
-          <td class="paramname"><em>filename</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Guess the delimiter of a delimiter separated values file by scanning the first 100 lines</p>
-<ul>
-<li>"Winner" is based on which delimiter has the most number of correctly parsed rows + largest number of columns</li>
-<li><b>Note:</b> Assumes that whatever the dialect, all records are newline separated</li>
-</ul>
-<p>Guess the delimiter of a delimiter separated values file by scanning the first 100 lines</p>
-<ul>
-<li>"Winner" is based on which delimiter has the most number of correctly parsed rows + largest number of columns</li>
-<li><b>Note:</b> Assumes that whatever the dialect, all records are newline separated</li>
-</ul>
 
 </div>
 </div>
@@ -373,6 +358,36 @@ Variables</h2></td></tr>
   </table>
   </dd>
 </dl>
+
+</div>
+</div>
+<a id="ac34ba66f30b9390200266d00c4bca6dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac34ba66f30b9390200266d00c4bca6dd">&#9670;&nbsp;</a></span>parse()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classcsv_1_1CSVReader.html">CSVReader</a> csv::parse </td>
+          <td>(</td>
+          <td class="paramtype">const std::string&#160;</td>
+          <td class="paramname"><em>in</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td>
+          <td class="paramname"><em>format</em> = <code><a class="el" href="namespacecsv.html#ae5efeba17998ae0b741f10201c77a9cb">DEFAULT_CSV</a></code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Parse an in-memory CSV string</p>
+<p>Parse an in-memory CSV string </p>
 
 </div>
 </div>
@@ -427,6 +442,21 @@ Variables</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>
+<a id="ae5efeba17998ae0b741f10201c77a9cb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae5efeba17998ae0b741f10201c77a9cb">&#9670;&nbsp;</a></span>DEFAULT_CSV</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> csv::DEFAULT_CSV = { ',', '&quot;', 0, {} }</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Default CSV format </p>
+
+</div>
+</div>
 <a id="a934424955c1b950cd80a5f0a1e7faaf1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a934424955c1b950cd80a5f0a1e7faaf1">&#9670;&nbsp;</a></span>GUESS_CSV</h2>
 
@@ -434,7 +464,7 @@ Variables</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> csv::GUESS_CSV = { '\0', '&quot;', 0 }</td>
+          <td class="memname">const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> csv::GUESS_CSV = { '\0', '&quot;', 0, {} }</td>
         </tr>
       </table>
 </div><div class="memdoc">

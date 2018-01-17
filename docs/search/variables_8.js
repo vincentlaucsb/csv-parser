@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['quote_5fchar',['quote_char',['../classcsv_1_1CSVReader.html#ae928205d7834e243ff41aaf74bd70735',1,'csv::CSVReader']]],
-  ['quote_5fescape',['quote_escape',['../classcsv_1_1CSVReader.html#a6523948347f2b4a4622620e7a0a21068',1,'csv::CSVReader']]]
+  ['subset',['subset',['../classcsv_1_1CSVReader.html#aef7be0cbb3ef7abe8ac57efd4955899e',1,'csv::CSVReader']]],
+  ['subset_5fflag',['subset_flag',['../classcsv_1_1CSVReader.html#a5f73769dd5372238d9eb40b1820c0c7c',1,'csv::CSVReader']]]
 ];

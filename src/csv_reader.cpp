@@ -681,6 +681,11 @@ namespace csv {
         return (this->dtype == 0);
     }
 
+    bool CSVField::is_number() {
+        /** Returns True if data type is an int or float */
+        return (this->dtype >= 2);
+    }
+
     std::string CSVField::get_string() {
         /** Retrieve a string value. If the value is numeric, it will be
          *  type-casted using std::to_string()

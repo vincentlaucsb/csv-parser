@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['header_5frow',['header_row',['../classcsv_1_1CSVReader.html#aee0d4c8865e2abaae5bcfae76702eb8d',1,'csv::CSVReader']]]
+  ['quote_5fchar',['quote_char',['../classcsv_1_1CSVReader.html#ae928205d7834e243ff41aaf74bd70735',1,'csv::CSVReader']]],
+  ['quote_5fescape',['quote_escape',['../classcsv_1_1CSVReader.html#a6523948347f2b4a4622620e7a0a21068',1,'csv::CSVReader']]]
 ];
