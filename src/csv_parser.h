@@ -31,11 +31,11 @@ namespace csv {
 
     /** Returned by get_file_info() */
     struct CSVFileInfo {
-        std::string filename;
-        std::vector<std::string> col_names;
-        char delim;
-        int n_rows;
-        int n_cols;
+        std::string filename;               /**< Filename */
+        std::vector<std::string> col_names; /**< CSV column names */
+        char delim;                         /**< Delimiting character */
+        int n_rows;                         /**< Number of rows in a file */
+        int n_cols;                         /**< Number of columns in a CSV */
     };
 
     /** Tells CSVStat which statistics to calculate 

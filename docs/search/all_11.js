@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['_7ecsvreader',['~CSVReader',['../classcsv_1_1CSVReader.html#a3a18f9f9a81386881f35bbd8712979b1',1,'csv::CSVReader']]]
+  ['yet_20another_2e_2e_2e_20csv_20parser',['Yet Another... CSV Parser',['../index.html',1,'']]]
 ];

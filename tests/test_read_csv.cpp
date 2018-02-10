@@ -129,7 +129,7 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
     CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv",
-        {}, DEFAULT_CSV, true);
+        {}, DEFAULT_CSV);
     vector<string> row;
     reader.read_row(row); // Populate row with first line
     
@@ -157,13 +157,14 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     REQUIRE( row == first_row );
     REQUIRE( reader.get_col_names() == col_names );
     
-    // Can confirm with MS Excel, etc...
+    // Skip to end
+    while (reader.read_row(row));
     REQUIRE( reader.row_num == 246498 );
 }
 
 TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
     CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv",
-        { 0, 1, 2, 3, 4 }, DEFAULT_CSV, true);
+        { 0, 1, 2, 3, 4 }, DEFAULT_CSV);
     
     // Expected Results
     vector<string> row;
@@ -176,6 +177,9 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
     reader.read_row(row);
     REQUIRE( row == first_row );
     REQUIRE( reader.get_col_names() == col_names);
+
+    // Skip to end
+    while (reader.read_row(row));
     REQUIRE( reader.row_num == 246498 );
 }
 

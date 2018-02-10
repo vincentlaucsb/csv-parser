@@ -83,8 +83,7 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a87e0da00a0ed58db4c77f543663a0d29"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:add357112b20ae4c7bad333c4540c6dee"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVGuesser.html#add357112b20ae4c7bad333c4540c6dee">first_guess</a> ()</td></tr>
 <tr class="separator:add357112b20ae4c7bad333c4540c6dee"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a479d9ab1fc18dc03efbf67bf70c07f1b"><td class="memItemLeft" align="right" valign="top"><a id="a479d9ab1fc18dc03efbf67bf70c07f1b"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>second_guess</b> ()</td></tr>
+<tr class="memitem:a479d9ab1fc18dc03efbf67bf70c07f1b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVGuesser.html#a479d9ab1fc18dc03efbf67bf70c07f1b">second_guess</a> ()</td></tr>
 <tr class="separator:a479d9ab1fc18dc03efbf67bf70c07f1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
@@ -140,6 +139,24 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>header_row</b> = 0</td
       </table>
 </div><div class="memdoc">
 <p>Guess the delimiter of a DSV by scanning the first 100 lines by First assuming that the header is on the first row If the first guess returns too few rows, then we move to the second guess method</p>
+
+</div>
+</div>
+<a id="a479d9ab1fc18dc03efbf67bf70c07f1b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a479d9ab1fc18dc03efbf67bf70c07f1b">&#9670;&nbsp;</a></span>second_guess()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void csv::CSVGuesser::second_guess </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>For each delimiter, find out which row length was most common. The delimiter with the longest mode row length wins. Then, the line number of the header row is the first row with the mode row length.</p>
 
 </div>
 </div>

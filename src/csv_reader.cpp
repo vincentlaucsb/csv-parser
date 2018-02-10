@@ -72,10 +72,10 @@ namespace csv {
     }
 
     void CSVGuesser::second_guess() {
-        /* For each delimiter, find out which row length was most common.
-         * The delimiter with the longest mode row length wins.
-         * Then, the line number of the header row is the first row with
-         * the mode row length.
+        /** For each delimiter, find out which row length was most common.
+         *  The delimiter with the longest mode row length wins.
+         *  Then, the line number of the header row is the first row with
+         *  the mode row length.
          */
 
         CSVFormat format = DEFAULT_CSV;
