@@ -168,8 +168,7 @@ namespace csv {
             CSVReader(
                 std::string filename,
                 std::vector<int> _subset = {},
-                CSVFormat format = GUESS_CSV,
-                bool read_all = false);
+                CSVFormat format = GUESS_CSV);
 
             CSVReader(
                 CSVFormat format = DEFAULT_CSV,

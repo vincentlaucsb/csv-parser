@@ -51,7 +51,7 @@ namespace csv {
 
         for (size_t i = 0; i < delims.size(); i++) {
             format.delim = delims[i];
-            CSVReader guesser(this->filename, {}, format, false);
+            CSVReader guesser(this->filename, {}, format);
            
             // WORKAROUND on Unix systems because certain newlines
             // get double counted
@@ -94,7 +94,15 @@ namespace csv {
                     const std::pair<size_t, size_t>& y) {
                 return x.second < y.second; });
 
-            if (max->first > max_rlen) {
+            // Idea: If CSV has leading comments, actual rows don't start
+            // until later and all actual rows get rejected because the CSV
+            // parser mistakenly uses the .size() of the comment rows to
+            // judge whether or not they are valid.
+            // 
+            // The first part of the if clause means we only change the header
+            // row if (number of rejected rows) > (number of actual rows)
+            if (max->second > guess.records.size() &&
+               (max->first > max_rlen)) {
                 max_rlen = max->first;
                 current_delim = guess.delimiter;
                 header = guess.row_when[max_rlen];
@@ -183,7 +191,7 @@ namespace csv {
     };
 
     CSVReader::CSVReader(std::string filename, std::vector<int> _subset,
-        CSVFormat format, bool read_all) {
+        CSVFormat format) {
         /** Create a CSVReader over a file. This constructor
          *  first reads the first 100 rows of a CSV file. After that, you can
          *  lazily iterate over a file by repeatedly calling any one of the 
@@ -192,7 +200,6 @@ namespace csv {
          *  @param[in] filename  Path to CSV file
          *  @param[in] format    Format of the CSV file
          *  @param[in] subset    Indices of columns to keep (default: keep all)
-         *  @param[in] read_all  Read entire CSV into memory (default: False)
          */
 
         if (format.delim == '\0')
@@ -204,10 +211,8 @@ namespace csv {
         subset = _subset;
 
         // Begin reading CSV
-        if (read_all)
-            read_csv(filename, -1);
-        else
-            read_csv(filename, 100, false);
+        read_csv(filename, 100, false);
+        current_row = records.begin();
     }
 
     CSVReader::~CSVReader() {
