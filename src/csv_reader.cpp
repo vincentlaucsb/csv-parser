@@ -23,7 +23,7 @@ namespace csv {
     }
 
     void CSVGuesser::guess_delim() {
-        /** Guess the delimiter of a DSV by scanning the first 100 lines by
+        /** Guess the delimiter of a CSV by scanning the first 100 lines by
          *  First assuming that the header is on the first row
          *  If the first guess returns too few rows, then we move to the second
          *  guess method
@@ -44,7 +44,7 @@ namespace csv {
          */
 
         CSVFormat format = DEFAULT_CSV;
-        char current_delim;
+        char current_delim{','};
         int max_rows = 0;
         int temp_rows = 0;
         size_t max_cols = 0;
@@ -79,7 +79,6 @@ namespace csv {
          */
 
         CSVFormat format = DEFAULT_CSV;
-        char current_delim;
         size_t max_rlen = 0;
         size_t header = 0;
 
@@ -104,7 +103,6 @@ namespace csv {
             if (max->second > guess.records.size() &&
                (max->first > max_rlen)) {
                 max_rlen = max->first;
-                current_delim = guess.delimiter;
                 header = guess.row_when[max_rlen];
             }
         }

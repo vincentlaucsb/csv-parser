@@ -43,7 +43,7 @@ namespace csv {
         /** Open a file for writing
          *  @param[out] outfile Path of the file to be written to
          */
-        this->outfile = std::ofstream(outfile, std::ios_base::binary);
+        this->outfile.open(outfile, std::ios_base::binary);
     }
 
     void CSVWriter::write_row(vector<string> record, bool quote_minimal) {
