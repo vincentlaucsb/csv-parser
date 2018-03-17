@@ -38,6 +38,11 @@ Release/
 *.out
 *.app
 
+# Test outputs
+*.gcda
+*.gcno
+*.gcov
+
 # =========================
 # Operating System Files
 # =========================
