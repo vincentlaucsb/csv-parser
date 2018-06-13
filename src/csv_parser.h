@@ -14,9 +14,13 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <memory>
 
 namespace csv {
     /** @file */
+
+    class CSVReader;
+    using CSVReaderPtr = std::unique_ptr<CSVReader>;
 
     /** Stores information about how to parse a CSV file
      *   - Can be used to initialize a csv::CSVReader() object
@@ -71,21 +75,21 @@ namespace csv {
     public:
         /** @name Type Information */
         ///@{
-        bool is_null();
-        bool is_string();
-        bool is_number();
-        int is_int();
-        int is_float();
+        bool is_null() const;
+        bool is_string() const;
+        bool is_number() const;
+        int is_int() const;
+        int is_float() const;
         DataType dtype; /**< Store this field's data type enumeration as given by csv::DataType */
         ///@}
 
         /** @name Value Retrieval */
         ///@{
-        std::string get_string();
-        long long int get_int();
-        long double get_float();
+        std::string get_string() const;
+        long long int get_int() const;
+        long double get_float() const;
         template <typename T>
-        inline T get_number() {
+        inline T get_number() const {
             /** Safely retrieve an integral or floating point value, throwing an error if
             *  the field is not an number or type-casting will cause an overflow.
             *
@@ -175,7 +179,10 @@ namespace csv {
                 std::vector<int>_subset = {});
             ///@}
 
-            CSVReader(const CSVReader& other);
+            CSVReader(const CSVReader&) = delete; // No copy constructor
+            CSVReader(CSVReader&&) = default;     // Move constructor
+            CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
+            CSVReader& operator=(CSVReader&& other) = default;
             ~CSVReader();
 
             /** @name Reading In-Memory Strings
@@ -225,25 +232,27 @@ namespace csv {
             void close();               /**< Close the open file handler */
             ///@}
 
-            friend CSVReader parse(const std::string, CSVFormat format);
+            friend CSVReaderPtr parse(const std::string, CSVFormat format);
 
         protected:
             inline std::string csv_to_json(std::vector<std::string>&);
             void set_col_names(std::vector<std::string>);
             std::vector<std::string>              /**< Buffer for row being parsed */
                 record_buffer = { std::string() };
-            std::deque<std::vector<std::string>>::iterator current_row =
-                this->records.begin();            /** < Used in read_row() */
+            std::deque<std::vector<std::string>>::iterator current_row; /* < Used in read_row() */
+            bool current_row_set = false;                               /* Flag to reset iterator */
+            bool read_row_check();                                      /* Helper function for read_row */
 
             /** @name CSV Parsing Callbacks
              *  The heart of the CSV parser. 
              *  These functions are called by feed(std::string&).
              */
             ///@{
-            inline void process_possible_delim(const std::string::const_iterator&, std::string&);
-            inline void process_quote(std::string::const_iterator&, std::string&);
-            inline void process_newline(std::string::const_iterator&, std::string&);
-            inline void write_record(std::vector<std::string>&);
+            void process_possible_delim(const std::string::const_iterator&, std::string&);
+            void process_quote(std::string::const_iterator&,
+                std::string::const_iterator&, std::string&);
+            void process_newline(std::string::const_iterator&, std::string&);
+            void write_record(std::vector<std::string>&);
             virtual void bad_row_handler(std::vector<std::string>);
             ///@}
             
@@ -373,7 +382,7 @@ namespace csv {
      * @brief Helper functions for various parts of the main library
      */
     namespace helpers {
-        DataType data_type(const std::string&);
+        inline DataType data_type(const std::string&);
         std::string json_escape(const std::string&);
     }
 
@@ -383,7 +392,7 @@ namespace csv {
      */
     ///@{
     std::string csv_escape(const std::string&, const bool quote_minimal = true);
-    CSVReader parse(const std::string in, CSVFormat format = DEFAULT_CSV);
+    CSVReaderPtr parse(const std::string in, CSVFormat format = DEFAULT_CSV);
     CSVFileInfo get_file_info(const std::string filename);
     CSVFormat guess_format(const std::string filename);
 

@@ -71,11 +71,11 @@ TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
                          "1,2,3\r\n"
                          "1,2,3");
 
-    CSVReader reader = parse(csv_string);
+    CSVReaderPtr reader = parse(csv_string);
     vector<string> row;
     
     // Expected Results
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE( row == vector<string>({"123", "234,345", "456"}));
 }
 
@@ -85,9 +85,9 @@ TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
                          "1,2,3\r\n"
                          "1,2,3");
 
-    CSVReader reader = parse(csv_string, DEFAULT_CSV);
+    CSVReaderPtr reader = parse(csv_string, DEFAULT_CSV);
     vector<string> row;
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE( row == vector<string>({ "123", "234\n,345", "456" }) );
 }
 
@@ -96,9 +96,9 @@ TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
     string csv_string = ("A,B,C\r\n" // Header row
                          "123,\"\",456\r\n");
     
-    CSVReader reader = parse(csv_string, DEFAULT_CSV);
+    CSVReaderPtr reader = parse(csv_string, DEFAULT_CSV);
     vector<string> row;
-    reader.read_row(row);
+    reader->read_row(row);
     vector<string> correct_row = {"123", "", "456"};
     REQUIRE( row == correct_row );
 }
@@ -111,18 +111,18 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
         // Only a single quote --> Not valid but correct it
         "123,\"234\"345\",456\r\n");
     
-    CSVReader reader = parse(csv_string, DEFAULT_CSV);
+    CSVReaderPtr reader = parse(csv_string, DEFAULT_CSV);
     vector<string> row;
    
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = {"123", "234\"345", "456"};
 
     // First Row
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE( row == correct_row );
 
     // Second Row
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE( row == correct_row );
 }
 
@@ -188,8 +188,8 @@ TEST_CASE( "Test JSON Output", "[csv_to_json]") {
 
     CSVFormat format = DEFAULT_CSV;
     format.col_names = { "A", "B", "C" };
-    CSVReader reader = parse("I,Like,Turtles\r\n", format);
-    reader.to_json(output);
+    CSVReaderPtr reader = parse("I,Like,Turtles\r\n", format);
+    reader->to_json(output);
     
     // Expected Results
     std::ifstream test_file(output);
@@ -206,8 +206,8 @@ TEST_CASE( "Test JSON Output (Memory)", "[csv_to_json_mem]") {
         "A,B,C,D\r\n" // Header row
         "I,Like,Turtles,1\r\n"
         "I,Like,Turtles,2\r\n");
-    CSVReader reader = parse(csv_string);
-    vector<string> turtles = reader.to_json();
+    CSVReaderPtr reader = parse(csv_string);
+    vector<string> turtles = reader->to_json();
     
     // Expected Results
     REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\",\"D\":1}");
@@ -223,8 +223,8 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
         "I,\"Like\t\",Turtles,1\r\n"   // Tab escape test
         "I,\"Like/\",Turtles,1\r\n"    // Slash escape test
         );
-    CSVReader reader = parse(csv_string);
-    vector<string> turtles = reader.to_json();
+    CSVReaderPtr reader = parse(csv_string);
+    vector<string> turtles = reader->to_json();
     
     // Expected Results
     REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\\\"\",\"C\":\"Turtles\",\"D\":1}");
@@ -257,23 +257,23 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
         "60,70\r\n"
         ",\r\n");
 
-    CSVReader reader = parse(csv_string, format);
+    CSVReaderPtr reader = parse(csv_string, format);
     vector<CSVField> row;
 
     // First Row
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE((row[0].is_float() && row[0].is_number()));
     REQUIRE(row[0].get_string().substr(0, 4) == "3.14");
 
     // Second Row
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE((row[0].is_int() && row[0].is_number()));
     REQUIRE((row[1].is_int() && row[1].is_number()));
     REQUIRE(row[0].get_string() == "60");
     REQUIRE(row[1].get_string() == "70");
 
     // Third Row
-    reader.read_row(row);
+    reader->read_row(row);
     REQUIRE(row[0].is_null());
     REQUIRE(row[1].is_null());
 }

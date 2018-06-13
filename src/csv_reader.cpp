@@ -6,6 +6,102 @@ namespace csv {
      *  Defines all functionality needed for basic CSV parsing
      */
 
+    namespace helpers {
+        /** @file */
+
+        DataType data_type(const std::string &in) {
+            /** Distinguishes numeric from other text values. Used by various
+            *  type casting functions, like csv_parser::CSVReader::read_row()
+            *
+            *  #### Return
+            *   - 0:  If null (empty string)
+            *   - 1:  If string
+            *   - 2:  If int
+            *   - 3:  If float
+            *
+            *  #### Rules
+            *   - Leading and trailing whitespace ("padding") ignored
+            *   - A string of just whitespace is NULL
+            *
+            *  @param[in] in String value to be examined
+            */
+
+            // Empty string --> NULL
+            if (in.size() == 0)
+                return _null;
+
+            bool ws_allowed = true;
+            bool neg_allowed = true;
+            bool dot_allowed = true;
+            bool digit_allowed = true;
+            bool has_digit = false;
+            bool prob_float = false;
+
+            for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
+                switch (in[i]) {
+                case ' ':
+                    if (!ws_allowed) {
+                        if (isdigit(in[i - 1])) {
+                            digit_allowed = false;
+                            ws_allowed = true;
+                        }
+                        else {
+                            // Ex: '510 123 4567'
+                            return _string;
+                        }
+                    }
+                    break;
+                case '-':
+                    if (!neg_allowed) {
+                        // Ex: '510-123-4567'
+                        return _string;
+                    }
+                    else {
+                        neg_allowed = false;
+                    }
+                    break;
+                case '.':
+                    if (!dot_allowed) {
+                        return _string;
+                    }
+                    else {
+                        dot_allowed = false;
+                        prob_float = true;
+                    }
+                    break;
+                default:
+                    if (isdigit(in[i])) {
+                        if (!digit_allowed) {
+                            return _string;
+                        }
+                        else if (ws_allowed) {
+                            // Ex: '510 456'
+                            ws_allowed = false;
+                        }
+                        has_digit = true;
+                    }
+                    else {
+                        return _string;
+                    }
+                }
+            }
+
+            // No non-numeric/non-whitespace characters found
+            if (has_digit) {
+                if (prob_float) {
+                    return _float;
+                }
+                else {
+                    return _int;
+                }
+            }
+            else {
+                // Just whitespace
+                return _null;
+            }
+        }
+    }
+
     CSVFormat guess_format(const std::string filename) {
         CSVGuesser guesser(filename);
         guesser.guess_delim();
@@ -109,28 +205,12 @@ namespace csv {
 
         this->header_row = header;
     }
-    
-    CSVReader::CSVReader(const CSVReader& other) {
-        /** Copy constructor - only meant to be used by parse() for reading
-         *  in-memory strings
-         *
-         *  Copies CSV format information and parsed records
-         */
 
-        delimiter = other.delimiter;
-        quote_char = other.quote_char;
-        header_row = other.header_row;
-        subset = other.subset;
-        col_names = other.col_names;
-        subset_col_names = other.subset_col_names;
-        records = other.records;
-    }
-
-    CSVReader parse(const std::string in, CSVFormat format) {
+    CSVReaderPtr parse(const std::string in, CSVFormat format) {
         /** Parse an in-memory CSV string */
-        CSVReader parser(format);
-        parser.feed(in);
-        parser.end_feed();
+        CSVReaderPtr parser = std::make_unique<CSVReader>(format);
+        parser->feed(in);
+        parser->end_feed();
         return parser;
     }
 
@@ -210,7 +290,6 @@ namespace csv {
 
         // Begin reading CSV
         read_csv(filename, 100, false);
-        current_row = records.begin();
     }
 
     CSVReader::~CSVReader() {
@@ -262,11 +341,12 @@ namespace csv {
          *  **Note**: end_feed() should be called after the last string
          */
 
+        auto it_begin = in.begin();
         for (auto it = in.begin(), it_end = in.end(); it != it_end; ++it) {
             if (*it == this->delimiter) {
                 this->process_possible_delim(it, this->record_buffer.back());
             } else if (*it == this->quote_char) {
-                this->process_quote(it, this->record_buffer.back());
+                this->process_quote(it, it_begin, this->record_buffer.back());
             } else {
                 switch(*it) {
                     case '\r':
@@ -315,7 +395,9 @@ namespace csv {
         }
     }
 
-    void CSVReader::process_quote(std::string::const_iterator &in, std::string &out) {
+    void CSVReader::process_quote(std::string::const_iterator &in,
+        std::string::const_iterator& begin,
+        std::string &out) {
         /** Determine if the usage of a quote is valid or fix it */
         if (this->quote_escape) {
             if ((*(in + 1) == this->delimiter) || 
@@ -331,7 +413,8 @@ namespace csv {
             }
         } else {
              // Case: Previous character was delimiter
-            if (*(in - 1) == this->delimiter)
+             // Don't deref past beginning
+            if ((in != begin) && (*(in - 1) == this->delimiter))
                 this->quote_escape = true;
         }
     }
@@ -538,6 +621,28 @@ namespace csv {
     }
     */
 
+    bool CSVReader::read_row_check() {
+        /** Helper function which pulls more data from file if necessary,
+         *  and determines when to stop reading
+         */
+        if (!this->current_row_set) {
+            this->current_row_set = true;
+            this->current_row = this->records.begin();
+        }
+
+        if (this->current_row == this->records.end()) {
+            this->clear();
+
+            if (!this->eof()) {
+                this->read_csv("", ITERATION_CHUNK_SIZE, false);
+                this->current_row = this->records.begin();
+            }
+            else return false; // Stop reading
+        }
+
+        return true;
+    }
+
     bool CSVReader::read_row(std::vector<std::string> &row) {
         /** Retrieve rows parsed by CSVReader in FIFO order.
          *   - If CSVReader was initialized with respect to a file, then this lazily
@@ -554,17 +659,7 @@ namespace csv {
          *  @param[out] row A vector of strings where the read row will be stored
          */
         while (true) {
-            if (this->current_row == this->records.end()) {
-                this->clear();
-
-                if (!this->eof()) {
-                    this->read_csv("", ITERATION_CHUNK_SIZE, false);
-                    this->current_row = this->records.begin();
-                }
-                else
-                    break;
-            }
-
+            if (!this->read_row_check()) break;
             row.swap(*(this->current_row));
             this->current_row++;
             return true;
@@ -584,17 +679,7 @@ namespace csv {
          *  @param[out] row A vector of strings where the read row will be stored
          */
         while (true) {
-            if (this->current_row == this->records.end()) {
-                this->clear();
-
-                if (!this->eof()) {
-                    this->read_csv("", ITERATION_CHUNK_SIZE, false);
-                    this->current_row = this->records.begin();
-                }
-                else
-                    break;
-            }
-
+            if (!this->read_row_check()) break;
             std::vector<std::string>& temp = *(this->current_row);
             CSVField field;
             DataType dtype;
@@ -638,7 +723,7 @@ namespace csv {
     // CSVField
     //
 
-    int CSVField::is_int() {
+    int CSVField::is_int() const {
         /** Returns:
          *   - 1: If data type is an integer
          *   - -1: If data type is an integer but can't fit in a long long int
@@ -654,7 +739,7 @@ namespace csv {
             return 0;
     }
 
-    int CSVField::is_float() {
+    int CSVField::is_float() const {
         /** Returns:
          *  - 1: If data type is a float
          *  - -1: If data type is a float but can't fit in a long double
@@ -670,7 +755,7 @@ namespace csv {
             return 0;
     }
 
-    bool CSVField::is_string() {
+    bool CSVField::is_string() const {
         /** Returns True if the field's data type is a string
          * 
          * **Note**: This returns False if the field is an empty string,
@@ -679,17 +764,17 @@ namespace csv {
         return (this->dtype == 1);
     }
 
-    bool CSVField::is_null() {
+    bool CSVField::is_null() const {
         /** Returns True if data type is an empty string */
         return (this->dtype == 0);
     }
 
-    bool CSVField::is_number() {
+    bool CSVField::is_number() const {
         /** Returns True if data type is an int or float */
         return (this->dtype >= 2);
     }
 
-    std::string CSVField::get_string() {
+    std::string CSVField::get_string() const {
         /** Retrieve a string value. If the value is numeric, it will be
          *  type-casted using std::to_string()
          *
@@ -706,12 +791,12 @@ namespace csv {
         }
     }
 
-    long long int CSVField::get_int() {
+    long long int CSVField::get_int() const {
         /** Shorthand for CSVField::get_number<long long int>() */
         return this->get_number<long long int>();
     }
 
-    long double CSVField::get_float() {
+    long double CSVField::get_float() const {
         /** Shorthand for CSVField::get_number<long double>() */
         return this->get_number<long double>();
     }
