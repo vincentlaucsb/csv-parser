@@ -501,10 +501,12 @@ namespace csv {
 
         while (nrows <= -1 || nrows > 0) {
             char * result = std::fgets(line_buffer, sizeof(char[10000]), this->infile);            
-            if (result == NULL || std::feof(this->infile))
-                break;
-            else
+            if (result == NULL) break;
+            else if (std::feof(this->infile)) {
                 *buffer += line_buffer;
+                break;
+            }
+            else *buffer += line_buffer;
 
             nrows--;
 
