@@ -382,7 +382,7 @@ namespace csv {
      * @brief Helper functions for various parts of the main library
      */
     namespace helpers {
-        inline DataType data_type(const std::string&);
+        DataType data_type(const std::string&);
         std::string json_escape(const std::string&);
     }
 
