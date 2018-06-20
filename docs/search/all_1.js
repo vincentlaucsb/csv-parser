@@ -14,7 +14,7 @@ var searchData=
   ['csvfileinfo',['CSVFileInfo',['../structcsv_1_1CSVFileInfo.html',1,'csv']]],
   ['csvformat',['CSVFormat',['../structcsv_1_1CSVFormat.html',1,'csv']]],
   ['csvguesser',['CSVGuesser',['../classcsv_1_1CSVGuesser.html',1,'csv']]],
-  ['csvreader',['CSVReader',['../classcsv_1_1CSVReader.html',1,'csv::CSVReader'],['../classcsv_1_1CSVReader.html#a54921ded9e710f6d4bf877ad4fcbbc90',1,'csv::CSVReader::CSVReader(std::string filename, std::vector&lt; int &gt; _subset={}, CSVFormat format=GUESS_CSV)'],['../classcsv_1_1CSVReader.html#a7dd1b164d28aa37b258f7be41e718503',1,'csv::CSVReader::CSVReader(const CSVReader &amp;other)']]],
+  ['csvreader',['CSVReader',['../classcsv_1_1CSVReader.html',1,'csv::CSVReader'],['../classcsv_1_1CSVReader.html#a54921ded9e710f6d4bf877ad4fcbbc90',1,'csv::CSVReader::CSVReader()']]],
   ['csvstat',['CSVStat',['../classcsv_1_1CSVStat.html',1,'csv::CSVStat'],['../classcsv_1_1CSVStat.html#aebbf893ad583867d90f5c2a92a07ace4',1,'csv::CSVStat::CSVStat()']]],
   ['csvwriter',['CSVWriter',['../classcsv_1_1CSVWriter.html',1,'csv::CSVWriter'],['../classcsv_1_1CSVWriter.html#a5a70407b8c0d60f45900cd42a32e3b65',1,'csv::CSVWriter::CSVWriter()']]],
   ['helpers',['helpers',['../namespacecsv_1_1helpers.html',1,'csv']]]

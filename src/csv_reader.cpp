@@ -223,6 +223,8 @@ namespace csv {
         return reader.get_col_names();
     }
 
+    
+
     int get_col_pos(
         const std::string filename,
         const std::string col_name,
@@ -297,7 +299,7 @@ namespace csv {
         this->close();
     }
 
-    const CSVFormat CSVReader::get_format() {
+    const CSVFormat CSVReader::get_format() const {
         /** Return the format of the original raw CSV */
         return {
             this->delimiter,
@@ -331,12 +333,21 @@ namespace csv {
         }
     }
 
-    const std::vector<std::string> CSVReader::get_col_names() {
+    const std::vector<std::string> CSVReader::get_col_names() const {
         return this->subset_col_names;
     }
 
+    const size_t CSVReader::index_of(const std::string& col_name) const {
+        auto col_names = this->get_col_names();
+        for (size_t i = 0; i < col_names.size(); i++)
+            if (col_names[i] == col_name) return i;
+
+        throw std::runtime_error("Couldn't find a column named " + col_name +
+            " from " + helpers::format_row(this->get_col_names()));
+    }
+
     void CSVReader::feed(const std::string &in) {
-        /** Parse a CSV-formatted string. Incomplete CSV fragments can be 
+        /** Parse a CSV-formatted string. Incomplete CSV fragments can be void print_row(const std::vector<std::string>& row);name
          *  joined together by calling feed() on them sequentially.
          *  **Note**: end_feed() should be called after the last string
          */
@@ -803,7 +814,34 @@ namespace csv {
         return this->get_number<long double>();
     }
 
+    long long int &operator<<(long long int &out, const CSVField &field) {
+        out = field.get_int();
+        return out;
+    }
+
+    long double &operator<<(long double &out, const CSVField &field) {
+        out = field.get_float();
+        return out;
+    }
+
+    std::string &operator<<(std::string &out, const CSVField &field) {
+        out = field.get_string();
+        return out;
+    }
+
     namespace helpers {
+        std::string format_row(const std::vector<std::string>& row, const std::string& delim) {
+            /** Print a CSV row */
+            std::stringstream ret;
+            for (size_t i = 0; i < row.size(); i++) {
+                ret << row[i];
+                if (i + 1 < row.size()) ret << delim;
+                else ret << std::endl;
+            }
+
+            return ret.str();
+        }
+
         std::string json_escape(const std::string& in) {
             /** Given a CSV string, convert it to a JSON string with proper
              *  escaping as described by RFC 7159

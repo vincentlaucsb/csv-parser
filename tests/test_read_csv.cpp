@@ -283,23 +283,46 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     vector<CSVField> row;
     bool caught_error = false;
 
+    size_t date = reader.index_of("ReportDt"),
+        unit = reader.index_of("Unit"),
+        power = reader.index_of("Power");
+    string date_field;
+    long long int power_field;
+
     for (size_t i = 0; reader.read_row(row); i++) {
         // Assert correct types
-        REQUIRE(row[0].is_string());
-        REQUIRE(row[1].is_string());
-        REQUIRE(row[2].is_int() == 1);
+        REQUIRE(row[date].is_string());
+        REQUIRE(row[unit].is_string());
+        REQUIRE(row[power].is_int() == 1);
 
         // Spot check
         if (i == 2) {
-            REQUIRE(row[2].get_int() == 100);
-            REQUIRE(row[0].get_string() == "12/31/2009");
-            REQUIRE(row[1].get_string() == "Beaver Valley 1");
+            REQUIRE(row[power].get_int() == 100);
+            REQUIRE(row[date].get_string() == "12/31/2009");
+            REQUIRE(row[unit].get_string() == "Beaver Valley 1");
+
+            // Test overloaded << operator
+            date_field << row[date];
+            power_field << row[power];
+            REQUIRE(date_field == "12/31/2009");
+            REQUIRE(power_field == 100);
+
+            // Assert trying to find non-existent rows throws errors
+            try {
+                reader.index_of("metallica");
+            }
+            catch (std::runtime_error&) {
+                caught_error = true;
+            }
+
+            REQUIRE(caught_error);
+            caught_error = false;
 
             // Assert misusing API throws the appropriate errors
             try {
                 row[0].get_int();
             }
-            catch (std::runtime_error) {
+            catch (std::runtime_error&) {
                 caught_error = true;
             }
 
@@ -309,7 +332,7 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             try {
                 row[0].get_float();
             }
-            catch (std::runtime_error) {
+            catch (std::runtime_error&) {
                 caught_error = true;
             }
 

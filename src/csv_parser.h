@@ -15,10 +15,10 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+#include <sstream>
 
 namespace csv {
     /** @file */
-
     class CSVReader;
     using CSVReaderPtr = std::unique_ptr<CSVReader>;
 
@@ -107,6 +107,10 @@ namespace csv {
                 throw std::runtime_error("[TypeError] Overflow: Use get_string() instead.");
             }
         }
+
+        friend long long int &operator<<(long long int &out, const CSVField &field);
+        friend long double &operator<<(long double &out, const CSVField &field);
+        friend std::string &operator<<(std::string &out, const CSVField &field);
         ///@}
 
         friend class CSVReader; // So CSVReader::read_row() can create CSVFields
@@ -202,8 +206,9 @@ namespace csv {
 
             /** @name CSV Metadata */
             ///@{
-            const CSVFormat get_format();
-            const std::vector<std::string> get_col_names();
+            const CSVFormat get_format() const;
+            const std::vector<std::string> get_col_names() const;
+            const size_t index_of(const std::string& col_name) const;
             ///@}
 
             /** @name CSV Metadata: Attributes */
@@ -382,6 +387,7 @@ namespace csv {
      * @brief Helper functions for various parts of the main library
      */
     namespace helpers {
+        std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
         DataType data_type(const std::string&);
         std::string json_escape(const std::string&);
     }
