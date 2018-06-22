@@ -1,19 +1,28 @@
-# Yet Another... CSV Parser
+# Vince's CSV Parser
 [![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
 [![codecov](https://codecov.io/gh/vincentlaucsb/csv-parser/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentlaucsb/csv-parser)
 
-## Why?
-There's plenty of other CSV parsers in the wild, but I had a hard time 
-finding what I wanted. So I created this library with these goals in mind:
- * Reasonable performance
- * Full RFC 4180 compliance
- * Well tested
- * [Well documented](https://vincentlaucsb.github.io/csv-parser)
- 
-Although performance and memory efficiency were kept in mind while developing this library, flexibility, extensibility, and ease-of-use were paramount.
+## Motivation
+There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Specifically, I wanted something which had an interface similar to Python's `csv` module, but--obviously since we're using C++--a lot faster. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind:
+
+### Performance
+This CSV parser uses multiple threads to simulatenously pull data from disk and parse it. Furthermore, it is capable of incremental streaming (parsing larger than RAM files), and quickly parsing data types.
+
+### RFC 4180 Compliance
+This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt).
+
+### Easy to Use and Well-Documented
+https://vincentlaucsb.github.io/csv-parser
+
+In additon to being easy on your computer's hardware, this library is also easy on you--the developer. Some helpful features include:
+ * Decent ability to guess the dialect of a file (CSV, tab-delimited, etc.)
+ * Ability to handle common deviations from the CSV standard, such as inconsistent row lengths, and leading comments
+ * Ability to manually set the delimiter and quoting character of the parser
+
+### Well Tested
 
 ## Building
-Incorporating this CSV parser into your project only requires a compiler that speaks C++11, such as g++, clang++, or Microsoft Visual C++. Simply copy and paste the header and source files located in src/ and you're good to go, since the library itself requires no third-party dependencies. The Makefile and Visual Studio files are intended for building the test suite.
+All of this library's essentials are located under `src/`. This is a C++11 library developed using Microsoft Visual Studio and compatible with g++ and clang. The CMakeList and Makefile contain instructions for building the main library, some sample programs, and the test suite.
 
 **GCC/Clang Compiler Flags**: `-O3 -pthread -std=c++11 -Wall`
 
@@ -168,6 +177,4 @@ while (reader.read_row(row)) {
 ```
 
 ## Contributing
-Bug reports, feature requests, and so on are always welcome.
-
-(TODO: Write more later)
+Bug reports, feature requests, and so on are always welcome. Feel free to leave a note in the Issues section.
