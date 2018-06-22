@@ -108,7 +108,18 @@ namespace csv {
         return { guesser.delim, '"', guesser.header_row };
     }
 
-    void CSVReader::bad_row_handler(std::vector<std::string> record) {};
+    void CSVReader::bad_row_handler(std::vector<std::string> record) {
+        if (this->strict) {
+            std::string problem;
+            if (record.size() > col_names.size()) problem = "too long";
+            else problem = "too short";
+
+            throw std::runtime_error("Line " + problem + " around line " +
+                std::to_string(correct_rows) + " near\n" +
+                helpers::format_row(record)
+            );
+        }
+    };
 
     void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
         if (row_tally.find(record.size()) != row_tally.end()) row_tally[record.size()]++;
@@ -206,12 +217,28 @@ namespace csv {
         this->header_row = header;
     }
 
-    CSVReaderPtr parse(const std::string in, CSVFormat format) {
+    std::deque<std::vector<std::string>> parse_to_string(
+        const std::string& in, CSVFormat format) {
         /** Parse an in-memory CSV string */
-        CSVReaderPtr parser = std::make_unique<CSVReader>(format);
-        parser->feed(in);
-        parser->end_feed();
-        return parser;
+        CSVReader parser(format);
+        parser.feed(in);
+        parser.end_feed();
+        return parser.records;
+    }
+
+    std::deque<CSVRow> parse(const std::string& in, CSVFormat format) {
+        /** Parse an in-memory CSV string */
+        CSVReader parser(format);
+        std::deque<CSVRow> ret;
+        CSVRow temp;
+
+        parser.feed(in);
+        parser.end_feed();
+
+        while (parser.read_row(temp))
+            ret.push_back(temp);
+
+        return ret;
     }
 
     std::vector<std::string> get_col_names(const std::string filename, CSVFormat format) {
@@ -222,8 +249,6 @@ namespace csv {
         CSVReader reader(filename, {}, format);
         return reader.get_col_names();
     }
-
-    
 
     int get_col_pos(
         const std::string filename,
@@ -263,7 +288,7 @@ namespace csv {
 
     CSVReader::CSVReader(CSVFormat format, std::vector<int> _subset) :
         delimiter(format.delim), quote_char(format.quote_char),
-        header_row(format.header), subset(_subset) {
+        header_row(format.header), subset(_subset), strict(format.strict) {
         if (!format.col_names.empty()) {
             this->header_row = -1;
             this->set_col_names(format.col_names);
@@ -289,6 +314,7 @@ namespace csv {
         quote_char = format.quote_char;
         header_row = format.header;
         subset = _subset;
+        strict = format.strict;
 
         // Begin reading CSV
         read_csv(filename, 100, false);
@@ -416,11 +442,15 @@ namespace csv {
                 (*(in + 1) == '\n')) {
                 // Case: End of field
                 this->quote_escape = false;
-            } else {
-                // Note: This may fix single quotes (not strictly valid)
+            }
+            else {
                 out += *in;
                 if (*(in + 1) == this->quote_char)
                     ++in;  // Case: Two consecutive quotes
+                else if (this->strict)
+                    throw std::runtime_error("Unescaped single quote around line " +
+                        std::to_string(this->correct_rows) + " near:\n" +
+                        std::string((in - 50 < begin ? begin : in - 50), in));
             }
         } else {
              // Case: Previous character was delimiter

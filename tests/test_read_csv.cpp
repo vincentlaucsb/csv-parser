@@ -71,12 +71,8 @@ TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
                          "1,2,3\r\n"
                          "1,2,3");
 
-    CSVReaderPtr reader = parse(csv_string);
-    vector<string> row;
-    
-    // Expected Results
-    reader->read_row(row);
-    REQUIRE( row == vector<string>({"123", "234,345", "456"}));
+    auto rows = parse_to_string(csv_string);
+    REQUIRE( rows.front() == vector<string>({"123", "234,345", "456"}));
 }
 
 TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
@@ -85,10 +81,8 @@ TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
                          "1,2,3\r\n"
                          "1,2,3");
 
-    CSVReaderPtr reader = parse(csv_string, DEFAULT_CSV);
-    vector<string> row;
-    reader->read_row(row);
-    REQUIRE( row == vector<string>({ "123", "234\n,345", "456" }) );
+    auto rows = parse_to_string(csv_string, DEFAULT_CSV);
+    REQUIRE( rows.front() == vector<string>({ "123", "234\n,345", "456" }) );
 }
 
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
@@ -96,11 +90,8 @@ TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
     string csv_string = ("A,B,C\r\n" // Header row
                          "123,\"\",456\r\n");
     
-    CSVReaderPtr reader = parse(csv_string, DEFAULT_CSV);
-    vector<string> row;
-    reader->read_row(row);
-    vector<string> correct_row = {"123", "", "456"};
-    REQUIRE( row == correct_row );
+    auto rows = parse_to_string(csv_string, DEFAULT_CSV);
+    REQUIRE( rows.front() == vector<string>({ "123", "", "456" }) );
 }
 
 TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
@@ -108,22 +99,59 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     string csv_string = (
         "A,B,C\r\n" // Header row
         "123,\"234\"\"345\",456\r\n"
-        // Only a single quote --> Not valid but correct it
-        "123,\"234\"345\",456\r\n");
-    
-    CSVReaderPtr reader = parse(csv_string, DEFAULT_CSV);
-    vector<string> row;
+        "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
+    );
+      
+    auto rows = parse_to_string(csv_string, DEFAULT_CSV);
    
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = {"123", "234\"345", "456"};
 
     // First Row
-    reader->read_row(row);
-    REQUIRE( row == correct_row );
+    REQUIRE( rows.front() == correct_row );
 
     // Second Row
-    reader->read_row(row);
-    REQUIRE( row == correct_row );
+    rows.pop_front();
+    REQUIRE( rows.front() == correct_row );
+
+    // Strict Mode
+    bool caught_single_quote = false;
+    std::string error_message("");
+
+    try {
+        auto strict_format = DEFAULT_CSV;
+        strict_format.strict = true;
+
+        auto should_fail = parse_to_string(csv_string, strict_format);
+    }
+    catch (std::runtime_error& err) {
+        caught_single_quote = true;
+        error_message = err.what();
+    }
+
+    REQUIRE(caught_single_quote);
+    REQUIRE(error_message.substr(0, 29) == "Unescaped single quote around");
+}
+
+TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
+    string csv_string("A,B,C\r\n" // Header row
+        "123,234,345\r\n"
+        "1,2,3\r\n"
+        "6,9\r\n" // Short row
+        "1,2,3"),
+        error_message = "";
+    bool error_caught = false;
+
+    try {
+        parse(csv_string, DEFAULT_CSV_STRICT);
+    }
+    catch (std::runtime_error& err) {
+        error_caught = true;
+        error_message = err.what();
+    }
+
+    REQUIRE(error_caught);
+    REQUIRE(error_message.substr(0, 14) == "Line too short");
 }
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
@@ -183,6 +211,7 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
     REQUIRE( reader.row_num == 246498 );
 }
 
+/**
 TEST_CASE( "Test JSON Output", "[csv_to_json]") {
     const char * output = "./tests/temp/test.ndjson";
 
@@ -233,12 +262,13 @@ TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
     REQUIRE( turtles[3] == "{\"A\":\"I\",\"B\":\"Like\\\t\",\"C\":\"Turtles\",\"D\":1}");
     REQUIRE( turtles[4] == "{\"A\":\"I\",\"B\":\"Like\\/\",\"C\":\"Turtles\",\"D\":1}");
 }
+**/
 
 // read_row()
 TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
     // Test that integers are type-casted properly
     CSVReader reader("./tests/data/fake_data/ints.csv");
-    vector<CSVField> row;
+    CSVRow row;
 
     while (reader.read_row(row)) {
         for (size_t i = 0; i < row.size(); i++) {
@@ -257,30 +287,31 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
         "60,70\r\n"
         ",\r\n");
 
-    CSVReaderPtr reader = parse(csv_string, format);
-    vector<CSVField> row;
+    auto rows = parse(csv_string, format);
+    CSVRow& row = rows.front();
 
     // First Row
-    reader->read_row(row);
     REQUIRE((row[0].is_float() && row[0].is_number()));
     REQUIRE(row[0].get_string().substr(0, 4) == "3.14");
 
     // Second Row
-    reader->read_row(row);
+    rows.pop_front();
+    row = rows.front();
     REQUIRE((row[0].is_int() && row[0].is_number()));
     REQUIRE((row[1].is_int() && row[1].is_number()));
     REQUIRE(row[0].get_string() == "60");
     REQUIRE(row[1].get_string() == "70");
 
     // Third Row
-    reader->read_row(row);
+    rows.pop_front();
+    row = rows.front();
     REQUIRE(row[0].is_null());
     REQUIRE(row[1].is_null());
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
-    vector<CSVField> row;
+    CSVRow row;
     bool caught_error = false;
 
     size_t date = reader.index_of("ReportDt"),

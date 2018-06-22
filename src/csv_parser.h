@@ -19,8 +19,8 @@
 
 namespace csv {
     /** @file */
-    class CSVReader;
-    using CSVReaderPtr = std::unique_ptr<CSVReader>;
+    class CSVField;
+    using CSVRow = std::vector<CSVField>;
 
     /** Stores information about how to parse a CSV file
      *   - Can be used to initialize a csv::CSVReader() object
@@ -31,6 +31,7 @@ namespace csv {
         char quote_char;
         int header;
         std::vector<std::string> col_names;
+        bool strict;
     };
 
     /** Returned by get_file_info() */
@@ -142,10 +143,11 @@ namespace csv {
     const size_t ITERATION_CHUNK_SIZE = 100000;
 
     /** A dummy variable used to indicate delimiter should be guessed */
-    const CSVFormat GUESS_CSV = { '\0', '"', 0, {} };
+    const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false };
 
     /** Default CSV format */
-    const CSVFormat DEFAULT_CSV = { ',', '"', 0, {}  };
+    const CSVFormat DEFAULT_CSV = { ',', '"', 0, {}, false },
+        DEFAULT_CSV_STRICT = { ',', '"', 0, {}, true };
     ///@}
 
     /** The main class for parsing CSV files
@@ -237,7 +239,8 @@ namespace csv {
             void close();               /**< Close the open file handler */
             ///@}
 
-            friend CSVReaderPtr parse(const std::string, CSVFormat format);
+            friend std::deque<std::vector<std::string>> parse_to_string(
+                const std::string&, CSVFormat format);
 
         protected:
             inline std::string csv_to_json(std::vector<std::string>&);
@@ -267,6 +270,7 @@ namespace csv {
             char quote_char;               /**< Quote character */
             bool quote_escape = false;     /**< Parsing flag */
             int header_row;                /**< Line number of the header row (zero-indexed) */
+            bool strict = false;           /**< Strictness of parser */
             ///@}
 
             /** @name Column Information */
@@ -398,7 +402,10 @@ namespace csv {
      */
     ///@{
     std::string csv_escape(const std::string&, const bool quote_minimal = true);
-    CSVReaderPtr parse(const std::string in, CSVFormat format = DEFAULT_CSV);
+    std::deque<std::vector<std::string>> parse_to_string(
+        const std::string& in, CSVFormat format = DEFAULT_CSV);
+    std::deque<CSVRow> parse(const std::string& in, CSVFormat format = DEFAULT_CSV);
+
     CSVFileInfo get_file_info(const std::string filename);
     CSVFormat guess_format(const std::string filename);
 
