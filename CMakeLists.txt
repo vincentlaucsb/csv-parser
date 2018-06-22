@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.9)
 project(csv_parser)
 
 set(CMAKE_CXX_STANDARD 14)
+
+if (MSVC)
+else()
+	set(CMAKE_CXX_FLAGS "-pthread")
+	set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -lgcov --coverage")
+endif(MSVC)
+
 set(SOURCES src/csv_reader.cpp src/csv_stat.cpp src/csv_writer.cpp)
 set(TEST_SOURCES
 	tests/catch.hpp
@@ -27,7 +34,6 @@ target_link_libraries(csv_bench csv)
 
 ## Tests
 add_executable(csv_test ${SOURCES} ${TEST_SOURCES})
-target_link_libraries(csv_test csv)
 
 enable_testing()
 add_test(test csv_test)
