@@ -13,12 +13,6 @@ namespace csv {
             /** Distinguishes numeric from other text values. Used by various
             *  type casting functions, like csv_parser::CSVReader::read_row()
             *
-            *  #### Return
-            *   - 0:  If null (empty string)
-            *   - 1:  If string
-            *   - 2:  If int
-            *   - 3:  If float
-            *
             *  #### Rules
             *   - Leading and trailing whitespace ("padding") ignored
             *   - A string of just whitespace is NULL
@@ -28,7 +22,7 @@ namespace csv {
 
             // Empty string --> NULL
             if (in.size() == 0)
-                return _null;
+                return CSV_NULL;
 
             bool ws_allowed = true;
             bool neg_allowed = true;
@@ -47,14 +41,14 @@ namespace csv {
                         }
                         else {
                             // Ex: '510 123 4567'
-                            return _string;
+                            return CSV_STRING;
                         }
                     }
                     break;
                 case '-':
                     if (!neg_allowed) {
                         // Ex: '510-123-4567'
-                        return _string;
+                        return CSV_STRING;
                     }
                     else {
                         neg_allowed = false;
@@ -62,7 +56,7 @@ namespace csv {
                     break;
                 case '.':
                     if (!dot_allowed) {
-                        return _string;
+                        return CSV_STRING;
                     }
                     else {
                         dot_allowed = false;
@@ -72,7 +66,7 @@ namespace csv {
                 default:
                     if (isdigit(in[i])) {
                         if (!digit_allowed) {
-                            return _string;
+                            return CSV_STRING;
                         }
                         else if (ws_allowed) {
                             // Ex: '510 456'
@@ -81,7 +75,7 @@ namespace csv {
                         has_digit = true;
                     }
                     else {
-                        return _string;
+                        return CSV_STRING;
                     }
                 }
             }
@@ -89,15 +83,15 @@ namespace csv {
             // No non-numeric/non-whitespace characters found
             if (has_digit) {
                 if (prob_float) {
-                    return _float;
+                    return CSV_DOUBLE;
                 }
                 else {
-                    return _int;
+                    return CSV_INT;
                 }
             }
             else {
                 // Just whitespace
-                return _null;
+                return CSV_NULL;
             }
         }
     }
@@ -214,7 +208,7 @@ namespace csv {
             }
         }
 
-        this->header_row = header;
+        this->header_row = static_cast<int>(header);
     }
 
     std::deque<std::vector<std::string>> parse_to_string(
@@ -654,7 +648,7 @@ namespace csv {
          Take a random uniform sample (with replacement) of n rows
         std::deque<std::vector<std::string>> new_rows;
         std::default_random_engine generator;
-        std::uniform_int_distribution<int> distribution(0, this->records.size() - 1);
+        std::uniformCSV_INT_distribution<int> distribution(0, this->records.size() - 1);
 
         for (; n > 1; n--)
             new_rows.push_back(this->records[distribution(generator)]);
@@ -734,21 +728,23 @@ namespace csv {
 
                 try {
                     switch (helpers::data_type(*it)) {
-                    case _null:   // Empty string
-                    case _string:
-                        field = CSVField(*it, dtype, false);
+                    case CSV_NULL:   // Empty string
+                        field = CSVField(nullptr);
                         break;
-                    case _int:
-                        field = CSVField(std::stoll(*it), dtype, overflow);
+                    case CSV_STRING:
+                        field = CSVField(*it);
                         break;
-                    case _float:
-                        field = CSVField(std::stold(*it), dtype, overflow);
+                    case CSV_INT:
+                        field = CSVField(std::stoi(*it), *it);
+                        break;
+                    case CSV_DOUBLE:
+                        field = CSVField(std::stod(*it), *it);
                         break;
                     }
                 }
                 catch (std::out_of_range) {
                     // Huge ass number
-                    field = CSVField(*it, dtype, true);
+                    field = CSVField(*it);
                     break;
                 }
 
@@ -760,103 +756,6 @@ namespace csv {
         }
 
         return false;
-    }
-
-    //
-    // CSVField
-    //
-
-    int CSVField::is_int() const {
-        /** Returns:
-         *   - 1: If data type is an integer
-         *   - -1: If data type is an integer but can't fit in a long long int
-         *   - 0: Not an integer
-         */
-        if (this->dtype == 2) {
-            if (this->overflow)
-                return -1;
-            else
-                return 1;
-        }
-        else
-            return 0;
-    }
-
-    int CSVField::is_float() const {
-        /** Returns:
-         *  - 1: If data type is a float
-         *  - -1: If data type is a float but can't fit in a long double
-         *  - 0: Not a float
-         */
-        if (this->dtype == 3) {
-            if (this->overflow)
-                return -1;
-            else
-                return 1;
-        }
-        else
-            return 0;
-    }
-
-    bool CSVField::is_string() const {
-        /** Returns True if the field's data type is a string
-         * 
-         * **Note**: This returns False if the field is an empty string,
-         * in which case calling CSVField::is_null() yields True.
-        */
-        return (this->dtype == 1);
-    }
-
-    bool CSVField::is_null() const {
-        /** Returns True if data type is an empty string */
-        return (this->dtype == 0);
-    }
-
-    bool CSVField::is_number() const {
-        /** Returns True if data type is an int or float */
-        return (this->dtype >= 2);
-    }
-
-    std::string CSVField::get_string() const {
-        /** Retrieve a string value. If the value is numeric, it will be
-         *  type-casted using std::to_string()
-         *
-         *  **Note**: This can also be used to retrieve empty fields
-         */
-        if (this->dtype <= 1 || this->overflow) {
-            return this->str_data;
-        }
-        else {
-            if (this->dtype == _int)
-                return std::to_string(this->get_number<long long int>());
-            else
-                return std::to_string(this->get_number<long double>());
-        }
-    }
-
-    long long int CSVField::get_int() const {
-        /** Shorthand for CSVField::get_number<long long int>() */
-        return this->get_number<long long int>();
-    }
-
-    long double CSVField::get_float() const {
-        /** Shorthand for CSVField::get_number<long double>() */
-        return this->get_number<long double>();
-    }
-
-    long long int &operator<<(long long int &out, const CSVField &field) {
-        out = field.get_int();
-        return out;
-    }
-
-    long double &operator<<(long double &out, const CSVField &field) {
-        out = field.get_float();
-        return out;
-    }
-
-    std::string &operator<<(std::string &out, const CSVField &field) {
-        out = field.get_string();
-        return out;
     }
 
     namespace helpers {

@@ -14,11 +14,13 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <memory>
 #include <sstream>
+#include <memory> // For CSVField
+#include <limits> // For CSVField
 
 namespace csv {
     /** @file */
+
     class CSVField;
     using CSVRow = std::vector<CSVField>;
 
@@ -65,75 +67,105 @@ namespace csv {
      *  - 3. Floating Point Number
      */
     enum DataType {
-        _null,
-        _string,
-        _int,
-        _float
+        CSV_NULL,
+        CSV_STRING,
+        CSV_INT,
+        CSV_LONG_INT,
+        CSV_LONG_LONG_INT,
+        CSV_DOUBLE
     };
+
 
     /** A data type for representing CSV values that have been type-casted */
     class CSVField {
-    public:
-        /** @name Type Information */
-        ///@{
-        bool is_null() const;
-        bool is_string() const;
-        bool is_number() const;
-        int is_int() const;
-        int is_float() const;
-        DataType dtype; /**< Store this field's data type enumeration as given by csv::DataType */
-        ///@}
+        struct CSVFieldConcept {
+            CSVFieldConcept(const std::string& value) : str_value(value) {};
+            virtual ~CSVFieldConcept() {};
+            virtual DataType type() const = 0;
+            std::string str_value;
+        };
 
-        /** @name Value Retrieval */
-        ///@{
-        std::string get_string() const;
-        long long int get_int() const;
-        long double get_float() const;
-        template <typename T>
-        inline T get_number() const {
-            /** Safely retrieve an integral or floating point value, throwing an error if
-            *  the field is not an number or type-casting will cause an overflow.
-            *
-            *  **Note:** Integer->float and float->integer conversions are implicity performed.
-            */
-            if (!this->overflow) {
-                if (this->dtype == _int)
-                    return this->int_data;
-                else if (this->dtype == _float)
-                    return this->dbl_data;
-                else
-                    throw std::runtime_error("[TypeError] Not a number.");
-            }
-            else {
-                throw std::runtime_error("[TypeError] Overflow: Use get_string() instead.");
-            }
+        template<typename T> struct CSVFieldModel : CSVFieldConcept {
+            CSVFieldModel(const T& t, const std::string& str) :
+                value(t), CSVFieldConcept(str) {};
+            CSVFieldModel(const std::string& str) : CSVFieldConcept(str) {};
+
+            T value;
+            DataType type() const { return CSVField::type_num<T>(); };
+        };
+
+        std::shared_ptr<CSVFieldConcept> value;
+
+    public:
+        template<typename T> CSVField(const T& val, const std::string& str_val) :
+            value(new CSVFieldModel<T>(val, str_val)) {
+            value->str_value = str_val;
+        };
+
+        CSVField(const std::nullptr_t&) : value(new CSVFieldModel<std::nullptr_t>("")) {};
+        CSVField(const std::string& str_val) : value(new CSVFieldModel<std::string>(str_val)) {};
+
+        template<typename T> T get() const {
+            if (this->is_int()) return this->get_int<T>();
+            else if (this->type_num<T>() != this->type())
+                throw std::runtime_error("Type error muhfugga");
+
+            return std::static_pointer_cast<CSVFieldModel<T>>(value)->value;
         }
 
-        friend long long int &operator<<(long long int &out, const CSVField &field);
-        friend long double &operator<<(long double &out, const CSVField &field);
-        friend std::string &operator<<(std::string &out, const CSVField &field);
-        ///@}
+        CSVField() : CSVField(std::nullptr_t()) {}; // Default constructor
+        DataType type() const { return value.get()->type(); }
+        bool is_null() const { return (type() == 0); }
+        bool is_str() const { return (type() == 1); }
+        bool is_num() const { return (type() > 1); }
+        bool is_int() const { return (type() >= CSV_INT && type() <= CSV_LONG_LONG_INT); }
+        bool is_float() const { return (type() == CSV_DOUBLE); };
+
+        template <typename T>
+        friend T &operator<<(T &out, const CSVField &field) {
+            out = field.get<T>();
+            return out;
+        }
 
         friend class CSVReader; // So CSVReader::read_row() can create CSVFields
 
     private:
-        /** Construct a CSVField from a std::string */
-        CSVField(const std::string data = "", const DataType _type = _null, const bool _overflow = false) :
-            dtype(_type), str_data(data), overflow(_overflow) {};
+        template<typename T> T get_int() const {
+            /** Return integer values */
+            auto int_type = this->type();
 
-        /** Construct a CSVField from an int */
-        CSVField(const long long int data, const DataType _type = _int, const bool _overflow = false) :
-            dtype(_type), int_data(data), overflow(_overflow) {};
+            if (int_type > this->type_num<T>())
+                throw std::runtime_error("Overflow error");
 
-        /** Construct a CSVField from double */
-        CSVField(const long double data, const DataType _type = _float, const bool _overflow = false) :
-            dtype(_type), dbl_data(data), overflow(_overflow) {};
+            switch (int_type) {
+            case CSV_INT:
+                return static_cast<T>(std::static_pointer_cast<CSVFieldModel<int>>(value)->value);
+                break;
+            case CSV_LONG_INT:
+                return static_cast<T>(std::static_pointer_cast<CSVFieldModel<long int>>(value)->value);
+                break;
+            case CSV_LONG_LONG_INT:
+                return static_cast<T>(std::static_pointer_cast<CSVFieldModel<long long int>>(value)->value);
+                break;
+            default:
+                throw std::runtime_error("This shouldn't have happened.");
+            }
+        }
 
-        std::string str_data;
-        long long int int_data;
-        long double dbl_data;
-        bool overflow;
+        template<typename T> static DataType type_num();
     };
+
+    // type_num() specializations
+    template<> inline static DataType CSVField::type_num<int>() { return CSV_INT; }
+    template<> inline static DataType CSVField::type_num<long int>() { return CSV_LONG_INT; }
+    template<> inline static DataType CSVField::type_num<long long int>() { return CSV_LONG_LONG_INT; }
+    template<> inline static DataType CSVField::type_num<double>() { return CSV_DOUBLE; }
+    template<> inline static DataType CSVField::type_num<std::nullptr_t>() { return CSV_NULL; }
+    template<> inline static DataType CSVField::type_num<std::string>() { return CSV_STRING; }
+
+    // get() specializations
+    template<>
+    inline std::string CSVField::get<std::string>() const { return this->value->str_value; }
 
     /** @name Global Constants */
     ///@{

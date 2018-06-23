@@ -272,8 +272,8 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
 
     while (reader.read_row(row)) {
         for (size_t i = 0; i < row.size(); i++) {
-            REQUIRE( row[i].get_int() <= 100 );
-            REQUIRE( row[i].dtype == _int );
+            REQUIRE( row[i].get<int>() <= 100 );
+            REQUIRE( row[i].is_int() );
         }
     }
 }
@@ -291,16 +291,16 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     CSVRow& row = rows.front();
 
     // First Row
-    REQUIRE((row[0].is_float() && row[0].is_number()));
-    REQUIRE(row[0].get_string().substr(0, 4) == "3.14");
+    REQUIRE((row[0].is_float() && row[0].is_num()));
+    REQUIRE(row[0].get<std::string>().substr(0, 4) == "3.14");
 
     // Second Row
     rows.pop_front();
     row = rows.front();
-    REQUIRE((row[0].is_int() && row[0].is_number()));
-    REQUIRE((row[1].is_int() && row[1].is_number()));
-    REQUIRE(row[0].get_string() == "60");
-    REQUIRE(row[1].get_string() == "70");
+    REQUIRE((row[0].is_int() && row[0].is_num()));
+    REQUIRE((row[1].is_int() && row[1].is_num()));
+    REQUIRE(row[0].get<std::string>() == "60");
+    REQUIRE(row[1].get<std::string>() == "70");
 
     // Third Row
     rows.pop_front();
@@ -318,19 +318,19 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
         unit = reader.index_of("Unit"),
         power = reader.index_of("Power");
     string date_field;
-    long long int power_field;
+    int power_field;
 
     for (size_t i = 0; reader.read_row(row); i++) {
         // Assert correct types
-        REQUIRE(row[date].is_string());
-        REQUIRE(row[unit].is_string());
-        REQUIRE(row[power].is_int() == 1);
+        REQUIRE(row[date].is_str());
+        REQUIRE(row[unit].is_str());
+        REQUIRE(row[power].is_int());
 
         // Spot check
         if (i == 2) {
-            REQUIRE(row[power].get_int() == 100);
-            REQUIRE(row[date].get_string() == "12/31/2009");
-            REQUIRE(row[unit].get_string() == "Beaver Valley 1");
+            REQUIRE(row[power].get<int>() == 100);
+            REQUIRE(row[date].get<std::string>() == "12/31/2009");
+            REQUIRE(row[unit].get<std::string>() == "Beaver Valley 1");
 
             // Test overloaded << operator
             date_field << row[date];
@@ -351,7 +351,7 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
 
             // Assert misusing API throws the appropriate errors
             try {
-                row[0].get_int();
+                row[0].get<long long int>();
             }
             catch (std::runtime_error&) {
                 caught_error = true;
@@ -361,7 +361,8 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             caught_error = false;
 
             try {
-                row[0].get_float();
+                std::cout << "Misuse" << std::endl
+                << row[0].get<double>() << std::endl;
             }
             catch (std::runtime_error&) {
                 caught_error = true;
