@@ -9,6 +9,11 @@ namespace csv {
     namespace helpers {
         /** @file */
 
+        bool is_equal(double a, double b, double epsilon) {
+            /** Returns true if two doubles are about the same */
+            return std::abs(a - b) < epsilon;
+        }
+
         DataType data_type(const std::string &in, long double* out) {
             /** Distinguishes numeric from other text values. Used by various
              *  type casting functions, like csv_parser::CSVReader::read_row()

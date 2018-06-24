@@ -13,8 +13,7 @@ script:
   - export CC=gcc
   - export CXX=g++
   - make test_all
-  # - valgrind --leak-check=full ./test_csv_parser
-  # Disable for now until I can get it to respect the file paths in my unit tetss
+  - valgrind --leak-check=full ./test_csv_parser
 after_success:
   - if [ "$CXX" == "g++" ]; then
         cd test_results;

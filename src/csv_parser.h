@@ -427,6 +427,7 @@ namespace csv {
      * @brief Helper functions for various parts of the main library
      */
     namespace helpers {
+        bool is_equal(double a, double b, double epsilon = 0.001);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
         DataType data_type(const std::string&, long double* out = nullptr);
         std::string json_escape(const std::string&);

@@ -288,11 +288,12 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
         ",\r\n");
 
     auto rows = parse(csv_string, format);
-    CSVRow& row = rows.front();
+    CSVRow row = rows.front();
 
     // First Row
     REQUIRE((row[0].is_float() && row[0].is_num()));
     REQUIRE(row[0].get<std::string>().substr(0, 4) == "3.14");
+    REQUIRE(helpers::is_equal(row[0].get<double>(), 3.14));
 
     // Second Row
     rows.pop_front();

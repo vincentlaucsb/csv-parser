@@ -46,13 +46,12 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
 
     long double out;
     
-    auto res1 = data_type(float_a, &out);
-    REQUIRE(res1 == CSV_DOUBLE);
-    REQUIRE(out == 3.14);
+    REQUIRE(data_type(float_a, &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 3.14));
 
     REQUIRE(data_type(float_b, &out) ==  CSV_DOUBLE);
-    REQUIRE(out == -3.14);
+    REQUIRE(is_equal(out, -3.14));
 
     REQUIRE(data_type(e, &out) == CSV_DOUBLE);
-    REQUIRE(out == 2.71828);
+    REQUIRE(is_equal(out, 2.71828));
 }
