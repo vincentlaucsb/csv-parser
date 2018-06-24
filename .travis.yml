@@ -4,7 +4,7 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-6', 'valgrind']
+          packages: ['valgrind']
 dist: trusty
 sudo: required
 language:
