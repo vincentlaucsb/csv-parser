@@ -13,6 +13,7 @@ set(SOURCES src/csv_reader.cpp src/csv_stat.cpp src/csv_writer.cpp)
 set(TEST_SOURCES
 	tests/catch.hpp
 	tests/main.cpp
+	tests/test_data_type.cpp
 	tests/test_csv_stat.cpp
 	tests/test_read_csv.cpp
 	tests/test_write_csv.cpp
@@ -31,6 +32,9 @@ target_link_libraries(csv_info csv)
 
 add_executable(csv_bench programs/csv_bench.cpp)
 target_link_libraries(csv_bench csv)
+
+add_executable(csv_stats programs/csv_stats.cpp)
+target_link_libraries(csv_stats csv)
 
 ## Tests
 add_executable(csv_test ${SOURCES} ${TEST_SOURCES})

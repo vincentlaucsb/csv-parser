@@ -18,11 +18,16 @@
 #include <memory> // For CSVField
 #include <limits> // For CSVField
 
+#define CSV_TYPE_CHECK(X) if (this->type_num<X>() != this->type()) \
+    throw std::runtime_error("Type error muhfugga");
+
 namespace csv {
     /** @file */
 
     class CSVField;
     using CSVRow = std::vector<CSVField>;
+
+    const int CSV_NOT_FOUND = -1;
 
     /** Stores information about how to parse a CSV file
      *   - Can be used to initialize a csv::CSVReader() object
@@ -107,9 +112,7 @@ namespace csv {
 
         template<typename T> T get() const {
             if (this->is_int()) return this->get_int<T>();
-            else if (this->type_num<T>() != this->type())
-                throw std::runtime_error("Type error muhfugga");
-
+            else CSV_TYPE_CHECK(T);
             return std::static_pointer_cast<CSVFieldModel<T>>(value)->value;
         }
 
@@ -120,12 +123,6 @@ namespace csv {
         bool is_num() const { return (type() > 1); }
         bool is_int() const { return (type() >= CSV_INT && type() <= CSV_LONG_LONG_INT); }
         bool is_float() const { return (type() == CSV_DOUBLE); };
-
-        template <typename T>
-        friend T &operator<<(T &out, const CSVField &field) {
-            out = field.get<T>();
-            return out;
-        }
 
         friend class CSVReader; // So CSVReader::read_row() can create CSVFields
 
@@ -156,16 +153,23 @@ namespace csv {
     };
 
     // type_num() specializations
-    template<> inline static DataType CSVField::type_num<int>() { return CSV_INT; }
-    template<> inline static DataType CSVField::type_num<long int>() { return CSV_LONG_INT; }
-    template<> inline static DataType CSVField::type_num<long long int>() { return CSV_LONG_LONG_INT; }
-    template<> inline static DataType CSVField::type_num<double>() { return CSV_DOUBLE; }
-    template<> inline static DataType CSVField::type_num<std::nullptr_t>() { return CSV_NULL; }
-    template<> inline static DataType CSVField::type_num<std::string>() { return CSV_STRING; }
+    template<> inline DataType CSVField::type_num<int>() { return CSV_INT; }
+    template<> inline DataType CSVField::type_num<long int>() { return CSV_LONG_INT; }
+    template<> inline DataType CSVField::type_num<long long int>() { return CSV_LONG_LONG_INT; }
+    template<> inline DataType CSVField::type_num<double>() { return CSV_DOUBLE; }
+    template<> inline DataType CSVField::type_num<long double>() { return CSV_DOUBLE; }
+    template<> inline DataType CSVField::type_num<std::nullptr_t>() { return CSV_NULL; }
+    template<> inline DataType CSVField::type_num<std::string>() { return CSV_STRING; }
 
     // get() specializations
     template<>
     inline std::string CSVField::get<std::string>() const { return this->value->str_value; }
+
+    template<>
+    inline double CSVField::get<double>() const {
+        CSV_TYPE_CHECK(double);
+        return static_cast<double>(std::static_pointer_cast<CSVFieldModel<long double>>(value)->value);
+    }
 
     /** @name Global Constants */
     ///@{
@@ -242,7 +246,7 @@ namespace csv {
             ///@{
             const CSVFormat get_format() const;
             const std::vector<std::string> get_col_names() const;
-            const size_t index_of(const std::string& col_name) const;
+            const int index_of(const std::string& col_name) const;
             ///@}
 
             /** @name CSV Metadata: Attributes */
@@ -358,7 +362,7 @@ namespace csv {
             void variance(long double&, size_t&);
             void count(std::string&, size_t&);
             void min_max(long double&, size_t&);
-            void dtype(std::string&, size_t&);
+            DataType dtype(std::string&, const size_t&, long double&);
 
             void calc(StatsOptions options = ALL_STATS);
             void calc_col(size_t);
@@ -424,7 +428,7 @@ namespace csv {
      */
     namespace helpers {
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
-        DataType data_type(const std::string&);
+        DataType data_type(const std::string&, long double* out = nullptr);
         std::string json_escape(const std::string&);
     }
 

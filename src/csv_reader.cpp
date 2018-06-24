@@ -9,16 +9,16 @@ namespace csv {
     namespace helpers {
         /** @file */
 
-        DataType data_type(const std::string &in) {
+        DataType data_type(const std::string &in, long double* out) {
             /** Distinguishes numeric from other text values. Used by various
-            *  type casting functions, like csv_parser::CSVReader::read_row()
-            *
-            *  #### Rules
-            *   - Leading and trailing whitespace ("padding") ignored
-            *   - A string of just whitespace is NULL
-            *
-            *  @param[in] in String value to be examined
-            */
+             *  type casting functions, like csv_parser::CSVReader::read_row()
+             *
+             *  #### Rules
+             *   - Leading and trailing whitespace ("padding") ignored
+             *   - A string of just whitespace is NULL
+             *
+             *  @param[in] in String value to be examined
+             */
 
             // Empty string --> NULL
             if (in.size() == 0)
@@ -31,8 +31,13 @@ namespace csv {
             bool has_digit = false;
             bool prob_float = false;
 
+            unsigned places_after_decimal = 0;
+            long double num_buff = 0;
+
             for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
-                switch (in[i]) {
+                const char& current = in[i];
+
+                switch (current) {
                 case ' ':
                     if (!ws_allowed) {
                         if (isdigit(in[i - 1])) {
@@ -64,15 +69,27 @@ namespace csv {
                     }
                     break;
                 default:
-                    if (isdigit(in[i])) {
-                        if (!digit_allowed) {
-                            return CSV_STRING;
-                        }
-                        else if (ws_allowed) {
-                            // Ex: '510 456'
-                            ws_allowed = false;
-                        }
+                    if (isdigit(current)) {
+                        // Process digit
                         has_digit = true;
+
+                        if (!digit_allowed)
+                            return CSV_STRING;
+                        else if (ws_allowed) // Ex: '510 456'
+                            ws_allowed = false;
+
+                        // Build current number
+                        unsigned digit = current - '0';
+                        if (num_buff == 0) {
+                            num_buff = digit;
+                        }
+                        else if (prob_float) {
+                            num_buff += (long double)digit / pow(10.0, ++places_after_decimal);
+                        }
+                        else {
+                            num_buff *= 10;
+                            num_buff += digit;
+                        }
                     }
                     else {
                         return CSV_STRING;
@@ -82,11 +99,24 @@ namespace csv {
 
             // No non-numeric/non-whitespace characters found
             if (has_digit) {
-                if (prob_float) {
+                if (!neg_allowed) num_buff *= -1;
+                if (out) *out = num_buff;
+
+                if (prob_float)
                     return CSV_DOUBLE;
-                }
                 else {
-                    return CSV_INT;
+                    long double log10_num_buff;
+                    if (!neg_allowed) log10_num_buff = log10(-num_buff);
+                    else log10_num_buff = log10(num_buff);
+
+                    if (log10_num_buff < log10(std::numeric_limits<int>::max()))
+                        return CSV_INT;
+                    else if (log10_num_buff < log10(std::numeric_limits<long int>::max()))
+                        return CSV_LONG_INT;
+                    else if (log10_num_buff < log10(std::numeric_limits<long long int>::max()))
+                        return CSV_LONG_LONG_INT;
+                    else // Conversion to long long will cause an overflow
+                        return CSV_DOUBLE;
                 }
             }
             else {
@@ -253,13 +283,9 @@ namespace csv {
          *  @param[in] col_name  Column whose position we should resolve
          *  @param[in] format    Format of the CSV file
          */
-        std::vector<std::string> col_names = get_col_names(filename, format);
 
-        auto it = std::find(col_names.begin(), col_names.end(), col_name);
-        if (it != col_names.end())
-            return it - col_names.begin();
-        else
-            return -1;
+        CSVReader reader(filename, {}, format);
+        return reader.index_of(col_name);
     }
 
     CSVFileInfo get_file_info(const std::string filename) {
@@ -357,13 +383,12 @@ namespace csv {
         return this->subset_col_names;
     }
 
-    const size_t CSVReader::index_of(const std::string& col_name) const {
+    const int CSVReader::index_of(const std::string& col_name) const {
         auto col_names = this->get_col_names();
         for (size_t i = 0; i < col_names.size(); i++)
-            if (col_names[i] == col_name) return i;
+            if (col_names[i] == col_name) return (int)i;
 
-        throw std::runtime_error("Couldn't find a column named " + col_name +
-            " from " + helpers::format_row(this->get_col_names()));
+        return CSV_NOT_FOUND;
     }
 
     void CSVReader::feed(const std::string &in) {
@@ -626,7 +651,7 @@ namespace csv {
             outfile.open(filename);
 
         for (auto it = this->records.begin(); it != this->records.end(); ++it)
-            outfile << this->csv_to_json(*it) + "\n";
+            outfile << this->csv_to_json(*it) << std::endl;
 
         outfile.close();
     }
@@ -689,14 +714,12 @@ namespace csv {
          *  Returns True if more rows are available, False otherwise.
          *
          *  #### Alternatives 
-         *  If you want automatic type casting of values, then consider
-         *   - CSVReader::read_row(std::vector<CSVField> &row) or
-         *   - CSVReader::read_row(std::vector<void *>&, std::vector<int>&, bool*)
+         *  If you want automatic type casting of values, then use
+         *  CSVReader::read_row(std::vector<CSVField> &row)
          *
          *  @param[out] row A vector of strings where the read row will be stored
          */
-        while (true) {
-            if (!this->read_row_check()) break;
+        if (this->read_row_check()) {
             row.swap(*(this->current_row));
             this->current_row++;
             return true;
@@ -715,36 +738,34 @@ namespace csv {
          *
          *  @param[out] row A vector of strings where the read row will be stored
          */
-        while (true) {
-            if (!this->read_row_check()) break;
+        if (this->read_row_check()) {
             std::vector<std::string>& temp = *(this->current_row);
             CSVField field;
             DataType dtype;
             bool overflow = false;
+            long double d_buff;
             row.clear();
 
-            for (auto it = temp.begin(); it != temp.end(); ++it) {
-                dtype = helpers::data_type(*it);
-
-                try {
-                    switch (helpers::data_type(*it)) {
-                    case CSV_NULL:   // Empty string
-                        field = CSVField(nullptr);
-                        break;
-                    case CSV_STRING:
-                        field = CSVField(*it);
-                        break;
-                    case CSV_INT:
-                        field = CSVField(std::stoi(*it), *it);
-                        break;
-                    case CSV_DOUBLE:
-                        field = CSVField(std::stod(*it), *it);
-                        break;
-                    }
-                }
-                catch (std::out_of_range) {
-                    // Huge ass number
-                    field = CSVField(*it);
+            for (auto& record: temp) {
+                dtype = helpers::data_type(record, &d_buff);
+                switch (dtype) {
+                case CSV_NULL:   // Empty string
+                    field = CSVField(nullptr);
+                    break;
+                case CSV_STRING:
+                    field = CSVField(record);
+                    break;
+                case CSV_INT:
+                    field = CSVField(static_cast<int>(d_buff), record);
+                    break;
+                case CSV_LONG_INT:
+                    field = CSVField(static_cast<long int>(d_buff), record);
+                    break;
+                case CSV_LONG_LONG_INT:
+                    field = CSVField(static_cast<long long int>(d_buff), record);
+                    break;
+                case CSV_DOUBLE:
+                    field = CSVField(d_buff, record);
                     break;
                 }
 

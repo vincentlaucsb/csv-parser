@@ -317,8 +317,9 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     size_t date = reader.index_of("ReportDt"),
         unit = reader.index_of("Unit"),
         power = reader.index_of("Power");
-    string date_field;
-    int power_field;
+    
+    // Try to find a non-existent column
+    REQUIRE(reader.index_of("metallica") == CSV_NOT_FOUND);
 
     for (size_t i = 0; reader.read_row(row); i++) {
         // Assert correct types
@@ -332,23 +333,6 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             REQUIRE(row[date].get<std::string>() == "12/31/2009");
             REQUIRE(row[unit].get<std::string>() == "Beaver Valley 1");
 
-            // Test overloaded << operator
-            date_field << row[date];
-            power_field << row[power];
-            REQUIRE(date_field == "12/31/2009");
-            REQUIRE(power_field == 100);
-
-            // Assert trying to find non-existent rows throws errors
-            try {
-                reader.index_of("metallica");
-            }
-            catch (std::runtime_error&) {
-                caught_error = true;
-            }
-
-            REQUIRE(caught_error);
-            caught_error = false;
-
             // Assert misusing API throws the appropriate errors
             try {
                 row[0].get<long long int>();
@@ -361,8 +345,7 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             caught_error = false;
 
             try {
-                std::cout << "Misuse" << std::endl
-                << row[0].get<double>() << std::endl;
+                row[0].get<double>();
             }
             catch (std::runtime_error&) {
                 caught_error = true;

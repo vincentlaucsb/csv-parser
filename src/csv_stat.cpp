@@ -95,14 +95,12 @@ namespace csv {
         vector<std::thread> pool;
 
         // Start threads
-        for (size_t i = 0; i < subset_col_names.size(); i++) {
+        for (size_t i = 0; i < subset_col_names.size(); i++)
             pool.push_back(std::thread(&CSVStat::calc_col, this, i));
-        }
 
         // Block until done
-        for (auto it = pool.begin(); it != pool.end(); ++it) {
-            (*it).join();
-        }
+        for (auto& th: pool)
+            th.join();
 
         this->clear();
     }
@@ -117,17 +115,18 @@ namespace csv {
         std::deque<vector<string>>::iterator current_record = this->records.begin();
         long double x_n;
 
-        while (current_record != this->records.end()) {
-            this->count((*current_record)[i], i);
-            this->dtype((*current_record)[i], i);
+        for (size_t processed = 0; current_record != this->records.end(); processed++) {
+            // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
+            if (processed < 1000 || this->counts[i].size() <= 500)
+                this->count((*current_record)[i], i);
+
+            auto current_dtype = this->dtype((*current_record)[i], i, x_n);
 
             // Numeric Stuff
             try {
                 // Using data_type() to check if field is numeric is faster
                 // than catching stold() errors
-                if (helpers::data_type((*current_record)[i]) >= 2) {
-                    x_n = std::stold((*current_record)[i]);
-
+                if (current_dtype >= CSV_INT) {
                     // This actually calculates mean AND variance
                     this->variance(x_n, i);
                     this->min_max(x_n, i);
@@ -137,17 +136,18 @@ namespace csv {
                 // Ignore for now
             }
 
-            // (*current_record)[i].clear();
             ++current_record;
         }
     }
 
-    void CSVStat::dtype(std::string &record, size_t &i) {
-        /** Given a record update the type counter
+    DataType CSVStat::dtype(std::string &record, const size_t &i, long double &x_n) {
+        /** Given a record update the type counter and for efficiency, return
+         *  the results of data_type()
          *  @param[in]  record Data observation
          *  @param[out] i      The column index that should be updated
+         *  @param[out] x_n    Stores the resulting of parsing record
          */
-        int type = helpers::data_type(record);
+        DataType type = helpers::data_type(record, &x_n);
         
         if (this->dtypes[i].find(type) !=
             this->dtypes[i].end()) {
@@ -157,6 +157,8 @@ namespace csv {
             // Initialize count
             this->dtypes[i].insert(std::make_pair(type, 1));
         }
+
+        return type;
     }
 
     void CSVStat::count(std::string &record, size_t &i) {
@@ -179,18 +181,15 @@ namespace csv {
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
          */
-        if (isnan(this->mins[i])) {
+        if (isnan(this->mins[i]))
             this->mins[i] = x_n;
-        } if (isnan(this->maxes[i])) {
+        if (isnan(this->maxes[i]))
             this->maxes[i] = x_n;
-        }
         
-        if (x_n < this->mins[i]) {
+        if (x_n < this->mins[i])
             this->mins[i] = x_n;
-        } else if (x_n > this->maxes[i]) {
+        else if (x_n > this->maxes[i])
             this->maxes[i] = x_n;
-        } else {
-        }
     }
 
     void CSVStat::variance(long double &x_n, size_t &i) {
