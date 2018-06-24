@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9)
 project(csv_parser)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 
 if (MSVC)
 else()
@@ -9,7 +9,7 @@ else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -lgcov --coverage")
 endif(MSVC)
 
-set(SOURCES src/csv_reader.cpp src/csv_stat.cpp src/csv_writer.cpp)
+set(SOURCES src/csv_reader.cpp src/csv_stat.cpp)
 set(TEST_SOURCES
 	tests/catch.hpp
 	tests/main.cpp

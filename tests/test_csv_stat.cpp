@@ -1,5 +1,5 @@
 #include "catch.hpp"
-#include "csv_parser.h"
+#include "csv_parser.hpp"
 using namespace csv;
 
 TEST_CASE(

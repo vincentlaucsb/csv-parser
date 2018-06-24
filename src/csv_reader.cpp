@@ -1,10 +1,26 @@
-#include "csv_parser.h"
-#include <random>
+#include "csv_parser.hpp"
 
 namespace csv {
     /** @file
      *  Defines all functionality needed for basic CSV parsing
      */
+
+    std::string type_name(const DataType& dtype) {
+        switch (dtype) {
+        case 1:
+            return "string";
+        case 2:
+            return "int";
+        case 3:
+            return "long int";
+        case 4:
+            return "long long int";
+        case 5:
+            return "double";
+        default:
+            return "null";
+        }
+    };
 
     namespace helpers {
         /** @file */
@@ -14,7 +30,19 @@ namespace csv {
             return std::abs(a - b) < epsilon;
         }
 
-        DataType data_type(const std::string &in, long double* out) {
+        std::string format_row(const std::vector<std::string>& row, const std::string& delim) {
+            /** Print a CSV row */
+            std::stringstream ret;
+            for (size_t i = 0; i < row.size(); i++) {
+                ret << row[i];
+                if (i + 1 < row.size()) ret << delim;
+                else ret << std::endl;
+            }
+
+            return ret.str();
+        }
+
+        DataType data_type(const std::string &in, long double* const out) {
             /** Distinguishes numeric from other text values. Used by various
              *  type casting functions, like csv_parser::CSVReader::read_row()
              *
@@ -257,10 +285,10 @@ namespace csv {
 
     std::deque<CSVRow> parse(const std::string& in, CSVFormat format) {
         /** Parse an in-memory CSV string */
-        CSVReader parser(format);
         std::deque<CSVRow> ret;
         CSVRow temp;
 
+        CSVReader parser(format);
         parser.feed(in);
         parser.end_feed();
 
@@ -360,7 +388,7 @@ namespace csv {
         };
     }
 
-    void CSVReader::set_col_names(std::vector<std::string> col_names) {
+    void CSVReader::set_col_names(const std::vector<std::string>& col_names) {
         /** Set or override the CSV's column names
          * 
          *  #### Significance
@@ -479,7 +507,7 @@ namespace csv {
         } else {
              // Case: Previous character was delimiter
              // Don't deref past beginning
-            if ((in != begin) && (*(in - 1) == this->delimiter))
+            if ((in != begin) && ((*(in - 1) == this->delimiter) || *(in - 1) == '\n'))
                 this->quote_escape = true;
         }
     }
@@ -606,88 +634,6 @@ namespace csv {
         }
     }
     
-    std::string CSVReader::csv_to_json(std::vector<std::string>& record) {
-        /** Helper method for both to_json() methods */
-        std::string json_record = "{";
-        
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
-            json_record += "\"" + helpers::json_escape(this->subset_col_names[i]) + "\":";
-            
-            /* Quote strings but not numeric fields
-             * Recall data_type() returns 2 for ints and 3 for floats
-             */
-            if (helpers::data_type(record[i]) > 1)
-                json_record += record[i];
-            else
-                json_record += "\"" + helpers::json_escape(record[i]) + "\"";
-
-            if (i + 1 != record.size())
-                json_record += ",";
-        }
-
-        return json_record += "}";
-    }
-
-    void CSVReader::to_json(std::string filename, bool append) {
-        /** Convert CSV to a newline-delimited JSON file, where each
-         *  row is mapped to an object with the column names as keys.
-         *
-         *  # Example
-         *  ## Input
-         *  <TABLE>
-         *      <TR><TH>Name</TH><TH>TD</TH><TH>Int</TH><TH>Yards</TH></TR>
-         *      <TR><TD>Tom Brady</TD><TD>2</TD><TD>1</TD><TD>466</TD></TR>
-         *      <TR><TD>Matt Ryan</TD><TD>2</TD><TD>0</TD><TD>284</TD></TR>
-         *  </TABLE>
-         *
-         *  ## Output
-         *  > to_json("twentyeight-three.ndjson")
-         *
-         *  > {"Name":"Tom Brady","TD":2,"Int":1,"Yards":466}
-         *  >
-         *  > {"Name":"Matt Ryan","TD":2,"Int":0,"Yards":284}
-         */
-        std::vector<std::string> record;
-        std::ofstream outfile;
-
-        if (append)
-            outfile.open(filename, std::ios_base::app);
-        else
-            outfile.open(filename);
-
-        for (auto it = this->records.begin(); it != this->records.end(); ++it)
-            outfile << this->csv_to_json(*it) << std::endl;
-
-        outfile.close();
-    }
-
-    std::vector<std::string> CSVReader::to_json() {
-        /** Similar to to_json(std::string filename), but outputs a vector of
-         *  JSON strings instead
-         */
-        std::vector<std::string> output;
-
-        for (auto it = this->records.begin(); it != this->records.end(); ++it)
-            output.push_back(this->csv_to_json(*it));
-
-        return output;
-    }
-
-    /*
-    void CSVReader::sample(int n) {
-         Take a random uniform sample (with replacement) of n rows
-        std::deque<std::vector<std::string>> new_rows;
-        std::default_random_engine generator;
-        std::uniformCSV_INT_distribution<int> distribution(0, this->records.size() - 1);
-
-        for (; n > 1; n--)
-            new_rows.push_back(this->records[distribution(generator)]);
-
-        this->clear();
-        this->records.swap(new_rows);
-    }
-    */
-
     bool CSVReader::read_row_check() {
         /** Helper function which pulls more data from file if necessary,
          *  and determines when to stop reading
@@ -782,55 +728,5 @@ namespace csv {
         }
 
         return false;
-    }
-
-    namespace helpers {
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim) {
-            /** Print a CSV row */
-            std::stringstream ret;
-            for (size_t i = 0; i < row.size(); i++) {
-                ret << row[i];
-                if (i + 1 < row.size()) ret << delim;
-                else ret << std::endl;
-            }
-
-            return ret.str();
-        }
-
-        std::string json_escape(const std::string& in) {
-            /** Given a CSV string, convert it to a JSON string with proper
-             *  escaping as described by RFC 7159
-             */
-
-            std::string out;
-            out.reserve(in.size());
-
-            for (auto it = in.begin(); it != in.end(); ++it) {
-                switch (*it) {
-                case '"':
-                    out += "\\\"";
-                    break;
-                case '\\':
-                    out += "\\\\";
-                    break;
-                case '/':
-                    out += "\\/";
-                    break;
-                case '\r':
-                    out += "\\\r";
-                    break;
-                case '\n':
-                    out += "\\\n";
-                    break;
-                case '\t':
-                    out += "\\\t";
-                    break;
-                default:
-                    out += *it;
-                }
-            }
-
-            return out;
-        }
     }
 }

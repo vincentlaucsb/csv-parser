@@ -19,7 +19,8 @@
 #include <limits> // For CSVField
 
 #define CSV_TYPE_CHECK(X) if (this->type_num<X>() != this->type()) \
-    throw std::runtime_error("Type error muhfugga");
+    throw std::runtime_error("Attempted to convert a value of type " \
+        + type_name(this->type()) + " to " + type_name(this->type_num<X>()) + ".")
 
 namespace csv {
     /** @file */
@@ -80,6 +81,7 @@ namespace csv {
         CSV_DOUBLE
     };
 
+    std::string type_name(const DataType& dtype);
 
     /** A data type for representing CSV values that have been type-casted */
     class CSVField {
@@ -259,17 +261,14 @@ namespace csv {
              *  Functions for working with parsed CSV rows
              */
             ///@{
-            void to_json(std::string filename, bool append = false);
-            std::vector<std::string> to_json();
             void clear();
-            //void sample(int n);
             ///@}
 
             /** @name Low Level CSV Input Interface
              *  Lower level functions for more advanced use cases
              */
             ///@{
-            std::deque< std::vector<std::string>> records
+            std::deque<std::vector<std::string>> records
                 = {}; /**< Queue of parsed CSV rows */
             inline bool eof() { return !(this->infile); };
             void close();               /**< Close the open file handler */
@@ -280,7 +279,7 @@ namespace csv {
 
         protected:
             inline std::string csv_to_json(std::vector<std::string>&);
-            void set_col_names(std::vector<std::string>);
+            void set_col_names(const std::vector<std::string>&);
             std::vector<std::string>              /**< Buffer for row being parsed */
                 record_buffer = { std::string() };
             std::deque<std::vector<std::string>>::iterator current_row; /* < Used in read_row() */
@@ -312,7 +311,7 @@ namespace csv {
             /** @name Column Information */
             ///@{
             std::vector<std::string> col_names; /**< Column names */
-            std::vector<int> subset;            /**< Indices of columns to subset */
+            std::vector<int> subset;         /**< Indices of columns to subset */
             std::vector<std::string> subset_col_names;
             bool subset_flag = false; /**< Set to true if we need to subset data */
             ///@}
@@ -359,10 +358,10 @@ namespace csv {
             std::vector<float> n;
             
             // Statistic calculators
-            void variance(long double&, size_t&);
-            void count(std::string&, size_t&);
-            void min_max(long double&, size_t&);
-            DataType dtype(std::string&, const size_t&, long double&);
+            void variance(const long double&, const size_t&);
+            void count(const std::string&, const size_t&);
+            void min_max(const long double&, const size_t&);
+            DataType dtype(const std::string&, const size_t&, long double&);
 
             void calc(StatsOptions options = ALL_STATS);
             void calc_col(size_t);
@@ -396,32 +395,6 @@ namespace csv {
         std::string filename;
     };
 
-    /** Class for writing CSV files.
-     *
-     *  See csv::csv_escape() for a function that formats a non-CSV string.
-     *
-     *  To write to a CSV file, one should
-     *   -# Initialize a CSVWriter with respect to some file
-     *   -# Call write_row() on std::vector<std::string>s of unformatted text
-     *   -# close() the file handle
-     */
-    class CSVWriter {
-        public:
-            void write_row(std::vector<std::string> record, bool quote_minimal=true);
-            void close();
-            CSVWriter(std::string filename);
-        private:
-            std::ofstream outfile;
-    };
-
-    /** @name Editing Functions
-     *  Functions for editing existing CSV files
-     */
-    ///@{
-    void reformat(std::string infile, std::string outfile, int skiplines = 0);
-    void merge(std::string outfile, std::vector<std::string> in);
-    ///}
-
     /**
      * @namespace csv::helpers
      * @brief Helper functions for various parts of the main library
@@ -429,8 +402,7 @@ namespace csv {
     namespace helpers {
         bool is_equal(double a, double b, double epsilon = 0.001);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
-        DataType data_type(const std::string&, long double* out = nullptr);
-        std::string json_escape(const std::string&);
+        DataType data_type(const std::string&, long double * const out = nullptr);
     }
 
     /** @name Utility Functions

@@ -1,6 +1,6 @@
 // Calculate benchmarks for CSV parser
 
-#include "csv_parser.h"
+#include "csv_parser.hpp"
 #include <chrono>
 #include <iostream>
 

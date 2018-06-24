@@ -1,5 +1,5 @@
 #include "catch.hpp"
-#include "csv_parser.h"
+#include "csv_parser.hpp"
 #include <string>
 
 using namespace csv;
@@ -15,8 +15,7 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     REQUIRE(data_type(b, &out) == CSV_INT);
     REQUIRE(out == 2018);
 
-    auto res1 = data_type(c, &out);
-    REQUIRE(res1 == CSV_INT);
+    REQUIRE(data_type(c, &out) == CSV_INT);
     REQUIRE(out == -69);
 }
 

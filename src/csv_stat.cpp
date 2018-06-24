@@ -1,8 +1,4 @@
-#include "csv_parser.h"
-
-using std::unordered_map;
-using std::vector;
-using std::string;
+#include "csv_parser.hpp"
 
 namespace csv {
     /** @file
@@ -64,7 +60,7 @@ namespace csv {
 
     std::vector< std::unordered_map<std::string, int> > CSVStat::get_counts() {
         /** Get counts for each column */
-        vector<unordered_map<string, int>> ret;        
+        std::vector<std::unordered_map<std::string, int>> ret;
         for (size_t i = 0; i < this->subset_col_names.size(); i++) {
             ret.push_back(this->counts[i]);
         }
@@ -92,7 +88,7 @@ namespace csv {
             n.push_back(0);
         }
 
-        vector<std::thread> pool;
+        std::vector<std::thread> pool;
 
         // Start threads
         for (size_t i = 0; i < subset_col_names.size(); i++)
@@ -112,7 +108,7 @@ namespace csv {
          *  @param[out] i Column index
          */
 
-        std::deque<vector<string>>::iterator current_record = this->records.begin();
+        auto current_record = this->records.begin();
         long double x_n;
 
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
@@ -140,7 +136,7 @@ namespace csv {
         }
     }
 
-    DataType CSVStat::dtype(std::string &record, const size_t &i, long double &x_n) {
+    DataType CSVStat::dtype(const std::string &record, const size_t &i, long double &x_n) {
         /** Given a record update the type counter and for efficiency, return
          *  the results of data_type()
          *  @param[in]  record Data observation
@@ -161,7 +157,7 @@ namespace csv {
         return type;
     }
 
-    void CSVStat::count(std::string &record, size_t &i) {
+    void CSVStat::count(const std::string &record, const size_t &i) {
         /** Given a record update the frequency counter
          *  @param[in]  record Data observation
          *  @param[out] i      The column index that should be updated
@@ -176,7 +172,7 @@ namespace csv {
         }
     }
 
-    void CSVStat::min_max(long double &x_n, size_t &i) {
+    void CSVStat::min_max(const long double &x_n, const size_t &i) {
         /** Update current minimum and maximum
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
@@ -192,7 +188,7 @@ namespace csv {
             this->maxes[i] = x_n;
     }
 
-    void CSVStat::variance(long double &x_n, size_t &i) {
+    void CSVStat::variance(const long double &x_n, const size_t &i) {
         /** Given a record update rolling mean and variance for all columns
          *  using Welford's Algorithm
          *  @param[in]  x_n Data observation

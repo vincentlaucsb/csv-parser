@@ -1,6 +1,6 @@
 #include <stdio.h> // remove()
 #include "catch.hpp"
-#include "csv_parser.h"
+#include "csv_parser.hpp"
 
 using namespace csv;
 using std::vector;
@@ -211,59 +211,6 @@ TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
     REQUIRE( reader.row_num == 246498 );
 }
 
-/**
-TEST_CASE( "Test JSON Output", "[csv_to_json]") {
-    const char * output = "./tests/temp/test.ndjson";
-
-    CSVFormat format = DEFAULT_CSV;
-    format.col_names = { "A", "B", "C" };
-    CSVReaderPtr reader = parse("I,Like,Turtles\r\n", format);
-    reader->to_json(output);
-    
-    // Expected Results
-    std::ifstream test_file(output);
-    string first_line;
-    std::getline(test_file, first_line, '\n');
-    REQUIRE( first_line == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\"}" );
-    test_file.close();
-
-    REQUIRE(remove(output) == 0);
-}
-
-TEST_CASE( "Test JSON Output (Memory)", "[csv_to_json_mem]") {
-    string csv_string(
-        "A,B,C,D\r\n" // Header row
-        "I,Like,Turtles,1\r\n"
-        "I,Like,Turtles,2\r\n");
-    CSVReaderPtr reader = parse(csv_string);
-    vector<string> turtles = reader->to_json();
-    
-    // Expected Results
-    REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\",\"D\":1}");
-    REQUIRE( turtles[1] == "{\"A\":\"I\",\"B\":\"Like\",\"C\":\"Turtles\",\"D\":2}");
-}
-
-TEST_CASE( "Test JSON Escape", "[csv_to_json_escape]") {
-    string csv_string(
-        "A,B,C,D\r\n" // Header row
-        "I,\"Like\"\"\",Turtles,1\r\n" // Quote escape test
-        "I,\"Like\\\",Turtles,1\r\n"   // Backslash escape test
-        "I,\"Like\r\n\",Turtles,1\r\n" // Newline escape test
-        "I,\"Like\t\",Turtles,1\r\n"   // Tab escape test
-        "I,\"Like/\",Turtles,1\r\n"    // Slash escape test
-        );
-    CSVReaderPtr reader = parse(csv_string);
-    vector<string> turtles = reader->to_json();
-    
-    // Expected Results
-    REQUIRE( turtles[0] == "{\"A\":\"I\",\"B\":\"Like\\\"\",\"C\":\"Turtles\",\"D\":1}");
-    REQUIRE( turtles[1] == "{\"A\":\"I\",\"B\":\"Like\\\\\",\"C\":\"Turtles\",\"D\":1}");
-    REQUIRE( turtles[2] == "{\"A\":\"I\",\"B\":\"Like\\\r\\\n\",\"C\":\"Turtles\",\"D\":1}");
-    REQUIRE( turtles[3] == "{\"A\":\"I\",\"B\":\"Like\\\t\",\"C\":\"Turtles\",\"D\":1}");
-    REQUIRE( turtles[4] == "{\"A\":\"I\",\"B\":\"Like\\/\",\"C\":\"Turtles\",\"D\":1}");
-}
-**/
-
 // read_row()
 TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
     // Test that integers are type-casted properly
@@ -282,12 +229,17 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     CSVFormat format = DEFAULT_CSV;
     format.col_names = { "A", "B" };
 
-    string csv_string = (
-        "3.14,9999\r\n"
-        "60,70\r\n"
-        ",\r\n");
+    std::stringstream csv_string;
+    double big_num = ((double)std::numeric_limits<long long>::max() * 2.0);
 
-    auto rows = parse(csv_string, format);
+    csv_string << "3.14,9999" << std::endl
+        << "60,70" << std::endl
+        << "," << std::endl
+        << (std::numeric_limits<long>::max() - 100) << "," 
+            << (std::numeric_limits<long long>::max()/2) << std::endl
+        << std::to_string(big_num) << "," << std::endl;
+
+    auto rows = parse(csv_string.str(), format);
     CSVRow row = rows.front();
 
     // First Row
@@ -308,6 +260,19 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     row = rows.front();
     REQUIRE(row[0].is_null());
     REQUIRE(row[1].is_null());
+
+    // Fourth Row
+    rows.pop_front();
+    row = rows.front();
+    REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT)); // No difference on Windows
+    REQUIRE(row[0].get<long>() == std::numeric_limits<long>::max() - 100);
+    // REQUIRE(row[1].get<long long>() == std::numeric_limits<long long>::max()/2);
+
+    // Fourth Row
+    rows.pop_front();
+    row = rows.front();
+    REQUIRE(row[0].type() == CSV_DOUBLE); // Overflow
+    REQUIRE(helpers::is_equal(row[0].get<double>(), big_num));
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
@@ -348,7 +313,9 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             try {
                 row[0].get<double>();
             }
-            catch (std::runtime_error&) {
+            catch (std::runtime_error& err) {
+                REQUIRE(err.what() == std::string("Attempted to convert a \
+                    value of type string to double."));
                 caught_error = true;
             }
 
