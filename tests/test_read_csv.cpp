@@ -265,11 +265,12 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     rows.pop_front();
     row = rows.front();
     
-    // Too compiler specific
-    // REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT));
-    
+    // Older versions of g++ have issues with numeric_limits
+#if (!defined(__GNUC__) || __GNUC__ >= 5)
+    REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT));
     REQUIRE(row[0].get<long>() == std::numeric_limits<long>::max() - 100);
     // REQUIRE(row[1].get<long long>() == std::numeric_limits<long long>::max()/2);
+#endif
 
     // Fourth Row
     rows.pop_front();
