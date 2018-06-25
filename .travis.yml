@@ -4,14 +4,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['valgrind']
+          packages: ['g++-6', 'valgrind']
 dist: trusty
 sudo: required
 language:
   - cpp
 script:
-  - export CC=gcc
-  - export CXX=g++
+  - export CC=gcc-6
+  - export CXX=g++-6
   - make test_all
   # - valgrind --leak-check=full ./test_csv_parser
   # Disable until Travis updates their version of Valgrind
