@@ -1,5 +1,4 @@
-/** @csv */
-
+#pragma once
 #include <stdexcept>
 #include <cstdio>
 #include <iostream>
@@ -20,8 +19,10 @@
 
 #define CSV_TYPE_CHECK(X) if (this->type_num<X>() != this->type()) \
     throw std::runtime_error("Attempted to convert a value of type " \
-        + type_name(this->type()) + " to " + type_name(this->type_num<X>()) + ".")
+        + helpers::type_name(this->type()) + " to " + \
+        helpers::type_name(this->type_num<X>()) + ".")
 
+//! The all encompassing namespace
 namespace csv {
     /** @file */
 
@@ -37,9 +38,11 @@ namespace csv {
     struct CSVFormat {
         char delim;
         char quote_char;
-        int header;
-        std::vector<std::string> col_names;
-        bool strict;
+        int header; /**< Row number with columns
+            (ignored if col_names is non-empty) */
+        std::vector<std::string> col_names; /**< Should be left empty
+            unless file doesn't include header */
+        bool strict; /**< RFC 4180 non-compliance -> throw an error */
     };
 
     /** Returned by get_file_info() */
@@ -67,10 +70,16 @@ namespace csv {
     /** Enumerates the different CSV field types that are
      *  recognized by this library
      *  
-     *  - 0. Null (empty string)
-     *  - 1. String
-     *  - 2. Integer
-     *  - 3. Floating Point Number
+     *  - 0. CSV_NULL (empty string)
+     *  - 1. CSV_STRING
+     *  - 2. CSV_INT
+     *  - 3. CSV_LONG_INT
+     *  - 4. CSV_LONG_LONG_INT
+     *  - 5. CSV_DOUBLE
+     *
+     *  **Note**: Overflowing integers will be stored and classified as doubles.
+     *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
+     *  compiler and platform.
      */
     enum DataType {
         CSV_NULL,
@@ -81,9 +90,22 @@ namespace csv {
         CSV_DOUBLE
     };
 
-    std::string type_name(const DataType& dtype);
+    /**
+    * @namespace csv::helpers
+    * @brief Helper functions for various parts of the main library
+    */
+    namespace helpers {
+        bool is_equal(double a, double b, double epsilon = 0.001);
+        std::string type_name(const DataType& dtype);
+        std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
+        DataType data_type(const std::string&, long double * const out = nullptr);
+    }
 
-    /** A data type for representing CSV values that have been type-casted */
+    /** A data type for representing CSV values that have been type-casted. Internally,
+     *  the CSVField stores the original string representation of a value, along with 
+     *  the casted value as one of int, long, long long, or double. The get() method
+     *  provides the main means of retrieving values.
+     */
     class CSVField {
         struct CSVFieldConcept {
             CSVFieldConcept(const std::string& value) : str_value(value) {};
@@ -113,13 +135,29 @@ namespace csv {
         CSVField(const std::string& str_val) : value(new CSVFieldModel<std::string>(str_val)) {};
 
         template<typename T> T get() const {
+            /** Returns the value casted to the requested type, performing type checking before.
+             *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
+             *  of T = std::string, in which the original string representation is always returned.
+             *  Converting long ints to ints will be checked for overflow.
+             *
+             *  **Valid options for T**:
+             *   - std::string
+             *   - int
+             *   - long
+             *   - long long
+             *   - double
+             *   - long double
+             */
             if (this->is_int()) return this->get_int<T>();
             else CSV_TYPE_CHECK(T);
             return std::static_pointer_cast<CSVFieldModel<T>>(value)->value;
         }
 
         CSVField() : CSVField(std::nullptr_t()) {}; // Default constructor
-        DataType type() const { return value.get()->type(); }
+        DataType type() const {
+            /** Return the type number of the stored value in accordance with the DataType enum */
+            return value.get()->type();
+        }
         bool is_null() const { return (type() == 0); }
         bool is_str() const { return (type() == 1); }
         bool is_num() const { return (type() > 1); }
@@ -144,10 +182,9 @@ namespace csv {
                 return static_cast<T>(std::static_pointer_cast<CSVFieldModel<long int>>(value)->value);
                 break;
             case CSV_LONG_LONG_INT:
+            default:
                 return static_cast<T>(std::static_pointer_cast<CSVFieldModel<long long int>>(value)->value);
                 break;
-            default:
-                throw std::runtime_error("This shouldn't have happened.");
             }
         }
 
@@ -155,6 +192,7 @@ namespace csv {
     };
 
     // type_num() specializations
+
     template<> inline DataType CSVField::type_num<int>() { return CSV_INT; }
     template<> inline DataType CSVField::type_num<long int>() { return CSV_LONG_INT; }
     template<> inline DataType CSVField::type_num<long long int>() { return CSV_LONG_LONG_INT; }
@@ -164,8 +202,12 @@ namespace csv {
     template<> inline DataType CSVField::type_num<std::string>() { return CSV_STRING; }
 
     // get() specializations
+
     template<>
-    inline std::string CSVField::get<std::string>() const { return this->value->str_value; }
+    inline std::string CSVField::get<std::string>() const {
+        /** Returns the original string representation of a field */
+        return this->value->str_value;
+    }
 
     template<>
     inline double CSVField::get<double>() const {
@@ -196,22 +238,11 @@ namespace csv {
      *
      *  All rows are compared to the column names for length consistency
      *  - By default, rows that are too short or too long are dropped
-     *  - A custom callback can be registered by setting bad_row_handler
+     *  - Custom behavior can be defined by overriding bad_row_handler in a subclass
      */
     class CSVReader {
         public:
-            /** @name Constructors
-             *  There are two constructors, both suited for different purposes
-             *  
-             * - **Iterating Over a File**
-             *   - CSVReader(std::string, CSVFormat, std::vector<int>)
-             *     allows one to lazily read a potentially larger than
-             *     RAM CSV file with just a few lines of code
-             * - **More General Usage**
-             *   - CSVReader(char, char, int, std::vector<int>) is
-             *     more flexible and can be used to parse in-memory
-             *     strings or read entire files into memory
-             */
+            /** @name Constructors */
             ///@{
             CSVReader(
                 std::string filename,
@@ -227,7 +258,6 @@ namespace csv {
             CSVReader(CSVReader&&) = default;     // Move constructor
             CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
             CSVReader& operator=(CSVReader&& other) = default;
-            ~CSVReader();
 
             /** @name Reading In-Memory Strings
              *  You can piece together incomplete CSV fragments by calling feed() on them
@@ -319,7 +349,7 @@ namespace csv {
             /** @name Multi-Threaded File Reading: Worker Thread */
             ///@{
             void read_csv(std::string filename, int nrows = -1, bool close = true);
-            void _read_csv();                     /**< Worker thread for read_csv() */
+            void read_csv_worker();
             ///@}
 
             /** @name Multi-Threaded File Reading */
@@ -364,7 +394,7 @@ namespace csv {
             DataType dtype(const std::string&, const size_t&, long double&);
 
             void calc(StatsOptions options = ALL_STATS);
-            void calc_col(size_t);
+            void calc_worker(const size_t);
     };
 
     /** Class for guessing the delimiter & header row number of CSV files */
@@ -395,29 +425,14 @@ namespace csv {
         std::string filename;
     };
 
-    /**
-     * @namespace csv::helpers
-     * @brief Helper functions for various parts of the main library
-     */
-    namespace helpers {
-        bool is_equal(double a, double b, double epsilon = 0.001);
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
-        DataType data_type(const std::string&, long double * const out = nullptr);
-    }
-
-    /** @name Utility Functions
-     * Functions for getting quick information from CSV files
-     * without writing a lot of code
-     */
+    /** @name Utility Functions */
     ///@{
-    std::string csv_escape(const std::string&, const bool quote_minimal = true);
     std::deque<std::vector<std::string>> parse_to_string(
         const std::string& in, CSVFormat format = DEFAULT_CSV);
     std::deque<CSVRow> parse(const std::string& in, CSVFormat format = DEFAULT_CSV);
 
-    CSVFileInfo get_file_info(const std::string filename);
-    CSVFormat guess_format(const std::string filename);
-
+    CSVFileInfo get_file_info(const std::string& filename);
+    CSVFormat guess_format(const std::string& filename);
     std::vector<std::string> get_col_names(
         const std::string filename,
         const CSVFormat format = GUESS_CSV);

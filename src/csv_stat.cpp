@@ -7,7 +7,10 @@ namespace csv {
 
     CSVStat::CSVStat(std::string filename, std::vector<int> subset,
         StatsOptions options, CSVFormat format) : CSVReader(filename, subset, format) {
-        /** Lazily calculate statistics for a potentially very big file. */
+        /** Lazily calculate statistics for a potentially large file. Once this constructor
+         *  is called, CSVStat will process the entire file iteratively. Once finished,
+         *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
+         */
         while (!this->eof()) {
             this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
             this->calc(options);
@@ -92,7 +95,7 @@ namespace csv {
 
         // Start threads
         for (size_t i = 0; i < subset_col_names.size(); i++)
-            pool.push_back(std::thread(&CSVStat::calc_col, this, i));
+            pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
 
         // Block until done
         for (auto& th: pool)
@@ -101,11 +104,10 @@ namespace csv {
         this->clear();
     }
 
-    void CSVStat::calc_col(size_t i) {
-        /** Worker thread which calculates statistics for one column.
-         *  Intended to be called from CSVStat::calc().
+    void CSVStat::calc_worker(const size_t i) {
+        /** Worker thread for CSVStat::calc() which calculates statistics for one column.
          * 
-         *  @param[out] i Column index
+         *  @param[in] i Column index
          */
 
         auto current_record = this->records.begin();

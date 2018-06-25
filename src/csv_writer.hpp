@@ -1,11 +1,14 @@
 #pragma once
-/** @csv */
 #include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
 
 namespace csv {
+    /** @file
+     *  A standalone header file for writing delimiter-separated files
+     */
+
     template<char Delim = ',', char Quote = '"'>
     inline std::string csv_escape(const std::string& in, const bool quote_minimal = true) {
         /** Format a string to be RFC 4180-compliant

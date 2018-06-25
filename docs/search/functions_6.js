@@ -1,8 +1,4 @@
 var searchData=
 [
-  ['is_5ffloat',['is_float',['../classcsv_1_1CSVField.html#adde14f3e96c1ac1bca0ad0f1c357cb89',1,'csv::CSVField']]],
-  ['is_5fint',['is_int',['../classcsv_1_1CSVField.html#a2709abe87eccfc838fb68033ab188493',1,'csv::CSVField']]],
-  ['is_5fnull',['is_null',['../classcsv_1_1CSVField.html#a6943cab74ece9f11162299b5be617a93',1,'csv::CSVField']]],
-  ['is_5fnumber',['is_number',['../classcsv_1_1CSVField.html#a1dd80e5d6b6615aa1e1aa3a08e999857',1,'csv::CSVField']]],
-  ['is_5fstring',['is_string',['../classcsv_1_1CSVField.html#afbbfa0de06a6396fa65a37893ac10532',1,'csv::CSVField']]]
+  ['is_5fequal',['is_equal',['../namespacecsv_1_1helpers.html#aa1fff2f93e174b431c235bc1fb43bc9e',1,'csv::helpers']]]
 ];
