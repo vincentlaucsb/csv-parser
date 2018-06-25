@@ -71,7 +71,7 @@ namespace csv {
             out << std::endl;
         }
 
-        DelimWriter& operator<<(std::vector<std::string>& record) {
+        DelimWriter& operator<<(const std::vector<std::string>& record) {
             this->write_row(record);
             return *this;
         }
