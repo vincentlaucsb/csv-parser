@@ -264,7 +264,10 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     // Fourth Row
     rows.pop_front();
     row = rows.front();
-    REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT)); // No difference on Windows
+    
+    // Too compiler specific
+    // REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT));
+    
     REQUIRE(row[0].get<long>() == std::numeric_limits<long>::max() - 100);
     // REQUIRE(row[1].get<long long>() == std::numeric_limits<long long>::max()/2);
 
