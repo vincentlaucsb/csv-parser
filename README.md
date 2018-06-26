@@ -30,7 +30,7 @@ All of this library's essentials are located under `src/`, with no dependencies 
 ### Reading a Large File
 With this library, you can easily stream over a large file without reading its entirety into memory.
 
-```
+```cpp
 # include "csv_parser.h"
 
 using namespace csv;
@@ -50,7 +50,7 @@ while (reader.read_row(row)) {
 You can also reorder a CSV or only keep a subset of the data simply by passing
 in a vector of column indices.
 
-```
+```cpp
 # include "csv_parser.h"
 
 using namespace csv;
@@ -70,7 +70,7 @@ while (reader.read_row(row)) {
 ### Automatic Type Conversions
 If your CSV has lots of numeric values, you can also have this parser automatically convert them to the proper data type.
 
-```
+```cpp
 # include "csv_parser.h"
 
 using namespace csv;
@@ -95,7 +95,7 @@ while (reader.read_row(row)) {
 ### Specifying a Specific Delimiter, Quoting Character, etc.
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
-```
+```cpp
 # include "csv_parser.h"
 # include ...
 
@@ -119,7 +119,7 @@ while (reader.read_row(row)) {
 
 ### Parsing an In-Memory String
 
-```
+```cpp
 # include "csv_parser.h"
 # include ...
 
@@ -149,7 +149,7 @@ int main() {
 
 ### Writing CSV Files
 
-```
+```cpp
 # include "csv_writer.hpp"
 # include ...
 
