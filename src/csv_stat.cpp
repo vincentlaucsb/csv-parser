@@ -114,11 +114,16 @@ namespace csv {
         long double x_n;
 
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
+            // Future optimization: Make this conversation unnecessary
+            std::string current_field = std::string((*current_record)[i].sv);
+
             // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
             if (processed < 1000 || this->counts[i].size() <= 500)
-                this->count((*current_record)[i], i);
+                this->count(current_field, i);
 
-            auto current_dtype = this->dtype((*current_record)[i], i, x_n);
+            // Temporary
+            // auto current_dtype = this->dtype((*current_record)[i], i, x_n);
+            auto current_dtype = this->dtype(current_field, i, x_n);
 
             // Numeric Stuff
             try {

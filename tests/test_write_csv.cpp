@@ -72,6 +72,7 @@ TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]") {
     REQUIRE(tab_out.str() == correct_tab.str());
 }
 
+/*
 TEST_CASE("CSV Round Trip", "[test_csv_roundtrip]") {
     const char * test_file = "./tests/temp/round_trip.csv";
     std::ofstream out(test_file);
@@ -106,3 +107,4 @@ TEST_CASE("CSV Round Trip", "[test_csv_roundtrip]") {
     out.close();
     REQUIRE(remove(test_file) == 0);
 }
+*/

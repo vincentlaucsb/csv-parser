@@ -1,4 +1,5 @@
 #pragma once
+#include <string_view>
 #include <stdexcept>
 #include <cstdio>
 #include <iostream>
@@ -22,12 +23,20 @@
         + helpers::type_name(this->type()) + " to " + \
         helpers::type_name(this->type_num<X>()) + ".")
 
+#include <Windows.h>
+#undef max
+#undef min
+inline size_t get_page_size() {
+    _SYSTEM_INFO sys_info = {};
+    GetSystemInfo(&sys_info);
+    return sys_info.dwPageSize;
+}
+
+const size_t PAGE_SIZE = get_page_size();
+
 //! The all encompassing namespace
 namespace csv {
     /** @file */
-
-    class CSVField;
-    using CSVRow = std::vector<CSVField>;
 
     const int CSV_NOT_FOUND = -1;
 
@@ -98,122 +107,64 @@ namespace csv {
         bool is_equal(double a, double b, double epsilon = 0.001);
         std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
-        DataType data_type(const std::string&, long double * const out = nullptr);
+        DataType data_type(std::string_view, long double * const out = nullptr);
     }
 
-    /** A data type for representing CSV values that have been type-casted. Internally,
-     *  the CSVField stores the original string representation of a value, along with 
-     *  the casted value as one of int, long, long long, or double. The get() method
-     *  provides the main means of retrieving values.
-     */
-    class CSVField {
-        struct CSVFieldConcept {
-            CSVFieldConcept(const std::string& value) : str_value(value) {};
-            virtual ~CSVFieldConcept() {};
-            virtual DataType type() const = 0;
-            std::string str_value;
+    class CSVRow {
+        struct CSVField {
+            CSVField(std::string_view _sv) : sv(_sv) { };
+            std::string_view sv;
+
+            bool operator==(const std::string&) const;
+            template<typename T>
+            T get() {
+                static_assert(1 == 2, "Not supported");
+            };
         };
-
-        template<typename T> struct CSVFieldModel : CSVFieldConcept {
-            CSVFieldModel(const T& t, const std::string& str) :
-                value(t), CSVFieldConcept(str) {};
-            CSVFieldModel(const std::string& str) : CSVFieldConcept(str) {};
-
-            T value;
-            DataType type() const { return CSVField::type_num<T>(); };
-        };
-
-        std::shared_ptr<CSVFieldConcept> value;
 
     public:
-        template<typename T> CSVField(const T& val, const std::string& str_val) :
-            value(new CSVFieldModel<T>(val, str_val)) {
-            value->str_value = str_val;
-        };
+        CSVRow() = default;
+        CSVRow::CSVRow(std::string&& _str, std::vector<size_t>&& _splits) :
+            row_str(std::move(_str)),
+            splits(std::move(_splits))
+        {};
 
-        CSVField(const std::nullptr_t&) : value(new CSVFieldModel<std::nullptr_t>("")) {};
-        CSVField(const std::string& str_val) : value(new CSVFieldModel<std::string>(str_val)) {};
-
-        template<typename T> T get() const {
-            /** Returns the value casted to the requested type, performing type checking before.
-             *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
-             *  of T = std::string, in which the original string representation is always returned.
-             *  Converting long ints to ints will be checked for overflow.
-             *
-             *  **Valid options for T**:
-             *   - std::string
-             *   - int
-             *   - long
-             *   - long long
-             *   - double
-             *   - long double
-             */
-            if (this->is_int()) return this->get_int<T>();
-            else CSV_TYPE_CHECK(T);
-            return std::static_pointer_cast<CSVFieldModel<T>>(value)->value;
-        }
-
-        CSVField() : CSVField(std::nullptr_t()) {}; // Default constructor
-        DataType type() const {
-            /** Return the type number of the stored value in accordance with the DataType enum */
-            return value.get()->type();
-        }
-        bool is_null() const { return (type() == 0); }
-        bool is_str() const { return (type() == 1); }
-        bool is_num() const { return (type() > 1); }
-        bool is_int() const { return (type() >= CSV_INT && type() <= CSV_LONG_LONG_INT); }
-        bool is_float() const { return (type() == CSV_DOUBLE); };
-
-        friend class CSVReader; // So CSVReader::read_row() can create CSVFields
+        bool empty() const { return this->row_str.empty(); }
+        size_t size() const;
+        std::string_view get_string_view(size_t n) const;
+        CSVField operator[](size_t n) const;
+        operator std::vector<std::string>() const;
 
     private:
-        template<typename T> T get_int() const {
-            /** Return integer values */
-            auto int_type = this->type();
-
-            if (int_type > this->type_num<T>())
-                throw std::runtime_error("Overflow error");
-
-            switch (int_type) {
-            case CSV_INT:
-                return static_cast<T>(std::static_pointer_cast<CSVFieldModel<int>>(value)->value);
-                break;
-            case CSV_LONG_INT:
-                return static_cast<T>(std::static_pointer_cast<CSVFieldModel<long int>>(value)->value);
-                break;
-            case CSV_LONG_LONG_INT:
-            default:
-                return static_cast<T>(std::static_pointer_cast<CSVFieldModel<long long int>>(value)->value);
-                break;
-            }
-        }
-
-        template<typename T> static DataType type_num();
+        std::string row_str;
+        std::vector<size_t> splits;
     };
 
-    // type_num() specializations
-
-    template<> inline DataType CSVField::type_num<int>() { return CSV_INT; }
-    template<> inline DataType CSVField::type_num<long int>() { return CSV_LONG_INT; }
-    template<> inline DataType CSVField::type_num<long long int>() { return CSV_LONG_LONG_INT; }
-    template<> inline DataType CSVField::type_num<double>() { return CSV_DOUBLE; }
-    template<> inline DataType CSVField::type_num<long double>() { return CSV_DOUBLE; }
-    template<> inline DataType CSVField::type_num<std::nullptr_t>() { return CSV_NULL; }
-    template<> inline DataType CSVField::type_num<std::string>() { return CSV_STRING; }
-
-    // get() specializations
-
     template<>
-    inline std::string CSVField::get<std::string>() const {
-        /** Returns the original string representation of a field */
-        return this->value->str_value;
+    inline std::string CSVRow::CSVField::get<std::string>() {
+        #pragma message("Consider using get<std::string_view>() instead of get<std::string>().")
+        return std::string(this->sv);
     }
 
     template<>
-    inline double CSVField::get<double>() const {
-        CSV_TYPE_CHECK(double);
-        return static_cast<double>(std::static_pointer_cast<CSVFieldModel<long double>>(value)->value);
+    inline std::string_view CSVRow::CSVField::get<std::string_view>() {
+        return this->sv;
     }
+
+    template<>
+    inline long long CSVRow::CSVField::get<long long>() {
+        long double temp;
+        if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
+            return static_cast<long long>(temp);
+    }
+
+    template<>
+    inline double CSVRow::CSVField::get<double>() {
+        long double temp;
+        if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
+            return static_cast<double>(temp);
+    }
+
 
     /** @name Global Constants */
     ///@{
@@ -264,14 +215,14 @@ namespace csv {
              *  before finally calling end_feed()
              */
             ///@{
-            void feed(const std::string &in);
+            void feed(std::unique_ptr<std::string>&&);
+            void feed(std::string_view in);
             void end_feed();
             ///@}
 
             /** @name Retrieving CSV Rows */
             ///@{
-            bool read_row(std::vector<std::string> &row);
-            bool read_row(std::vector<CSVField> &row);
+            bool read_row(CSVRow &row);
             ///@}
 
             /** @name CSV Metadata */
@@ -298,34 +249,26 @@ namespace csv {
              *  Lower level functions for more advanced use cases
              */
             ///@{
-            std::deque<std::vector<std::string>> records
-                = {}; /**< Queue of parsed CSV rows */
-            inline bool eof() { return !(this->infile); };
+            std::deque<CSVRow> records; /**< Queue of parsed CSV rows */
             void close();               /**< Close the open file handler */
+            inline bool eof() { return !(this->infile); };
             ///@}
 
-            friend std::deque<std::vector<std::string>> parse_to_string(
-                const std::string&, CSVFormat format);
-
         protected:
-            inline std::string csv_to_json(std::vector<std::string>&);
             void set_col_names(const std::vector<std::string>&);
-            std::vector<std::string>              /**< Buffer for row being parsed */
-                record_buffer = { std::string() };
-            std::deque<std::vector<std::string>>::iterator current_row; /* < Used in read_row() */
-            bool current_row_set = false;                               /* Flag to reset iterator */
-            bool read_row_check();                                      /* Helper function for read_row */
+            std::string record_buffer = "";    /* < Buffer for current row being parsed */
+            std::vector<size_t> split_buffer;  /* < Positions where current row is split */
+            size_t min_row_len = INFINITY;     /* < Shortest row seen so far */
 
             /** @name CSV Parsing Callbacks
              *  The heart of the CSV parser. 
              *  These functions are called by feed(std::string&).
              */
             ///@{
-            void process_possible_delim(const std::string::const_iterator&, std::string&);
-            void process_quote(std::string::const_iterator&,
-                std::string::const_iterator&, std::string&);
-            void process_newline(std::string::const_iterator&, std::string&);
-            void write_record(std::vector<std::string>&);
+            void process_possible_delim(std::string_view);
+            void process_quote(std::string_view);
+            void process_newline(std::string_view);
+            void write_record();
             virtual void bad_row_handler(std::vector<std::string>);
             ///@}
             
@@ -336,6 +279,8 @@ namespace csv {
             bool quote_escape = false;     /**< Parsing flag */
             int header_row;                /**< Line number of the header row (zero-indexed) */
             bool strict = false;           /**< Strictness of parser */
+            size_t c_pos = 0;            /**< Position in current string of parser */
+            size_t n_pos = 0;            /**< Position in new string of parser */
             ///@}
 
             /** @name Column Information */
@@ -355,9 +300,10 @@ namespace csv {
             /** @name Multi-Threaded File Reading */
             ///@{
             std::FILE* infile = nullptr;
-            std::deque<std::string*> feed_buffer; /**< Message queue for worker */
-            std::mutex feed_lock;                 /**< Allow only one worker to write */
-            std::condition_variable feed_cond;    /**< Wake up worker */
+            std::deque<std::unique_ptr<std::string>> feed_buffer;
+                                                /**< Message queue for worker */
+            std::mutex feed_lock;               /**< Allow only one worker to write */
+            std::condition_variable feed_cond;  /**< Wake up worker */
             ///@}
     };
     
@@ -412,7 +358,7 @@ namespace csv {
         };
 
     public:
-        CSVGuesser(const std::string _filename) : filename(_filename) {};
+        CSVGuesser(const std::string& _filename) : filename(_filename) {};
         std::vector<char> delims = { ',', '|', '\t', ';', '^' };
         void guess_delim();
         bool first_guess();
@@ -427,8 +373,6 @@ namespace csv {
 
     /** @name Utility Functions */
     ///@{
-    std::deque<std::vector<std::string>> parse_to_string(
-        const std::string& in, CSVFormat format = DEFAULT_CSV);
     std::deque<CSVRow> parse(const std::string& in, CSVFormat format = DEFAULT_CSV);
 
     CSVFileInfo get_file_info(const std::string& filename);
