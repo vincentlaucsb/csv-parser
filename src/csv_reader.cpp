@@ -43,122 +43,6 @@ namespace csv {
 
             return ret.str();
         }
-
-        DataType data_type(std::string_view in, long double* const out) {
-            /** Distinguishes numeric from other text values. Used by various
-             *  type casting functions, like csv_parser::CSVReader::read_row()
-             *
-             *  #### Rules
-             *   - Leading and trailing whitespace ("padding") ignored
-             *   - A string of just whitespace is NULL
-             *
-             *  @param[in] in String value to be examined
-             */
-
-            // Empty string --> NULL
-            if (in.size() == 0)
-                return CSV_NULL;
-
-            bool ws_allowed = true;
-            bool neg_allowed = true;
-            bool dot_allowed = true;
-            bool digit_allowed = true;
-            bool has_digit = false;
-            bool prob_float = false;
-
-            unsigned places_after_decimal = 0;
-            long double num_buff = 0;
-
-            for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
-                const char& current = in[i];
-
-                switch (current) {
-                case ' ':
-                    if (!ws_allowed) {
-                        if (isdigit(in[i - 1])) {
-                            digit_allowed = false;
-                            ws_allowed = true;
-                        }
-                        else {
-                            // Ex: '510 123 4567'
-                            return CSV_STRING;
-                        }
-                    }
-                    break;
-                case '-':
-                    if (!neg_allowed) {
-                        // Ex: '510-123-4567'
-                        return CSV_STRING;
-                    }
-                    else {
-                        neg_allowed = false;
-                    }
-                    break;
-                case '.':
-                    if (!dot_allowed) {
-                        return CSV_STRING;
-                    }
-                    else {
-                        dot_allowed = false;
-                        prob_float = true;
-                    }
-                    break;
-                default:
-                    if (isdigit(current)) {
-                        // Process digit
-                        has_digit = true;
-
-                        if (!digit_allowed)
-                            return CSV_STRING;
-                        else if (ws_allowed) // Ex: '510 456'
-                            ws_allowed = false;
-
-                        // Build current number
-                        unsigned digit = current - '0';
-                        if (num_buff == 0) {
-                            num_buff = digit;
-                        }
-                        else if (prob_float) {
-                            num_buff += (long double)digit / pow(10.0, ++places_after_decimal);
-                        }
-                        else {
-                            num_buff *= 10;
-                            num_buff += digit;
-                        }
-                    }
-                    else {
-                        return CSV_STRING;
-                    }
-                }
-            }
-
-            // No non-numeric/non-whitespace characters found
-            if (has_digit) {
-                if (!neg_allowed) num_buff *= -1;
-                if (out) *out = num_buff;
-
-                if (prob_float)
-                    return CSV_DOUBLE;
-                else {
-                    long double log10_num_buff;
-                    if (!neg_allowed) log10_num_buff = log10(-num_buff);
-                    else log10_num_buff = log10(num_buff);
-
-                    if (log10_num_buff < log10(std::numeric_limits<int>::max()))
-                        return CSV_INT;
-                    else if (log10_num_buff < log10(std::numeric_limits<long int>::max()))
-                        return CSV_LONG_INT;
-                    else if (log10_num_buff < log10(std::numeric_limits<long long int>::max()))
-                        return CSV_LONG_LONG_INT;
-                    else // Conversion to long long will cause an overflow
-                        return CSV_DOUBLE;
-                }
-            }
-            else {
-                // Just whitespace
-                return CSV_NULL;
-            }
-        }
     }
 
     CSVFormat guess_format(const std::string& filename) {
@@ -176,7 +60,7 @@ namespace csv {
          */
         if (this->strict) {
             std::string problem;
-            if (record.size() > col_names.size()) problem = "too long";
+            if (record.size() > this->col_names->size()) problem = "too long";
             else problem = "too short";
 
             throw std::runtime_error("Line " + problem + " around line " +
@@ -224,12 +108,12 @@ namespace csv {
 
         for (size_t i = 0; i < delims.size(); i++) {
             format.delim = delims[i];
-            CSVReader guesser(this->filename, {}, format);
+            CSVReader guesser(this->filename, format);
            
             // WORKAROUND on Unix systems because certain newlines
             // get double counted
             // temp_rows = guesser.correct_rows;
-            temp_rows = std::min(guesser.correct_rows, 100);
+            temp_rows = std::min(guesser.correct_rows, (RowCount)100);
             if ((guesser.row_num >= max_rows) &&
                 (guesser.get_col_names().size() > max_cols)) {
                 max_rows = temp_rows;
@@ -298,7 +182,7 @@ namespace csv {
          *  @param[in] filename  Path to CSV file
          *  @param[in] format    Format of the CSV file
          */
-        CSVReader reader(filename, {}, format);
+        CSVReader reader(filename, format);
         return reader.get_col_names();
     }
 
@@ -312,7 +196,7 @@ namespace csv {
          *  @param[in] format    Format of the CSV file
          */
 
-        CSVReader reader(filename, {}, format);
+        CSVReader reader(filename, format);
         return reader.index_of(col_name);
     }
 
@@ -334,17 +218,16 @@ namespace csv {
         return info;
     }
 
-    CSVReader::CSVReader(CSVFormat format, std::vector<int> _subset) :
+    CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.delim), quote_char(format.quote_char),
-        header_row(format.header), subset(_subset), strict(format.strict) {
+        header_row(format.header), strict(format.strict) {
         if (!format.col_names.empty()) {
             this->header_row = -1;
-            this->set_col_names(format.col_names);
+            this->col_names = std::make_shared<ColNames>(format.col_names);
         }
     };
 
-    CSVReader::CSVReader(std::string filename, std::vector<int> _subset,
-        CSVFormat format) {
+    CSVReader::CSVReader(std::string filename, CSVFormat format) {
         /** Reads the first 100 rows of a CSV file to infer file information 
          *  such as column names and delimiting character. After calling this
          *  constructor, you can lazily iterate over a file by calling any
@@ -352,61 +235,36 @@ namespace csv {
          *
          *  @param[in] filename  Path to CSV file
          *  @param[in] format    Format of the CSV file
-         *  @param[in] subset    Indices of columns to keep (default: keep all)
          */
 
         if (format.delim == '\0')
             format = guess_format(filename);
             
+        this->col_names = std::make_shared<ColNames>(format.col_names);
         delimiter = format.delim;
         quote_char = format.quote_char;
         header_row = format.header;
-        subset = _subset;
         strict = format.strict;
 
         // Begin reading CSV
         read_csv(filename, 100, false);
     }
 
-    const CSVFormat CSVReader::get_format() const {
+    CSVFormat CSVReader::get_format() const {
         /** Return the format of the original raw CSV */
         return {
             this->delimiter,
             this->quote_char,
             this->header_row,
-            this->col_names
+            this->col_names->col_names
         };
     }
 
-    void CSVReader::set_col_names(const std::vector<std::string>& col_names) {
-        /** Set or override the CSV's column names
-         * 
-         *  #### Significance
-         *  - When parsing, rows that are shorter or longer than the list 
-         *    of column names get dropped
-         *  - These column names are also used when creating CSV/JSON/SQLite3 files
-         *
-         *  @param[in] col_names Column names
-         */
-        
-        this->col_names = col_names;
-        if (this->subset.size() > 0) {
-            this->subset_flag = true;
-            for (size_t i = 0; i < this->subset.size(); i++)
-                subset_col_names.push_back(col_names[this->subset[i]]);
-        } else {
-            // "Subset" is every column
-            for (size_t i = 0; i < this->col_names.size(); i++)
-                this->subset.push_back(i);
-            subset_col_names = col_names;
-        }
+    std::vector<std::string> CSVReader::get_col_names() const {
+        return this->col_names->get_col_names();
     }
 
-    const std::vector<std::string> CSVReader::get_col_names() const {
-        return this->subset_col_names;
-    }
-
-    const int CSVReader::index_of(const std::string& col_name) const {
+    int CSVReader::index_of(const std::string& col_name) const {
         auto col_names = this->get_col_names();
         for (size_t i = 0; i < col_names.size(); i++)
             if (col_names[i] == col_name) return (int)i;
@@ -510,36 +368,30 @@ namespace csv {
         }
     }
 
+    void CSVReader::set_col_names(std::vector<std::string>& _col_names) {
+        this->col_names = std::make_shared<ColNames>(_col_names);
+    }
+
     void CSVReader::write_record() {
         /** Push the current row into a queue if it is the right length.
          *  Drop it otherwise.
          */
         
-        size_t col_names_size = this->col_names.size();
+        size_t col_names_size = this->col_names->size();
         this->min_row_len = std::min(this->min_row_len, this->record_buffer.size());
         this->n_pos = 0;
         this->quote_escape = false;  // Unset all flags
         auto row = CSVRow(
             std::move(this->record_buffer),
-            std::move(this->split_buffer)
+            std::move(this->split_buffer),
+            this->col_names
         );
         
         if (this->row_num > this->header_row) {
             // Make sure record is of the right length
             if (row.size() == col_names_size) {
                 this->correct_rows++;
-
-                if (!this->subset_flag) {
-                    this->records.push_back(row);
-                }
-                /*
-                else {
-                    std::vector<std::string> subset_record;
-                    for (size_t i = 0; i < this->subset.size(); i++)
-                        subset_record.push_back(record[this->subset[i] ]);
-                    this->records.push_back(subset_record);
-                }
-                */
+                this->records.push_back(row);
             } else {
                 /* 1) Zero-length record, probably caused by extraneous newlines
                  * 2) Too short or too long
@@ -553,12 +405,12 @@ namespace csv {
         } // else: Ignore rows before header row
 
         this->record_buffer = "";
-        if (this->record_buffer.capacity() < this->min_row_len)
-            record_buffer.reserve(this->min_row_len);
+        if (this->record_buffer.capacity() < this->min_row_len * 1.5)
+            record_buffer.reserve(this->min_row_len * 1.5);
 
         this->split_buffer = {};
-        if (this->split_buffer.capacity() < this->col_names.size())
-            split_buffer.reserve(col_names.size());
+        if (this->split_buffer.capacity() < this->col_names->size())
+            split_buffer.reserve(this->col_names->size());
 
         this->row_num++;
     }

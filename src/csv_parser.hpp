@@ -15,30 +15,22 @@
 #include <mutex>
 #include <condition_variable>
 #include <sstream>
-#include <memory> // For CSVField
-#include <limits> // For CSVField
+
+#include "memory.hpp"
+#include "data_type.h"
+#include "csv_row.hpp"
 
 #define CSV_TYPE_CHECK(X) if (this->type_num<X>() != this->type()) \
     throw std::runtime_error("Attempted to convert a value of type " \
         + helpers::type_name(this->type()) + " to " + \
         helpers::type_name(this->type_num<X>()) + ".")
 
-#include <Windows.h>
-#undef max
-#undef min
-inline size_t get_page_size() {
-    _SYSTEM_INFO sys_info = {};
-    GetSystemInfo(&sys_info);
-    return sys_info.dwPageSize;
-}
-
-const size_t PAGE_SIZE = get_page_size();
-
 //! The all encompassing namespace
 namespace csv {
     /** @file */
 
     const int CSV_NOT_FOUND = -1;
+    using RowCount = long long int;
 
     /** Stores information about how to parse a CSV file
      *   - Can be used to initialize a csv::CSVReader() object
@@ -59,7 +51,7 @@ namespace csv {
         std::string filename;               /**< Filename */
         std::vector<std::string> col_names; /**< CSV column names */
         char delim;                         /**< Delimiting character */
-        int n_rows;                         /**< Number of rows in a file */
+        RowCount n_rows;                    /**< Number of rows in a file */
         int n_cols;                         /**< Number of columns in a CSV */
     };
 
@@ -76,29 +68,6 @@ namespace csv {
 
     const StatsOptions ALL_STATS = { true, true, true };
 
-    /** Enumerates the different CSV field types that are
-     *  recognized by this library
-     *  
-     *  - 0. CSV_NULL (empty string)
-     *  - 1. CSV_STRING
-     *  - 2. CSV_INT
-     *  - 3. CSV_LONG_INT
-     *  - 4. CSV_LONG_LONG_INT
-     *  - 5. CSV_DOUBLE
-     *
-     *  **Note**: Overflowing integers will be stored and classified as doubles.
-     *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
-     *  compiler and platform.
-     */
-    enum DataType {
-        CSV_NULL,
-        CSV_STRING,
-        CSV_INT,
-        CSV_LONG_INT,
-        CSV_LONG_LONG_INT,
-        CSV_DOUBLE
-    };
-
     /**
     * @namespace csv::helpers
     * @brief Helper functions for various parts of the main library
@@ -107,64 +76,7 @@ namespace csv {
         bool is_equal(double a, double b, double epsilon = 0.001);
         std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
-        DataType data_type(std::string_view, long double * const out = nullptr);
     }
-
-    class CSVRow {
-        struct CSVField {
-            CSVField(std::string_view _sv) : sv(_sv) { };
-            std::string_view sv;
-
-            bool operator==(const std::string&) const;
-            template<typename T>
-            T get() {
-                static_assert(1 == 2, "Not supported");
-            };
-        };
-
-    public:
-        CSVRow() = default;
-        CSVRow::CSVRow(std::string&& _str, std::vector<size_t>&& _splits) :
-            row_str(std::move(_str)),
-            splits(std::move(_splits))
-        {};
-
-        bool empty() const { return this->row_str.empty(); }
-        size_t size() const;
-        std::string_view get_string_view(size_t n) const;
-        CSVField operator[](size_t n) const;
-        operator std::vector<std::string>() const;
-
-    private:
-        std::string row_str;
-        std::vector<size_t> splits;
-    };
-
-    template<>
-    inline std::string CSVRow::CSVField::get<std::string>() {
-        #pragma message("Consider using get<std::string_view>() instead of get<std::string>().")
-        return std::string(this->sv);
-    }
-
-    template<>
-    inline std::string_view CSVRow::CSVField::get<std::string_view>() {
-        return this->sv;
-    }
-
-    template<>
-    inline long long CSVRow::CSVField::get<long long>() {
-        long double temp;
-        if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
-            return static_cast<long long>(temp);
-    }
-
-    template<>
-    inline double CSVRow::CSVField::get<double>() {
-        long double temp;
-        if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
-            return static_cast<double>(temp);
-    }
-
 
     /** @name Global Constants */
     ///@{
@@ -195,14 +107,8 @@ namespace csv {
         public:
             /** @name Constructors */
             ///@{
-            CSVReader(
-                std::string filename,
-                std::vector<int> _subset = {},
-                CSVFormat format = GUESS_CSV);
-
-            CSVReader(
-                CSVFormat format = DEFAULT_CSV,
-                std::vector<int>_subset = {});
+            CSVReader(std::string filename, CSVFormat format = GUESS_CSV);
+            CSVReader(CSVFormat format = DEFAULT_CSV);
             ///@}
 
             CSVReader(const CSVReader&) = delete; // No copy constructor
@@ -227,15 +133,15 @@ namespace csv {
 
             /** @name CSV Metadata */
             ///@{
-            const CSVFormat get_format() const;
-            const std::vector<std::string> get_col_names() const;
-            const int index_of(const std::string& col_name) const;
+            CSVFormat get_format() const;
+            std::vector<std::string> get_col_names() const;
+            int index_of(const std::string& col_name) const;
             ///@}
 
             /** @name CSV Metadata: Attributes */
             ///@{
-            int row_num = 0;        /**< How many lines have been parsed so far */
-            int correct_rows = 0;   /**< How many correct rows (minus header) have been parsed so far */
+            RowCount row_num = 0;        /**< How many lines have been parsed so far */
+            RowCount correct_rows = 0;   /**< How many correct rows (minus header) have been parsed so far */
             ///@}
 
             /** @name Output
@@ -255,7 +161,7 @@ namespace csv {
             ///@}
 
         protected:
-            void set_col_names(const std::vector<std::string>&);
+            void set_col_names(std::vector<std::string>&);
             std::string record_buffer = "";    /* < Buffer for current row being parsed */
             std::vector<size_t> split_buffer;  /* < Positions where current row is split */
             size_t min_row_len = INFINITY;     /* < Shortest row seen so far */
@@ -285,10 +191,8 @@ namespace csv {
 
             /** @name Column Information */
             ///@{
-            std::vector<std::string> col_names; /**< Column names */
-            std::vector<int> subset;         /**< Indices of columns to subset */
-            std::vector<std::string> subset_col_names;
-            bool subset_flag = false; /**< Set to true if we need to subset data */
+            std::shared_ptr<ColNames> col_names =
+                std::make_shared<ColNames>(std::vector<std::string>({}));
             ///@}
 
             /** @name Multi-Threaded File Reading: Worker Thread */
@@ -310,18 +214,21 @@ namespace csv {
     /** Class for calculating statistics from CSV files */
     class CSVStat: public CSVReader {
         public:
-            void end_feed();
-            std::vector<long double> get_mean();
-            std::vector<long double> get_variance();
-            std::vector<long double> get_mins();
-            std::vector<long double> get_maxes();
-            std::vector< std::unordered_map<std::string, int> > get_counts();
-            std::vector< std::unordered_map<int, int> > get_dtypes();
+            using FreqCount = std::unordered_map<std::string, RowCount>;
+            using TypeCount = std::unordered_map<DataType, RowCount>;
 
-            CSVStat(std::string filename, std::vector<int> subset = {},
-                StatsOptions options = ALL_STATS, CSVFormat format = GUESS_CSV);
-            CSVStat(CSVFormat format = DEFAULT_CSV, std::vector<int> subset = {},
-                StatsOptions options = ALL_STATS) : CSVReader(format, subset) {};
+            void end_feed();
+            std::vector<long double> get_mean() const;
+            std::vector<long double> get_variance() const;
+            std::vector<long double> get_mins() const;
+            std::vector<long double> get_maxes() const;
+            std::vector<FreqCount> get_counts() const;
+            std::vector<TypeCount> get_dtypes() const;
+
+            CSVStat(std::string filename, StatsOptions options = ALL_STATS,
+                CSVFormat format = GUESS_CSV);
+            CSVStat(CSVFormat format = DEFAULT_CSV, StatsOptions options = ALL_STATS)
+                : CSVReader(format) {};
         private:
             // An array of rolling averages
             // Each index corresponds to the rolling mean for the column at said index
@@ -329,9 +236,9 @@ namespace csv {
             std::vector<long double> rolling_vars;
             std::vector<long double> mins;
             std::vector<long double> maxes;
-            std::vector<std::unordered_map<std::string, int>> counts;
-            std::vector<std::unordered_map<int, int>> dtypes;
-            std::vector<float> n;
+            std::vector<FreqCount> counts;
+            std::vector<TypeCount> dtypes;
+            std::vector<long double> n;
             
             // Statistic calculators
             void variance(const long double&, const size_t&);

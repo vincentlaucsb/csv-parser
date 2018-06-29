@@ -34,7 +34,7 @@ TEST_CASE(
         REQUIRE( reader.get_counts()[0][std::to_string(i)] == 1 );
     
     // Confirm column at pos 0 has 100 integers (type 2)
-    REQUIRE( reader.get_dtypes()[0][2] == 100 );
+    REQUIRE( reader.get_dtypes()[0][CSV_INT] == 100 );
 }
 
 TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {

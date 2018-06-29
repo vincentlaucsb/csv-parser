@@ -4,7 +4,6 @@ project(csv_parser)
 set(CMAKE_CXX_STANDARD 17)
 
 if (MSVC)
-	SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Zi /Ox /DNDEBUG")
 else()
 	set(CMAKE_CXX_FLAGS "-pthread")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
@@ -16,7 +15,9 @@ set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
 set(SOURCES
     ${SOURCE_DIR}/csv_reader.cpp
 	${SOURCE_DIR}/csv_row.cpp
-    ${SOURCE_DIR}/csv_stat.cpp)
+    ${SOURCE_DIR}/csv_stat.cpp
+	${SOURCE_DIR}/data_type.cpp
+)
 set(TEST_SOURCES
 	${TEST_DIR}/catch.hpp
 	${TEST_DIR}/main.cpp

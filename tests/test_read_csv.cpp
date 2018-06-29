@@ -63,6 +63,10 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     reader.read_row(row);
     vector<string> first_row = {"123", "234", "345"};
     REQUIRE( vector<string>(row) == first_row );
+
+    // operator[]
+    REQUIRE(row["A"] == "123");
+    REQUIRE(row["C"] == "345");
 }
 
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
@@ -156,8 +160,7 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
-    CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv",
-        {}, DEFAULT_CSV);
+    CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv", DEFAULT_CSV);
     CSVRow row;
     reader.read_row(row); // Populate row with first line
     
@@ -189,29 +192,6 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     while (reader.read_row(row));
     REQUIRE( reader.row_num == 246498 );
 }
-
-/*
-TEST_CASE( "Test CSV Subsetting", "[read_csv_subset]" ) {
-    CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv",
-        { 0, 1, 2, 3, 4 }, DEFAULT_CSV);
-    
-    // Expected Results
-    CSVRow row;
-    vector<string> first_row = {
-        "2015","State Department","","Administrative Law, Office of", "" };
-    vector<string> col_names = {
-        "Year","Entity Type","Entity Group","Entity Name","Department / Subdivision"
-    };
-    
-    reader.read_row(row);
-    REQUIRE( vector<string>(row) == first_row );
-    REQUIRE( reader.get_col_names() == col_names);
-
-    // Skip to end
-    while (reader.read_row(row));
-    REQUIRE( reader.row_num == 246498 );
-}
-*/
 
 // read_row()
 TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {

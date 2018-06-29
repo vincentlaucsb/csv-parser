@@ -5,8 +5,8 @@ namespace csv {
       * Calculates statistics from CSV files
       */
 
-    CSVStat::CSVStat(std::string filename, std::vector<int> subset,
-        StatsOptions options, CSVFormat format) : CSVReader(filename, subset, format) {
+    CSVStat::CSVStat(std::string filename, StatsOptions options,
+        CSVFormat format) : CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor
          *  is called, CSVStat will process the entire file iteratively. Once finished,
          *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
@@ -25,55 +25,55 @@ namespace csv {
         this->calc();
     }
 
-    std::vector<long double> CSVStat::get_mean() {
+    std::vector<long double> CSVStat::get_mean() const {
         /** Return current means */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->rolling_means[i]);
         }
         return ret;
     }
 
-    std::vector<long double> CSVStat::get_variance() {
+    std::vector<long double> CSVStat::get_variance() const {
         /** Return current variances */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
         }
         return ret;
     }
 
-    std::vector<long double> CSVStat::get_mins() {
+    std::vector<long double> CSVStat::get_mins() const {
         /** Return current variances */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->mins[i]);
         }
         return ret;
     }
 
-    std::vector<long double> CSVStat::get_maxes() {
+    std::vector<long double> CSVStat::get_maxes() const {
         /** Return current variances */
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->maxes[i]);
         }
         return ret;
     }
 
-    std::vector< std::unordered_map<std::string, int> > CSVStat::get_counts() {
+    std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
         /** Get counts for each column */
-        std::vector<std::unordered_map<std::string, int>> ret;
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        std::vector<FreqCount> ret;
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->counts[i]);
         }
         return ret;
     }
 
-    std::vector< std::unordered_map<int, int> > CSVStat::get_dtypes() {
+    std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
         /** Get data type counts for each column */
-        std::vector< std::unordered_map<int, int> > ret;        
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        std::vector<TypeCount> ret;        
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->dtypes[i]);
         }
         return ret;
@@ -81,7 +81,7 @@ namespace csv {
 
     void CSVStat::calc(StatsOptions options) {
         /** Go through all records and calculate specified statistics */
-        for (size_t i = 0; i < this->subset_col_names.size(); i++) {
+        for (size_t i = 0; i < this->col_names->size(); i++) {
             dtypes.push_back({});
             counts.push_back({});
             rolling_means.push_back(0);
@@ -94,7 +94,7 @@ namespace csv {
         std::vector<std::thread> pool;
 
         // Start threads
-        for (size_t i = 0; i < subset_col_names.size(); i++)
+        for (size_t i = 0; i < this->col_names->size(); i++)
             pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
 
         // Block until done
@@ -203,7 +203,7 @@ namespace csv {
          */
         long double * current_rolling_mean = &this->rolling_means[i];
         long double * current_rolling_var = &this->rolling_vars[i];
-        float * current_n = &this->n[i];
+        long double * current_n = &this->n[i];
         long double delta;
         long double delta2;
         
