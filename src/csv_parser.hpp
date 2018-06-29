@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 #include <deque>
-#include <math.h>
 #include <unordered_map>
 #include <thread>
 #include <mutex>
@@ -161,10 +160,9 @@ namespace csv {
             ///@}
 
         protected:
-            void set_col_names(std::vector<std::string>&);
             std::string record_buffer = "";    /* < Buffer for current row being parsed */
             std::vector<size_t> split_buffer;  /* < Positions where current row is split */
-            size_t min_row_len = INFINITY;     /* < Shortest row seen so far */
+            size_t min_row_len = (size_t)INFINITY;     /* < Shortest row seen so far */
 
             /** @name CSV Parsing Callbacks
              *  The heart of the CSV parser. 

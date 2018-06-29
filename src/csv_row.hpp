@@ -2,6 +2,7 @@
 // Auxiliary data structures for CSV parser
 
 #include "data_type.h"
+#include <math.h>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -25,15 +26,14 @@ namespace csv {
             std::string_view sv;
 
             bool operator==(const std::string&) const;
+            
             template<typename T>
-            T get() {
-                static_assert(1 == 2, "Not supported");
-            };
+            T get() {};
         };
 
     public:
         CSVRow() = default;
-        CSVRow::CSVRow(std::string&& _str, std::vector<size_t>&& _splits,
+        CSVRow(std::string&& _str, std::vector<size_t>&& _splits,
             std::shared_ptr<ColNames> _cnames = nullptr) :
             row_str(std::move(_str)),
             splits(std::move(_splits)),
@@ -64,10 +64,11 @@ namespace csv {
     }
 
     template<>
-    inline long long CSVRow::CSVField::get<long long>() {
+    inline long long int CSVRow::CSVField::get<long long int>() {
         long double temp;
         if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
             return static_cast<long long>(temp);
+        else throw std::runtime_error("Not a number");
     }
 
     template<>
@@ -75,5 +76,6 @@ namespace csv {
         long double temp;
         if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
             return static_cast<double>(temp);
+        else throw std::runtime_error("Not a number");
     }
 }

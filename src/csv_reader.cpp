@@ -368,10 +368,6 @@ namespace csv {
         }
     }
 
-    void CSVReader::set_col_names(std::vector<std::string>& _col_names) {
-        this->col_names = std::make_shared<ColNames>(_col_names);
-    }
-
     void CSVReader::write_record() {
         /** Push the current row into a queue if it is the right length.
          *  Drop it otherwise.
@@ -401,7 +397,8 @@ namespace csv {
                     bad_row_handler(std::vector<std::string>(row));
             }
         } else if (this->row_num == this->header_row) {
-            this->set_col_names(std::vector<std::string>(row));
+            this->col_names = std::make_shared<ColNames>(
+                std::vector<std::string>(row));
         } // else: Ignore rows before header row
 
         this->record_buffer = "";
