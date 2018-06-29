@@ -36,7 +36,7 @@ run_test_csv_parser: test_csv_parser
 code_cov: test_csv_parser
 	mkdir -p test_results
 	mv *.gcno *.gcda $(PWD)/test_results
-	gcov $(SOURCES) -o test_results --relative-only
+	gcov-8 $(SOURCES) -o test_results --relative-only
 	mv *.gcov test_results
 	
 code_cov_report:
