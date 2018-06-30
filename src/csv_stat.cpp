@@ -111,47 +111,35 @@ namespace csv {
          */
 
         auto current_record = this->records.begin();
-        long double x_n;
-
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            // Future optimization: Make this conversation unnecessary
-            std::string current_field = std::string((*current_record)[i].sv);
+            auto& current_field = (*current_record)[i];
 
             // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
             if (processed < 1000 || this->counts[i].size() <= 500)
                 this->count(current_field, i);
 
-            // Temporary
-            // auto current_dtype = this->dtype((*current_record)[i], i, x_n);
-            auto current_dtype = this->dtype(current_field, i, x_n);
+            this->dtype(current_field, i);
 
             // Numeric Stuff
-            try {
-                // Using data_type() to check if field is numeric is faster
-                // than catching stold() errors
-                if (current_dtype >= CSV_INT) {
-                    // This actually calculates mean AND variance
-                    this->variance(x_n, i);
-                    this->min_max(x_n, i);
-                }
-            }
-            catch (std::out_of_range) {
-                // Ignore for now
+            if (current_field.type() >= CSV_INT) {
+                long double x_n = current_field.get<long double>();
+
+                // This actually calculates mean AND variance
+                this->variance(x_n, i);
+                this->min_max(x_n, i);
             }
 
             ++current_record;
         }
     }
 
-    DataType CSVStat::dtype(const std::string &record, const size_t &i, long double &x_n) {
-        /** Given a record update the type counter and for efficiency, return
-         *  the results of data_type()
+    void CSVStat::dtype(CSVField& data, const size_t &i) {
+        /** Given a record update the type counter
          *  @param[in]  record Data observation
          *  @param[out] i      The column index that should be updated
-         *  @param[out] x_n    Stores the resulting of parsing record
          */
-        DataType type = helpers::data_type(record, &x_n);
         
+        auto type = data.type();
         if (this->dtypes[i].find(type) !=
             this->dtypes[i].end()) {
             // Increment count
@@ -160,22 +148,23 @@ namespace csv {
             // Initialize count
             this->dtypes[i].insert(std::make_pair(type, 1));
         }
-
-        return type;
     }
 
-    void CSVStat::count(const std::string &record, const size_t &i) {
+    void CSVStat::count(CSVField& data, const size_t &i) {
         /** Given a record update the frequency counter
          *  @param[in]  record Data observation
          *  @param[out] i      The column index that should be updated
          */
-        if (this->counts[i].find(record) !=
+
+        auto item = data.get<std::string>();
+
+        if (this->counts[i].find(item) !=
             this->counts[i].end()) {
             // Increment count
-            this->counts[i][record]++;
+            this->counts[i][item]++;
         } else {
             // Initialize count
-            this->counts[i].insert(std::make_pair(record, 1));
+            this->counts[i].insert(std::make_pair(item, 1));
         }
     }
 

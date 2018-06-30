@@ -7,26 +7,6 @@ namespace csv {
 
     namespace helpers {
         /** @file */
-
-        #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        std::string type_name(const DataType& dtype) {
-            switch (dtype) {
-            case 1:
-                return "string";
-            case 2:
-                return "int";
-            case 3:
-                return "long int";
-            case 4:
-                return "long long int";
-            case 5:
-                return "double";
-            default:
-                return "null";
-            }
-        };
-        #endif
-
         bool is_equal(double a, double b, double epsilon) {
             /** Returns true if two doubles are about the same */
             return std::abs(a - b) < epsilon;
@@ -50,6 +30,29 @@ namespace csv {
         CSVGuesser guesser(filename);
         guesser.guess_delim();
         return { guesser.delim, '"', guesser.header_row };
+    }
+
+    std::vector<CSVReader::ParseFlags> CSVReader::make_flags() const {
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character v[i] labels whether or not
+         *  that character has any special meaning
+         */
+
+        std::vector<ParseFlags> ret;
+        for (int i = 0; i < 256; i++) {
+            char ch = char(i);
+
+            if (ch == this->delimiter)
+                ret.push_back(DELIMITER);
+            else if (ch == this->quote_char)
+                ret.push_back(QUOTE);
+            else if (ch == '\r' || ch == '\n')
+                ret.push_back(NEWLINE);
+            else
+                ret.push_back(NOT_SPECIAL);
+        }
+
+        return ret;
     }
 
     void CSVReader::bad_row_handler(std::vector<std::string> record) {
@@ -167,7 +170,7 @@ namespace csv {
         this->header_row = static_cast<int>(header);
     }
 
-    std::deque<CSVRow> parse(const std::string& in, CSVFormat format) {
+    CSVCollection parse(const std::string& in, CSVFormat format) {
         /** Shorthand function for parsing an in-memory CSV string,
          *  returning a deque of CSVField vectors.
          */
@@ -175,6 +178,14 @@ namespace csv {
         parser.feed(in);
         parser.end_feed();
         return parser.records;
+    }
+
+    CSVCollection operator ""_csv(const char* in, size_t n) {
+        /** Parse a RFC 4180 CSV string, returning a collection
+         *  of CSVRow objects
+         */
+        std::string temp(in, n);
+        return parse(temp);
     }
 
     std::vector<std::string> get_col_names(const std::string filename, CSVFormat format) {
@@ -282,23 +293,24 @@ namespace csv {
          *  **Note**: end_feed() should be called after the last string
          */
 
+        if (parse_flags.empty()) parse_flags = this->make_flags();
+
         for (this->c_pos = 0; c_pos < in.size(); c_pos++) {
             const char& ch = in[c_pos];
-            if (ch == this->delimiter) {
+            switch(this->parse_flags[ch]) {
+            case NOT_SPECIAL:
+                this->record_buffer += ch;
+                this->n_pos++;
+                break;
+            case DELIMITER:
                 this->process_possible_delim(in);
-            } else if (ch == this->quote_char) {
+                break;
+            case NEWLINE:
+                this->process_newline(in);
+                break;
+            default: // Quote
                 this->process_quote(in);
-            } else {
-                switch(ch) {
-                    case '\r':
-                    case '\n':
-                        this->process_newline(in);
-                        break;
-                    default:
-                        this->record_buffer += ch;
-                        this->n_pos++;
-                        break;
-                }
+                break;
             }
         }
     }
@@ -343,17 +355,16 @@ namespace csv {
     void CSVReader::process_quote(std::string_view sv) {
         /** Determine if the usage of a quote is valid or fix it */
         if (this->quote_escape) {
-            if ((sv[c_pos + 1] == this->delimiter) || 
-                (sv[c_pos + 1] == '\r') ||
-                (sv[c_pos + 1] == '\n')) {
-                // Case: End of field
+            ParseFlags next_ch = this->parse_flags[ sv[c_pos + 1] ];
+            if (next_ch >= DELIMITER) {
+                // Case: Next char is delimiter or newline => end of field
                 this->quote_escape = false;
             }
             else {
                 this->record_buffer += sv[c_pos];
                 this->n_pos++;
 
-                if (sv[c_pos + 1] == this->quote_char)
+                if (next_ch == QUOTE)
                     ++c_pos;  // Case: Two consecutive quotes
                 else if (this->strict)
                     throw std::runtime_error("Unescaped single quote around line " +
@@ -361,10 +372,11 @@ namespace csv {
                         std::string(sv.substr(c_pos, 100)));
             }
         } else {
-             // Case: Previous character was delimiter
-             // Don't deref past beginning
-            if (c_pos && (sv[c_pos - 1] == this->delimiter) || sv[c_pos - 1] == '\n')
-                this->quote_escape = true;
+            if (c_pos) {
+                // Case: Previous character was delimiter or newline
+                ParseFlags prev_ch = this->parse_flags[sv[c_pos - 1]];
+                if (prev_ch >= DELIMITER) this->quote_escape = true;
+            }
         }
     }
 
@@ -406,8 +418,8 @@ namespace csv {
             record_buffer.reserve(this->min_row_len * 1.5);
 
         this->split_buffer = {};
-        if (this->split_buffer.capacity() < this->col_names->size())
-            split_buffer.reserve(this->col_names->size());
+        if (this->split_buffer.capacity() < col_names_size)
+            split_buffer.reserve(col_names_size);
 
         this->row_num++;
     }

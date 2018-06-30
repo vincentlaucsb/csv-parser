@@ -20,16 +20,65 @@ namespace csv {
         size_t size() const;
     };
 
-    class CSVRow {
-        struct CSVField {
-            CSVField(std::string_view _sv) : sv(_sv) { };
-            std::string_view sv;
+    class CSVField {
+    public:
+        CSVField(std::string_view _sv) : sv(_sv) { };
+        long double value = 0;
+        std::string_view sv;
+        bool operator==(const std::string&) const;
 
-            bool operator==(const std::string&) const;
-            
-            template<typename T>
-            T get() {};
-        };
+        /** Returns the value casted to the requested type, performing type checking before.
+        *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
+        *  of T = std::string, in which the original string representation is always returned.
+        *  Converting long ints to ints will be checked for overflow.
+        *
+        *  **Valid options for T**:
+        *   - std::string
+        *   - int
+        *   - long
+        *   - long long
+        *   - double
+        *   - long double
+        */
+        template<typename T> T get() {
+            /** Get numeric values */
+            if (helpers::type_num<T>() >= CSV_INT) {
+                if (is_num()) {
+                    if (helpers::type_num<T>() < this->type())
+                        throw std::runtime_error("Overflow error.");
+
+                    return static_cast<T>(this->value);
+                }
+                else
+                    throw std::runtime_error("Not a number.");
+            }
+        }
+
+        DataType type() {
+            /** Return the type number of the stored value in accordance with the DataType enum */
+            this->get_value();
+            return (DataType)_type;
+        }
+
+        bool is_null() { return type() == CSV_NULL; }
+        bool is_str() { return type() == CSV_STRING; }
+        bool is_num() { return type() >= CSV_INT; }
+        bool is_int() {
+            return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
+        }
+        bool is_float() { return type() == CSV_DOUBLE; };
+
+    private:
+        int _type = -1;
+        void get_value();
+    };
+
+    class CSVRow {
+        /** A data type for representing CSV values that have been type-casted. Internally,
+        *  the CSVField stores the original string representation of a value, along with
+        *  the casted value as one of int, long, long long, or double. The get() method
+        *  provides the main means of retrieving values.
+        */
 
     public:
         CSVRow() = default;
@@ -53,29 +102,22 @@ namespace csv {
         std::vector<size_t> splits;
     };
 
+    // get() specializations
     template<>
-    inline std::string CSVRow::CSVField::get<std::string>() {
+    inline std::string CSVField::get<std::string>() {
         return std::string(this->sv);
     }
 
     template<>
-    inline std::string_view CSVRow::CSVField::get<std::string_view>() {
+    inline std::string_view CSVField::get<std::string_view>() {
         return this->sv;
     }
 
     template<>
-    inline long long int CSVRow::CSVField::get<long long int>() {
-        long double temp;
-        if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
-            return static_cast<long long>(temp);
-        else throw std::runtime_error("Not a number");
-    }
+    inline long double CSVField::get<long double>() {
+        if (!is_num())
+            throw std::runtime_error("Not a number.");
 
-    template<>
-    inline double CSVRow::CSVField::get<double>() {
-        long double temp;
-        if (helpers::data_type(this->sv, &temp) >= CSV_STRING)
-            return static_cast<double>(temp);
-        else throw std::runtime_error("Not a number");
+        return this->value;
     }
 }

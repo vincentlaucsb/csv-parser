@@ -48,19 +48,13 @@ TEST_CASE("get_file_info() Test", "[test_file_info]") {
 
 // Test Main Functions
 TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
-    string csv_string("A,B,C\r\n" // Header row
-                      "123,234,345\r\n"
-                      "1,2,3\r\n"
-                      "1,2,3");
-
-    // Feed Strings
-    CSVReader reader;
-    CSVRow row;
-    reader.feed(csv_string);
-    reader.end_feed();
-    
+    auto rows = "A,B,C\r\n" // Header row
+                "123,234,345\r\n"
+                "1,2,3\r\n"
+                "1,2,3"_csv;
+   
     // Expected Results
-    reader.read_row(row);
+    auto row = rows.front();
     vector<string> first_row = {"123", "234", "345"};
     REQUIRE( vector<string>(row) == first_row );
 
@@ -70,32 +64,32 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
 }
 
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
-    string csv_string = ("A,B,C\r\n" // Header row
-                         "123,\"234,345\",456\r\n"
-                         "1,2,3\r\n"
-                         "1,2,3");
+    auto rows = "A,B,C\r\n" // Header row
+                "123,\"234,345\",456\r\n"
+                "1,2,3\r\n"
+                "1,2,3"_csv;
 
-    auto rows = parse(csv_string);
-    REQUIRE( vector<string>(rows.front()) == vector<string>({"123", "234,345", "456"}));
+    REQUIRE( vector<string>(rows.front()) == 
+        vector<string>({"123", "234,345", "456"}));
 }
 
 TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
-    string csv_string = ("A,B,C\r\n" // Header row
-                         "123,\"234\n,345\",456\r\n"
-                         "1,2,3\r\n"
-                         "1,2,3");
+    auto rows = "A,B,C\r\n" // Header row
+                "123,\"234\n,345\",456\r\n"
+                "1,2,3\r\n"
+                "1,2,3"_csv;
 
-    auto rows = parse(csv_string, DEFAULT_CSV);
-    REQUIRE( vector<string>(rows.front()) == vector<string>({ "123", "234\n,345", "456" }) );
+    REQUIRE( vector<string>(rows.front()) == 
+        vector<string>({ "123", "234\n,345", "456" }) );
 }
 
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
     // Per RFC 1480, escaped quotes should be doubled up
-    string csv_string = ("A,B,C\r\n" // Header row
-                         "123,\"\",456\r\n");
-    
-    auto rows = parse(csv_string, DEFAULT_CSV);
-    REQUIRE( vector<string>(rows.front()) == vector<string>({ "123", "", "456" }) );
+    auto rows = "A,B,C\r\n" // Header row
+                "123,\"\",456\r\n"_csv;
+
+    REQUIRE( vector<string>(rows.front()) == 
+        vector<string>({ "123", "", "456" }) );
 }
 
 TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
@@ -193,7 +187,9 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     REQUIRE( reader.row_num == 246498 );
 }
 
-// read_row()
+/*
+ * read_row()
+ */
 TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
     // Test that integers are type-casted properly
     CSVReader reader("./tests/data/fake_data/ints.csv");
@@ -201,13 +197,12 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
 
     while (reader.read_row(row)) {
         for (size_t i = 0; i < row.size(); i++) {
-            REQUIRE( row[i].get<long long>() <= 100 );
-            // REQUIRE( row[i].is_int() );
+            REQUIRE(row[i].is_int());
+            REQUIRE(row[i].get<int>() <= 100);
         }
     }
 }
 
-/*
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     CSVFormat format = DEFAULT_CSV;
     format.col_names = { "A", "B" };
@@ -262,7 +257,6 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     REQUIRE(helpers::is_equal(row[0].get<double>(), big_num));
 }
 
-/*
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
     CSVRow row;
@@ -302,8 +296,8 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
                 row[0].get<double>();
             }
             catch (std::runtime_error& err) {
-                REQUIRE(err.what() == std::string("Attempted to convert a "
-                    "value of type string to double."));
+                //REQUIRE(err.what() == std::string("Attempted to convert a "
+                //    "value of type string to double."));
                 caught_error = true;
             }
 
@@ -311,4 +305,3 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
         }
     }
 }
-*/

@@ -21,7 +21,7 @@ namespace csv {
         return this->col_names.size();
     }
 
-    bool CSVRow::CSVField::operator==(const std::string& other) const {
+    bool CSVField::operator==(const std::string& other) const {
         return other == this->sv;
     }
 
@@ -50,11 +50,11 @@ namespace csv {
         );
     }
 
-    CSVRow::CSVField CSVRow::operator[](size_t n) const {
+    CSVField CSVRow::operator[](size_t n) const {
         return CSVField(this->get_string_view(n));
     }
 
-    CSVRow::CSVField CSVRow::operator[](const std::string& col_name) const {
+    CSVField CSVRow::operator[](const std::string& col_name) const {
         auto col_pos = this->col_names->col_pos.find(col_name);
         if (col_pos != this->col_names->col_pos.end())
             return this->operator[](col_pos->second);
@@ -72,5 +72,17 @@ namespace csv {
             ret.push_back(std::string(this->get_string_view(i)));
 
         return ret;
+    }
+
+    /*
+     * CSVField Methods
+     */
+    void CSVField::get_value() {
+        // Check to see if value has been cached previously, if not
+        // evaluate it
+        if (_type < 0) {
+            auto dtype = helpers::data_type(this->sv, &this->value);
+            this->_type = (int)dtype;
+        }
     }
 }

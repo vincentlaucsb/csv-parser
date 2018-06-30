@@ -2,9 +2,7 @@
 #include "csv_parser.hpp"
 using namespace csv;
 
-TEST_CASE(
-    "Calculating Statistics from Direct Input",
-    "[read_csv_stat_direct]" ) {
+TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
     std::string int_list = "";
     for (int i = 1; i < 101; i++) {

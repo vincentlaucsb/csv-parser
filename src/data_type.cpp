@@ -1,6 +1,25 @@
 #include "data_type.h"
 
 namespace csv::helpers {
+    #ifndef DOXYGEN_SHOULD_SKIP_THIS
+    std::string type_name(const DataType& dtype) {
+        switch (dtype) {
+        case CSV_STRING:
+            return "string";
+        case CSV_INT:
+            return "int";
+        case CSV_LONG_INT:
+            return "long int";
+        case CSV_LONG_LONG_INT:
+            return "long long int";
+        case CSV_DOUBLE:
+            return "double";
+        default:
+            return "null";
+        }
+    };
+    #endif
+
     DataType data_type(std::string_view in, long double* const out) {
         /** Distinguishes numeric from other text values. Used by various
         *  type casting functions, like csv_parser::CSVReader::read_row()

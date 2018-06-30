@@ -1,15 +1,15 @@
 #pragma once
 #include <string_view>
+#include <string>
+#include <vector>
+#include <deque>
+#include <unordered_map>
 #include <stdexcept>
 #include <cstdio>
 #include <iostream>
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include <string>
-#include <vector>
-#include <deque>
-#include <unordered_map>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -30,6 +30,9 @@ namespace csv {
 
     const int CSV_NOT_FOUND = -1;
     using RowCount = long long int;
+   
+    class CSVRow;
+    using CSVCollection = std::deque<CSVRow>;
 
     /** Stores information about how to parse a CSV file
      *   - Can be used to initialize a csv::CSVReader() object
@@ -160,6 +163,16 @@ namespace csv {
             ///@}
 
         protected:
+            enum ParseFlags {
+                NOT_SPECIAL,
+                QUOTE,
+                DELIMITER,
+                NEWLINE
+            };
+
+            std::vector<CSVReader::ParseFlags> make_flags() const;
+            std::vector<CSVReader::ParseFlags> parse_flags;
+
             std::string record_buffer = "";    /* < Buffer for current row being parsed */
             std::vector<size_t> split_buffer;  /* < Positions where current row is split */
             size_t min_row_len = (size_t)INFINITY;     /* < Shortest row seen so far */
@@ -240,9 +253,9 @@ namespace csv {
             
             // Statistic calculators
             void variance(const long double&, const size_t&);
-            void count(const std::string&, const size_t&);
+            void count(CSVField&, const size_t&);
             void min_max(const long double&, const size_t&);
-            DataType dtype(const std::string&, const size_t&, long double&);
+            void dtype(CSVField&, const size_t&);
 
             void calc(StatsOptions options = ALL_STATS);
             void calc_worker(const size_t);
@@ -278,7 +291,8 @@ namespace csv {
 
     /** @name Utility Functions */
     ///@{
-    std::deque<CSVRow> parse(const std::string& in, CSVFormat format = DEFAULT_CSV);
+    CSVCollection operator ""_csv(const char*, size_t);
+    CSVCollection parse(const std::string& in, CSVFormat format = DEFAULT_CSV);
 
     CSVFileInfo get_file_info(const std::string& filename);
     CSVFormat guess_format(const std::string& filename);
