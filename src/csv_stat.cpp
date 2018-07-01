@@ -112,7 +112,7 @@ namespace csv {
 
         auto current_record = this->records.begin();
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            auto& current_field = (*current_record)[i];
+            auto current_field = (*current_record)[i];
 
             // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
             if (processed < 1000 || this->counts[i].size() <= 500)

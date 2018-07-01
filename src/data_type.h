@@ -1,6 +1,7 @@
 #pragma once
 #include <math.h>
 #include <cctype>
+#include <string>
 #include <string_view>
 
 namespace csv {
