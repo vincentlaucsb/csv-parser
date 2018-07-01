@@ -1,10 +1,9 @@
 var searchData=
 [
-  ['read_5fcsv',['read_csv',['../classcsv_1_1CSVReader.html#a7d79eea36fe4cc40941a1e3dfd8f8159',1,'csv::CSVReader']]],
-  ['read_5fcsv_5fworker',['read_csv_worker',['../classcsv_1_1CSVReader.html#a49ab4671b28da24f5ae8670a9eef557d',1,'csv::CSVReader']]],
-  ['read_5frow',['read_row',['../classcsv_1_1CSVReader.html#a87f2c9b11592d8b29c0de925c14a74dd',1,'csv::CSVReader::read_row(std::vector&lt; std::string &gt; &amp;row)'],['../classcsv_1_1CSVReader.html#adf4ac9a4c579d5fccc6044443b0fca36',1,'csv::CSVReader::read_row(std::vector&lt; CSVField &gt; &amp;row)']]],
-  ['read_5frow_5fcheck',['read_row_check',['../classcsv_1_1CSVReader.html#a6f68c969b42e6a1331655a50e9da5ec0',1,'csv::CSVReader']]],
-  ['record_5fbuffer',['record_buffer',['../classcsv_1_1CSVReader.html#a56a23ff7c1384c70ea4a54c14b12478f',1,'csv::CSVReader']]],
-  ['records',['records',['../classcsv_1_1CSVReader.html#aab7697426725b73b5bc0833840d20082',1,'csv::CSVReader']]],
-  ['row_5fnum',['row_num',['../classcsv_1_1CSVReader.html#a756b8d4edc999e555a872410cb15e0e2',1,'csv::CSVReader']]]
+  ['parse',['parse',['../classcsv_1_1CSVReader.html#af78ef3e1fa6f53b5fabf8ac20d985ebd',1,'csv::CSVReader::parse()'],['../namespacecsv.html#af2d1242068d0e53a248c61e83c8349d9',1,'csv::parse()']]],
+  ['parse_5fflags',['parse_flags',['../group__csv__internal.html#gae73cb1981c9866e1ea73a54ee6ac6002',1,'csv::CSVReader']]],
+  ['parseflags',['ParseFlags',['../group__csv__internal.html#ga22d269500460026ed8d99947f0766200',1,'csv::CSVReader']]],
+  ['process_5fnewline',['process_newline',['../group__csv__internal.html#ga3bd1affb29641963e40b3f4a99578a9e',1,'csv::CSVReader']]],
+  ['process_5fpossible_5fdelim',['process_possible_delim',['../group__csv__internal.html#ga9531ff3341cefb60b397269db63e0e59',1,'csv::CSVReader']]],
+  ['process_5fquote',['process_quote',['../group__csv__internal.html#ga5cc55e7cf3c0f4a75cde7d383fe75b12',1,'csv::CSVReader']]]
 ];

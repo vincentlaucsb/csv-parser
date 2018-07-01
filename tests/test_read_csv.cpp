@@ -1,3 +1,7 @@
+/** @file
+ *  Tests for CSV parsing
+ */
+
 #include <stdio.h> // remove()
 #include "catch.hpp"
 #include "csv_parser.hpp"
@@ -6,7 +10,9 @@ using namespace csv;
 using std::vector;
 using std::string;
 
+//
 // guess_delim()
+//
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
     int pos = get_col_pos(
         "./tests/data/real_data/2015_StateDepartment.csv",
@@ -63,6 +69,7 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     REQUIRE(row["C"] == "345");
 }
 
+//! [Escaped Comma]
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
     auto rows = "A,B,C\r\n" // Header row
                 "123,\"234,345\",456\r\n"
@@ -72,6 +79,7 @@ TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
     REQUIRE( vector<string>(rows.front()) == 
         vector<string>({"123", "234,345", "456"}));
 }
+//! [Escaped Comma]
 
 TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
     auto rows = "A,B,C\r\n" // Header row
@@ -92,6 +100,7 @@ TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
         vector<string>({ "123", "", "456" }) );
 }
 
+//! [Parse Example]
 TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     // Per RFC 1480, escaped quotes should be doubled up
     string csv_string = (
@@ -100,7 +109,7 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
         "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
     );
       
-    auto rows = parse(csv_string, DEFAULT_CSV);
+    auto rows = parse(csv_string);
    
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = {"123", "234\"345", "456"};
@@ -111,6 +120,8 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     // Second Row
     rows.pop_front();
     REQUIRE( vector<string>(rows.front()) == correct_row );
+
+//! [Parse Example]
 
     // Strict Mode
     bool caught_single_quote = false;
@@ -187,9 +198,10 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     REQUIRE( reader.row_num == 246498 );
 }
 
-/*
- * read_row()
- */
+//
+// read_row()
+//
+//! [CSVField Example]
 TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
     // Test that integers are type-casted properly
     CSVReader reader("./tests/data/fake_data/ints.csv");
@@ -202,6 +214,7 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
         }
     }
 }
+//! [CSVField Example]
 
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     CSVFormat format = DEFAULT_CSV;
@@ -223,7 +236,7 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     // First Row
     REQUIRE((row[0].is_float() && row[0].is_num()));
     REQUIRE(row[0].get<std::string>().substr(0, 4) == "3.14");
-    REQUIRE(helpers::is_equal(row[0].get<double>(), 3.14));
+    REQUIRE(internals::is_equal(row[0].get<double>(), 3.14));
 
     // Second Row
     rows.pop_front();
@@ -254,7 +267,7 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     rows.pop_front();
     row = rows.front();
     REQUIRE(row[0].type() == CSV_DOUBLE); // Overflow
-    REQUIRE(helpers::is_equal(row[0].get<double>(), big_num));
+    REQUIRE(internals::is_equal(row[0].get<double>(), big_num));
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
@@ -278,7 +291,7 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
         // Spot check
         if (i == 2) {
             REQUIRE(row[power].get<int>() == 100);
-            REQUIRE(row[date].get<std::string>() == "12/31/2009");
+            REQUIRE(row[date].get<>() == "12/31/2009"); // string_view
             REQUIRE(row[unit].get<std::string>() == "Beaver Valley 1");
 
             // Assert misusing API throws the appropriate errors

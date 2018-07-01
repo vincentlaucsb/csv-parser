@@ -9,6 +9,13 @@
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="resize.js"></script>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript">
+  $(document).ready(initResizable);
+</script>
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
@@ -42,6 +49,21 @@ $(function() {
 });
 </script>
 <div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(document).ready(function(){initNavTree('classcsv_1_1CSVField.html','');});
+</script>
+<div id="doc-content">
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -56,77 +78,76 @@ $(function() {
 </iframe>
 </div>
 
-<div id="nav-path" class="navpath">
-  <ul>
-<li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="classcsv_1_1CSVField.html">CSVField</a></li>  </ul>
-</div>
-</div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#friends">Friends</a> &#124;
+<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="classcsv_1_1CSVField-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">csv::CSVField Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;<a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>&gt;</code></p>
+<p>Data type representing individual CSV values. CSVFields can be obtained by using <a class="el" href="classcsv_1_1CSVRow.html#ad523d2b544bc7dab0a121891e5062d2c" title="Return a CSVField object corrsponding to the nth value in the row. ">CSVRow::operator[]</a>.  
+ <a href="classcsv_1_1CSVField.html#details">More...</a></p>
+
+<p><code>#include &lt;<a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:af5f36c56cb383c7650cb23a44c63f689"><td class="memTemplParams" colspan="2"><a id="af5f36c56cb383c7650cb23a44c63f689"></a>
-template&lt;typename T &gt; </td></tr>
-<tr class="memitem:af5f36c56cb383c7650cb23a44c63f689"><td class="memTemplItemLeft" align="right" valign="top">&#160;</td><td class="memTemplItemRight" valign="bottom"><b>CSVField</b> (const T &amp;val, const std::string &amp;str_val)</td></tr>
-<tr class="separator:af5f36c56cb383c7650cb23a44c63f689"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a74bc646316bf34728812b8d6e3d4cbd4"><td class="memItemLeft" align="right" valign="top"><a id="a74bc646316bf34728812b8d6e3d4cbd4"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>CSVField</b> (const std::nullptr_t &amp;)</td></tr>
-<tr class="separator:a74bc646316bf34728812b8d6e3d4cbd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a48e095e9e9ef422ea4a98413825bdf1c"><td class="memItemLeft" align="right" valign="top"><a id="a48e095e9e9ef422ea4a98413825bdf1c"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>CSVField</b> (const std::string &amp;str_val)</td></tr>
-<tr class="separator:a48e095e9e9ef422ea4a98413825bdf1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a617e1e40afde6f5b0e75beb0102e079b"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a617e1e40afde6f5b0e75beb0102e079b"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVField.html#a617e1e40afde6f5b0e75beb0102e079b">get</a> () const</td></tr>
-<tr class="separator:a617e1e40afde6f5b0e75beb0102e079b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa6fb79ec64d06d0ac143a317d753a2d3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacecsv.html#a1a3911f2387412df696be542923ef62d">DataType</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVField.html#aa6fb79ec64d06d0ac143a317d753a2d3">type</a> () const</td></tr>
-<tr class="separator:aa6fb79ec64d06d0ac143a317d753a2d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6943cab74ece9f11162299b5be617a93"><td class="memItemLeft" align="right" valign="top"><a id="a6943cab74ece9f11162299b5be617a93"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_null</b> () const</td></tr>
-<tr class="separator:a6943cab74ece9f11162299b5be617a93"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a68175157ed315e02e924c583e8848920"><td class="memItemLeft" align="right" valign="top"><a id="a68175157ed315e02e924c583e8848920"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_str</b> () const</td></tr>
-<tr class="separator:a68175157ed315e02e924c583e8848920"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a007597f8841929ebfb2e84e4727a192a"><td class="memItemLeft" align="right" valign="top"><a id="a007597f8841929ebfb2e84e4727a192a"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_num</b> () const</td></tr>
-<tr class="separator:a007597f8841929ebfb2e84e4727a192a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:affe7b1d08e2afc4954d36c02307cf0e3"><td class="memItemLeft" align="right" valign="top"><a id="affe7b1d08e2afc4954d36c02307cf0e3"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_int</b> () const</td></tr>
-<tr class="separator:affe7b1d08e2afc4954d36c02307cf0e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a16b08c23c943bdb89119fd4c15a1c908"><td class="memItemLeft" align="right" valign="top"><a id="a16b08c23c943bdb89119fd4c15a1c908"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_float</b> () const</td></tr>
-<tr class="separator:a16b08c23c943bdb89119fd4c15a1c908"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:acee23e6435ef07b4c1d5ae92283150ae"><td class="memTemplParams" colspan="2"><a id="acee23e6435ef07b4c1d5ae92283150ae"></a>
+<tr class="memitem:af2522aba384653dd198540ad668a9ab0"><td class="memItemLeft" align="right" valign="top"><a id="af2522aba384653dd198540ad668a9ab0"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>CSVField</b> (std::string_view _sv)</td></tr>
+<tr class="separator:af2522aba384653dd198540ad668a9ab0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad0efc38057c54ae4a67742972235a88a"><td class="memItemLeft" align="right" valign="top"><a id="ad0efc38057c54ae4a67742972235a88a"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>operator==</b> (const std::string &amp;) const</td></tr>
+<tr class="separator:ad0efc38057c54ae4a67742972235a88a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a67ff24172c5ac52417bbc36697511644"><td class="memTemplParams" colspan="2">template&lt;typename T  = std::string_view&gt; </td></tr>
+<tr class="memitem:a67ff24172c5ac52417bbc36697511644"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVField.html#a67ff24172c5ac52417bbc36697511644">get</a> ()</td></tr>
+<tr class="separator:a67ff24172c5ac52417bbc36697511644"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee31987c4c62c8ef7a89b475bd089618"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacecsv.html#a1a3911f2387412df696be542923ef62d">DataType</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVField.html#aee31987c4c62c8ef7a89b475bd089618">type</a> ()</td></tr>
+<tr class="memdesc:aee31987c4c62c8ef7a89b475bd089618"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the type number of the stored value in accordance with the DataType enum.  <a href="#aee31987c4c62c8ef7a89b475bd089618">More...</a><br /></td></tr>
+<tr class="separator:aee31987c4c62c8ef7a89b475bd089618"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a855f05d296b992f5d6bb0bbfb94bf792"><td class="memItemLeft" align="right" valign="top"><a id="a855f05d296b992f5d6bb0bbfb94bf792"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_null</b> ()</td></tr>
+<tr class="separator:a855f05d296b992f5d6bb0bbfb94bf792"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa515c7eba5f76bd73e6f448d1069c6af"><td class="memItemLeft" align="right" valign="top"><a id="aa515c7eba5f76bd73e6f448d1069c6af"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_str</b> ()</td></tr>
+<tr class="separator:aa515c7eba5f76bd73e6f448d1069c6af"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa0a899b3c0b597512506183edfb4ad62"><td class="memItemLeft" align="right" valign="top"><a id="aa0a899b3c0b597512506183edfb4ad62"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_num</b> ()</td></tr>
+<tr class="separator:aa0a899b3c0b597512506183edfb4ad62"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a888d4f9ac3c0f8e85761ceed3e856af4"><td class="memItemLeft" align="right" valign="top"><a id="a888d4f9ac3c0f8e85761ceed3e856af4"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_int</b> ()</td></tr>
+<tr class="separator:a888d4f9ac3c0f8e85761ceed3e856af4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad1822e7540f144deeab1a87f8e5268fa"><td class="memItemLeft" align="right" valign="top"><a id="ad1822e7540f144deeab1a87f8e5268fa"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_float</b> ()</td></tr>
+<tr class="separator:ad1822e7540f144deeab1a87f8e5268fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f8e1cc269190283c8a668f5273df99d"><td class="memTemplParams" colspan="2"><a id="a2f8e1cc269190283c8a668f5273df99d"></a>
 template&lt;&gt; </td></tr>
-<tr class="memitem:acee23e6435ef07b4c1d5ae92283150ae"><td class="memTemplItemLeft" align="right" valign="top">double&#160;</td><td class="memTemplItemRight" valign="bottom"><b>get</b> () const</td></tr>
-<tr class="separator:acee23e6435ef07b4c1d5ae92283150ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f8e1cc269190283c8a668f5273df99d"><td class="memTemplItemLeft" align="right" valign="top">long double&#160;</td><td class="memTemplItemRight" valign="bottom"><b>get</b> ()</td></tr>
+<tr class="separator:a2f8e1cc269190283c8a668f5273df99d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="friends"></a>
-Friends</h2></td></tr>
-<tr class="memitem:a5bf5c0f4a68ab9b7159dc4de80af9740"><td class="memItemLeft" align="right" valign="top"><a id="a5bf5c0f4a68ab9b7159dc4de80af9740"></a>
-class&#160;</td><td class="memItemRight" valign="bottom"><b>CSVReader</b></td></tr>
-<tr class="separator:a5bf5c0f4a68ab9b7159dc4de80af9740"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:a040a17d1ec3bdea212797539181b179a"><td class="memItemLeft" align="right" valign="top"><a id="a040a17d1ec3bdea212797539181b179a"></a>
+long double&#160;</td><td class="memItemRight" valign="bottom"><b>value</b> = 0</td></tr>
+<tr class="separator:a040a17d1ec3bdea212797539181b179a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea55bc32d073faf378173e8cdd961210"><td class="memItemLeft" align="right" valign="top"><a id="aea55bc32d073faf378173e8cdd961210"></a>
+std::string_view&#160;</td><td class="memItemRight" valign="bottom"><b>sv</b></td></tr>
+<tr class="separator:aea55bc32d073faf378173e8cdd961210"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A data type for representing CSV values that have been type-casted. Internally, the <a class="el" href="classcsv_1_1CSVField.html">CSVField</a> stores the original string representation of a value, along with the casted value as one of int, long, long long, or double. The <a class="el" href="classcsv_1_1CSVField.html#a617e1e40afde6f5b0e75beb0102e079b">get()</a> method provides the main means of retrieving values. </p>
+<div class="textblock"><p>Data type representing individual CSV values. CSVFields can be obtained by using <a class="el" href="classcsv_1_1CSVRow.html#ad523d2b544bc7dab0a121891e5062d2c" title="Return a CSVField object corrsponding to the nth value in the row. ">CSVRow::operator[]</a>. </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00037">37</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a617e1e40afde6f5b0e75beb0102e079b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a617e1e40afde6f5b0e75beb0102e079b">&#9670;&nbsp;</a></span>get()</h2>
+<a id="a67ff24172c5ac52417bbc36697511644"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a67ff24172c5ac52417bbc36697511644">&#9670;&nbsp;</a></span>get()</h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename T &gt; </div>
+template&lt;typename T  = std::string_view&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -135,7 +156,7 @@ template&lt;typename T &gt; </div>
           <td class="memname">T csv::CSVField::get </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
-          <td> const</td>
+          <td></td>
         </tr>
       </table>
   </td>
@@ -146,51 +167,55 @@ template&lt;typename T &gt; </div>
 </div><div class="memdoc">
 <p>Returns the value casted to the requested type, performing type checking before. An std::runtime_error will be thrown if a type mismatch occurs, with the exception of T = std::string, in which the original string representation is always returned. Converting long ints to ints will be checked for overflow.</p>
 <p><b>Valid options for T</b>:</p><ul>
-<li>std::string</li>
+<li>std::string or std::string_view</li>
 <li>int</li>
 <li>long</li>
 <li>long long</li>
 <li>double</li>
-<li>long double</li>
+<li>long double </li>
 </ul>
+<p>Get numeric values </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00057">57</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
 
 </div>
 </div>
-<a id="aa6fb79ec64d06d0ac143a317d753a2d3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa6fb79ec64d06d0ac143a317d753a2d3">&#9670;&nbsp;</a></span>type()</h2>
+<a id="aee31987c4c62c8ef7a89b475bd089618"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aee31987c4c62c8ef7a89b475bd089618">&#9670;&nbsp;</a></span>type()</h2>
 
 <div class="memitem">
 <div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="namespacecsv.html#a1a3911f2387412df696be542923ef62d">DataType</a> csv::CSVField::type </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
-          <td> const</td>
+          <td></td>
         </tr>
       </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
-<p>Return the type number of the stored value in accordance with the DataType enum </p>
+
+<p>Return the type number of the stored value in accordance with the DataType enum. </p>
+<p>&lt; </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00110">110</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
-<li>src/<a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a></li>
+<hr/>The documentation for this class was generated from the following files:<ul>
+<li>src/<a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a></li>
+<li>src/<a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a></li>
 </ul>
 </div><!-- contents -->
+</div><!-- doc-content -->
 <!-- start footer part -->
-<hr class="footer"/><address class="footer"><small>
-Generated by &#160;<a href="http://www.doxygen.org/index.html">
-<img class="footer" src="doxygen.png" alt="doxygen"/>
-</a> 1.8.13
-</small></address>
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="classcsv_1_1CSVField.html">CSVField</a></li>
+    <li class="footer">Generated by
+    <a href="http://www.doxygen.org/index.html">
+    <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.13 </li>
+  </ul>
+</div>
 </body>
 </html>

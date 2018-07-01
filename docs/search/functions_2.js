@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['data_5ftype',['data_type',['../namespacecsv_1_1helpers.html#a65d22958364bba369e547b6c1b3e8214',1,'csv::helpers']]]
+  ['data_5ftype',['data_type',['../namespacecsv_1_1internals.html#a6f68db7d88a0953107d2a9f13b7b985e',1,'csv::internals']]]
 ];

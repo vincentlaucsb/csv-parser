@@ -1,8 +1,6 @@
 var searchData=
 [
-  ['parse',['parse',['../namespacecsv.html#a2a2b763dae55e12b9fa58531e9543ace',1,'csv']]],
-  ['parse_5fto_5fstring',['parse_to_string',['../namespacecsv.html#a7e6b3dd87ee5a9251636017c9c7bf6cd',1,'csv']]],
-  ['process_5fnewline',['process_newline',['../classcsv_1_1CSVReader.html#a58cfc0999b7473a7f63ba4fa13fb01a9',1,'csv::CSVReader']]],
-  ['process_5fpossible_5fdelim',['process_possible_delim',['../classcsv_1_1CSVReader.html#a6006046d88a3ceea33b85fd315f50885',1,'csv::CSVReader']]],
-  ['process_5fquote',['process_quote',['../classcsv_1_1CSVReader.html#a353cfe5fc68a5527faa3e79a4e7033ec',1,'csv::CSVReader']]]
+  ['make_5fcsv_5fwriter',['make_csv_writer',['../namespacecsv.html#a7702fc0866ba716a7f7ee1388c15b477',1,'csv']]],
+  ['make_5fflags',['make_flags',['../group__csv__internal.html#gac2215271c176fa343fdfea1d319aab4c',1,'csv::CSVReader']]],
+  ['make_5ftsv_5fwriter',['make_tsv_writer',['../namespacecsv.html#a859684d7d4dc5a8431f3d46d034e7663',1,'csv']]]
 ];

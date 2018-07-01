@@ -1,6 +1,6 @@
 #include "data_type.h"
 
-namespace csv::helpers {
+namespace csv::internals {
     #ifndef DOXYGEN_SHOULD_SKIP_THIS
     std::string type_name(const DataType& dtype) {
         switch (dtype) {

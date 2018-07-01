@@ -9,6 +9,13 @@
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="resize.js"></script>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript">
+  $(document).ready(initResizable);
+</script>
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
@@ -43,6 +50,20 @@ $(function() {
 </script>
 <div id="main-nav"></div>
 </div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(document).ready(function(){initNavTree('functions_func.html','');});
+</script>
+<div id="doc-content">
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -58,98 +79,166 @@ $(function() {
 </div>
 
 <div class="contents">
-&#160;<ul>
+&#160;
+
+<h3><a id="index_b"></a>- b -</h3><ul>
 <li>bad_row_handler()
-: <a class="el" href="classcsv_1_1CSVReader.html#aea3e7875478c79feba84d6ee97b1d476">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#gaea3e7875478c79feba84d6ee97b1d476">csv::CSVReader</a>
 </li>
+</ul>
+
+
+<h3><a id="index_c"></a>- c -</h3><ul>
 <li>close()
 : <a class="el" href="classcsv_1_1CSVReader.html#a759e9508e80832b3b394d5afb8f7a8bf">csv::CSVReader</a>
 </li>
 <li>CSVReader()
-: <a class="el" href="classcsv_1_1CSVReader.html#a54921ded9e710f6d4bf877ad4fcbbc90">csv::CSVReader</a>
+: <a class="el" href="classcsv_1_1CSVReader.html#aab773760e65004c49fa476eb2eb70b54">csv::CSVReader</a>
 </li>
 <li>CSVStat()
-: <a class="el" href="classcsv_1_1CSVStat.html#aebbf893ad583867d90f5c2a92a07ace4">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#a67da63a7557bf7efb8884dd553113b90">csv::CSVStat</a>
 </li>
+</ul>
+
+
+<h3><a id="index_e"></a>- e -</h3><ul>
 <li>end_feed()
 : <a class="el" href="classcsv_1_1CSVReader.html#a8ac02ea6f091b18f9ef9c9a793d4c3bd">csv::CSVReader</a>
 </li>
+</ul>
+
+
+<h3><a id="index_f"></a>- f -</h3><ul>
 <li>feed()
-: <a class="el" href="classcsv_1_1CSVReader.html#aa2f2bc1b9e75912465df03523564ff2f">csv::CSVReader</a>
+: <a class="el" href="classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe">csv::CSVReader</a>
 </li>
 <li>first_guess()
-: <a class="el" href="classcsv_1_1CSVGuesser.html#add357112b20ae4c7bad333c4540c6dee">csv::CSVGuesser</a>
+: <a class="el" href="classcsv_1_1internals_1_1CSVGuesser.html#aa73a9a48294ca4ae3ab564e729456ca4">csv::internals::CSVGuesser</a>
 </li>
+</ul>
+
+
+<h3><a id="index_g"></a>- g -</h3><ul>
 <li>get()
-: <a class="el" href="classcsv_1_1CSVField.html#a617e1e40afde6f5b0e75beb0102e079b">csv::CSVField</a>
+: <a class="el" href="classcsv_1_1CSVField.html#a67ff24172c5ac52417bbc36697511644">csv::CSVField</a>
+</li>
+<li>get_col_names()
+: <a class="el" href="classcsv_1_1CSVReader.html#ab282ff63cde3ff7c453cf377cc05de1c">csv::CSVReader</a>
 </li>
 <li>get_counts()
-: <a class="el" href="classcsv_1_1CSVStat.html#a890d56d4aa14de7d5802214e3df00b1c">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#affadbcfa1bf312afd6504ebd9c179067">csv::CSVStat</a>
 </li>
 <li>get_dtypes()
-: <a class="el" href="classcsv_1_1CSVStat.html#a5987383b577ee031c08ffc7810484bfe">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#a881131249d111032b2da1ca81b71e96c">csv::CSVStat</a>
 </li>
 <li>get_format()
-: <a class="el" href="classcsv_1_1CSVReader.html#ac67833724d1492e402c6080cc417e98f">csv::CSVReader</a>
+: <a class="el" href="classcsv_1_1CSVReader.html#a3bd56841002f21a77653d5212f03ef52">csv::CSVReader</a>
 </li>
 <li>get_maxes()
-: <a class="el" href="classcsv_1_1CSVStat.html#a36f381a8405353e1e3e86f6bad5f096c">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#a8d2af11719354b5bb2a2296e595f2c0d">csv::CSVStat</a>
 </li>
 <li>get_mean()
-: <a class="el" href="classcsv_1_1CSVStat.html#a7e968138ef3a105ee4b8e2d307990214">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#a20a3fa0650861a1206d5717b38e1119d">csv::CSVStat</a>
 </li>
 <li>get_mins()
-: <a class="el" href="classcsv_1_1CSVStat.html#af89acb52048fa927ddc0bbb7dae26400">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#a77adc53d21f2ff86d8537df33416ac13">csv::CSVStat</a>
+</li>
+<li>get_string_view()
+: <a class="el" href="classcsv_1_1CSVRow.html#a76f5d7b3c24f456fffcaf674bdaba633">csv::CSVRow</a>
 </li>
 <li>get_variance()
-: <a class="el" href="classcsv_1_1CSVStat.html#a598216361cea4b9127549e81223d82df">csv::CSVStat</a>
+: <a class="el" href="classcsv_1_1CSVStat.html#a2a856a1b6a52d13a5d985ec6ce06aeeb">csv::CSVStat</a>
 </li>
 <li>guess_delim()
-: <a class="el" href="classcsv_1_1CSVGuesser.html#a87e0da00a0ed58db4c77f543663a0d29">csv::CSVGuesser</a>
+: <a class="el" href="classcsv_1_1internals_1_1CSVGuesser.html#a82275ad726eb22e14b57334e8d5b9245">csv::internals::CSVGuesser</a>
 </li>
+</ul>
+
+
+<h3><a id="index_i"></a>- i -</h3><ul>
+<li>index_of()
+: <a class="el" href="classcsv_1_1CSVReader.html#a76b59e4a7f140ba9e4d0fa9a1758a039">csv::CSVReader</a>
+</li>
+</ul>
+
+
+<h3><a id="index_m"></a>- m -</h3><ul>
+<li>make_flags()
+: <a class="el" href="group__csv__internal.html#gac2215271c176fa343fdfea1d319aab4c">csv::CSVReader</a>
+</li>
+</ul>
+
+
+<h3><a id="index_o"></a>- o -</h3><ul>
+<li>operator&lt;&lt;()
+: <a class="el" href="classcsv_1_1DelimWriter.html#af060b8e69e8519a9d70e2864e29a5745">csv::DelimWriter&lt; OutputStream, Delim, Quote &gt;</a>
+</li>
+<li>operator[]()
+: <a class="el" href="classcsv_1_1CSVRow.html#a7279b8be87c4ce717447a432c9143839">csv::CSVRow</a>
+</li>
+</ul>
+
+
+<h3><a id="index_p"></a>- p -</h3><ul>
 <li>process_newline()
-: <a class="el" href="classcsv_1_1CSVReader.html#a58cfc0999b7473a7f63ba4fa13fb01a9">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#ga3bd1affb29641963e40b3f4a99578a9e">csv::CSVReader</a>
 </li>
 <li>process_possible_delim()
-: <a class="el" href="classcsv_1_1CSVReader.html#a6006046d88a3ceea33b85fd315f50885">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#ga9531ff3341cefb60b397269db63e0e59">csv::CSVReader</a>
 </li>
 <li>process_quote()
-: <a class="el" href="classcsv_1_1CSVReader.html#a353cfe5fc68a5527faa3e79a4e7033ec">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#ga5cc55e7cf3c0f4a75cde7d383fe75b12">csv::CSVReader</a>
 </li>
+</ul>
+
+
+<h3><a id="index_r"></a>- r -</h3><ul>
 <li>read_csv()
-: <a class="el" href="classcsv_1_1CSVReader.html#a7d79eea36fe4cc40941a1e3dfd8f8159">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159">csv::CSVReader</a>
 </li>
 <li>read_csv_worker()
-: <a class="el" href="classcsv_1_1CSVReader.html#a49ab4671b28da24f5ae8670a9eef557d">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d">csv::CSVReader</a>
 </li>
 <li>read_row()
-: <a class="el" href="classcsv_1_1CSVReader.html#a87f2c9b11592d8b29c0de925c14a74dd">csv::CSVReader</a>
+: <a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238">csv::CSVReader</a>
 </li>
-<li>read_row_check()
-: <a class="el" href="classcsv_1_1CSVReader.html#a6f68c969b42e6a1331655a50e9da5ec0">csv::CSVReader</a>
-</li>
+</ul>
+
+
+<h3><a id="index_s"></a>- s -</h3><ul>
 <li>second_guess()
-: <a class="el" href="classcsv_1_1CSVGuesser.html#a479d9ab1fc18dc03efbf67bf70c07f1b">csv::CSVGuesser</a>
+: <a class="el" href="classcsv_1_1internals_1_1CSVGuesser.html#a3ea5d2dee87b8cb23aca15b9c9aaa351">csv::internals::CSVGuesser</a>
 </li>
-<li>set_col_names()
-: <a class="el" href="classcsv_1_1CSVReader.html#a9946b7ff4e216e927c17c05aa02c2555">csv::CSVReader</a>
+<li>size()
+: <a class="el" href="classcsv_1_1CSVRow.html#afd489a3a2920fda476bbfe3ed549f0b9">csv::CSVRow</a>
 </li>
+</ul>
+
+
+<h3><a id="index_t"></a>- t -</h3><ul>
 <li>type()
-: <a class="el" href="classcsv_1_1CSVField.html#aa6fb79ec64d06d0ac143a317d753a2d3">csv::CSVField</a>
+: <a class="el" href="classcsv_1_1CSVField.html#aee31987c4c62c8ef7a89b475bd089618">csv::CSVField</a>
 </li>
+</ul>
+
+
+<h3><a id="index_w"></a>- w -</h3><ul>
 <li>write_record()
-: <a class="el" href="classcsv_1_1CSVReader.html#a28d76ddcd10172f02fa1e9be1f9821d1">csv::CSVReader</a>
+: <a class="el" href="group__csv__internal.html#ga609293317d4520eb6cc711c012240cb0">csv::CSVReader</a>
 </li>
 <li>write_row()
 : <a class="el" href="classcsv_1_1DelimWriter.html#af71375d3bd496f10965e3a78d710e89c">csv::DelimWriter&lt; OutputStream, Delim, Quote &gt;</a>
 </li>
 </ul>
 </div><!-- contents -->
+</div><!-- doc-content -->
 <!-- start footer part -->
-<hr class="footer"/><address class="footer"><small>
-Generated by &#160;<a href="http://www.doxygen.org/index.html">
-<img class="footer" src="doxygen.png" alt="doxygen"/>
-</a> 1.8.13
-</small></address>
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="footer">Generated by
+    <a href="http://www.doxygen.org/index.html">
+    <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.13 </li>
+  </ul>
+</div>
 </body>
 </html>

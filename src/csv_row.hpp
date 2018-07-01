@@ -11,15 +11,29 @@
 #include <limits> // For CSVField
 
 namespace csv {
-    struct ColNames {
-        ColNames(const std::vector<std::string>&);
-        std::vector<std::string> col_names;
-        std::unordered_map<std::string, size_t> col_pos;
+    namespace internals {
+        /** @struct ColNames
+         *  @brief A data structure for handling column name information.
+         *
+         *  These are created by CSVReader and passed (via smart pointer)
+         *  to CSVRow objects it creates, thus
+         *  allowing for indexing by column name.
+         */
+        struct ColNames {
+            ColNames(const std::vector<std::string>&);
+            std::vector<std::string> col_names;
+            std::unordered_map<std::string, size_t> col_pos;
 
-        std::vector<std::string> get_col_names() const;
-        size_t size() const;
-    };
+            std::vector<std::string> get_col_names() const;
+            size_t size() const;
+        };
+    }
 
+    /**
+    * @class CSVField
+    * @brief Data type representing individual CSV values. 
+    *        CSVFields can be obtained by using CSVRow::operator[]
+    */
     class CSVField {
     public:
         CSVField(std::string_view _sv) : sv(_sv) { };
@@ -33,18 +47,18 @@ namespace csv {
         *  Converting long ints to ints will be checked for overflow.
         *
         *  **Valid options for T**:
-        *   - std::string
+        *   - std::string or std::string_view
         *   - int
         *   - long
         *   - long long
         *   - double
         *   - long double
         */
-        template<typename T> T get() {
+        template<typename T=std::string_view> T get() {
             /** Get numeric values */
-            if (helpers::type_num<T>() >= CSV_INT) {
+            if (internals::type_num<T>() >= CSV_INT) {
                 if (is_num()) {
-                    if (helpers::type_num<T>() < this->type())
+                    if (internals::type_num<T>() < this->type())
                         throw std::runtime_error("Overflow error.");
 
                     return static_cast<T>(this->value);
@@ -54,12 +68,7 @@ namespace csv {
             }
         }
 
-        DataType type() {
-            /** Return the type number of the stored value in accordance with the DataType enum */
-            this->get_value();
-            return (DataType)_type;
-        }
-
+        DataType type();
         bool is_null() { return type() == CSV_NULL; }
         bool is_str() { return type() == CSV_STRING; }
         bool is_num() { return type() >= CSV_INT; }
@@ -73,17 +82,23 @@ namespace csv {
         void get_value();
     };
 
+    /**
+     * @class CSVRow 
+     * @brief Data structure for representing CSV rows
+     *
+     * Internally, a CSVRow consists of:
+     *  - A pointer to the original column names
+     *  - A string containing the entire CSV row (row_str)
+     *  - An array of positions in that string where individual fields begin (splits)
+     *
+     * CSVRow::operator[] uses splits to compute a string_view over row_str.
+     *
+     */
     class CSVRow {
-        /** A data type for representing CSV values that have been type-casted. Internally,
-        *  the CSVField stores the original string representation of a value, along with
-        *  the casted value as one of int, long, long long, or double. The get() method
-        *  provides the main means of retrieving values.
-        */
-
     public:
         CSVRow() = default;
         CSVRow(std::string&& _str, std::vector<size_t>&& _splits,
-            std::shared_ptr<ColNames> _cnames = nullptr) :
+            std::shared_ptr<internals::ColNames> _cnames = nullptr) :
             row_str(std::move(_str)),
             splits(std::move(_splits)),
             col_names(_cnames)
@@ -91,13 +106,17 @@ namespace csv {
 
         bool empty() const { return this->row_str.empty(); }
         size_t size() const;
-        std::string_view get_string_view(size_t n) const;
+
+        /** @name Value Retrieval */
+        ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
+        std::string_view get_string_view(size_t n) const;
         operator std::vector<std::string>() const;
+        ///@}
 
     private:
-        std::shared_ptr<ColNames> col_names = nullptr;
+        std::shared_ptr<internals::ColNames> col_names = nullptr;
         std::string row_str;
         std::vector<size_t> splits;
     };

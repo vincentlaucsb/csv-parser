@@ -27,7 +27,7 @@ namespace csv {
         CSV_DOUBLE
     };
 
-    namespace helpers {
+    namespace internals {
         template<typename T>
         DataType type_num();
 

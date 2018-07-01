@@ -5,19 +5,19 @@ namespace csv {
       * Calculates statistics from CSV files
       */
 
-    CSVStat::CSVStat(std::string filename, StatsOptions options,
-        CSVFormat format) : CSVReader(filename, format) {
+    CSVStat::CSVStat(std::string filename, CSVFormat format) :
+        CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor
          *  is called, CSVStat will process the entire file iteratively. Once finished,
          *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
          */
         while (!this->eof()) {
             this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
-            this->calc(options);
+            this->calc();
         }
 
         if (!this->records.empty())
-            this->calc(options);
+            this->calc();
     }
 
     void CSVStat::end_feed() {
@@ -25,8 +25,8 @@ namespace csv {
         this->calc();
     }
 
+    /** @brief Return current means */
     std::vector<long double> CSVStat::get_mean() const {
-        /** Return current means */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->rolling_means[i]);
@@ -34,8 +34,8 @@ namespace csv {
         return ret;
     }
 
+    /** @brief Return current variances */
     std::vector<long double> CSVStat::get_variance() const {
-        /** Return current variances */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
@@ -43,8 +43,8 @@ namespace csv {
         return ret;
     }
 
+    /** @brief Return current mins */
     std::vector<long double> CSVStat::get_mins() const {
-        /** Return current variances */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->mins[i]);
@@ -52,8 +52,8 @@ namespace csv {
         return ret;
     }
 
+    /** @brief Return current maxes */
     std::vector<long double> CSVStat::get_maxes() const {
-        /** Return current variances */
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->maxes[i]);
@@ -61,8 +61,8 @@ namespace csv {
         return ret;
     }
 
+    /** @brief Get counts for each column */
     std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
-        /** Get counts for each column */
         std::vector<FreqCount> ret;
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->counts[i]);
@@ -70,8 +70,8 @@ namespace csv {
         return ret;
     }
 
+    /** @brief Get data type counts for each column */
     std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
-        /** Get data type counts for each column */
         std::vector<TypeCount> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->dtypes[i]);
@@ -79,7 +79,7 @@ namespace csv {
         return ret;
     }
 
-    void CSVStat::calc(StatsOptions options) {
+    void CSVStat::calc() {
         /** Go through all records and calculate specified statistics */
         for (size_t i = 0; i < this->col_names->size(); i++) {
             dtypes.push_back({});
@@ -101,10 +101,10 @@ namespace csv {
         for (auto& th: pool)
             th.join();
 
-        this->clear();
+        this->records.clear();
     }
 
-    void CSVStat::calc_worker(const size_t i) {
+    void CSVStat::calc_worker(const size_t &i) {
         /** Worker thread for CSVStat::calc() which calculates statistics for one column.
          * 
          *  @param[in] i Column index
@@ -190,21 +190,21 @@ namespace csv {
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
          */
-        long double * current_rolling_mean = &this->rolling_means[i];
-        long double * current_rolling_var = &this->rolling_vars[i];
-        long double * current_n = &this->n[i];
+        long double& current_rolling_mean = this->rolling_means[i];
+        long double& current_rolling_var = this->rolling_vars[i];
+        long double& current_n = this->n[i];
         long double delta;
         long double delta2;
+
+        current_n++;
         
-        *current_n = *current_n + 1;
-        
-        if (*current_n == 1) {
-            *current_rolling_mean = x_n;
+        if (current_n == 1) {
+            current_rolling_mean = x_n;
         } else {
-            delta = x_n - *current_rolling_mean;
-            *current_rolling_mean += delta/(*current_n);
-            delta2 = x_n - *current_rolling_mean;
-            *current_rolling_var += delta*delta2;
+            delta = x_n - current_rolling_mean;
+            current_rolling_mean += delta/current_n;
+            delta2 = x_n - current_rolling_mean;
+            current_rolling_var += delta*delta2;
         }
     }
 }

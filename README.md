@@ -11,8 +11,7 @@ This CSV parser uses multiple threads to simulatenously pull data from disk and 
 ### RFC 4180 Compliance
 This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt). On the other hand, it is also robust and capable of handling deviances from the standard. An optional strict parsing mode can be enabled to sniff out errors in files.
 
-### Easy to Use and Well-Documented
-https://vincentlaucsb.github.io/csv-parser
+### Easy to Use and [Well-Documented](https://vincentlaucsb.github.io/csv-parser)
 
 In additon to being easy on your computer's hardware, this library is also easy on you--the developer. Some helpful features include:
  * Decent ability to guess the dialect of a file (CSV, tab-delimited, etc.)
@@ -22,16 +21,30 @@ In additon to being easy on your computer's hardware, this library is also easy 
 ### Well Tested
 
 ## Building
-All of this library's essentials are located under `src/`, with no dependencies aside from the STL. This is a C++11 library developed using Microsoft Visual Studio and compatible with g++ and clang. The CMakeList and Makefile contain instructions for building the main library, some sample programs, and the test suite.
+All of this library's essentials are located under `src/`, with no dependencies aside from the STL. This is a C++17 library developed using Microsoft Visual Studio and compatible with g++ and clang. The CMakeList and Makefile contain instructions for building the main library, some sample programs, and the test suite.
 
-**GCC/Clang Compiler Flags**: `-pthread-O3 -std=c++11`
+**GCC/Clang Compiler Flags**: `-pthread -O3 -std=c++17`
+
+### CMake Instructions
+If you're including this in another CMake project, you can simply clone this repo into your project directory, 
+and add the following to your CMakeLists.txt:
+
+```
+include(${CMAKE_SOURCE_DIR}/.../csv-parser/CMakeLists.txt)
+
+# ...
+
+add_executable(<your program> ...)
+target_link_libraries(<your program> csv)
+
+```
 
 ## Features & Examples
 ### Reading a Large File
 With this library, you can easily stream over a large file without reading its entirety into memory.
 
 ```cpp
-# include "csv_parser.h"
+# include "csv_parser.hpp"
 
 using namespace csv;
 
@@ -46,32 +59,13 @@ while (reader.read_row(row)) {
 
 ```
 
-### Reordering/Subsetting Data
-You can also reorder a CSV or only keep a subset of the data simply by passing
-in a vector of column indices.
-
-```cpp
-# include "csv_parser.h"
-
-using namespace csv;
-
-...
-
-std::vector<size_t> new_order = { 0, 2, 3, 5 };
-CSVReader reader("very_big_file.csv", new_order);
-std::vector<std::string> row;
-
-while (reader.read_row(row)) {
-    // Do stuff with row here
-}
-
-```
-
-### Automatic Type Conversions
+### Indexing Rows by Column Name and Type Conversions
 If your CSV has lots of numeric values, you can also have this parser automatically convert them to the proper data type.
+For efficiency, numeric values are lazily converted, and the indexing feature is implemented by having all rows
+share a pointer to the original set of column names.
 
 ```cpp
-# include "csv_parser.h"
+# include "csv_parser.hpp"
 
 using namespace csv;
 
@@ -80,14 +74,14 @@ using namespace csv;
 CSVReader reader("very_big_file.csv");
 std::vector<CSVField> row;
 
-size_t date = reader.index_of("timestamp");
-
 while (reader.read_row(row)) {
-    if (row[date].is_int())
-        row[date].get<int>();
+    if (row["timestamp"].is_int())
+        row["timestamp"].get<int>();
     
-    // get<std::string>() can be called on any values
-    std::cout << row[date].get<std::string>() << std::endl;
+    // get<>() returns a std::string_view of the original field
+    for (size_t i = 0; i < row.size(); i++) {
+        std::cout << row[i].get<>() << ...
+    }
 }
 
 ```
@@ -96,7 +90,7 @@ while (reader.read_row(row)) {
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
 ```cpp
-# include "csv_parser.h"
+# include "csv_parser.hpp"
 # include ...
 
 using namespace csv;
@@ -120,31 +114,33 @@ while (reader.read_row(row)) {
 ### Parsing an In-Memory String
 
 ```cpp
-# include "csv_parser.h"
-# include ...
+# include "csv_parser.hpp"
 
 using namespace csv;
 
-int main() { 
-    std::string csv_string = "Actor,Character"
-        "Will Ferrell,Ricky Bobby\r\n"
-        "John C. Reilly,Cal Naughton Jr.\r\n"
-        "Sacha Baron Cohen,Jean Giard\r\n"
+...
 
-    // Method 1
-    std::deque<CSVRow> rows = parse(csv_string);
-    for (auto& r: rows) {
-        // Do stuff with row here
-    }
-    
-    // Method 2
-    std::deque< std::vector<std::string> > rows = parse(csv_string);
-    for (auto& r: rows) {
-        // Do stuff with row here
-    }
-    
-    // ..
+// Method 1: Using parse()
+std::string csv_string = "Actor,Character"
+    "Will Ferrell,Ricky Bobby\r\n"
+    "John C. Reilly,Cal Naughton Jr.\r\n"
+    "Sacha Baron Cohen,Jean Giard\r\n"
+
+auto rows = parse(csv_string);
+for (auto& r: rows) {
+    // Do stuff with row here
 }
+    
+// Method 2: Using _csv operator
+auto rows = "Actor,Character"
+    "Will Ferrell,Ricky Bobby\r\n"
+    "John C. Reilly,Cal Naughton Jr.\r\n"
+    "Sacha Baron Cohen,Jean Giard\r\n"_csv;
+
+for (auto& r: rows) {
+    // Do stuff with row here
+}
+
 ```
 
 ### Writing CSV Files
@@ -168,7 +164,6 @@ writer << vector<string>({ "A", "B", "C" })
 ...
 
 ```
-
 
 ### Utility Functions
  * **Return column names:** get_col_names()
