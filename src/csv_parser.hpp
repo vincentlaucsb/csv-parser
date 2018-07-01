@@ -1,6 +1,7 @@
 #pragma once
 #include <string_view>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <deque>
 #include <unordered_map>
@@ -13,7 +14,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <sstream>
+#include <iterator>
 
 #include "memory.hpp"
 #include "data_type.h"
@@ -152,6 +153,35 @@ namespace csv {
             void close();               /**< @brief Close the open file handle.
                                         *   Automatically called by ~CSVReader().
                                         */
+
+            class iterator {
+            public:
+                using value_type = CSVRow;
+                using difference_type = std::ptrdiff_t;
+                using pointer = CSVRow * ;
+                using reference = CSVRow & ;
+                using iterator_category = std::input_iterator_tag;
+
+                iterator(CSVReader* reader) : daddy(reader) {};
+                iterator(CSVReader*, CSVRow&&);
+
+                reference operator*() const;
+                pointer operator->() const;
+                iterator& operator++(); // Pre-inc
+                iterator operator++(int); // Post-inc
+                iterator& operator--();
+
+                bool operator==(const iterator&) const;
+                bool operator!=(const iterator& other) const { return !operator==(other); }
+
+            private:
+                CSVReader * daddy = nullptr;     // Pointer to parent
+                std::shared_ptr<CSVRow> row = nullptr; // Current row
+                int i = 0;                             // Index of current field
+            };
+
+            iterator begin();
+            iterator end();
 
             friend CSVCollection parse(const std::string&, CSVFormat);
         protected:

@@ -1,4 +1,5 @@
 #include "csv_row.hpp"
+#include <functional>
 
 namespace csv {
     namespace internals {
@@ -100,6 +101,35 @@ namespace csv {
         return ret;
     }
 
+
+    //
+    // TODO: Remove duplication
+    //
+
+    bool CSVRow::operator==(const std::unordered_map<std::string, std::string>& m) const {
+        for (auto& pair : m)
+            if (this->operator[](pair.first).get<std::string>() == pair.second)
+                return false;
+
+        return true;
+    }
+
+    bool CSVRow::operator<(const std::unordered_map<std::string, std::string>& m) const {
+        for (auto& pair : m)
+            if (this->operator[](pair.first).get<std::string>() < pair.second)
+                return false;
+
+        return true;
+    }
+
+    bool CSVRow::operator>(const std::unordered_map<std::string, std::string>& m) const {
+        for (auto& pair : m)
+            if (this->operator[](pair.first).get<std::string>() > pair.second)
+                return false;
+
+        return true;
+    }
+
     //////////////////////
     // CSVField Methods //
     //////////////////////
@@ -123,4 +153,64 @@ namespace csv {
         }
     }
     #endif
+
+    /////////////////////
+    // CSVRow Iterator //
+    /////////////////////
+
+    CSVRow::iterator CSVRow::begin() const {
+        return CSVRow::iterator(this, 0);
+    }
+
+    CSVRow::iterator CSVRow::end() const {
+        return CSVRow::iterator(this, this->size() - 1);
+    }
+
+    CSVRow::iterator::iterator(const CSVRow* _reader, size_t _i)
+        : daddy(_reader), i(_i) {
+        this->field = std::make_shared<CSVField>(
+            this->daddy->operator[](_i));
+    }
+
+    CSVRow::iterator::reference CSVRow::iterator::operator*() const {
+        return *(this->field.get());
+    }
+
+    CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
+        return this->field.get();
+    }
+
+    CSVRow::iterator& CSVRow::iterator::operator++() {
+        this->i++;
+        this->field = std::make_shared<CSVField>(
+            this->daddy->operator[](this->i));
+        return *this;
+    }
+
+    CSVRow::iterator CSVRow::iterator::operator++(int n) {
+        return CSVRow::iterator(this->daddy, i + n);
+    }
+
+    CSVRow::iterator& CSVRow::iterator::operator--() {
+        this->i--;
+        this->field = std::make_shared<CSVField>(
+            this->daddy->operator[](this->i));
+        return *this;
+    }
+
+    CSVRow::iterator CSVRow::iterator::operator--(int n) {
+        return this->operator++(-n);
+    }
+    
+    CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
+        return CSVRow::iterator(this->daddy, i + n);
+    }
+
+    CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
+        return CSVRow::iterator::operator+(-n);
+    }
+
+    bool CSVRow::iterator::operator==(const iterator& other) const {
+        return this->i == other.i;
+    }
 }

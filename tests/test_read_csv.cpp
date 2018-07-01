@@ -63,10 +63,6 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     auto row = rows.front();
     vector<string> first_row = {"123", "234", "345"};
     REQUIRE( vector<string>(row) == first_row );
-
-    // operator[]
-    REQUIRE(row["A"] == "123");
-    REQUIRE(row["C"] == "345");
 }
 
 //! [Escaped Comma]

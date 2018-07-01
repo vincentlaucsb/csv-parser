@@ -14,13 +14,15 @@ set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
 set(SOURCES
     ${SOURCE_DIR}/csv_reader.cpp
-	${SOURCE_DIR}/csv_row.cpp
+    ${SOURCE_DIR}/csv_reader_iterator.cpp
+    ${SOURCE_DIR}/csv_row.cpp
     ${SOURCE_DIR}/csv_stat.cpp
-	${SOURCE_DIR}/data_type.cpp
+    ${SOURCE_DIR}/data_type.cpp
 )
 set(TEST_SOURCES
 	${TEST_DIR}/catch.hpp
 	${TEST_DIR}/main.cpp
+	${TEST_DIR}/test_csv_iterator.cpp
 	${TEST_DIR}/test_csv_row.cpp
 	${TEST_DIR}/test_data_type.cpp
 	${TEST_DIR}/test_csv_stat.cpp

@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <string_view>
+#include <iterator>
 #include <unordered_map> // For ColNames
 #include <memory> // For CSVField
 #include <limits> // For CSVField
@@ -114,6 +115,42 @@ namespace csv {
         std::string_view get_string_view(size_t n) const;
         operator std::vector<std::string>() const;
         ///@}
+
+        bool operator==(const std::unordered_map<std::string, std::string>&) const;
+        bool operator<(const std::unordered_map<std::string, std::string>&) const;
+        bool operator>(const std::unordered_map<std::string, std::string>&) const;
+
+        class iterator {
+        public:
+            using value_type = CSVField;
+            using difference_type = std::ptrdiff_t;
+            using pointer = CSVField * ;
+            using reference = CSVField & ;
+            using iterator_category = std::random_access_iterator_tag;
+
+            iterator(const CSVRow*, size_t i);
+
+            reference operator*() const;
+            pointer operator->() const;
+
+            iterator operator++(int);
+            iterator& operator++();
+            iterator operator--(int);
+            iterator& operator--();
+            iterator operator+(difference_type n) const;
+            iterator operator-(difference_type n) const;
+
+            bool operator==(const iterator&) const;
+            bool operator!=(const iterator& other) const { return !operator==(other); }
+
+        private:
+            const CSVRow * daddy = nullptr;            // Pointer to parent
+            std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
+            int i = 0;                              // Index of current field
+        };
+
+        iterator begin() const;
+        iterator end() const;
 
     private:
         std::shared_ptr<internals::ColNames> col_names = nullptr;
