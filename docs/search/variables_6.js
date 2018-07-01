@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['n_5fcols',['n_cols',['../structcsv_1_1CSVFileInfo.html#a07230a749c9a9e38a0ddcbd47a3e98e3',1,'csv::CSVFileInfo']]],
-  ['n_5frows',['n_rows',['../structcsv_1_1CSVFileInfo.html#a4bf6d67047a273c68560cc3d91658dbe',1,'csv::CSVFileInfo']]]
+  ['min_5frow_5flen',['min_row_len',['../group__csv__internal.html#gae59eb9a27868a8ccc4e86901051fb9b6',1,'csv::CSVReader']]]
 ];

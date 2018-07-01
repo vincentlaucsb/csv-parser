@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['feed',['feed',['../classcsv_1_1CSVReader.html#aa2f2bc1b9e75912465df03523564ff2f',1,'csv::CSVReader']]],
-  ['first_5fguess',['first_guess',['../classcsv_1_1CSVGuesser.html#add357112b20ae4c7bad333c4540c6dee',1,'csv::CSVGuesser']]],
-  ['format_5frow',['format_row',['../namespacecsv_1_1helpers.html#a97473d440fc06271a31749c5eb86c742',1,'csv::helpers']]]
+  ['feed',['feed',['../classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe',1,'csv::CSVReader::feed(std::string_view in)'],['../group__csv__internal.html#gae2934a7ef4abb2829b4455f2068bf214',1,'csv::CSVReader::feed(std::unique_ptr&lt; std::string &gt; &amp;&amp;)']]],
+  ['first_5fguess',['first_guess',['../classcsv_1_1internals_1_1CSVGuesser.html#aa73a9a48294ca4ae3ab564e729456ca4',1,'csv::internals::CSVGuesser']]],
+  ['format_5frow',['format_row',['../namespacecsv_1_1internals.html#a7ab04b6d1c0bc499c8f494dad23f1307',1,'csv::internals']]]
 ];

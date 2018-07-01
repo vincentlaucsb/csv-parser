@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['quote_5fchar',['quote_char',['../classcsv_1_1CSVReader.html#ae928205d7834e243ff41aaf74bd70735',1,'csv::CSVReader']]],
-  ['quote_5fescape',['quote_escape',['../classcsv_1_1CSVReader.html#a6523948347f2b4a4622620e7a0a21068',1,'csv::CSVReader']]]
+  ['operator_22_22_5fcsv',['operator&quot;&quot;_csv',['../namespacecsv.html#abcbc9a3ab5e6eb6905a995964c7cbf13',1,'csv']]],
+  ['operator_3c_3c',['operator&lt;&lt;',['../classcsv_1_1DelimWriter.html#af060b8e69e8519a9d70e2864e29a5745',1,'csv::DelimWriter']]],
+  ['operator_5b_5d',['operator[]',['../classcsv_1_1CSVRow.html#ad523d2b544bc7dab0a121891e5062d2c',1,'csv::CSVRow::operator[](size_t n) const'],['../classcsv_1_1CSVRow.html#a7279b8be87c4ce717447a432c9143839',1,'csv::CSVRow::operator[](const std::string &amp;) const']]]
 ];

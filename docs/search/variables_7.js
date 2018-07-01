@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['quote_5fchar',['quote_char',['../classcsv_1_1CSVReader.html#ae928205d7834e243ff41aaf74bd70735',1,'csv::CSVReader']]],
-  ['quote_5fescape',['quote_escape',['../classcsv_1_1CSVReader.html#a6523948347f2b4a4622620e7a0a21068',1,'csv::CSVReader']]]
+  ['n_5fcols',['n_cols',['../structcsv_1_1CSVFileInfo.html#a07230a749c9a9e38a0ddcbd47a3e98e3',1,'csv::CSVFileInfo']]],
+  ['n_5fpos',['n_pos',['../group__csv__internal.html#ga7b6f248d4e1acc872e016c14b66995e2',1,'csv::CSVReader']]],
+  ['n_5frows',['n_rows',['../structcsv_1_1CSVFileInfo.html#a5cc2f778eeb60b29acdc88662985695c',1,'csv::CSVFileInfo']]]
 ];

@@ -9,6 +9,13 @@
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="resize.js"></script>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript">
+  $(document).ready(initResizable);
+</script>
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
@@ -42,6 +49,21 @@ $(function() {
 });
 </script>
 <div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(document).ready(function(){initNavTree('structcsv_1_1CSVFileInfo.html','');});
+</script>
+<div id="doc-content">
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -56,11 +78,6 @@ $(function() {
 </iframe>
 </div>
 
-<div id="nav-path" class="navpath">
-  <ul>
-<li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="structcsv_1_1CSVFileInfo.html">CSVFileInfo</a></li>  </ul>
-</div>
-</div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-attribs">Public Attributes</a> &#124;
@@ -80,13 +97,15 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a60260fffa489d08c2173e44d47cfa00a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab4498493fafd150c9f658ff94c3cb099"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv_1_1CSVFileInfo.html#ab4498493fafd150c9f658ff94c3cb099">delim</a></td></tr>
 <tr class="separator:ab4498493fafd150c9f658ff94c3cb099"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4bf6d67047a273c68560cc3d91658dbe"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv_1_1CSVFileInfo.html#a4bf6d67047a273c68560cc3d91658dbe">n_rows</a></td></tr>
-<tr class="separator:a4bf6d67047a273c68560cc3d91658dbe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5cc2f778eeb60b29acdc88662985695c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacecsv.html#a5ee7c8c04afbcd1f4d24046143addc29">RowCount</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv_1_1CSVFileInfo.html#a5cc2f778eeb60b29acdc88662985695c">n_rows</a></td></tr>
+<tr class="separator:a5cc2f778eeb60b29acdc88662985695c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a07230a749c9a9e38a0ddcbd47a3e98e3"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcsv_1_1CSVFileInfo.html#a07230a749c9a9e38a0ddcbd47a3e98e3">n_cols</a></td></tr>
 <tr class="separator:a07230a749c9a9e38a0ddcbd47a3e98e3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Returned by <a class="el" href="namespacecsv.html#a59dfc8c288720becdd3a55485262e670">get_file_info()</a> </p>
+<div class="textblock"><p>Returned by <a class="el" href="namespacecsv.html#a59dfc8c288720becdd3a55485262e670" title="Get basic information about a CSV file. ">get_file_info()</a> </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00061">61</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
 <a id="a60260fffa489d08c2173e44d47cfa00a"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a60260fffa489d08c2173e44d47cfa00a">&#9670;&nbsp;</a></span>col_names</h2>
@@ -100,6 +119,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>CSV column names </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00063">63</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 
 </div>
 </div>
@@ -116,6 +137,8 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Delimiting character </p>
 
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00064">64</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
+
 </div>
 </div>
 <a id="af5efb1adbf817734620564b12ed895e1"></a>
@@ -130,6 +153,8 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Filename </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00062">62</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 
 </div>
 </div>
@@ -146,20 +171,24 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Number of columns in a CSV </p>
 
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00066">66</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
+
 </div>
 </div>
-<a id="a4bf6d67047a273c68560cc3d91658dbe"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4bf6d67047a273c68560cc3d91658dbe">&#9670;&nbsp;</a></span>n_rows</h2>
+<a id="a5cc2f778eeb60b29acdc88662985695c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5cc2f778eeb60b29acdc88662985695c">&#9670;&nbsp;</a></span>n_rows</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int csv::CSVFileInfo::n_rows</td>
+          <td class="memname"><a class="el" href="namespacecsv.html#a5ee7c8c04afbcd1f4d24046143addc29">RowCount</a> csv::CSVFileInfo::n_rows</td>
         </tr>
       </table>
 </div><div class="memdoc">
 <p>Number of rows in a file </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00065">65</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 
 </div>
 </div>
@@ -167,11 +196,15 @@ Public Attributes</h2></td></tr>
 <li>src/<a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a></li>
 </ul>
 </div><!-- contents -->
+</div><!-- doc-content -->
 <!-- start footer part -->
-<hr class="footer"/><address class="footer"><small>
-Generated by &#160;<a href="http://www.doxygen.org/index.html">
-<img class="footer" src="doxygen.png" alt="doxygen"/>
-</a> 1.8.13
-</small></address>
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="structcsv_1_1CSVFileInfo.html">CSVFileInfo</a></li>
+    <li class="footer">Generated by
+    <a href="http://www.doxygen.org/index.html">
+    <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.13 </li>
+  </ul>
+</div>
 </body>
 </html>

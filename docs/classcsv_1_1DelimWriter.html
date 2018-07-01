@@ -9,6 +9,13 @@
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="resize.js"></script>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript">
+  $(document).ready(initResizable);
+</script>
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
@@ -42,6 +49,21 @@ $(function() {
 });
 </script>
 <div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(document).ready(function(){initNavTree('classcsv_1_1DelimWriter.html','');});
+</script>
+<div id="doc-content">
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -56,11 +78,6 @@ $(function() {
 </iframe>
 </div>
 
-<div id="nav-path" class="navpath">
-  <ul>
-<li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="classcsv_1_1DelimWriter.html">DelimWriter</a></li>  </ul>
-</div>
-</div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
@@ -69,6 +86,9 @@ $(function() {
 <div class="title">csv::DelimWriter&lt; OutputStream, Delim, Quote &gt; Class Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
+
+<p>Class for writing delimiter separated values files.  
+ <a href="classcsv_1_1DelimWriter.html#details">More...</a></p>
 
 <p><code>#include &lt;<a class="el" href="csv__writer_8hpp_source.html">csv_writer.hpp</a>&gt;</code></p>
 <table class="memberdecls">
@@ -82,28 +102,60 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5bc11ebddf3777dab942fc1a05b35988"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af71375d3bd496f10965e3a78d710e89c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1DelimWriter.html#af71375d3bd496f10965e3a78d710e89c">write_row</a> (const std::vector&lt; std::string &gt; &amp;record, bool quote_minimal=true)</td></tr>
 <tr class="separator:af71375d3bd496f10965e3a78d710e89c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af060b8e69e8519a9d70e2864e29a5745"><td class="memItemLeft" align="right" valign="top"><a id="af060b8e69e8519a9d70e2864e29a5745"></a>
-<a class="el" href="classcsv_1_1DelimWriter.html">DelimWriter</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><b>operator&lt;&lt;</b> (const std::vector&lt; std::string &gt; &amp;record)</td></tr>
+<tr class="memitem:af060b8e69e8519a9d70e2864e29a5745"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classcsv_1_1DelimWriter.html">DelimWriter</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1DelimWriter.html#af060b8e69e8519a9d70e2864e29a5745">operator&lt;&lt;</a> (const std::vector&lt; std::string &gt; &amp;record)</td></tr>
 <tr class="separator:af060b8e69e8519a9d70e2864e29a5745"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><h3>template&lt;class OutputStream, char Delim, char Quote&gt;<br />
 class csv::DelimWriter&lt; OutputStream, Delim, Quote &gt;</h3>
 
-<p>Class for writing CSV files.</p>
-<p>See <a class="el" href="namespacecsv.html#a68da6f11bd08b5659d8ce6719e80abee">csv::csv_escape()</a> for a function that formats a non-CSV string.</p>
-<p>To write to a CSV file, one should</p><ol type="1">
-<li>Initialize a <a class="el" href="classcsv_1_1DelimWriter.html">DelimWriter</a> with respect to some file</li>
-<li>Call <a class="el" href="classcsv_1_1DelimWriter.html#af71375d3bd496f10965e3a78d710e89c">write_row()</a> on std::vector&lt;std::string&gt;s of unformatted text </li>
+<p>Class for writing delimiter separated values files. </p>
+<p>To write formatted strings, one should</p><ol type="1">
+<li>Initialize a <a class="el" href="classcsv_1_1DelimWriter.html" title="Class for writing delimiter separated values files. ">DelimWriter</a> with respect to some output stream (e.g. std::ifstream or std::stringstream)</li>
+<li>Call <a class="el" href="classcsv_1_1DelimWriter.html#af71375d3bd496f10965e3a78d710e89c">write_row()</a> on std::vector&lt;std::string&gt;s of unformatted text</li>
 </ol>
+<p><b>Hint</b>: Use the aliases CSVWriter&lt;OutputStream&gt; to write CSV formatted strings and TSVWriter&lt;OutputStream&gt; to write tab separated strings </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__writer_8hpp_source.html#l00064">64</a> of file <a class="el" href="csv__writer_8hpp_source.html">csv_writer.hpp</a>.</p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="af060b8e69e8519a9d70e2864e29a5745"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af060b8e69e8519a9d70e2864e29a5745">&#9670;&nbsp;</a></span>operator<<()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class OutputStream , char Delim, char Quote&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classcsv_1_1DelimWriter.html">DelimWriter</a>&amp; <a class="el" href="classcsv_1_1DelimWriter.html">csv::DelimWriter</a>&lt; OutputStream, Delim, Quote &gt;::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; std::string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>record</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Calls <a class="el" href="classcsv_1_1DelimWriter.html#af71375d3bd496f10965e3a78d710e89c">write_row()</a> on record </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__writer_8hpp_source.html#l00085">85</a> of file <a class="el" href="csv__writer_8hpp_source.html">csv_writer.hpp</a>.</p>
+
+</div>
+</div>
 <a id="af71375d3bd496f10965e3a78d710e89c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#af71375d3bd496f10965e3a78d710e89c">&#9670;&nbsp;</a></span>write_row()</h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;class OutputStream, char Delim, char Quote&gt; </div>
+template&lt;class OutputStream , char Delim, char Quote&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -141,17 +193,23 @@ template&lt;class OutputStream, char Delim, char Quote&gt; </div>
   </dd>
 </dl>
 
+<p class="definition">Definition at line <a class="el" href="csv__writer_8hpp_source.html#l00069">69</a> of file <a class="el" href="csv__writer_8hpp_source.html">csv_writer.hpp</a>.</p>
+
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>
 <li>src/<a class="el" href="csv__writer_8hpp_source.html">csv_writer.hpp</a></li>
 </ul>
 </div><!-- contents -->
+</div><!-- doc-content -->
 <!-- start footer part -->
-<hr class="footer"/><address class="footer"><small>
-Generated by &#160;<a href="http://www.doxygen.org/index.html">
-<img class="footer" src="doxygen.png" alt="doxygen"/>
-</a> 1.8.13
-</small></address>
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="classcsv_1_1DelimWriter.html">DelimWriter</a></li>
+    <li class="footer">Generated by
+    <a href="http://www.doxygen.org/index.html">
+    <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.13 </li>
+  </ul>
+</div>
 </body>
 </html>

@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     auto info = get_file_info(file);
 
     std::cout << file << std::endl
-        << "Columns: " << helpers::format_row(info.col_names, ", ")
+        << "Columns: " << internals::format_row(info.col_names, ", ")
         << "Dimensions: " << info.n_rows << " rows x " << info.n_cols << " columns" << std::endl
         << "Delimiter: " << info.delim << std::endl;
 

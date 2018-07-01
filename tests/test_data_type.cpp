@@ -3,7 +3,7 @@
 #include <string>
 
 using namespace csv;
-using namespace csv::helpers;
+using namespace csv::internals;
 
 TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string a("1"), b(" 2018   "), c(" -69 ");

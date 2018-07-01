@@ -9,6 +9,13 @@
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
+<link href="navtree.css" rel="stylesheet" type="text/css"/>
+<script type="text/javascript" src="resize.js"></script>
+<script type="text/javascript" src="navtreedata.js"></script>
+<script type="text/javascript" src="navtree.js"></script>
+<script type="text/javascript">
+  $(document).ready(initResizable);
+</script>
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
@@ -42,6 +49,21 @@ $(function() {
 });
 </script>
 <div id="main-nav"></div>
+</div><!-- top -->
+<div id="side-nav" class="ui-resizable side-nav-resizable">
+  <div id="nav-tree">
+    <div id="nav-tree-contents">
+      <div id="nav-sync" class="sync"></div>
+    </div>
+  </div>
+  <div id="splitbar" style="-moz-user-select:none;" 
+       class="ui-resizable-handle">
+  </div>
+</div>
+<script type="text/javascript">
+$(document).ready(function(){initNavTree('classcsv_1_1CSVField.html','');});
+</script>
+<div id="doc-content">
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -56,11 +78,6 @@ $(function() {
 </iframe>
 </div>
 
-<div id="nav-path" class="navpath">
-  <ul>
-<li class="navelem"><a class="el" href="namespacecsv.html">csv</a></li><li class="navelem"><a class="el" href="classcsv_1_1CSVField.html">CSVField</a></li>  </ul>
-</div>
-</div><!-- top -->
 <div class="header">
   <div class="headertitle">
 <div class="title">csv::CSVField Member List</div>  </div>
@@ -69,25 +86,27 @@ $(function() {
 
 <p>This is the complete list of members for <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>, including all inherited members.</p>
 <table class="directory">
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>CSVField</b>(const T &amp;val, const std::string &amp;str_val) (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>CSVField</b>(const std::nullptr_t &amp;) (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>CSVField</b>(const std::string &amp;str_val) (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>CSVField</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>CSVReader</b> (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">friend</span></td></tr>
-  <tr><td class="entry"><a class="el" href="classcsv_1_1CSVField.html#a617e1e40afde6f5b0e75beb0102e079b">get</a>() const</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>get</b>() const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>is_float</b>() const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>is_int</b>() const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>is_null</b>() const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>is_num</b>() const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>is_str</b>() const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr class="even"><td class="entry"><a class="el" href="classcsv_1_1CSVField.html#aa6fb79ec64d06d0ac143a317d753a2d3">type</a>() const</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>CSVField</b>(std::string_view _sv) (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr><td class="entry"><a class="el" href="classcsv_1_1CSVField.html#a67ff24172c5ac52417bbc36697511644">get</a>()</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>get</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0"><td class="entry"><b>is_float</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>is_int</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0"><td class="entry"><b>is_null</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>is_num</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0"><td class="entry"><b>is_str</b>() (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
+  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>operator==</b>(const std::string &amp;) const (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"></td></tr>
+  <tr bgcolor="#f0f0f0"><td class="entry"><b>sv</b> (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"></td></tr>
+  <tr class="even"><td class="entry"><a class="el" href="classcsv_1_1CSVField.html#aee31987c4c62c8ef7a89b475bd089618">type</a>()</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"></td></tr>
+  <tr bgcolor="#f0f0f0"><td class="entry"><b>value</b> (defined in <a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a>)</td><td class="entry"><a class="el" href="classcsv_1_1CSVField.html">csv::CSVField</a></td><td class="entry"></td></tr>
 </table></div><!-- contents -->
+</div><!-- doc-content -->
 <!-- start footer part -->
-<hr class="footer"/><address class="footer"><small>
-Generated by &#160;<a href="http://www.doxygen.org/index.html">
-<img class="footer" src="doxygen.png" alt="doxygen"/>
-</a> 1.8.13
-</small></address>
+<div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
+  <ul>
+    <li class="footer">Generated by
+    <a href="http://www.doxygen.org/index.html">
+    <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.13 </li>
+  </ul>
+</div>
 </body>
 </html>

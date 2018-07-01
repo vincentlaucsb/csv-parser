@@ -1,6 +1,4 @@
 #include "csv_parser.hpp"
-#include <chrono>
-#include <iostream>
 
 int main(int argc, char** argv) {
     using namespace csv;
