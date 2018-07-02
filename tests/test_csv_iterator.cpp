@@ -23,8 +23,9 @@ auto make_csv_row() {
 TEST_CASE("Test CSVRow Iterator", "[csv_iter]") {
     auto row = make_csv_row();
 
+    // Forwards
     REQUIRE(row.begin()->get<int>() == 123);
-    REQUIRE(row.end()->get<>() == "345");
+    REQUIRE((row.end() - 1)->get<>() == "345");
 
     size_t i = 0;
     for (auto it = row.begin(); it != row.end(); ++it) {
@@ -34,13 +35,17 @@ TEST_CASE("Test CSVRow Iterator", "[csv_iter]") {
 
         i++;
     }
+
+    // Backwards
+    REQUIRE(row.rbegin()->get<int>() == 345);
+    REQUIRE((row.rend() - 1)->get<>() == "123");
 }
 
 TEST_CASE("Test CSVRow Iterator Arithmetic", "[csv_iter_math]") {
     auto row = make_csv_row();
 
     REQUIRE(row.begin()->get<int>() == 123);
-    REQUIRE(row.end()->get<>() == "345");
+    REQUIRE((row.end() - 1)->get<>() == "345");
 
     auto row_start = row.begin();
     REQUIRE(*(row_start + 1) == "234");
@@ -70,10 +75,10 @@ TEST_CASE("Basic CSVReader Iterator Test", "[read_ints_iter]") {
     // There are 100 rows
     CSVReader reader("./tests/data/fake_data/ints.csv");
     
-    auto it = reader.begin();
-    for (size_t i = 1; it != reader.end(); i++) {
+    size_t i = 1;
+    for (auto it = reader.begin(); it != reader.end(); ++it) {
         REQUIRE((*it)[0].get<int>() == i);
-        it++;
+        i++;
     }
 }
 
@@ -94,6 +99,6 @@ TEST_CASE("CSVReader Iterator + std::find", "[find_ints]") {
     auto max_int = std::max_element(r1.begin(), r2.end(), int_finder);
     auto max_wage = std::max_element(r2.begin(), r2.end(), wage_finder);
 
-    REQUIRE((*max_int)["A"].get<>() == "100");
-    REQUIRE((*max_wage)["Total Wages"].get<>() == "812064.87");
+    REQUIRE((*max_int)["A"] == 100);
+    REQUIRE((*max_wage)["Total Wages"] == "812064.87");
 }

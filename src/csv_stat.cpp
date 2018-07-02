@@ -12,7 +12,7 @@ namespace csv {
          *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
          */
         while (!this->eof()) {
-            this->read_csv(filename, ITERATION_CHUNK_SIZE, false);
+            this->read_csv("", ITERATION_CHUNK_SIZE, false);
             this->calc();
         }
 

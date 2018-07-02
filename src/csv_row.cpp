@@ -23,10 +23,6 @@ namespace csv {
         }
     }
 
-    bool CSVField::operator==(const std::string& other) const {
-        return other == this->sv;
-    }
-
     size_t CSVRow::size() const {
         /** Return the number of fields in this row */
         return splits.size() + 1;
@@ -40,7 +36,7 @@ namespace csv {
         size_t beg = 0, end = row_str.size(),
             r_size = this->size();
 
-        if (n > r_size)
+        if (n >= r_size)
             throw std::runtime_error("Index out of bounds.");
 
         if (!splits.empty()) {
@@ -101,35 +97,6 @@ namespace csv {
         return ret;
     }
 
-
-    //
-    // TODO: Remove duplication
-    //
-
-    bool CSVRow::operator==(const std::unordered_map<std::string, std::string>& m) const {
-        for (auto& pair : m)
-            if (this->operator[](pair.first).get<std::string>() == pair.second)
-                return false;
-
-        return true;
-    }
-
-    bool CSVRow::operator<(const std::unordered_map<std::string, std::string>& m) const {
-        for (auto& pair : m)
-            if (this->operator[](pair.first).get<std::string>() < pair.second)
-                return false;
-
-        return true;
-    }
-
-    bool CSVRow::operator>(const std::unordered_map<std::string, std::string>& m) const {
-        for (auto& pair : m)
-            if (this->operator[](pair.first).get<std::string>() > pair.second)
-                return false;
-
-        return true;
-    }
-
     //////////////////////
     // CSVField Methods //
     //////////////////////
@@ -154,6 +121,18 @@ namespace csv {
     }
     #endif
 
+    //
+    // CSVField Utility Methods
+    //
+
+    bool CSVField::operator==(std::string_view other) const {
+        return other == this->sv;
+    }
+
+    bool CSVField::operator==(const long double& other) {
+        return other == this->get<long double>();
+    }
+
     /////////////////////
     // CSVRow Iterator //
     /////////////////////
@@ -163,13 +142,25 @@ namespace csv {
     }
 
     CSVRow::iterator CSVRow::end() const {
-        return CSVRow::iterator(this, this->size() - 1);
+        /** Return an iterator pointer to just after the end of the CSVRow */
+        return CSVRow::iterator(this, (int)this->size());
     }
 
-    CSVRow::iterator::iterator(const CSVRow* _reader, size_t _i)
+    CSVRow::reverse_iterator CSVRow::rbegin() const {
+        return std::make_reverse_iterator<CSVRow::iterator>(this->end());
+    }
+
+    CSVRow::reverse_iterator CSVRow::rend() const {
+        return std::make_reverse_iterator<CSVRow::iterator>(this->begin());
+    }
+
+    CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
-        this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](_i));
+        if (_i < this->daddy->size())
+            this->field = std::make_shared<CSVField>(
+                this->daddy->operator[](_i));
+        else
+            this->field = nullptr;
     }
 
     CSVRow::iterator::reference CSVRow::iterator::operator*() const {
@@ -182,8 +173,11 @@ namespace csv {
 
     CSVRow::iterator& CSVRow::iterator::operator++() {
         this->i++;
-        this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
+        if (this->i < this->daddy->size())
+            this->field = std::make_shared<CSVField>(
+                this->daddy->operator[](i));
+        else
+            this->field = nullptr;
         return *this;
     }
 
@@ -203,7 +197,7 @@ namespace csv {
     }
     
     CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
-        return CSVRow::iterator(this->daddy, i + n);
+        return CSVRow::iterator(this->daddy, i + (int)n);
     }
 
     CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {

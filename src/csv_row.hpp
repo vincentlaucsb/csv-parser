@@ -38,9 +38,6 @@ namespace csv {
     class CSVField {
     public:
         CSVField(std::string_view _sv) : sv(_sv) { };
-        long double value = 0;
-        std::string_view sv;
-        bool operator==(const std::string&) const;
 
         /** Returns the value casted to the requested type, performing type checking before.
         *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
@@ -69,6 +66,9 @@ namespace csv {
             }
         }
 
+        bool operator==(std::string_view other) const;
+        bool operator==(const long double& other);
+
         DataType type();
         bool is_null() { return type() == CSV_NULL; }
         bool is_str() { return type() == CSV_STRING; }
@@ -79,6 +79,8 @@ namespace csv {
         bool is_float() { return type() == CSV_DOUBLE; };
 
     private:
+        long double value = 0;
+        std::string_view sv;
         int _type = -1;
         void get_value();
     };
@@ -116,19 +118,15 @@ namespace csv {
         operator std::vector<std::string>() const;
         ///@}
 
-        bool operator==(const std::unordered_map<std::string, std::string>&) const;
-        bool operator<(const std::unordered_map<std::string, std::string>&) const;
-        bool operator>(const std::unordered_map<std::string, std::string>&) const;
-
         class iterator {
         public:
             using value_type = CSVField;
-            using difference_type = std::ptrdiff_t;
+            using difference_type = int;
             using pointer = CSVField * ;
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
 
-            iterator(const CSVRow*, size_t i);
+            iterator(const CSVRow*, int i);
 
             reference operator*() const;
             pointer operator->() const;
@@ -146,11 +144,15 @@ namespace csv {
         private:
             const CSVRow * daddy = nullptr;            // Pointer to parent
             std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
-            int i = 0;                              // Index of current field
+            int i = 0;                                 // Index of current field
         };
+
+        using reverse_iterator = std::reverse_iterator<iterator>;
 
         iterator begin() const;
         iterator end() const;
+        reverse_iterator rbegin() const;
+        reverse_iterator rend() const;
 
     private:
         std::shared_ptr<internals::ColNames> col_names = nullptr;

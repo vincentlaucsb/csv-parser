@@ -58,8 +58,8 @@ namespace csv {
 
             CSVFormat format = DEFAULT_CSV;
             char current_delim{ ',' };
-            int max_rows = 0;
-            int temp_rows = 0;
+            RowCount max_rows = 0;
+            RowCount temp_rows = 0;
             size_t max_cols = 0;
 
             for (size_t i = 0; i < delims.size(); i++) {
@@ -98,7 +98,7 @@ namespace csv {
             for (auto it = delims.begin(); it != delims.end(); ++it) {
                 format.delim = *it;
                 Guesser guess(format);
-                guess.read_csv(filename, 100);
+                guess.read_csv(filename, 500000);
 
                 // Most common row length
                 auto max = std::max_element(guess.row_tally.begin(), guess.row_tally.end(),
@@ -231,8 +231,7 @@ namespace csv {
     CSVFileInfo get_file_info(const std::string& filename) {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
-        CSVRow row;
-        while (reader.read_row(row));
+        for (auto& row: reader);
 
         CSVFileInfo info = {
             filename,
@@ -281,8 +280,9 @@ namespace csv {
         header_row = format.header;
         strict = format.strict;
 
-        // Begin reading CSV
-        read_csv(filename, 100, false);
+        // Read first 500KB of CSV
+        read_csv(filename, 500000, false);
+        first_read = true;
     }
 
     /** @brief Return the format of the original raw CSV */
@@ -447,8 +447,8 @@ namespace csv {
         } // else: Ignore rows before header row
 
         this->record_buffer = "";
-        if (this->record_buffer.capacity() < this->min_row_len * 1.5)
-            record_buffer.reserve(this->min_row_len * 1.5);
+        if (this->record_buffer.capacity() < size_t(this->min_row_len * 1.5))
+            record_buffer.reserve(size_t(this->min_row_len * 1.5));
 
         this->split_buffer = {};
         if (this->split_buffer.capacity() < col_names_size)
@@ -487,19 +487,28 @@ namespace csv {
      * @see CSVReader::read_row()
      * 
      */
-    void CSVReader::read_csv(std::string filename, int nrows, bool close) {
-
+    void CSVReader::read_csv(const std::string& filename, const size_t& bytes, bool close) {
         if (!this->infile) {
-            this->infile = std::fopen(filename.c_str(), "r");
+            #ifdef _MSC_BUILD
+            // Silence compiler warnings in Microsoft Visual C++
+            size_t err = fopen_s(&(this->infile), filename.c_str(), "rb");
+            if (err)
+                throw std::runtime_error("Cannot open file " + filename);
+            #else
+            this->infile = std::fopen(filename.c_str(), "rb");
             if (!this->infile)
                 throw std::runtime_error("Cannot open file " + filename);
+            #endif
         }
 
+        if (this->first_read) this->first_read = false;
+
+        const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> line_buffer(new char[PAGE_SIZE]);
         auto buffer = std::make_unique<std::string>();
         std::thread worker(&CSVReader::read_csv_worker, this);
 
-        while (nrows <= -1 || nrows > 0) {
+        for (size_t processed = 0; processed < bytes; ) {
             char * result = std::fgets(line_buffer.get(), PAGE_SIZE, this->infile);
             if (result == NULL) break;
             else {
@@ -507,9 +516,8 @@ namespace csv {
                 if (std::feof(this->infile)) break;
             }
 
-            nrows--;
-
-            if ((*buffer).size() >= 1000000) {
+            if (buffer->size() >= BUFFER_UPPER_LIMIT) {
+                processed += buffer->size();
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
                 this->feed_buffer.push_back(std::move(buffer));
                 this->feed_cond.notify_one();

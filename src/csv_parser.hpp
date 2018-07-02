@@ -79,9 +79,9 @@ namespace csv {
     /** @name Global Constants */
     ///@{
     /** @brief For functions that lazy load a large CSV, this determines how
-     *         many rows are read at a time
+     *         many bytes are read at a time
      */
-    const size_t ITERATION_CHUNK_SIZE = 100000;
+    const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
     /** @brief A dummy variable used to indicate delimiter should be guessed */
     const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false };
@@ -162,11 +162,12 @@ namespace csv {
                 using reference = CSVRow & ;
                 using iterator_category = std::input_iterator_tag;
 
+                iterator() = default;
                 iterator(CSVReader* reader) : daddy(reader) {};
                 iterator(CSVReader*, CSVRow&&);
 
-                reference operator*() const;
-                pointer operator->() const;
+                reference operator*();
+                pointer operator->();
                 iterator& operator++(); // Pre-inc
                 iterator operator++(int); // Post-inc
                 iterator& operator--();
@@ -175,9 +176,9 @@ namespace csv {
                 bool operator!=(const iterator& other) const { return !operator==(other); }
 
             private:
-                CSVReader * daddy = nullptr;     // Pointer to parent
-                std::shared_ptr<CSVRow> row = nullptr; // Current row
-                int i = 0;                             // Index of current field
+                CSVReader * daddy = nullptr;  // Pointer to parent
+                CSVRow row;                   // Current row
+                RowCount i = 0;               // Index of current row
             };
 
             iterator begin();
@@ -256,7 +257,11 @@ namespace csv {
             /** @name Multi-Threaded File Reading Functions */
             ///@{
             void feed(std::unique_ptr<std::string>&&); /**< @brief Helper for read_csv_worker() */
-            void read_csv(std::string filename, int nrows = -1, bool close = true);
+            void read_csv(
+                const std::string& filename,
+                const size_t& bytes = ITERATION_CHUNK_SIZE,
+                bool close = true
+            );
             void read_csv_worker();
             ///@}
 
@@ -264,6 +269,8 @@ namespace csv {
             ///@{
             std::FILE* infile = nullptr;        /**< @brief Current file handle.
                                                      Destroyed by ~CSVReader(). */
+
+            bool first_read = false;
 
             std::deque<std::unique_ptr<std::string>>
                 feed_buffer;                    /**< @brief Message queue for worker */
