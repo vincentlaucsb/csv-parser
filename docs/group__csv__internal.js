@@ -7,7 +7,7 @@ var group__csv__internal =
     [ "process_newline", "group__csv__internal.html#ga3bd1affb29641963e40b3f4a99578a9e", null ],
     [ "process_possible_delim", "group__csv__internal.html#ga9531ff3341cefb60b397269db63e0e59", null ],
     [ "process_quote", "group__csv__internal.html#ga5cc55e7cf3c0f4a75cde7d383fe75b12", null ],
-    [ "read_csv", "group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159", null ],
+    [ "read_csv", "group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa", null ],
     [ "read_csv_worker", "group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d", null ],
     [ "write_record", "group__csv__internal.html#ga609293317d4520eb6cc711c012240cb0", null ],
     [ "c_pos", "group__csv__internal.html#ga85fad3316ed9856c046feba44cd76f30", null ],

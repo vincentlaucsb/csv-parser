@@ -258,11 +258,12 @@ namespace csv {
 
     /**
      *  @brief Allows reading a CSV file in chunks, using overlapped
-     *          threads for simulatenously reading from disk and parsing.
-     *          Rows should be retrieved with read_row().
-
-     *  @detail Reads the first 100 rows of a CSV file to infer file information
-     *          such as column names and delimiting character.
+     *         threads for simulatenously reading from disk and parsing.
+     *         Rows should be retrieved with read_row() or by using
+     *         CSVReader::iterator.
+     *
+     * **Details:** Reads the first 500kB of a CSV file to infer file information
+     *              such as column names and delimiting character.
      *
      *  @param[in] filename  Path to CSV file
      *  @param[in] format    Format of the CSV file
@@ -282,7 +283,6 @@ namespace csv {
 
         // Read first 500KB of CSV
         read_csv(filename, 500000, false);
-        first_read = true;
     }
 
     /** @brief Return the format of the original raw CSV */
@@ -500,8 +500,6 @@ namespace csv {
                 throw std::runtime_error("Cannot open file " + filename);
             #endif
         }
-
-        if (this->first_read) this->first_read = false;
 
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> line_buffer(new char[PAGE_SIZE]);

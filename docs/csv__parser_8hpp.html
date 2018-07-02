@@ -91,6 +91,7 @@ $(document).ready(function(){initNavTree('csv__parser_8hpp.html','');});
 <div class="contents">
 <div class="textblock"><code>#include &lt;string_view&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
+<code>#include &lt;sstream&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;unordered_map&gt;</code><br />
@@ -103,7 +104,7 @@ $(document).ready(function(){initNavTree('csv__parser_8hpp.html','');});
 <code>#include &lt;thread&gt;</code><br />
 <code>#include &lt;mutex&gt;</code><br />
 <code>#include &lt;condition_variable&gt;</code><br />
-<code>#include &lt;sstream&gt;</code><br />
+<code>#include &lt;iterator&gt;</code><br />
 <code>#include &quot;memory.hpp&quot;</code><br />
 <code>#include &quot;data_type.h&quot;</code><br />
 <code>#include &quot;csv_row.hpp&quot;</code><br />
@@ -119,6 +120,9 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html">csv::CSVReader</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Main class for parsing CSVs from files and in-memory sources.  <a href="classcsv_1_1CSVReader.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader_1_1iterator.html">csv::CSVReader::iterator</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">An input iterator capable of handling large files. Created by <a class="el" href="classcsv_1_1CSVReader.html#ac2b664c3ba18ac36076c1a1891bd1cf2" title="Return an iterator to the first row in the reader. ">CSVReader::begin()</a> and <a class="el" href="classcsv_1_1CSVReader.html#a13a1161c1512e23a6be6f8b7f0ead6eb" title="A placeholder for the imaginary past the end row in a CSV. Attempting to deference this will lead to ...">CSVReader::end()</a>.  <a href="classcsv_1_1CSVReader_1_1iterator.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVStat.html">csv::CSVStat</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class for calculating statistics from CSV files and in-memory sources.  <a href="classcsv_1_1CSVStat.html#details">More...</a><br /></td></tr>
@@ -185,8 +189,8 @@ const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href=
 <tr class="separator:a7742b9dcd46ed5d7698106d3e523a3c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Global Constants</div></td></tr>
 <tr class="memitem:a82452d316c535c04ad187c1863b1e228"><td class="memItemLeft" align="right" valign="top"><a id="a82452d316c535c04ad187c1863b1e228"></a>
-const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">csv::ITERATION_CHUNK_SIZE</a> = 100000</td></tr>
-<tr class="memdesc:a82452d316c535c04ad187c1863b1e228"><td class="mdescLeft">&#160;</td><td class="mdescRight">For functions that lazy load a large CSV, this determines how many rows are read at a time. <br /></td></tr>
+const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">csv::ITERATION_CHUNK_SIZE</a> = 10000000</td></tr>
+<tr class="memdesc:a82452d316c535c04ad187c1863b1e228"><td class="mdescLeft">&#160;</td><td class="mdescRight">For functions that lazy load a large CSV, this determines how many bytes are read at a time. <br /></td></tr>
 <tr class="separator:a82452d316c535c04ad187c1863b1e228"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a934424955c1b950cd80a5f0a1e7faaf1"><td class="memItemLeft" align="right" valign="top"><a id="a934424955c1b950cd80a5f0a1e7faaf1"></a>
 const CSVFormat&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">csv::GUESS_CSV</a> = { '\0', '&quot;', 0, {}, false }</td></tr>

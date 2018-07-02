@@ -1,5 +1,6 @@
 var classcsv_1_1CSVReader =
 [
+    [ "iterator", "classcsv_1_1CSVReader_1_1iterator.html", "classcsv_1_1CSVReader_1_1iterator" ],
     [ "ParseFlags", "group__csv__internal.html#ga22d269500460026ed8d99947f0766200", [
       [ "NOT_SPECIAL", "group__csv__internal.html#gga22d269500460026ed8d99947f0766200a30811cbbb0943b582fec514b3d774dca", null ],
       [ "QUOTE", "group__csv__internal.html#gga22d269500460026ed8d99947f0766200aafcfa10031ecb3faa308f731aaaabcd8", null ],
@@ -12,7 +13,9 @@ var classcsv_1_1CSVReader =
     [ "CSVReader", "classcsv_1_1CSVReader.html#a0f4843effc02b4c4d2239f59f4fcbbec", null ],
     [ "~CSVReader", "classcsv_1_1CSVReader.html#a3a18f9f9a81386881f35bbd8712979b1", null ],
     [ "bad_row_handler", "group__csv__internal.html#gaea3e7875478c79feba84d6ee97b1d476", null ],
+    [ "begin", "classcsv_1_1CSVReader.html#ac2b664c3ba18ac36076c1a1891bd1cf2", null ],
     [ "close", "classcsv_1_1CSVReader.html#a759e9508e80832b3b394d5afb8f7a8bf", null ],
+    [ "end", "classcsv_1_1CSVReader.html#a13a1161c1512e23a6be6f8b7f0ead6eb", null ],
     [ "end_feed", "classcsv_1_1CSVReader.html#a8ac02ea6f091b18f9ef9c9a793d4c3bd", null ],
     [ "eof", "group__csv__internal.html#ga46873bb32329e95bb946989b88a39200", null ],
     [ "feed", "classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe", null ],
@@ -26,7 +29,7 @@ var classcsv_1_1CSVReader =
     [ "process_newline", "group__csv__internal.html#ga3bd1affb29641963e40b3f4a99578a9e", null ],
     [ "process_possible_delim", "group__csv__internal.html#ga9531ff3341cefb60b397269db63e0e59", null ],
     [ "process_quote", "group__csv__internal.html#ga5cc55e7cf3c0f4a75cde7d383fe75b12", null ],
-    [ "read_csv", "group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159", null ],
+    [ "read_csv", "group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa", null ],
     [ "read_csv_worker", "group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d", null ],
     [ "read_row", "classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238", null ],
     [ "write_record", "group__csv__internal.html#ga609293317d4520eb6cc711c012240cb0", null ],

@@ -3,9 +3,9 @@
 
 namespace csv {
     namespace internals {
-        //
-        // ColNames
-        //
+        //////////////
+        // ColNames //
+        //////////////
 
         ColNames::ColNames(const std::vector<std::string>& _cnames)
             : col_names(_cnames) {
@@ -23,8 +23,8 @@ namespace csv {
         }
     }
 
+    /** @brief Return the number of fields in this row */
     size_t CSVRow::size() const {
-        /** Return the number of fields in this row */
         return splits.size() + 1;
     }
 
@@ -137,12 +137,16 @@ namespace csv {
     // CSVRow Iterator //
     /////////////////////
 
+    /** @brief Return an iterator pointing to the first field. */
     CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
     }
 
+    /** @brief Return an iterator pointing to just after the end of the CSVRow.
+     *
+     *  Attempting to dereference the end iterator results in undefined behavior.
+     */
     CSVRow::iterator CSVRow::end() const {
-        /** Return an iterator pointer to just after the end of the CSVRow */
         return CSVRow::iterator(this, (int)this->size());
     }
 

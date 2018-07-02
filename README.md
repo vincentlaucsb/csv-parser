@@ -19,8 +19,10 @@ In additon to being easy on your computer's hardware, this library is also easy 
  * Ability to manually set the delimiter and quoting character of the parser
 
 ### Well Tested
+In addition to using modern C++ features to build a memory safe parser while still performing well, this parser has a extensive test suite.
 
-## Building
+## Building [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
+
 All of this library's essentials are located under `src/`, with no dependencies aside from the STL. This is a C++17 library developed using Microsoft Visual Studio and compatible with g++ and clang. The CMakeList and Makefile contain instructions for building the main library, some sample programs, and the test suite.
 
 **GCC/Clang Compiler Flags**: `-pthread -O3 -std=c++17`
@@ -40,9 +42,10 @@ target_link_libraries(<your program> csv)
 ```
 
 ## Features & Examples
-### Reading a Large File
+### Reading a Large File (with Iterators)
 With this library, you can easily stream over a large file without reading its entirety into memory.
 
+**C++ Style**
 ```cpp
 # include "csv_parser.hpp"
 
@@ -51,18 +54,44 @@ using namespace csv;
 ...
 
 CSVReader reader("very_big_file.csv");
-std::vector<std::string> row;
+double sum = 0;
 
+for (CSVRow& row: reader) { // Input iterator
+    for (CSVField& field: row) {
+        // For efficiency, get<>() produces a string_view
+        std::cout << field.get<>() << ...
+    }
+    
+    /* Sum up wages
+     * Notes:
+     *  - Indexing can be done by position (size_t) or column name
+     *  - Invalid positions/column names will throw runtime errors
+     */
+    sum += field["Total Salary"].get<double>();
+}
+
+...
+```
+
+**Old-Fashioned C Style Loop**
+```cpp
+...
+
+CSVReader reader("very_big_file.csv");
+CSVRow row;
+ 
 while (reader.read_row(row)) {
     // Do stuff with row here
 }
 
+...
 ```
 
-### Indexing Rows by Column Name and Type Conversions
-If your CSV has lots of numeric values, you can also have this parser automatically convert them to the proper data type.
-For efficiency, numeric values are lazily converted, and the indexing feature is implemented by having all rows
-share a pointer to the original set of column names.
+
+### Type Conversions
+If your CSV has lots of numeric values, you can also have this parser (lazily)
+convert them to the proper data type. Type checking is performed on conversions
+to prevent undefined behavior.
 
 ```cpp
 # include "csv_parser.hpp"
@@ -72,15 +101,12 @@ using namespace csv;
 ...
 
 CSVReader reader("very_big_file.csv");
-std::vector<CSVField> row;
 
-while (reader.read_row(row)) {
-    if (row["timestamp"].is_int())
+for (auto& row: reader) {
+    if (row["timestamp"].is_int()) {
         row["timestamp"].get<int>();
-    
-    // get<>() returns a std::string_view of the original field
-    for (size_t i = 0; i < row.size(); i++) {
-        std::cout << row[i].get<>() << ...
+        
+        // ..
     }
 }
 
@@ -103,9 +129,8 @@ CSVFormat format = {
 };
 
 CSVReader reader("wierd_csv_dialect.csv", {}, format);
-vector<CSVField> row;
 
-while (reader.read_row(row)) {
+for (auto& row: reader) {
     // Do stuff with rows here
 }
 

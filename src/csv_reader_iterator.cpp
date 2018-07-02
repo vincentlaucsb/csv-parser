@@ -1,22 +1,20 @@
 #include "csv_parser.hpp"
 
 namespace csv {
+    /**
+     * @brief Return an iterator to the first row in the reader
+     *
+     */
     CSVReader::iterator CSVReader::begin() {
-        // Rewind the file pointer back
-        if (!this->first_read) {
-            std::rewind(this->infile);
-            this->records.clear();
-            this->quote_escape = false;
-            this->c_pos = 0;
-            this->n_pos = 0;
-            this->read_csv("", ITERATION_CHUNK_SIZE, false);
-        }
-
         CSVReader::iterator ret(this, std::move(this->records.front()));
         this->records.pop_front();
         return ret;
     }
 
+    /**
+     * @brief A placeholder for the imaginary past the end row in a CSV.
+     *        Attempting to deference this will lead to bad things.
+     */
     CSVReader::iterator CSVReader::end() {
         return CSVReader::iterator();
     }
@@ -30,14 +28,20 @@ namespace csv {
         row = std::move(_row);
     }
 
+    /** @brief Access the CSVRow held by the iterator */
     CSVReader::iterator::reference CSVReader::iterator::operator*() {
         return this->row;
     }
 
+    /** @brief Return a pointer to the CSVRow the iterator has stopped at */
     CSVReader::iterator::pointer CSVReader::iterator::operator->() {
         return &(this->row);
     }
 
+    /** @brief Advance the iterator by one row. If this CSVReader has an
+     *  associated file, then the iterator will lazily pull more data from
+     *  that file until EOF.
+     */
     CSVReader::iterator& CSVReader::iterator::operator++() {
         if (daddy->records.empty()) {
             if (!daddy->eof())
@@ -69,6 +73,9 @@ namespace csv {
         return temp;
     }
 
+    /** @brief Returns true if iterators were constructed from the same CSVReader
+     *         and point to the same row
+     */
     bool CSVReader::iterator::operator==(const CSVReader::iterator& other) const {
         return (this->daddy == other.daddy) && (this->i == other.i);
     }

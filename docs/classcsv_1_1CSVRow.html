@@ -80,6 +80,8 @@ $(document).ready(function(){initNavTree('classcsv_1_1CSVRow.html','');});
 
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="classcsv_1_1CSVRow-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -92,6 +94,19 @@ $(document).ready(function(){initNavTree('classcsv_1_1CSVRow.html','');});
 
 <p><code>#include &lt;<a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>&gt;</code></p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow_1_1iterator.html">iterator</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A random access iterator over the contents of a CSV row. Each iterator points to a <a class="el" href="classcsv_1_1CSVField.html" title="Data type representing individual CSV values. CSVFields can be obtained by using CSVRow::operator[]. ">CSVField</a>.  <a href="classcsv_1_1CSVRow_1_1iterator.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
+Public Types</h2></td></tr>
+<tr class="memitem:a5563065ee9b3ecb511469259ee843e3c"><td class="memItemLeft" align="right" valign="top"><a id="a5563065ee9b3ecb511469259ee843e3c"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow.html#a5563065ee9b3ecb511469259ee843e3c">reverse_iterator</a> = std::reverse_iterator&lt; <a class="el" href="classcsv_1_1CSVRow_1_1iterator.html">iterator</a> &gt;</td></tr>
+<tr class="memdesc:a5563065ee9b3ecb511469259ee843e3c"><td class="mdescLeft">&#160;</td><td class="mdescRight">A reverse iterator over the contents of a <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a>. <br /></td></tr>
+<tr class="separator:a5563065ee9b3ecb511469259ee843e3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a1f4f2984dfd7b809dbce92172a46ee15"><td class="memItemLeft" align="right" valign="top"><a id="a1f4f2984dfd7b809dbce92172a46ee15"></a>
@@ -100,7 +115,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a511ec843578fdddfd4aee54d581a250a"><td class="memItemLeft" align="right" valign="top"><a id="a511ec843578fdddfd4aee54d581a250a"></a>
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>empty</b> () const</td></tr>
 <tr class="separator:a511ec843578fdddfd4aee54d581a250a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afd489a3a2920fda476bbfe3ed549f0b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow.html#afd489a3a2920fda476bbfe3ed549f0b9">size</a> () const</td></tr>
+<tr class="memitem:afd489a3a2920fda476bbfe3ed549f0b9"><td class="memItemLeft" align="right" valign="top"><a id="afd489a3a2920fda476bbfe3ed549f0b9"></a>
+size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow.html#afd489a3a2920fda476bbfe3ed549f0b9">size</a> () const</td></tr>
+<tr class="memdesc:afd489a3a2920fda476bbfe3ed549f0b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of fields in this row. <br /></td></tr>
 <tr class="separator:afd489a3a2920fda476bbfe3ed549f0b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Value Retrieval</div></td></tr>
 <tr class="memitem:ad523d2b544bc7dab0a121891e5062d2c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classcsv_1_1CSVField.html">CSVField</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow.html#ad523d2b544bc7dab0a121891e5062d2c">operator[]</a> (size_t n) const</td></tr>
@@ -115,6 +132,22 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>empty</b> () const</t
 <tr class="memitem:a0cf4c4b97a5a6add302108e283fc4f5e"><td class="memItemLeft" align="right" valign="top"><a id="a0cf4c4b97a5a6add302108e283fc4f5e"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>operator std::vector&lt; std::string &gt;</b> () const</td></tr>
 <tr class="separator:a0cf4c4b97a5a6add302108e283fc4f5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Iterators</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>Each iterator points to a <a class="el" href="classcsv_1_1CSVField.html" title="Data type representing individual CSV values. CSVFields can be obtained by using CSVRow::operator[]. ">CSVField</a> object. </p>
+</div></td></tr>
+<tr class="memitem:af43866d896d9ac0cb54f4d018d6a74df"><td class="memItemLeft" align="right" valign="top"><a id="af43866d896d9ac0cb54f4d018d6a74df"></a>
+<a class="el" href="classcsv_1_1CSVRow_1_1iterator.html">iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow.html#af43866d896d9ac0cb54f4d018d6a74df">begin</a> () const</td></tr>
+<tr class="memdesc:af43866d896d9ac0cb54f4d018d6a74df"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return an iterator pointing to the first field. <br /></td></tr>
+<tr class="separator:af43866d896d9ac0cb54f4d018d6a74df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57d1e7d834d471332238abed5a5da112"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classcsv_1_1CSVRow_1_1iterator.html">iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVRow.html#a57d1e7d834d471332238abed5a5da112">end</a> () const</td></tr>
+<tr class="memdesc:a57d1e7d834d471332238abed5a5da112"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return an iterator pointing to just after the end of the <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a>.  <a href="#a57d1e7d834d471332238abed5a5da112">More...</a><br /></td></tr>
+<tr class="separator:a57d1e7d834d471332238abed5a5da112"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7992b6b50f78971543e77e974b73b9d3"><td class="memItemLeft" align="right" valign="top"><a id="a7992b6b50f78971543e77e974b73b9d3"></a>
+<a class="el" href="classcsv_1_1CSVRow.html#a5563065ee9b3ecb511469259ee843e3c">reverse_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><b>rbegin</b> () const</td></tr>
+<tr class="separator:a7992b6b50f78971543e77e974b73b9d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c5b5e8d8cac8b1052bba40c0e46c925"><td class="memItemLeft" align="right" valign="top"><a id="a4c5b5e8d8cac8b1052bba40c0e46c925"></a>
+<a class="el" href="classcsv_1_1CSVRow.html#a5563065ee9b3ecb511469259ee843e3c">reverse_iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><b>rend</b> () const</td></tr>
+<tr class="separator:a4c5b5e8d8cac8b1052bba40c0e46c925"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Data structure for representing CSV rows. </p>
@@ -125,8 +158,30 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>empty</b> () const</t
 </ul>
 <p><a class="el" href="classcsv_1_1CSVRow.html#ad523d2b544bc7dab0a121891e5062d2c" title="Return a CSVField object corrsponding to the nth value in the row. ">CSVRow::operator[]</a> uses splits to compute a string_view over row_str. </p>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00097">97</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00099">99</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="a57d1e7d834d471332238abed5a5da112"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a57d1e7d834d471332238abed5a5da112">&#9670;&nbsp;</a></span>end()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classcsv_1_1CSVRow_1_1iterator.html">CSVRow::iterator</a> csv::CSVRow::end </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return an iterator pointing to just after the end of the <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a>. </p>
+<p>Attempting to dereference the end iterator results in undefined behavior. </p>
+
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00149">149</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
+
+</div>
+</div>
 <a id="a76f5d7b3c24f456fffcaf674bdaba633"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a76f5d7b3c24f456fffcaf674bdaba633">&#9670;&nbsp;</a></span>get_string_view()</h2>
 
@@ -146,7 +201,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>empty</b> () const</t
 <p>Return a string view of the nth field. </p>
 <dl class="section user"><dt>Complexity:</dt><dd>Constant </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00037">37</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00034">34</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
 
 </div>
 </div>
@@ -170,7 +225,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>empty</b> () const</t
 <p>This method performs boounds checking, and will throw an std::runtime_error if n is invalid.</p>
 <dl class="section user"><dt>Complexity:</dt><dd>Constant, by calling <a class="el" href="classcsv_1_1CSVRow.html#a76f5d7b3c24f456fffcaf674bdaba633" title="Return a string view of the nth field. ">CSVRow::get_string_view()</a> </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00070">70</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00067">67</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
 
 </div>
 </div>
@@ -199,27 +254,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>empty</b> () const</t
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00082">82</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
-
-</div>
-</div>
-<a id="afd489a3a2920fda476bbfe3ed549f0b9"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afd489a3a2920fda476bbfe3ed549f0b9">&#9670;&nbsp;</a></span>size()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t csv::CSVRow::size </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Return the number of fields in this row </p>
-
-<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00029">29</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00079">79</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
 
 </div>
 </div>

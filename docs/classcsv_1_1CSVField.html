@@ -81,7 +81,6 @@ $(document).ready(function(){initNavTree('classcsv_1_1CSVField.html','');});
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="classcsv_1_1CSVField-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">csv::CSVField Class Reference</div>  </div>
@@ -98,12 +97,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af2522aba384653dd198540ad668a9ab0"><td class="memItemLeft" align="right" valign="top"><a id="af2522aba384653dd198540ad668a9ab0"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>CSVField</b> (std::string_view _sv)</td></tr>
 <tr class="separator:af2522aba384653dd198540ad668a9ab0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0efc38057c54ae4a67742972235a88a"><td class="memItemLeft" align="right" valign="top"><a id="ad0efc38057c54ae4a67742972235a88a"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>operator==</b> (const std::string &amp;) const</td></tr>
-<tr class="separator:ad0efc38057c54ae4a67742972235a88a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a67ff24172c5ac52417bbc36697511644"><td class="memTemplParams" colspan="2">template&lt;typename T  = std::string_view&gt; </td></tr>
 <tr class="memitem:a67ff24172c5ac52417bbc36697511644"><td class="memTemplItemLeft" align="right" valign="top">T&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVField.html#a67ff24172c5ac52417bbc36697511644">get</a> ()</td></tr>
 <tr class="separator:a67ff24172c5ac52417bbc36697511644"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a18cf4ba59439652c4d283248e2464c29"><td class="memItemLeft" align="right" valign="top"><a id="a18cf4ba59439652c4d283248e2464c29"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>operator==</b> (std::string_view other) const</td></tr>
+<tr class="separator:a18cf4ba59439652c4d283248e2464c29"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a02c2efa7c701c534e97220e5405ef9d6"><td class="memItemLeft" align="right" valign="top"><a id="a02c2efa7c701c534e97220e5405ef9d6"></a>
+bool&#160;</td><td class="memItemRight" valign="bottom"><b>operator==</b> (const long double &amp;other)</td></tr>
+<tr class="separator:a02c2efa7c701c534e97220e5405ef9d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee31987c4c62c8ef7a89b475bd089618"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacecsv.html#a1a3911f2387412df696be542923ef62d">DataType</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVField.html#aee31987c4c62c8ef7a89b475bd089618">type</a> ()</td></tr>
 <tr class="memdesc:aee31987c4c62c8ef7a89b475bd089618"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the type number of the stored value in accordance with the DataType enum.  <a href="#aee31987c4c62c8ef7a89b475bd089618">More...</a><br /></td></tr>
 <tr class="separator:aee31987c4c62c8ef7a89b475bd089618"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -126,20 +128,11 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_float</b> ()</td><
 template&lt;&gt; </td></tr>
 <tr class="memitem:a2f8e1cc269190283c8a668f5273df99d"><td class="memTemplItemLeft" align="right" valign="top">long double&#160;</td><td class="memTemplItemRight" valign="bottom"><b>get</b> ()</td></tr>
 <tr class="separator:a2f8e1cc269190283c8a668f5273df99d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:a040a17d1ec3bdea212797539181b179a"><td class="memItemLeft" align="right" valign="top"><a id="a040a17d1ec3bdea212797539181b179a"></a>
-long double&#160;</td><td class="memItemRight" valign="bottom"><b>value</b> = 0</td></tr>
-<tr class="separator:a040a17d1ec3bdea212797539181b179a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aea55bc32d073faf378173e8cdd961210"><td class="memItemLeft" align="right" valign="top"><a id="aea55bc32d073faf378173e8cdd961210"></a>
-std::string_view&#160;</td><td class="memItemRight" valign="bottom"><b>sv</b></td></tr>
-<tr class="separator:aea55bc32d073faf378173e8cdd961210"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Data type representing individual CSV values. CSVFields can be obtained by using <a class="el" href="classcsv_1_1CSVRow.html#ad523d2b544bc7dab0a121891e5062d2c" title="Return a CSVField object corrsponding to the nth value in the row. ">CSVRow::operator[]</a>. </p>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00037">37</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00038">38</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="a67ff24172c5ac52417bbc36697511644"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a67ff24172c5ac52417bbc36697511644">&#9670;&nbsp;</a></span>get()</h2>
@@ -174,9 +167,8 @@ template&lt;typename T  = std::string_view&gt; </div>
 <li>double</li>
 <li>long double </li>
 </ul>
-<p>Get numeric values </p>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00057">57</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8hpp_source.html#l00055">55</a> of file <a class="el" href="csv__row_8hpp_source.html">csv_row.hpp</a>.</p>
 
 </div>
 </div>
@@ -198,7 +190,7 @@ template&lt;typename T  = std::string_view&gt; </div>
 <p>Return the type number of the stored value in accordance with the DataType enum. </p>
 <p>&lt; </p>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00110">110</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00107">107</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
 
 </div>
 </div>

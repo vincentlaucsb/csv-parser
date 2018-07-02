@@ -190,9 +190,9 @@ Multi-Threaded File Reading Functions</h2></td></tr>
 void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#gae2934a7ef4abb2829b4455f2068bf214">csv::CSVReader::feed</a> (std::unique_ptr&lt; std::string &gt; &amp;&amp;)</td></tr>
 <tr class="memdesc:gae2934a7ef4abb2829b4455f2068bf214"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper for <a class="el" href="group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d">read_csv_worker()</a> <br /></td></tr>
 <tr class="separator:gae2934a7ef4abb2829b4455f2068bf214"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga7d79eea36fe4cc40941a1e3dfd8f8159"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159">csv::CSVReader::read_csv</a> (std::string filename, int nrows=-1, bool <a class="el" href="classcsv_1_1CSVReader.html#a759e9508e80832b3b394d5afb8f7a8bf">close</a>=true)</td></tr>
-<tr class="memdesc:ga7d79eea36fe4cc40941a1e3dfd8f8159"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a CSV file using multiple threads.  <a href="#ga7d79eea36fe4cc40941a1e3dfd8f8159">More...</a><br /></td></tr>
-<tr class="separator:ga7d79eea36fe4cc40941a1e3dfd8f8159"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga44deca7b16b9de9092a029f6c014b1fa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa">csv::CSVReader::read_csv</a> (const std::string &amp;filename, const size_t &amp;bytes=<a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">ITERATION_CHUNK_SIZE</a>, bool <a class="el" href="classcsv_1_1CSVReader.html#a759e9508e80832b3b394d5afb8f7a8bf">close</a>=true)</td></tr>
+<tr class="memdesc:ga44deca7b16b9de9092a029f6c014b1fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a CSV file using multiple threads.  <a href="#ga44deca7b16b9de9092a029f6c014b1fa">More...</a><br /></td></tr>
+<tr class="separator:ga44deca7b16b9de9092a029f6c014b1fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga49ab4671b28da24f5ae8670a9eef557d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d">csv::CSVReader::read_csv_worker</a> ()</td></tr>
 <tr class="separator:ga49ab4671b28da24f5ae8670a9eef557d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -362,8 +362,8 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 
 </div>
 </div>
-<a id="ga7d79eea36fe4cc40941a1e3dfd8f8159"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga7d79eea36fe4cc40941a1e3dfd8f8159">&#9670;&nbsp;</a></span>read_csv()</h2>
+<a id="ga44deca7b16b9de9092a029f6c014b1fa"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga44deca7b16b9de9092a029f6c014b1fa">&#9670;&nbsp;</a></span>read_csv()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -374,14 +374,14 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
         <tr>
           <td class="memname">void csv::CSVReader::read_csv </td>
           <td>(</td>
-          <td class="paramtype">std::string&#160;</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>filename</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>nrows</em> = <code>-1</code>, </td>
+          <td class="paramtype">const size_t &amp;&#160;</td>
+          <td class="paramname"><em>bytes</em> = <code><a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">ITERATION_CHUNK_SIZE</a></code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -438,7 +438,7 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Worker thread for <a class="el" href="group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159" title="Parse a CSV file using multiple threads. ">read_csv()</a> which parses CSV rows (while the main thread pulls data from disk)</p>
+<p>Worker thread for <a class="el" href="group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa" title="Parse a CSV file using multiple threads. ">read_csv()</a> which parses CSV rows (while the main thread pulls data from disk)</p>
 
 <p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00460">460</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
@@ -496,7 +496,7 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 <p>Pointer to a object containing column information. </p>
 <p>&lt; </p>
 
-<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00222">222</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00262">262</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 
 </div>
 </div>

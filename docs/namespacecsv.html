@@ -193,8 +193,8 @@ const int&#160;</td><td class="memItemRight" valign="bottom"><b>PAGE_SIZE</b> = 
 <tr class="separator:aa0214de8ac78ba7219070f4d67129f27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Global Constants</div></td></tr>
 <tr class="memitem:a82452d316c535c04ad187c1863b1e228"><td class="memItemLeft" align="right" valign="top"><a id="a82452d316c535c04ad187c1863b1e228"></a>
-const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">ITERATION_CHUNK_SIZE</a> = 100000</td></tr>
-<tr class="memdesc:a82452d316c535c04ad187c1863b1e228"><td class="mdescLeft">&#160;</td><td class="mdescRight">For functions that lazy load a large CSV, this determines how many rows are read at a time. <br /></td></tr>
+const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">ITERATION_CHUNK_SIZE</a> = 10000000</td></tr>
+<tr class="memdesc:a82452d316c535c04ad187c1863b1e228"><td class="mdescLeft">&#160;</td><td class="mdescRight">For functions that lazy load a large CSV, this determines how many bytes are read at a time. <br /></td></tr>
 <tr class="separator:a82452d316c535c04ad187c1863b1e228"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a934424955c1b950cd80a5f0a1e7faaf1"><td class="memItemLeft" align="right" valign="top"><a id="a934424955c1b950cd80a5f0a1e7faaf1"></a>
 const <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a> = { '\0', '&quot;', 0, {}, false }</td></tr>
@@ -256,7 +256,7 @@ template&lt;class OutputStream &gt; </td></tr>
 </ul>
 <p><b>Note</b>: Overflowing integers will be stored and classified as doubles. Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on compiler and platform. </p>
 
-<p class="definition">Definition at line <a class="el" href="data__type_8h_source.html#l00021">21</a> of file <a class="el" href="data__type_8h_source.html">data_type.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="data__type_8h_source.html#l00022">22</a> of file <a class="el" href="data__type_8h_source.html">data_type.h</a>.</p>
 
 </div>
 </div>
@@ -324,7 +324,7 @@ template&lt;char Delim = ',', char Quote = '&quot;'&gt; </div>
 </div><div class="memdoc">
 <p>Convert this <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a> into a vector of strings. <b>Note</b>: This is a less efficient method of accessing data than using the [] operator.</p>
 
-<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00090">90</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__row_8cpp_source.html#l00087">87</a> of file <a class="el" href="csv__row_8cpp_source.html">csv_row.cpp</a>.</p>
 
 </div>
 </div>

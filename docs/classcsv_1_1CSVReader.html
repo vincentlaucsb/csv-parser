@@ -80,6 +80,7 @@ $(document).ready(function(){initNavTree('classcsv_1_1CSVReader.html','');});
 
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pro-types">Protected Types</a> &#124;
 <a href="#pro-methods">Protected Member Functions</a> &#124;
@@ -98,6 +99,12 @@ $(document).ready(function(){initNavTree('classcsv_1_1CSVReader.html','');});
 
 <p>Inherited by <a class="el" href="classcsv_1_1CSVStat.html">csv::CSVStat</a>.</p>
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader_1_1iterator.html">iterator</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">An input iterator capable of handling large files. Created by <a class="el" href="classcsv_1_1CSVReader.html#ac2b664c3ba18ac36076c1a1891bd1cf2" title="Return an iterator to the first row in the reader. ">CSVReader::begin()</a> and <a class="el" href="classcsv_1_1CSVReader.html#a13a1161c1512e23a6be6f8b7f0ead6eb" title="A placeholder for the imaginary past the end row in a CSV. Attempting to deference this will lead to ...">CSVReader::end()</a>.  <a href="classcsv_1_1CSVReader_1_1iterator.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:abcacc66b4d05a2bc7ca7df4c2e97e8ea"><td class="memItemLeft" align="right" valign="top"><a id="abcacc66b4d05a2bc7ca7df4c2e97e8ea"></a>
@@ -120,7 +127,7 @@ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 <tr><td colspan="2"><div class="groupText"><p>Constructors for iterating over large files and parsing in-memory sources. </p>
 </div></td></tr>
 <tr class="memitem:aab773760e65004c49fa476eb2eb70b54"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html#aab773760e65004c49fa476eb2eb70b54">CSVReader</a> (const std::string &amp;filename, <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#a934424955c1b950cd80a5f0a1e7faaf1">GUESS_CSV</a>)</td></tr>
-<tr class="memdesc:aab773760e65004c49fa476eb2eb70b54"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allows reading a CSV file in chunks, using overlapped threads for simulatenously reading from disk and parsing. Rows should be retrieved with <a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238" title="Retrieve rows as CSVRow objects, returning true if more rows are available. ">read_row()</a>.  <a href="#aab773760e65004c49fa476eb2eb70b54">More...</a><br /></td></tr>
+<tr class="memdesc:aab773760e65004c49fa476eb2eb70b54"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allows reading a CSV file in chunks, using overlapped threads for simulatenously reading from disk and parsing. Rows should be retrieved with <a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238" title="Retrieve rows as CSVRow objects, returning true if more rows are available. ">read_row()</a> or by using <a class="el" href="classcsv_1_1CSVReader_1_1iterator.html" title="An input iterator capable of handling large files. Created by CSVReader::begin() and CSVReader::end()...">CSVReader::iterator</a>.  <a href="#aab773760e65004c49fa476eb2eb70b54">More...</a><br /></td></tr>
 <tr class="separator:aab773760e65004c49fa476eb2eb70b54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc5c14177ad156c9fad1d10f5e9d5d2d"><td class="memItemLeft" align="right" valign="top"><a id="adc5c14177ad156c9fad1d10f5e9d5d2d"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html#adc5c14177ad156c9fad1d10f5e9d5d2d">CSVReader</a> (<a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a> format=<a class="el" href="namespacecsv.html#ae5efeba17998ae0b741f10201c77a9cb">DEFAULT_CSV</a>)</td></tr>
@@ -138,6 +145,14 @@ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 <tr class="memitem:aa28b87c77c5366e34ef86b35fb9f7238"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238">read_row</a> (<a class="el" href="classcsv_1_1CSVRow.html">CSVRow</a> &amp;row)</td></tr>
 <tr class="memdesc:aa28b87c77c5366e34ef86b35fb9f7238"><td class="mdescLeft">&#160;</td><td class="mdescRight">Retrieve rows as <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a> objects, returning true if more rows are available.  <a href="#aa28b87c77c5366e34ef86b35fb9f7238">More...</a><br /></td></tr>
 <tr class="separator:aa28b87c77c5366e34ef86b35fb9f7238"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac2b664c3ba18ac36076c1a1891bd1cf2"><td class="memItemLeft" align="right" valign="top"><a id="ac2b664c3ba18ac36076c1a1891bd1cf2"></a>
+<a class="el" href="classcsv_1_1CSVReader_1_1iterator.html">iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html#ac2b664c3ba18ac36076c1a1891bd1cf2">begin</a> ()</td></tr>
+<tr class="memdesc:ac2b664c3ba18ac36076c1a1891bd1cf2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return an iterator to the first row in the reader. <br /></td></tr>
+<tr class="separator:ac2b664c3ba18ac36076c1a1891bd1cf2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13a1161c1512e23a6be6f8b7f0ead6eb"><td class="memItemLeft" align="right" valign="top"><a id="a13a1161c1512e23a6be6f8b7f0ead6eb"></a>
+<a class="el" href="classcsv_1_1CSVReader_1_1iterator.html">iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html#a13a1161c1512e23a6be6f8b7f0ead6eb">end</a> ()</td></tr>
+<tr class="memdesc:a13a1161c1512e23a6be6f8b7f0ead6eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">A placeholder for the imaginary past the end row in a CSV. Attempting to deference this will lead to bad things. <br /></td></tr>
+<tr class="separator:a13a1161c1512e23a6be6f8b7f0ead6eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">CSV Metadata</div></td></tr>
 <tr class="memitem:a3bd56841002f21a77653d5212f03ef52"><td class="memItemLeft" align="right" valign="top"><a id="a3bd56841002f21a77653d5212f03ef52"></a>
 <a class="el" href="structcsv_1_1CSVFormat.html">CSVFormat</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1CSVReader.html#a3bd56841002f21a77653d5212f03ef52">get_format</a> () const</td></tr>
@@ -199,9 +214,9 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>eof</b> ()</td></tr>
 void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#gae2934a7ef4abb2829b4455f2068bf214">feed</a> (std::unique_ptr&lt; std::string &gt; &amp;&amp;)</td></tr>
 <tr class="memdesc:gae2934a7ef4abb2829b4455f2068bf214"><td class="mdescLeft">&#160;</td><td class="mdescRight">Helper for <a class="el" href="group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d">read_csv_worker()</a> <br /></td></tr>
 <tr class="separator:gae2934a7ef4abb2829b4455f2068bf214"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga7d79eea36fe4cc40941a1e3dfd8f8159"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159">read_csv</a> (std::string filename, int nrows=-1, bool <a class="el" href="classcsv_1_1CSVReader.html#a759e9508e80832b3b394d5afb8f7a8bf">close</a>=true)</td></tr>
-<tr class="memdesc:ga7d79eea36fe4cc40941a1e3dfd8f8159"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a CSV file using multiple threads.  <a href="group__csv__internal.html#ga7d79eea36fe4cc40941a1e3dfd8f8159">More...</a><br /></td></tr>
-<tr class="separator:ga7d79eea36fe4cc40941a1e3dfd8f8159"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga44deca7b16b9de9092a029f6c014b1fa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa">read_csv</a> (const std::string &amp;filename, const size_t &amp;bytes=<a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228">ITERATION_CHUNK_SIZE</a>, bool <a class="el" href="classcsv_1_1CSVReader.html#a759e9508e80832b3b394d5afb8f7a8bf">close</a>=true)</td></tr>
+<tr class="memdesc:ga44deca7b16b9de9092a029f6c014b1fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parse a CSV file using multiple threads.  <a href="group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa">More...</a><br /></td></tr>
+<tr class="separator:ga44deca7b16b9de9092a029f6c014b1fa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga49ab4671b28da24f5ae8670a9eef557d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga49ab4671b28da24f5ae8670a9eef557d">read_csv_worker</a> ()</td></tr>
 <tr class="separator:ga49ab4671b28da24f5ae8670a9eef557d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -291,7 +306,7 @@ Friends</h2></td></tr>
 <li>Custom behavior can be defined by overriding bad_row_handler in a subclass </li>
 </ul>
 
-<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00102">102</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00103">103</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="aab773760e65004c49fa476eb2eb70b54"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aab773760e65004c49fa476eb2eb70b54">&#9670;&nbsp;</a></span>CSVReader()</h2>
@@ -319,8 +334,8 @@ Friends</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Allows reading a CSV file in chunks, using overlapped threads for simulatenously reading from disk and parsing. Rows should be retrieved with <a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238" title="Retrieve rows as CSVRow objects, returning true if more rows are available. ">read_row()</a>. </p>
-<p>Reads the first 100 rows of a CSV file to infer file information such as column names and delimiting character.</p>
+<p>Allows reading a CSV file in chunks, using overlapped threads for simulatenously reading from disk and parsing. Rows should be retrieved with <a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238" title="Retrieve rows as CSVRow objects, returning true if more rows are available. ">read_row()</a> or by using <a class="el" href="classcsv_1_1CSVReader_1_1iterator.html" title="An input iterator capable of handling large files. Created by CSVReader::begin() and CSVReader::end()...">CSVReader::iterator</a>. </p>
+<p><b>Details:</b> Reads the first 500kB of a CSV file to infer file information such as column names and delimiting character.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir">[in]</td><td class="paramname">filename</td><td>Path to CSV file </td></tr>
@@ -393,7 +408,7 @@ Friends</h2></td></tr>
 
 <p>Retrieve rows as <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a> objects, returning true if more rows are available. </p>
 <p><b>Performance Notes</b>:</p><ul>
-<li>The number of rows read in at a time is determined by <a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228" title="For functions that lazy load a large CSV, this determines how many rows are read at a time...">csv::ITERATION_CHUNK_SIZE</a></li>
+<li>The number of rows read in at a time is determined by <a class="el" href="namespacecsv.html#a82452d316c535c04ad187c1863b1e228" title="For functions that lazy load a large CSV, this determines how many bytes are read at a time...">csv::ITERATION_CHUNK_SIZE</a></li>
 <li>For performance details, read the documentation for <a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a> and <a class="el" href="classcsv_1_1CSVField.html" title="Data type representing individual CSV values. CSVFields can be obtained by using CSVRow::operator[]. ">CSVField</a>.</li>
 </ul>
 <dl class="params"><dt>Parameters</dt><dd>
@@ -404,7 +419,7 @@ Friends</h2></td></tr>
 </dl>
 <dl class="section see"><dt>See also</dt><dd><a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a>, <a class="el" href="classcsv_1_1CSVField.html" title="Data type representing individual CSV values. CSVFields can be obtained by using CSVRow::operator[]. ">CSVField</a></dd></dl>
 <p><b>Example:</b> </p><div class="fragment"><div class="line">TEST_CASE(<span class="stringliteral">&quot;Test read_row() CSVField - Easy&quot;</span>, <span class="stringliteral">&quot;[read_row_csvf1]&quot;</span>) {</div><div class="line">    <span class="comment">// Test that integers are type-casted properly</span></div><div class="line">    <a class="code" href="classcsv_1_1CSVReader.html#aab773760e65004c49fa476eb2eb70b54">CSVReader</a> reader(<span class="stringliteral">&quot;./tests/data/fake_data/ints.csv&quot;</span>);</div><div class="line">    CSVRow row;</div><div class="line"></div><div class="line">    <span class="keywordflow">while</span> (reader.read_row(row)) {</div><div class="line">        <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> i = 0; i &lt; row.size(); i++) {</div><div class="line">            REQUIRE(row[i].is_int());</div><div class="line">            REQUIRE(row[i].get&lt;int&gt;() &lt;= 100);</div><div class="line">        }</div><div class="line">    }</div><div class="line">}</div></div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00555">555</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00561">561</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -452,6 +467,7 @@ Friends</h2></td></tr>
 <hr/>The documentation for this class was generated from the following files:<ul>
 <li>src/<a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a></li>
 <li>src/<a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a></li>
+<li>src/<a class="el" href="csv__reader__iterator_8cpp_source.html">csv_reader_iterator.cpp</a></li>
 </ul>
 </div><!-- contents -->
 </div><!-- doc-content -->

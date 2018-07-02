@@ -305,8 +305,8 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
                 row[0].get<double>();
             }
             catch (std::runtime_error& err) {
-                //REQUIRE(err.what() == std::string("Attempted to convert a "
-                //    "value of type string to double."));
+                REQUIRE(err.what() == std::string("Attempted to convert a "
+                    "value of type string to double."));
                 caught_error = true;
             }
 

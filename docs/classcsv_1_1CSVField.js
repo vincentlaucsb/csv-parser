@@ -8,8 +8,7 @@ var classcsv_1_1CSVField =
     [ "is_null", "classcsv_1_1CSVField.html#a855f05d296b992f5d6bb0bbfb94bf792", null ],
     [ "is_num", "classcsv_1_1CSVField.html#aa0a899b3c0b597512506183edfb4ad62", null ],
     [ "is_str", "classcsv_1_1CSVField.html#aa515c7eba5f76bd73e6f448d1069c6af", null ],
-    [ "operator==", "classcsv_1_1CSVField.html#ad0efc38057c54ae4a67742972235a88a", null ],
-    [ "type", "classcsv_1_1CSVField.html#aee31987c4c62c8ef7a89b475bd089618", null ],
-    [ "sv", "classcsv_1_1CSVField.html#aea55bc32d073faf378173e8cdd961210", null ],
-    [ "value", "classcsv_1_1CSVField.html#a040a17d1ec3bdea212797539181b179a", null ]
+    [ "operator==", "classcsv_1_1CSVField.html#a18cf4ba59439652c4d283248e2464c29", null ],
+    [ "operator==", "classcsv_1_1CSVField.html#a02c2efa7c701c534e97220e5405ef9d6", null ],
+    [ "type", "classcsv_1_1CSVField.html#aee31987c4c62c8ef7a89b475bd089618", null ]
 ];

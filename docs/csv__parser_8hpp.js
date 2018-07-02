@@ -3,6 +3,7 @@ var csv__parser_8hpp =
     [ "CSVFormat", "structcsv_1_1CSVFormat.html", "structcsv_1_1CSVFormat" ],
     [ "CSVFileInfo", "structcsv_1_1CSVFileInfo.html", "structcsv_1_1CSVFileInfo" ],
     [ "CSVReader", "classcsv_1_1CSVReader.html", "classcsv_1_1CSVReader" ],
+    [ "iterator", "classcsv_1_1CSVReader_1_1iterator.html", "classcsv_1_1CSVReader_1_1iterator" ],
     [ "CSVStat", "classcsv_1_1CSVStat.html", "classcsv_1_1CSVStat" ],
     [ "CSVGuesser", "classcsv_1_1internals_1_1CSVGuesser.html", "classcsv_1_1internals_1_1CSVGuesser" ],
     [ "CSVCollection", "csv__parser_8hpp.html#aa8a890537dc2de490cd44094ae8cb526", null ],

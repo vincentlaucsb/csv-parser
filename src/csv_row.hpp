@@ -53,17 +53,16 @@ namespace csv {
         *   - long double
         */
         template<typename T=std::string_view> T get() {
-            /** Get numeric values */
-            if (internals::type_num<T>() >= CSV_INT) {
-                if (is_num()) {
-                    if (internals::type_num<T>() < this->type())
-                        throw std::runtime_error("Overflow error.");
+            auto dest_type = internals::type_num<T>();
+            if (dest_type >= CSV_INT && is_num()) {
+                if (internals::type_num<T>() < this->type())
+                    throw std::runtime_error("Overflow error.");
 
-                    return static_cast<T>(this->value);
-                }
-                else
-                    throw std::runtime_error("Not a number.");
+                return static_cast<T>(this->value);
             }
+
+            throw std::runtime_error("Attempted to convert a value of type " + 
+                internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
         }
 
         bool operator==(std::string_view other) const;
@@ -118,6 +117,9 @@ namespace csv {
         operator std::vector<std::string>() const;
         ///@}
 
+        /** @brief A random access iterator over the contents of a CSV row.
+         *         Each iterator points to a CSVField.
+         */
         class iterator {
         public:
             using value_type = CSVField;
@@ -147,12 +149,18 @@ namespace csv {
             int i = 0;                                 // Index of current field
         };
 
+        /** @brief A reverse iterator over the contents of a CSVRow. */
         using reverse_iterator = std::reverse_iterator<iterator>;
 
+        /** @name Iterators
+         *  @brief Each iterator points to a CSVField object.
+         */
+        ///@{
         iterator begin() const;
         iterator end() const;
         reverse_iterator rbegin() const;
         reverse_iterator rend() const;
+        ///@}
 
     private:
         std::shared_ptr<internals::ColNames> col_names = nullptr;

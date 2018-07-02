@@ -102,6 +102,43 @@ namespace csv {
      */
     class CSVReader {
         public:
+            /**
+             * @brief An input iterator capable of handling large files.
+             * Created by CSVReader::begin() and CSVReader::end().
+             *
+             * **Iterating over a file:**
+             * \snippet tests/test_csv_iterator.cpp CSVReader Iterator 1
+             *
+             * **Using with <algorithm> library:**
+             * \snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
+             */
+            class iterator {
+            public:
+                using value_type = CSVRow;
+                using difference_type = std::ptrdiff_t;
+                using pointer = CSVRow * ;
+                using reference = CSVRow & ;
+                using iterator_category = std::input_iterator_tag;
+
+                iterator() = default;
+                iterator(CSVReader* reader) : daddy(reader) {};
+                iterator(CSVReader*, CSVRow&&);
+
+                reference operator*();
+                pointer operator->();
+                iterator& operator++(); // Pre-inc
+                iterator operator++(int); // Post-inc
+                iterator& operator--();
+
+                bool operator==(const iterator&) const;
+                bool operator!=(const iterator& other) const { return !operator==(other); }
+
+            private:
+                CSVReader * daddy = nullptr;  // Pointer to parent
+                CSVRow row;                   // Current row
+                RowCount i = 0;               // Index of current row
+            };
+
             /** @name Constructors
              *  Constructors for iterating over large files and parsing in-memory sources.
              */
@@ -131,6 +168,8 @@ namespace csv {
             /** @name Retrieving CSV Rows */
             ///@{
             bool read_row(CSVRow &row);
+            iterator begin();
+            iterator end();
             ///@}
 
             /** @name CSV Metadata */
@@ -153,36 +192,6 @@ namespace csv {
             void close();               /**< @brief Close the open file handle.
                                         *   Automatically called by ~CSVReader().
                                         */
-
-            class iterator {
-            public:
-                using value_type = CSVRow;
-                using difference_type = std::ptrdiff_t;
-                using pointer = CSVRow * ;
-                using reference = CSVRow & ;
-                using iterator_category = std::input_iterator_tag;
-
-                iterator() = default;
-                iterator(CSVReader* reader) : daddy(reader) {};
-                iterator(CSVReader*, CSVRow&&);
-
-                reference operator*();
-                pointer operator->();
-                iterator& operator++(); // Pre-inc
-                iterator operator++(int); // Post-inc
-                iterator& operator--();
-
-                bool operator==(const iterator&) const;
-                bool operator!=(const iterator& other) const { return !operator==(other); }
-
-            private:
-                CSVReader * daddy = nullptr;  // Pointer to parent
-                CSVRow row;                   // Current row
-                RowCount i = 0;               // Index of current row
-            };
-
-            iterator begin();
-            iterator end();
 
             friend CSVCollection parse(const std::string&, CSVFormat);
         protected:
@@ -269,8 +278,6 @@ namespace csv {
             ///@{
             std::FILE* infile = nullptr;        /**< @brief Current file handle.
                                                      Destroyed by ~CSVReader(). */
-
-            bool first_read = false;
 
             std::deque<std::unique_ptr<std::string>>
                 feed_buffer;                    /**< @brief Message queue for worker */

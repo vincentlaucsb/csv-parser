@@ -2,6 +2,7 @@ var dir_68267d1309a1af8e8297ef4c3efbcdba =
 [
     [ "csv_parser.hpp", "csv__parser_8hpp.html", "csv__parser_8hpp" ],
     [ "csv_reader.cpp", "csv__reader_8cpp.html", "csv__reader_8cpp" ],
+    [ "csv_reader_iterator.cpp", "csv__reader__iterator_8cpp_source.html", null ],
     [ "csv_row.cpp", "csv__row_8cpp_source.html", null ],
     [ "csv_row.hpp", "csv__row_8hpp_source.html", null ],
     [ "csv_stat.cpp", "csv__stat_8cpp.html", null ],
