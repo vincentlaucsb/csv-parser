@@ -54,20 +54,12 @@ using namespace csv;
 ...
 
 CSVReader reader("very_big_file.csv");
-double sum = 0;
 
 for (CSVRow& row: reader) { // Input iterator
     for (CSVField& field: row) {
         // For efficiency, get<>() produces a string_view
         std::cout << field.get<>() << ...
     }
-    
-    /* Sum up wages
-     * Notes:
-     *  - Indexing can be done by position (size_t) or column name
-     *  - Invalid positions/column names will throw runtime errors
-     */
-    sum += field["Total Salary"].get<double>();
 }
 
 ...
@@ -87,6 +79,26 @@ while (reader.read_row(row)) {
 ...
 ```
 
+### Indexing by Column Names
+Retrieving values using a column name string is a cheap, constant time operation.
+
+```cpp
+# include "csv_parser.hpp"
+
+using namespace csv;
+
+...
+
+CSVReader reader("very_big_file.csv");
+double sum = 0;
+
+for (auto& row: reader) {
+    // Note: Can also use index of column with [] operator
+    sum += row["Total Salary"].get<double>();
+}
+
+...
+```
 
 ### Type Conversions
 If your CSV has lots of numeric values, you can also have this parser (lazily)
