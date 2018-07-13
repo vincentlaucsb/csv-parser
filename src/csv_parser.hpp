@@ -233,9 +233,6 @@ namespace csv {
              *  These methods are called by feed().
             */
             ///@{
-            void process_possible_delim(std::string_view);
-            void process_quote(std::string_view);
-            void process_newline(std::string_view);
             void write_record();
             virtual void bad_row_handler(std::vector<std::string>);
             ///@}
@@ -253,10 +250,6 @@ namespace csv {
 
             /** @name Parser State */
             ///@{
-            bool quote_escape = false;     /**< @brief Are we currently in a quote escaped field? */
-            size_t c_pos = 0;              /**< @brief Position in current string of parser */
-            size_t n_pos = 0;              /**< @brief Position in new string (record_buffer) of parser */
-
             /** <@brief Pointer to a object containing column information
             */
             std::shared_ptr<internals::ColNames> col_names =

@@ -323,22 +323,59 @@ namespace csv {
 
         if (parse_flags.empty()) parse_flags = this->make_flags();
 
-        for (this->c_pos = 0; c_pos < in.size(); c_pos++) {
+        bool quote_escape = false;  // Are we currently in a quote escaped field?
+
+        for (size_t c_pos = 0; c_pos < in.size(); c_pos++) {
             const char& ch = in[c_pos];
-            switch (this->parse_flags[ch + 128]) {
-            case NOT_SPECIAL:
-                this->record_buffer += ch;
-                this->n_pos++;
-                break;
-            case DELIMITER:
-                this->process_possible_delim(in);
-                break;
-            case NEWLINE:
-                this->process_newline(in);
-                break;
-            default: // Quote
-                this->process_quote(in);
-                break;
+            if (!quote_escape) {
+                switch (this->parse_flags[ch + 128]) {
+                case NOT_SPECIAL:
+                    this->record_buffer += ch;
+                    break;
+                case DELIMITER:
+                    this->split_buffer.push_back(this->record_buffer.size());
+                    break;
+                case NEWLINE:
+                    // End of record -> Write record
+                    if (in[c_pos + 1] == '\n') // Catches CRLF (or LFLF)
+                        ++c_pos;
+                    this->write_record();
+                    break;
+                default: // Quote
+                    // Case: Previous character was delimiter or newline
+                    if (c_pos) { // Don't deref past beginning
+                        auto prev_ch = this->parse_flags[in[c_pos - 1] + 128];
+                        if (prev_ch >= DELIMITER) quote_escape = true;
+                    }
+                    break;
+                }
+            }
+            else {
+                switch (this->parse_flags[ch + 128]) {
+                case NOT_SPECIAL:
+                case DELIMITER:
+                case NEWLINE:
+                    // Treat as a regular character
+                    this->record_buffer += ch;
+                    break;
+                default: // Quote
+                    auto next_ch = this->parse_flags[in[c_pos + 1] + 128];
+                    if (next_ch >= DELIMITER) {
+                        // Case: Delim or newline => end of field
+                        quote_escape = false;
+                    }
+                    else {
+                        // Case: Escaped quote
+                        this->record_buffer += ch;
+
+                        if (next_ch == QUOTE)
+                            ++c_pos;  // Case: Two consecutive quotes
+                        else if (this->strict)
+                            throw std::runtime_error("Unescaped single quote around line " +
+                                std::to_string(this->correct_rows) + " near:\n" +
+                                std::string(in.substr(c_pos, 100)));
+                    }
+                }
             }
         }
     }
@@ -350,67 +387,6 @@ namespace csv {
         this->write_record();
     }
 
-    void CSVReader::process_possible_delim(std::string_view sv) {
-        /** Process a delimiter character and determine if it is a field
-        *  separator
-        */
-
-        if (!this->quote_escape) // Make a new field
-            this->split_buffer.push_back(this->n_pos);
-        else { // Treat as a regular character
-            this->record_buffer += sv[c_pos];
-            this->n_pos++;
-        }
-    }
-
-    void CSVReader::process_newline(std::string_view sv) {
-        /** Process a newline character and determine if it is a record
-        *  separator
-        */
-        if (!this->quote_escape) {
-            // Case: Carriage Return Line Feed, Carriage Return, or Line Feed
-            // => End of record -> Write record
-            if ((sv[c_pos] == '\r') && (sv[c_pos + 1] == '\n'))
-                ++c_pos;
-            this->write_record();
-        }
-        else { // Treat as a regular character
-            this->record_buffer += sv[c_pos];
-            this->n_pos++;
-        }
-    }
-
-    void CSVReader::process_quote(std::string_view sv) {
-        /** Determine if the usage of a quote is valid or fix it */
-        if (this->quote_escape) {
-            auto next_ch = this->parse_flags[sv[c_pos + 1] + 128];
-            if (next_ch == DELIMITER || next_ch == NEWLINE) {
-                // Case: End of field
-                this->quote_escape = false;
-            }
-            else {
-                this->record_buffer += sv[c_pos];
-                this->n_pos++;
-
-                if (next_ch == QUOTE)
-                    ++c_pos;  // Case: Two consecutive quotes
-                else if (this->strict)
-                    throw std::runtime_error("Unescaped single quote around line " +
-                        std::to_string(this->correct_rows) + " near:\n" +
-                        std::string(sv.substr(c_pos, 100)));
-            }
-        }
-        else {
-            // Case: Previous character was delimiter
-            // Don't deref past beginning
-            if (c_pos) {
-                auto prev_ch = this->parse_flags[sv[c_pos - 1] + 128];
-                if (prev_ch == DELIMITER || prev_ch == NEWLINE)
-                    this->quote_escape = true;
-            }
-        }
-    }
-
     void CSVReader::write_record() {
         /** Push the current row into a queue if it is the right length.
          *  Drop it otherwise.
@@ -418,8 +394,6 @@ namespace csv {
 
         size_t col_names_size = this->col_names->size();
         this->min_row_len = std::min(this->min_row_len, this->record_buffer.size());
-        this->n_pos = 0;
-        this->quote_escape = false;  // Unset all flags
         auto row = CSVRow(
             std::move(this->record_buffer),
             std::move(this->split_buffer),
@@ -446,6 +420,7 @@ namespace csv {
                 std::vector<std::string>(row));
         } // else: Ignore rows before header row
 
+        // Some memory allocation optimizations
         this->record_buffer = "";
         if (this->record_buffer.capacity() < size_t(this->min_row_len * 1.5))
             record_buffer.reserve(size_t(this->min_row_len * 1.5));
