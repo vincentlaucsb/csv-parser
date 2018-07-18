@@ -2,6 +2,8 @@
 #include "csv_parser.hpp"
 using namespace csv;
 
+const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";
+
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
     std::string int_list = "";
@@ -66,6 +68,17 @@ TEST_CASE( "Statistics (Line Feed Record-Separated)",
 }
 
 TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
-    CSVStat reader("./tests/data/mimesis_data/persons.csv");
+    CSVStat reader(PERSONS_CSV);
     REQUIRE( ceil(reader.get_mean()[1]) == 42 );
+}
+
+TEST_CASE("Data Types - persons.csv", "test_dtypes_person]") {
+    auto dtypes = csv_data_types(PERSONS_CSV);
+
+    REQUIRE(dtypes["Full Name"] == CSV_STRING);
+    REQUIRE(dtypes["Age"] == CSV_INT);
+    REQUIRE(dtypes["Occupation"] == CSV_STRING);
+    REQUIRE(dtypes["Email"] == CSV_STRING);
+    REQUIRE(dtypes["Telephone"] == CSV_STRING);
+    REQUIRE(dtypes["Nationality"] == CSV_STRING);
 }

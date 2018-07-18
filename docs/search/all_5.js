@@ -2,7 +2,7 @@ var searchData=
 [
   ['get',['get',['../classcsv_1_1CSVField.html#a67ff24172c5ac52417bbc36697511644',1,'csv::CSVField']]],
   ['get_5fcol_5fnames',['get_col_names',['../classcsv_1_1CSVReader.html#ab282ff63cde3ff7c453cf377cc05de1c',1,'csv::CSVReader::get_col_names()'],['../namespacecsv.html#a3d46fa01407dce7fd8f33d55604e74da',1,'csv::get_col_names()']]],
-  ['get_5fcol_5fpos',['get_col_pos',['../namespacecsv.html#a4821f3b169d8426223015c07dc09ff46',1,'csv']]],
+  ['get_5fcol_5fpos',['get_col_pos',['../namespacecsv.html#af36e457d080e4567f0939db04e193bff',1,'csv']]],
   ['get_5fcounts',['get_counts',['../classcsv_1_1CSVStat.html#affadbcfa1bf312afd6504ebd9c179067',1,'csv::CSVStat']]],
   ['get_5fdtypes',['get_dtypes',['../classcsv_1_1CSVStat.html#a881131249d111032b2da1ca81b71e96c',1,'csv::CSVStat']]],
   ['get_5ffile_5finfo',['get_file_info',['../namespacecsv.html#a59dfc8c288720becdd3a55485262e670',1,'csv']]],

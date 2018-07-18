@@ -199,12 +199,6 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>eof</b> ()</td></tr>
 <tr><td colspan="2"><div class="groupHeader">CSV Parsing Callbacks</div></td></tr>
 <tr><td colspan="2"><div class="groupText"><p>The heart of the CSV parser. These methods are called by <a class="el" href="classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe">feed()</a>. </p>
 </div></td></tr>
-<tr class="memitem:ga9531ff3341cefb60b397269db63e0e59"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga9531ff3341cefb60b397269db63e0e59">process_possible_delim</a> (std::string_view)</td></tr>
-<tr class="separator:ga9531ff3341cefb60b397269db63e0e59"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga5cc55e7cf3c0f4a75cde7d383fe75b12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga5cc55e7cf3c0f4a75cde7d383fe75b12">process_quote</a> (std::string_view)</td></tr>
-<tr class="separator:ga5cc55e7cf3c0f4a75cde7d383fe75b12"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga3bd1affb29641963e40b3f4a99578a9e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga3bd1affb29641963e40b3f4a99578a9e">process_newline</a> (std::string_view)</td></tr>
-<tr class="separator:ga3bd1affb29641963e40b3f4a99578a9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga609293317d4520eb6cc711c012240cb0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga609293317d4520eb6cc711c012240cb0">write_record</a> ()</td></tr>
 <tr class="separator:ga609293317d4520eb6cc711c012240cb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaea3e7875478c79feba84d6ee97b1d476"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#gaea3e7875478c79feba84d6ee97b1d476">bad_row_handler</a> (std::vector&lt; std::string &gt;)</td></tr>
@@ -260,18 +254,6 @@ std::vector&lt; <a class="el" href="group__csv__internal.html#ga22d269500460026e
 <tr class="memdesc:gae73cb1981c9866e1ea73a54ee6ac6002"><td class="mdescLeft">&#160;</td><td class="mdescRight">A table where the (i + 128)th slot gives the ParseFlags for ASCII character i. <br /></td></tr>
 <tr class="separator:gae73cb1981c9866e1ea73a54ee6ac6002"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Parser State</div></td></tr>
-<tr class="memitem:ga6523948347f2b4a4622620e7a0a21068"><td class="memItemLeft" align="right" valign="top">
-bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga6523948347f2b4a4622620e7a0a21068">quote_escape</a> = false</td></tr>
-<tr class="memdesc:ga6523948347f2b4a4622620e7a0a21068"><td class="mdescLeft">&#160;</td><td class="mdescRight">Are we currently in a quote escaped field? <br /></td></tr>
-<tr class="separator:ga6523948347f2b4a4622620e7a0a21068"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga85fad3316ed9856c046feba44cd76f30"><td class="memItemLeft" align="right" valign="top">
-size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga85fad3316ed9856c046feba44cd76f30">c_pos</a> = 0</td></tr>
-<tr class="memdesc:ga85fad3316ed9856c046feba44cd76f30"><td class="mdescLeft">&#160;</td><td class="mdescRight">Position in current string of parser. <br /></td></tr>
-<tr class="separator:ga85fad3316ed9856c046feba44cd76f30"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga7b6f248d4e1acc872e016c14b66995e2"><td class="memItemLeft" align="right" valign="top">
-size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga7b6f248d4e1acc872e016c14b66995e2">n_pos</a> = 0</td></tr>
-<tr class="memdesc:ga7b6f248d4e1acc872e016c14b66995e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Position in new string (record_buffer) of parser. <br /></td></tr>
-<tr class="separator:ga7b6f248d4e1acc872e016c14b66995e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gac63e71ea5f74271f366cab7af8689b48"><td class="memItemLeft" align="right" valign="top">std::shared_ptr&lt; <a class="el" href="structcsv_1_1internals_1_1ColNames.html">internals::ColNames</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#gac63e71ea5f74271f366cab7af8689b48">col_names</a></td></tr>
 <tr class="memdesc:gac63e71ea5f74271f366cab7af8689b48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to a object containing column information.  <a href="group__csv__internal.html#gac63e71ea5f74271f366cab7af8689b48">More...</a><br /></td></tr>
 <tr class="separator:gac63e71ea5f74271f366cab7af8689b48"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -344,7 +326,7 @@ Friends</h2></td></tr>
   </dd>
 </dl>
 <div class="fragment"><div class="line">TEST_CASE(<span class="stringliteral">&quot;Test read_row() CSVField - Easy&quot;</span>, <span class="stringliteral">&quot;[read_row_csvf1]&quot;</span>) {</div><div class="line">    <span class="comment">// Test that integers are type-casted properly</span></div><div class="line">    <a class="code" href="classcsv_1_1CSVReader.html#aab773760e65004c49fa476eb2eb70b54">CSVReader</a> reader(<span class="stringliteral">&quot;./tests/data/fake_data/ints.csv&quot;</span>);</div><div class="line">    CSVRow row;</div><div class="line"></div><div class="line">    <span class="keywordflow">while</span> (reader.read_row(row)) {</div><div class="line">        <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> i = 0; i &lt; row.size(); i++) {</div><div class="line">            REQUIRE(row[i].is_int());</div><div class="line">            REQUIRE(row[i].get&lt;int&gt;() &lt;= 100);</div><div class="line">        }</div><div class="line">    }</div><div class="line">}</div></div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00274">274</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00275">275</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -365,7 +347,7 @@ Friends</h2></td></tr>
 </div><div class="memdoc">
 <p>Indicate that there is no more data to receive, and handle the last row</p>
 
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00346">346</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00385">385</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -384,9 +366,10 @@ Friends</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Parse a CSV-formatted string. Incomplete CSV fragments can be void print_row(const std::vector&lt;std::string&gt;&amp; row);name joined together by calling <a class="el" href="classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe">feed()</a> on them sequentially. <b>Note</b>: <a class="el" href="classcsv_1_1CSVReader.html#a8ac02ea6f091b18f9ef9c9a793d4c3bd">end_feed()</a> should be called after the last string</p>
+<p>Parse a CSV-formatted string.</p>
+<p>Incomplete CSV fragments can be joined together by calling <a class="el" href="classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe">feed()</a> on them sequentially. <b>Note</b>: <a class="el" href="classcsv_1_1CSVReader.html#a8ac02ea6f091b18f9ef9c9a793d4c3bd">end_feed()</a> should be called after the last string</p>
 
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00318">318</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00319">319</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -419,7 +402,7 @@ Friends</h2></td></tr>
 </dl>
 <dl class="section see"><dt>See also</dt><dd><a class="el" href="classcsv_1_1CSVRow.html" title="Data structure for representing CSV rows. ">CSVRow</a>, <a class="el" href="classcsv_1_1CSVField.html" title="Data type representing individual CSV values. CSVFields can be obtained by using CSVRow::operator[]. ">CSVField</a></dd></dl>
 <p><b>Example:</b> </p><div class="fragment"><div class="line">TEST_CASE(<span class="stringliteral">&quot;Test read_row() CSVField - Easy&quot;</span>, <span class="stringliteral">&quot;[read_row_csvf1]&quot;</span>) {</div><div class="line">    <span class="comment">// Test that integers are type-casted properly</span></div><div class="line">    <a class="code" href="classcsv_1_1CSVReader.html#aab773760e65004c49fa476eb2eb70b54">CSVReader</a> reader(<span class="stringliteral">&quot;./tests/data/fake_data/ints.csv&quot;</span>);</div><div class="line">    CSVRow row;</div><div class="line"></div><div class="line">    <span class="keywordflow">while</span> (reader.read_row(row)) {</div><div class="line">        <span class="keywordflow">for</span> (<span class="keywordtype">size_t</span> i = 0; i &lt; row.size(); i++) {</div><div class="line">            REQUIRE(row[i].is_int());</div><div class="line">            REQUIRE(row[i].get&lt;int&gt;() &lt;= 100);</div><div class="line">        }</div><div class="line">    }</div><div class="line">}</div></div><!-- fragment -->
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00561">561</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00538">538</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>

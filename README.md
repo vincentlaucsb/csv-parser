@@ -41,6 +41,28 @@ target_link_libraries(<your program> csv)
 
 ```
 
+## Thirty-Second Introduction to Vince's CSV Parser
+
+* **Parsing CSV Files from..**
+ * Files: csv::CSVReader(filename)
+ * In-Memory Sources:
+   * Small: csv::parse() or csv::operator""_csv();
+   * Large: csv::CSVReader::feed();
+* **Retrieving Parsed CSV Rows (from CSVReader)**
+ * csv::CSVReader::iterator() (supports range-based for loop)
+ * csv::CSVReader::read_row()
+* **Working with CSV Rows**
+ * Index by number or name: csv::CSVRow::operator[]()
+ * Random access iterator: csv::CSVRow::iterator()
+ * Conversion: csv::CSVRow::operator std::vector<std::string>();
+* **Calculating Statistics**
+ * Files: csv::CSVStat(filename)
+ * In-Memory: csv::CSVStat::feed()
+* **Utility Functions**
+ * Return column names: get_col_names()
+ * Return the position of a column: get_col_pos();
+ * Return column types (for uploading to a SQL database): csv_data_types();
+
 ## Features & Examples
 ### Reading a Large File (with Iterators)
 With this library, you can easily stream over a large file without reading its entirety into memory.
@@ -201,10 +223,6 @@ writer << vector<string>({ "A", "B", "C" })
 ...
 
 ```
-
-### Utility Functions
- * **Return column names:** get_col_names()
- * **Return the position of a column:** get_col_pos();
 
 ## Contributing
 Bug reports, feature requests, and so on are always welcome. Feel free to leave a note in the Issues section.

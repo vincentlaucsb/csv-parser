@@ -365,6 +365,7 @@ namespace csv {
 
     /** @name Utility Functions */
     ///@{
+    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
     CSVFormat guess_format(const std::string& filename);
     std::vector<std::string> get_col_names(

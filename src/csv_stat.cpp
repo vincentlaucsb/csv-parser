@@ -207,4 +207,38 @@ namespace csv {
             current_rolling_var += delta*delta2;
         }
     }
+
+    /** @brief Useful for uploading CSV files to SQL databases.
+     *
+     *  Return a data type for each column such that every value in a column can be
+     *  converted to the corresponding data type without data loss.
+     *  @param[in]  filename The CSV file
+     *
+     *  \return A mapping of column names to csv::DataType enums
+     */
+    std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
+        CSVStat stat(filename);
+        std::unordered_map<std::string, DataType> csv_dtypes;
+
+        auto& col_names = stat.get_col_names();
+        auto& temp = stat.get_dtypes();
+
+        for (size_t i = 0; i < stat.get_col_names().size(); i++) {
+            auto& col = temp[i];
+            auto& col_name = col_names[i];
+
+            if (col[CSV_STRING])
+                csv_dtypes[col_name] = CSV_STRING;
+            else if (col[CSV_LONG_LONG_INT])
+                csv_dtypes[col_name] = CSV_LONG_LONG_INT;
+            else if (col[CSV_LONG_INT])
+                csv_dtypes[col_name] = CSV_LONG_INT;
+            else if (col[CSV_INT])
+                csv_dtypes[col_name] = CSV_INT;
+            else
+                csv_dtypes[col_name] = CSV_DOUBLE;
+        }
+
+        return csv_dtypes;
+    }
 }

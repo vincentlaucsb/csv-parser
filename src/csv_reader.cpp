@@ -211,16 +211,17 @@ namespace csv {
         return reader.get_col_names();
     }
 
+    /**
+     *  @brief Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] col_name  Column whose position we should resolve
+     *  @param[in] format    Format of the CSV file
+     */
     int get_col_pos(
         const std::string filename,
         const std::string col_name,
         const CSVFormat format) {
-        /** Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
-        *  @param[in] filename  Path to CSV file
-        *  @param[in] col_name  Column whose position we should resolve
-        *  @param[in] format    Format of the CSV file
-        */
-
         CSVReader reader(filename, format);
         return reader.index_of(col_name);
     }
@@ -316,8 +317,9 @@ namespace csv {
     }
 
     void CSVReader::feed(std::string_view in) {
-        /** Parse a CSV-formatted string. Incomplete CSV fragments can be void print_row(const std::vector<std::string>& row);name
-         *  joined together by calling feed() on them sequentially.
+        /** @brief Parse a CSV-formatted string.
+         *
+         *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
          *  **Note**: end_feed() should be called after the last string
          */
 

@@ -132,12 +132,6 @@ std::deque&lt; <a class="el" href="classcsv_1_1CSVRow.html">CSVRow</a> &gt;&#160
 CSV Parsing Callbacks</h2></td></tr>
 <tr><td class="ititle" colspan="2"><p><a class="anchor" id="amgrpcc523135f3b0e9587bdb75336c242ae1"></a>The heart of the CSV parser. These methods are called by <a class="el" href="classcsv_1_1CSVReader.html#a0e16afa967b390c29e2aab63087f5abe">feed()</a>. </p>
 </td></tr>
-<tr class="memitem:ga9531ff3341cefb60b397269db63e0e59"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga9531ff3341cefb60b397269db63e0e59">csv::CSVReader::process_possible_delim</a> (std::string_view)</td></tr>
-<tr class="separator:ga9531ff3341cefb60b397269db63e0e59"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga5cc55e7cf3c0f4a75cde7d383fe75b12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga5cc55e7cf3c0f4a75cde7d383fe75b12">csv::CSVReader::process_quote</a> (std::string_view)</td></tr>
-<tr class="separator:ga5cc55e7cf3c0f4a75cde7d383fe75b12"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga3bd1affb29641963e40b3f4a99578a9e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga3bd1affb29641963e40b3f4a99578a9e">csv::CSVReader::process_newline</a> (std::string_view)</td></tr>
-<tr class="separator:ga3bd1affb29641963e40b3f4a99578a9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga609293317d4520eb6cc711c012240cb0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga609293317d4520eb6cc711c012240cb0">csv::CSVReader::write_record</a> ()</td></tr>
 <tr class="separator:ga609293317d4520eb6cc711c012240cb0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaea3e7875478c79feba84d6ee97b1d476"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#gaea3e7875478c79feba84d6ee97b1d476">csv::CSVReader::bad_row_handler</a> (std::vector&lt; std::string &gt;)</td></tr>
@@ -168,18 +162,6 @@ std::vector&lt; <a class="el" href="group__csv__internal.html#ga22d269500460026e
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="member-group"></a>
 Parser State</h2></td></tr>
-<tr class="memitem:ga6523948347f2b4a4622620e7a0a21068"><td class="memItemLeft" align="right" valign="top"><a id="ga6523948347f2b4a4622620e7a0a21068"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga6523948347f2b4a4622620e7a0a21068">csv::CSVReader::quote_escape</a> = false</td></tr>
-<tr class="memdesc:ga6523948347f2b4a4622620e7a0a21068"><td class="mdescLeft">&#160;</td><td class="mdescRight">Are we currently in a quote escaped field? <br /></td></tr>
-<tr class="separator:ga6523948347f2b4a4622620e7a0a21068"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga85fad3316ed9856c046feba44cd76f30"><td class="memItemLeft" align="right" valign="top"><a id="ga85fad3316ed9856c046feba44cd76f30"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga85fad3316ed9856c046feba44cd76f30">csv::CSVReader::c_pos</a> = 0</td></tr>
-<tr class="memdesc:ga85fad3316ed9856c046feba44cd76f30"><td class="mdescLeft">&#160;</td><td class="mdescRight">Position in current string of parser. <br /></td></tr>
-<tr class="separator:ga85fad3316ed9856c046feba44cd76f30"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga7b6f248d4e1acc872e016c14b66995e2"><td class="memItemLeft" align="right" valign="top"><a id="ga7b6f248d4e1acc872e016c14b66995e2"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#ga7b6f248d4e1acc872e016c14b66995e2">csv::CSVReader::n_pos</a> = 0</td></tr>
-<tr class="memdesc:ga7b6f248d4e1acc872e016c14b66995e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Position in new string (record_buffer) of parser. <br /></td></tr>
-<tr class="separator:ga7b6f248d4e1acc872e016c14b66995e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gac63e71ea5f74271f366cab7af8689b48"><td class="memItemLeft" align="right" valign="top">std::shared_ptr&lt; <a class="el" href="structcsv_1_1internals_1_1ColNames.html">internals::ColNames</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__csv__internal.html#gac63e71ea5f74271f366cab7af8689b48">csv::CSVReader::col_names</a></td></tr>
 <tr class="memdesc:gac63e71ea5f74271f366cab7af8689b48"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to a object containing column information.  <a href="#gac63e71ea5f74271f366cab7af8689b48">More...</a><br /></td></tr>
 <tr class="separator:gac63e71ea5f74271f366cab7af8689b48"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -275,93 +257,6 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 
 </div>
 </div>
-<a id="ga3bd1affb29641963e40b3f4a99578a9e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga3bd1affb29641963e40b3f4a99578a9e">&#9670;&nbsp;</a></span>process_newline()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv::CSVReader::process_newline </td>
-          <td>(</td>
-          <td class="paramtype">std::string_view&#160;</td>
-          <td class="paramname"><em>sv</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Process a newline character and determine if it is a record separator</p>
-
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00366">366</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
-
-</div>
-</div>
-<a id="ga9531ff3341cefb60b397269db63e0e59"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga9531ff3341cefb60b397269db63e0e59">&#9670;&nbsp;</a></span>process_possible_delim()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv::CSVReader::process_possible_delim </td>
-          <td>(</td>
-          <td class="paramtype">std::string_view&#160;</td>
-          <td class="paramname"><em>sv</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Process a delimiter character and determine if it is a field separator</p>
-
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00353">353</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
-
-</div>
-</div>
-<a id="ga5cc55e7cf3c0f4a75cde7d383fe75b12"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga5cc55e7cf3c0f4a75cde7d383fe75b12">&#9670;&nbsp;</a></span>process_quote()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void csv::CSVReader::process_quote </td>
-          <td>(</td>
-          <td class="paramtype">std::string_view&#160;</td>
-          <td class="paramname"><em>sv</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Determine if the usage of a quote is valid or fix it </p>
-
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00383">383</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
-
-</div>
-</div>
 <a id="ga44deca7b16b9de9092a029f6c014b1fa"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ga44deca7b16b9de9092a029f6c014b1fa">&#9670;&nbsp;</a></span>read_csv()</h2>
 
@@ -412,7 +307,7 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 </dl>
 <dl class="section see"><dt>See also</dt><dd><a class="el" href="classcsv_1_1CSVReader.html#aa28b87c77c5366e34ef86b35fb9f7238" title="Retrieve rows as CSVRow objects, returning true if more rows are available. ">CSVReader::read_row()</a> </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00490">490</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00467">467</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -440,7 +335,7 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 </div><div class="memdoc">
 <p>Worker thread for <a class="el" href="group__csv__internal.html#ga44deca7b16b9de9092a029f6c014b1fa" title="Parse a CSV file using multiple threads. ">read_csv()</a> which parses CSV rows (while the main thread pulls data from disk)</p>
 
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00460">460</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00437">437</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -468,7 +363,7 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 </div><div class="memdoc">
 <p>Push the current row into a queue if it is the right length. Drop it otherwise.</p>
 
-<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00414">414</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__reader_8cpp_source.html#l00392">392</a> of file <a class="el" href="csv__reader_8cpp_source.html">csv_reader.cpp</a>.</p>
 
 </div>
 </div>
@@ -496,7 +391,7 @@ std::condition_variable&#160;</td><td class="memItemRight" valign="bottom"><a cl
 <p>Pointer to a object containing column information. </p>
 <p>&lt; </p>
 
-<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00262">262</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="csv__parser_8hpp_source.html#l00255">255</a> of file <a class="el" href="csv__parser_8hpp_source.html">csv_parser.hpp</a>.</p>
 
 </div>
 </div>

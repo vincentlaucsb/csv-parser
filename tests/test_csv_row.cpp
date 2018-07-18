@@ -8,6 +8,7 @@ CSVRow make_row();
 CSVRow make_numeric_row();
 
 CSVRow make_row() {
+    // Create a row of size 4
     auto col_names = std::make_shared<internals::ColNames>(
         std::vector<std::string>({ "A", "B", "C", "D" })
     );
@@ -49,6 +50,29 @@ TEST_CASE("CSVRow operator[]", "[test_csv_row_index]") {
 
     REQUIRE(row[2] == "Col3");
     REQUIRE(row["C"] == "Col3");
+}
+
+TEST_CASE("CSVRow operator[] Out of Bounds", "[test_csv_row_index_error]") {
+    auto row = make_row();
+    bool error_caught = false;
+    try {
+        auto dne = row[4].get<>();
+    }
+    catch (std::runtime_error& err) {
+        error_caught = true;
+    }
+    
+    REQUIRE(error_caught);
+
+    // Try accessing a non-existent column
+    try {
+        auto dne = row["Col5"].get<>();
+    }
+    catch (std::runtime_error& err) {
+        error_caught = true;
+    }
+
+    REQUIRE(error_caught);
 }
 
 TEST_CASE("CSVRow Content Check", "[test_csv_row_contents]") {
