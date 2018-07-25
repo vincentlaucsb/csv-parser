@@ -6,7 +6,8 @@
 #include <deque>
 #include <unordered_map>
 #include <stdexcept>
-#include <cstdio>
+#include <cstdio>   // For read_csv()
+#include <cstring>  // For read_csv()
 #include <iostream>
 #include <fstream>
 #include <functional>
