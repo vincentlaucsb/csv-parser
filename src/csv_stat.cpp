@@ -220,8 +220,8 @@ namespace csv {
         CSVStat stat(filename);
         std::unordered_map<std::string, DataType> csv_dtypes;
 
-        auto& col_names = stat.get_col_names();
-        auto& temp = stat.get_dtypes();
+        auto col_names = stat.get_col_names();
+        auto temp = stat.get_dtypes();
 
         for (size_t i = 0; i < stat.get_col_names().size(); i++) {
             auto& col = temp[i];
