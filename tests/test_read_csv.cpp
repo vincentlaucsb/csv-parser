@@ -159,9 +159,24 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     REQUIRE(error_message.substr(0, 14) == "Line too short");
 }
 
+TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
+    // Make sure attempting to parse a non-existent CSV throws an error
+    bool error_caught = true;
+
+    try {
+        CSVReader reader("./lochness.csv");
+    }
+    catch (std::runtime_error& err) {
+        REQUIRE(err.what() == std::string("Cannot open file ./lochness.csv"));
+    }
+
+    REQUIRE(error_caught);
+}
+
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
-    CSVReader reader("./tests/data/real_data/2015_StateDepartment.csv", DEFAULT_CSV);
+    const std::string data_file = "./tests/data/real_data/2015_StateDepartment.csv";
+    CSVReader reader(data_file, DEFAULT_CSV);
     CSVRow row;
     reader.read_row(row); // Populate row with first line
     
@@ -186,8 +201,9 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
         ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
         "08/02/2016","",""
     };
+
     REQUIRE( vector<string>(row) == first_row );
-    REQUIRE( reader.get_col_names() == col_names );
+    REQUIRE( get_col_names(data_file) == col_names );
     
     // Skip to end
     while (reader.read_row(row));

@@ -43,33 +43,20 @@ namespace csv {
      *  that file until EOF.
      */
     CSVReader::iterator& CSVReader::iterator::operator++() {
-        if (daddy->records.empty()) {
-            if (!daddy->eof())
-                daddy->read_csv("", ITERATION_CHUNK_SIZE, false);
-            else {
-                this->daddy = nullptr; // this == end()
-                return *this;
-            }
+        if (!daddy->read_row(this->row)) {
+            this->daddy = nullptr; // this == end()
         }
 
-        this->row  = std::move(daddy->records.front());
-        this->daddy->records.pop_front();
         return *this;
     }
 
+    /** @brief Post-increment iterator */
     CSVReader::iterator CSVReader::iterator::operator++(int) {
         auto temp = *this;
-        if (daddy->records.empty()) {
-            if (!daddy->eof())
-                daddy->read_csv("", ITERATION_CHUNK_SIZE, false);
-            else {
-                this->daddy = nullptr;
-                return temp;
-            }
+        if (!daddy->read_row(this->row)) {
+            this->daddy = nullptr; // this == end()
         }
 
-        this->row = std::move(daddy->records.front());
-        this->daddy->records.pop_front();
         return temp;
     }
 

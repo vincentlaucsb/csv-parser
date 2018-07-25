@@ -53,6 +53,17 @@ TEST_CASE("Test CSVRow Iterator Arithmetic", "[csv_iter_math]") {
 
 }
 
+TEST_CASE("Test CSVRow Post-Increment Iterator", "[csv_iter_postinc]") {
+    auto row = make_csv_row();
+    auto it = row.begin();
+    
+    REQUIRE(it++->get<int>() == 123);
+    REQUIRE(it->get<int>() == 234);
+    
+    REQUIRE(it--->get<int>() == 234);
+    REQUIRE(it->get<int>() == 123);
+}
+
 TEST_CASE("Test CSVRow Range Based For", "[csv_iter_for]") {
     auto row = make_csv_row();
 
@@ -96,6 +107,14 @@ TEST_CASE("Basic CSVReader Range-Based For Test", "[read_ints_range]") {
     }
 }
 //! [CSVReader Iterator 1]
+
+TEST_CASE("CSVReader Post-Increment Iterator", "[read_ints_post_iter]") {
+    CSVReader reader("./tests/data/fake_data/ints.csv");
+
+    auto it = reader.begin();
+    REQUIRE((it++)->operator[]("A").get<int>() == 1);
+    REQUIRE(it->operator[]("A").get<int>() == 2);
+}
 
 //! [CSVReader Iterator 2]
 TEST_CASE("CSVReader Iterator + std::max_elem", "[iter_max_elem]") {

@@ -176,38 +176,49 @@ namespace csv {
     }
 
     CSVRow::iterator& CSVRow::iterator::operator++() {
+        // Pre-increment operator
         this->i++;
         if (this->i < this->daddy->size())
             this->field = std::make_shared<CSVField>(
                 this->daddy->operator[](i));
-        else
+        else // Reached the end of row
             this->field = nullptr;
         return *this;
     }
 
-    CSVRow::iterator CSVRow::iterator::operator++(int n) {
-        return CSVRow::iterator(this->daddy, i + n);
+    CSVRow::iterator CSVRow::iterator::operator++(int) {
+        // Post-increment operator
+        auto temp = *this;
+        this->operator++();
+        return temp;
     }
 
     CSVRow::iterator& CSVRow::iterator::operator--() {
+        // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
             this->daddy->operator[](this->i));
         return *this;
     }
 
-    CSVRow::iterator CSVRow::iterator::operator--(int n) {
-        return this->operator++(-n);
+    CSVRow::iterator CSVRow::iterator::operator--(int) {
+        // Post-decrement operator
+        auto temp = *this;
+        this->operator--();
+        return temp;
     }
     
     CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
+        // Allows for iterator arithmetic
         return CSVRow::iterator(this->daddy, i + (int)n);
     }
 
     CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
+        // Allows for iterator arithmetic
         return CSVRow::iterator::operator+(-n);
     }
 
+    /** @brief Two iterators are equal if they point to the same field */
     bool CSVRow::iterator::operator==(const iterator& other) const {
         return this->i == other.i;
     }
