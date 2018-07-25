@@ -49,11 +49,11 @@ target_link_libraries(<your program> csv)
     * Small: csv::parse() or csv::operator""_csv();
     * Large: csv::CSVReader::feed();
 * **Retrieving Parsed CSV Rows (from CSVReader)**
-  * csv::CSVReader::iterator() (supports range-based for loop)
+  * csv::CSVReader::iterator (supports range-based for loop)
   * csv::CSVReader::read_row()
 * **Working with CSV Rows**
   * Index by number or name: csv::CSVRow::operator[]()
-  * Random access iterator: csv::CSVRow::iterator()
+  * Random access iterator: csv::CSVRow::iterator
   * Conversion: csv::CSVRow::operator std::vector<std::string>();
 * **Calculating Statistics**
   * Files: csv::CSVStat(filename)
