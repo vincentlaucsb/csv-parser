@@ -224,6 +224,7 @@ namespace csv {
             size_t min_row_len = (size_t)INFINITY; /**<
                 @brief Shortest row seen so far; used to determine how much memory
                        to allocate for new strings */
+            size_t max_row_len = 0;
 
             std::deque<CSVRow> records; /**< @brief Queue of parsed CSV rows */
             inline bool eof() { return !(this->infile); };
@@ -258,7 +259,7 @@ namespace csv {
 
             /** @name Multi-Threaded File Reading Functions */
             ///@{
-            void feed(std::unique_ptr<std::string>&&); /**< @brief Helper for read_csv_worker() */
+            void feed(std::unique_ptr<char[]>&&); /**< @brief Helper for read_csv_worker() */
             void read_csv(
                 const std::string& filename,
                 const size_t& bytes = ITERATION_CHUNK_SIZE,
@@ -272,7 +273,7 @@ namespace csv {
             std::FILE* infile = nullptr;        /**< @brief Current file handle.
                                                      Destroyed by ~CSVReader(). */
 
-            std::deque<std::unique_ptr<std::string>>
+            std::deque<std::unique_ptr<char[]>>
                 feed_buffer;                    /**< @brief Message queue for worker */
 
             std::mutex feed_lock;               /**< @brief Allow only one worker to write */

@@ -312,8 +312,8 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    void CSVReader::feed(std::unique_ptr<std::string>&& buff) {
-        this->feed(std::string_view(buff->c_str()));
+    void CSVReader::feed(std::unique_ptr<char[]>&& buff) {
+        this->feed(std::string_view(buff.get()));
     }
 
     void CSVReader::feed(std::string_view in) {
@@ -327,55 +327,54 @@ namespace csv {
 
         bool quote_escape = false;  // Are we currently in a quote escaped field?
 
-        for (size_t c_pos = 0; c_pos < in.size(); c_pos++) {
-            const char& ch = in[c_pos];
+        for (size_t i = 0; i < in.size(); i++) {
             if (!quote_escape) {
-                switch (this->parse_flags[ch + 128]) {
+                switch (this->parse_flags[in[i] + 128]) {
                 case NOT_SPECIAL:
-                    this->record_buffer += ch;
+                    this->record_buffer += in[i];
                     break;
                 case DELIMITER:
                     this->split_buffer.push_back(this->record_buffer.size());
                     break;
                 case NEWLINE:
                     // End of record -> Write record
-                    if (in[c_pos + 1] == '\n') // Catches CRLF (or LFLF)
-                        ++c_pos;
+                    if (in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                        ++i;
                     this->write_record();
                     break;
                 default: // Quote
                     // Case: Previous character was delimiter or newline
-                    if (c_pos) { // Don't deref past beginning
-                        auto prev_ch = this->parse_flags[in[c_pos - 1] + 128];
+                    if (i) { // Don't deref past beginning
+                        auto prev_ch = this->parse_flags[in[i - 1] + 128];
                         if (prev_ch >= DELIMITER) quote_escape = true;
                     }
                     break;
                 }
             }
             else {
-                switch (this->parse_flags[ch + 128]) {
+                switch (this->parse_flags[in[i] + 128]) {
                 case NOT_SPECIAL:
                 case DELIMITER:
                 case NEWLINE:
                     // Treat as a regular character
-                    this->record_buffer += ch;
+                    this->record_buffer += in[i];
                     break;
                 default: // Quote
-                    auto next_ch = this->parse_flags[in[c_pos + 1] + 128];
+                    auto next_ch = this->parse_flags[in[i + 1] + 128];
                     if (next_ch >= DELIMITER) {
                         // Case: Delim or newline => end of field
                         quote_escape = false;
                     }
                     else {
                         // Case: Escaped quote
-                        this->record_buffer += ch;
+                        this->record_buffer += in[i];
 
                         if (next_ch == QUOTE)
-                            ++c_pos;  // Case: Two consecutive quotes
+                            ++i;  // Case: Two consecutive quotes
                         else if (this->strict)
                             throw std::runtime_error("Unescaped single quote around line " +
                                 std::to_string(this->correct_rows) + " near:\n" +
-                                std::string(in.substr(c_pos, 100)));
+                                std::string(in.substr(i, 100)));
                     }
                 }
             }
@@ -396,6 +395,8 @@ namespace csv {
 
         size_t col_names_size = this->col_names->size();
         this->min_row_len = std::min(this->min_row_len, this->record_buffer.size());
+        this->max_row_len = std::max(this->max_row_len, this->record_buffer.size());
+
         auto row = CSVRow(
             std::move(this->record_buffer),
             std::move(this->split_buffer),
@@ -406,7 +407,7 @@ namespace csv {
             // Make sure record is of the right length
             if (row.size() == col_names_size) {
                 this->correct_rows++;
-                this->records.push_back(row);
+                this->records.push_back(std::move(row));
             }
             else {
                 /* 1) Zero-length record, probably caused by extraneous newlines
@@ -424,8 +425,9 @@ namespace csv {
 
         // Some memory allocation optimizations
         this->record_buffer = "";
-        if (this->record_buffer.capacity() < size_t(this->min_row_len * 1.5))
-            record_buffer.reserve(size_t(this->min_row_len * 1.5));
+        if (this->record_buffer.capacity() < 
+            this->min_row_len + (this->max_row_len - this->min_row_len)/2)
+            record_buffer.reserve(size_t(this->min_row_len + ((this->max_row_len - this->min_row_len) / 2)));
 
         this->split_buffer = {};
         if (this->split_buffer.capacity() < col_names_size)
@@ -479,24 +481,23 @@ namespace csv {
         }
 
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
-        std::unique_ptr<char[]> line_buffer(new char[PAGE_SIZE]);
-        auto buffer = std::make_unique<std::string>();
+        std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
+        auto line_buffer = buffer.get();
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
-            char * result = std::fgets(line_buffer.get(), PAGE_SIZE, this->infile);
+            char * result = std::fgets(line_buffer, PAGE_SIZE, this->infile);
             if (result == NULL) break;
-            else {
-                *buffer += line_buffer.get();
-                if (std::feof(this->infile)) break;
-            }
+            line_buffer += std::strlen(line_buffer);
 
-            if (buffer->size() >= BUFFER_UPPER_LIMIT) {
-                processed += buffer->size();
+            if ((line_buffer - buffer.get()) >= 0.9 * BUFFER_UPPER_LIMIT) {
+                processed += (line_buffer - buffer.get());
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
                 this->feed_buffer.push_back(std::move(buffer));
                 this->feed_cond.notify_one();
-                buffer = std::make_unique<std::string>(); // New pointer
+
+                buffer = std::make_unique<char[]>(BUFFER_UPPER_LIMIT); // New pointer
+                line_buffer = buffer.get();
             }
         }
 
