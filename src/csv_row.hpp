@@ -99,12 +99,28 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
-        CSVRow(std::string&& _str, std::vector<size_t>&& _splits,
+        CSVRow(
+            std::shared_ptr<std::string> _str,
+            std::string_view _row_str,
+            std::vector<size_t>&& _splits,
             std::shared_ptr<internals::ColNames> _cnames = nullptr) :
-            row_str(std::move(_str)),
+            str(_str),
+            row_str(_row_str),
             splits(std::move(_splits)),
             col_names(_cnames)
         {};
+
+        CSVRow(
+            std::string _row_str,
+            std::vector<size_t>&& _splits,
+            std::shared_ptr<internals::ColNames> _cnames = nullptr
+            ) :
+            str(std::make_shared<std::string>(_row_str)),
+            splits(std::move(_splits)),
+            col_names(_cnames)
+        {
+            row_str = std::string_view(this->str->c_str());
+        };
 
         bool empty() const { return this->row_str.empty(); }
         size_t size() const;
@@ -164,7 +180,8 @@ namespace csv {
 
     private:
         std::shared_ptr<internals::ColNames> col_names = nullptr;
-        std::string row_str;
+        std::shared_ptr<std::string> str = nullptr;
+        std::string_view row_str;
         std::vector<size_t> splits;
     };
 

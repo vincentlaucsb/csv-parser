@@ -23,6 +23,7 @@ set(TEST_SOURCES
 	${TEST_DIR}/catch.hpp
 	${TEST_DIR}/main.cpp
 	${TEST_DIR}/test_csv_iterator.cpp
+	${TEST_DIR}/test_csv_buffer.cpp
 	${TEST_DIR}/test_csv_row.cpp
 	${TEST_DIR}/test_data_type.cpp
 	${TEST_DIR}/test_csv_stat.cpp

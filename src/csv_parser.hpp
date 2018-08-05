@@ -75,6 +75,19 @@ namespace csv {
         bool is_equal(double a, double b, double epsilon = 0.001);
         std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
+
+        /** Class for reducing number of new string malloc() calls */
+        struct GiantStringBuffer {
+            std::string_view get_row();
+            size_t size() const;
+            std::string* get();
+            std::string* operator->();
+            void operator+=(const char);
+
+            std::shared_ptr<std::string> buffer = nullptr;
+            size_t current_end = 0;
+            void reset();
+        };
     }
 
     /** @name Global Constants */
@@ -216,16 +229,11 @@ namespace csv {
 
             std::vector<CSVReader::ParseFlags> make_flags() const;
 
-            std::string record_buffer = ""; /**<
+            internals::GiantStringBuffer record_buffer; /**<
                 @brief Buffer for current row being parsed */
 
             std::vector<size_t> split_buffer; /**<
                 @brief Positions where current row is split */
-
-            size_t min_row_len = (size_t)INFINITY; /**<
-                @brief Shortest row seen so far; used to determine how much memory
-                       to allocate for new strings */
-            size_t max_row_len = 0;
 
             std::deque<CSVRow> records; /**< @brief Queue of parsed CSV rows */
             inline bool eof() { return !(this->infile); };

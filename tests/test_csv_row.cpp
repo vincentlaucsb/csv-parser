@@ -20,7 +20,11 @@ CSVRow make_row() {
         "Col4";
 
     std::vector<size_t> splits = { 4, 8, 12 };
-    return CSVRow(std::move(str), std::move(splits), col_names);
+    return CSVRow(
+        std::move(str),
+        std::move(splits),
+        col_names
+    );
 }
 
 CSVRow make_numeric_row() {

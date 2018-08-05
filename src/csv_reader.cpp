@@ -24,6 +24,55 @@ namespace csv {
         }
 
         //
+        // GiantStringBuffer
+        //
+        std::string_view GiantStringBuffer::get_row() {
+            /**
+             * Return a string_viewo ver the current_row
+             */
+                        
+            std::string_view ret(
+                this->buffer->c_str() + this->current_end, // Beginning of string
+                (this->buffer->size() - this->current_end) // Count
+            );
+
+            this->current_end = this->buffer->size();
+            return ret;
+        }
+
+        void GiantStringBuffer::operator+=(const char ch) {
+            *(this->buffer) += ch;
+        }
+
+        size_t GiantStringBuffer::size() const {
+            // Return size of current row
+            return (this->buffer->size() - this->current_end);
+        }
+
+        std::string* GiantStringBuffer::get() {
+            return this->buffer.get();
+        }
+
+        std::string* GiantStringBuffer::operator->() {
+            if (!this->buffer)
+                this->buffer = std::make_shared<std::string>();
+
+            return this->buffer.operator->();
+        }
+
+        void GiantStringBuffer::reset() {
+            auto temp_str = this->buffer->substr(
+                this->current_end,   // Position
+                (this->buffer->size() - this->current_end) // Count
+            );
+
+            this->current_end = 0;
+            this->buffer = std::make_shared<std::string>(
+                temp_str
+            );
+        }
+
+        //
         // CSVGuesser
         //
         void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
@@ -327,18 +376,22 @@ namespace csv {
 
         bool quote_escape = false;  // Are we currently in a quote escaped field?
 
+        // Optimization
+        this->record_buffer->reserve(in.size());
+        std::string& _record_buffer = *(this->record_buffer.get());
+
         for (size_t i = 0; i < in.size(); i++) {
             if (!quote_escape) {
                 switch (this->parse_flags[in[i] + 128]) {
                 case NOT_SPECIAL:
-                    this->record_buffer += in[i];
+                    _record_buffer +=in[i];
                     break;
                 case DELIMITER:
                     this->split_buffer.push_back(this->record_buffer.size());
                     break;
                 case NEWLINE:
                     // End of record -> Write record
-                    if (in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                    if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
                         ++i;
                     this->write_record();
                     break;
@@ -357,7 +410,7 @@ namespace csv {
                 case DELIMITER:
                 case NEWLINE:
                     // Treat as a regular character
-                    this->record_buffer += in[i];
+                    _record_buffer +=in[i];
                     break;
                 default: // Quote
                     auto next_ch = this->parse_flags[in[i + 1] + 128];
@@ -367,7 +420,7 @@ namespace csv {
                     }
                     else {
                         // Case: Escaped quote
-                        this->record_buffer += in[i];
+                        _record_buffer +=in[i];
 
                         if (next_ch == QUOTE)
                             ++i;  // Case: Two consecutive quotes
@@ -379,6 +432,8 @@ namespace csv {
                 }
             }
         }
+
+        this->record_buffer.reset();
     }
 
     void CSVReader::end_feed() {
@@ -394,11 +449,10 @@ namespace csv {
          */
 
         size_t col_names_size = this->col_names->size();
-        this->min_row_len = std::min(this->min_row_len, this->record_buffer.size());
-        this->max_row_len = std::max(this->max_row_len, this->record_buffer.size());
 
         auto row = CSVRow(
-            std::move(this->record_buffer),
+            this->record_buffer.buffer,
+            this->record_buffer.get_row(),
             std::move(this->split_buffer),
             this->col_names
         );
@@ -424,11 +478,6 @@ namespace csv {
         } // else: Ignore rows before header row
 
         // Some memory allocation optimizations
-        this->record_buffer = "";
-        if (this->record_buffer.capacity() < 
-            this->min_row_len + (this->max_row_len - this->min_row_len)/2)
-            record_buffer.reserve(size_t(this->min_row_len + ((this->max_row_len - this->min_row_len) / 2)));
-
         this->split_buffer = {};
         if (this->split_buffer.capacity() < col_names_size)
             split_buffer.reserve(col_names_size);
