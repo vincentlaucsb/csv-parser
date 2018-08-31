@@ -180,10 +180,10 @@ using namespace csv;
 ...
 
 // Method 1: Using parse()
-std::string csv_string = "Actor,Character"
+std::string csv_string = "Actor,Character\r\n"
     "Will Ferrell,Ricky Bobby\r\n"
     "John C. Reilly,Cal Naughton Jr.\r\n"
-    "Sacha Baron Cohen,Jean Giard\r\n"
+    "Sacha Baron Cohen,Jean Giard\r\n";
 
 auto rows = parse(csv_string);
 for (auto& r: rows) {
@@ -191,7 +191,7 @@ for (auto& r: rows) {
 }
     
 // Method 2: Using _csv operator
-auto rows = "Actor,Character"
+auto rows = "Actor,Character\r\n"
     "Will Ferrell,Ricky Bobby\r\n"
     "John C. Reilly,Cal Naughton Jr.\r\n"
     "Sacha Baron Cohen,Jean Giard\r\n"_csv;
