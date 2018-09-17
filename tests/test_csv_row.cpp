@@ -4,30 +4,69 @@
 #include "csv_parser.hpp"
 using namespace csv;
 
-CSVRow make_row();
-CSVRow make_numeric_row();
-
-CSVRow make_row() {
+// Construct a CSVRow and assert that its interface works as expected
+TEST_CASE("CSVRow Test", "[test_csv_row]") {
     // Create a row of size 4
     auto col_names = std::make_shared<internals::ColNames>(
         std::vector<std::string>({ "A", "B", "C", "D" })
-    );
+        );
 
-    std::string str;
-    str += "Col1"
+    std::string str = "Col1"
         "Col2"
         "Col3"
         "Col4";
 
     std::vector<size_t> splits = { 4, 8, 12 };
-    return CSVRow(
+
+    CSVRow row(
         std::move(str),
         std::move(splits),
         col_names
     );
+
+    bool error_caught = false;
+
+    SECTION("size() Check") {
+        REQUIRE(row.size() == 4);
+    }
+
+    SECTION("operator[]") {
+        REQUIRE(row[1] == "Col2");
+        REQUIRE(row["B"] == "Col2");
+
+        REQUIRE(row[2] == "Col3");
+        REQUIRE(row["C"] == "Col3");
+    }
+
+    SECTION("operator[] Out of Bounds") {
+        try {
+            auto dne = row[4].get<>();
+        }
+        catch (std::runtime_error& err) {
+            error_caught = true;
+        }
+
+        REQUIRE(error_caught);
+    }
+
+    SECTION("operator[] Access Non-Existent Column") {
+        try {
+            row["Col5"].get<>();
+        }
+        catch (std::runtime_error& err) {
+            error_caught = true;
+        }
+
+        REQUIRE(error_caught);
+    }
+
+    SECTION("Content Check") {
+        REQUIRE(std::vector<std::string>(row) ==
+            std::vector<std::string>({ "Col1", "Col2", "Col3", "Col4" }));
+    }
 }
 
-CSVRow make_numeric_row() {
+TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
     auto col_names = std::make_shared<internals::ColNames>(
         std::vector<std::string>({ "A", "B", "C", "D" })
         );
@@ -39,54 +78,8 @@ CSVRow make_numeric_row() {
         "3.14";
 
     std::vector<size_t> splits = { 1, 2, 3 };
-    return CSVRow(std::move(str), std::move(splits), col_names);
-}
+    CSVRow row(std::move(str), std::move(splits), col_names);
 
-TEST_CASE("CSVRow Size Check", "[test_csv_row_size]") {
-    auto row = make_row();
-    REQUIRE(row.size() == 4);
-}
-
-TEST_CASE("CSVRow operator[]", "[test_csv_row_index]") {
-    auto row = make_row();
-    REQUIRE(row[1] == "Col2");
-    REQUIRE(row["B"] == "Col2");
-
-    REQUIRE(row[2] == "Col3");
-    REQUIRE(row["C"] == "Col3");
-}
-
-TEST_CASE("CSVRow operator[] Out of Bounds", "[test_csv_row_index_error]") {
-    auto row = make_row();
-    bool error_caught = false;
-    try {
-        auto dne = row[4].get<>();
-    }
-    catch (std::runtime_error& err) {
-        error_caught = true;
-    }
-    
-    REQUIRE(error_caught);
-
-    // Try accessing a non-existent column
-    try {
-        auto dne = row["Col5"].get<>();
-    }
-    catch (std::runtime_error& err) {
-        error_caught = true;
-    }
-
-    REQUIRE(error_caught);
-}
-
-TEST_CASE("CSVRow Content Check", "[test_csv_row_contents]") {
-    auto row = make_row();
-    REQUIRE(std::vector<std::string>(row) ==
-        std::vector<std::string>({ "Col1", "Col2", "Col3", "Col4" }));
-}
-
-TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
-    auto row = make_numeric_row();
     REQUIRE(row["A"] == 1);
     REQUIRE(row["B"] == 2);
     REQUIRE(row["C"] == 3);

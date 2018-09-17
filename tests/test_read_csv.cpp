@@ -65,6 +65,18 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     REQUIRE( vector<string>(row) == first_row );
 }
 
+TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
+    auto rows = "\uFEFFA,B,C\r\n" // Header row
+        "123,234,345\r\n"
+        "1,2,3\r\n"
+        "1,2,3"_csv;
+
+    // Expected Results
+    auto row = rows.front();
+    vector<string> first_row = { "123", "234", "345" };
+    REQUIRE(vector<string>(row) == first_row);
+}
+
 //! [Escaped Comma]
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
     auto rows = "A,B,C\r\n" // Header row
@@ -161,12 +173,13 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
 
 TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
     // Make sure attempting to parse a non-existent CSV throws an error
-    bool error_caught = true;
+    bool error_caught = false;
 
     try {
         CSVReader reader("./lochness.csv");
     }
     catch (std::runtime_error& err) {
+        error_caught = true;
         REQUIRE(err.what() == std::string("Cannot open file ./lochness.csv"));
     }
 

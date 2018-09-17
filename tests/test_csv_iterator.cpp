@@ -6,74 +6,65 @@
 #include "csv_parser.hpp"
 using namespace csv;
 
-auto make_csv_row();
-auto make_csv_row() {
-    auto rows = "A,B,C\r\n" // Header row
-        "123,234,345\r\n"
-        "1,2,3\r\n"
-        "1,2,3"_csv;
-
-    return rows.front();
-}
-
 //////////////////////
 // CSVRow Iterators //
 //////////////////////
 
-TEST_CASE("Test CSVRow Iterator", "[csv_iter]") {
-    auto row = make_csv_row();
+TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
+    auto rows = "A,B,C\r\n" // Header row
+        "123,234,345\r\n"
+        "1,2,3\r\n"
+        "1,2,3"_csv;
+    auto row = rows.front();
 
-    // Forwards
-    REQUIRE(row.begin()->get<int>() == 123);
-    REQUIRE((row.end() - 1)->get<>() == "345");
+    SECTION("Forwards and Backwards Iterators") {
+        // Forwards
+        REQUIRE(row.begin()->get<int>() == 123);
+        REQUIRE((row.end() - 1)->get<>() == "345");
 
-    size_t i = 0;
-    for (auto it = row.begin(); it != row.end(); ++it) {
-        if (i == 0) REQUIRE(it->get<>() == "123");
-        else if (i == 1) REQUIRE(it->get<>() == "234");
-        else  REQUIRE(it->get<>() == "345");
+        size_t i = 0;
+        for (auto it = row.begin(); it != row.end(); ++it) {
+            if (i == 0) REQUIRE(it->get<>() == "123");
+            else if (i == 1) REQUIRE(it->get<>() == "234");
+            else  REQUIRE(it->get<>() == "345");
 
-        i++;
+            i++;
+        }
+
+        // Backwards
+        REQUIRE(row.rbegin()->get<int>() == 345);
+        REQUIRE((row.rend() - 1)->get<>() == "123");
     }
 
-    // Backwards
-    REQUIRE(row.rbegin()->get<int>() == 345);
-    REQUIRE((row.rend() - 1)->get<>() == "123");
-}
+    SECTION("Iterator Arithmetic") {
+        REQUIRE(row.begin()->get<int>() == 123);
+        REQUIRE((row.end() - 1)->get<>() == "345");
 
-TEST_CASE("Test CSVRow Iterator Arithmetic", "[csv_iter_math]") {
-    auto row = make_csv_row();
+        auto row_start = row.begin();
+        REQUIRE(*(row_start + 1) == "234");
+        REQUIRE(*(row_start + 2) == "345");
 
-    REQUIRE(row.begin()->get<int>() == 123);
-    REQUIRE((row.end() - 1)->get<>() == "345");
+    }
 
-    auto row_start = row.begin();
-    REQUIRE(*(row_start + 1) == "234");
-    REQUIRE(*(row_start + 2) == "345");
+    SECTION("Post-Increment Iterator") {
+        auto it = row.begin();
 
-}
+        REQUIRE(it++->get<int>() == 123);
+        REQUIRE(it->get<int>() == 234);
 
-TEST_CASE("Test CSVRow Post-Increment Iterator", "[csv_iter_postinc]") {
-    auto row = make_csv_row();
-    auto it = row.begin();
-    
-    REQUIRE(it++->get<int>() == 123);
-    REQUIRE(it->get<int>() == 234);
-    
-    REQUIRE(it--->get<int>() == 234);
-    REQUIRE(it->get<int>() == 123);
-}
+        REQUIRE(it--->get<int>() == 234);
+        REQUIRE(it->get<int>() == 123);
+    }
 
-TEST_CASE("Test CSVRow Range Based For", "[csv_iter_for]") {
-    auto row = make_csv_row();
+    SECTION("Range Based For") {
+        size_t i = 0;
+        for (auto& field : row) {
+            if (i == 0) REQUIRE(field.get<>() == "123");
+            else if (i == 1) REQUIRE(field.get<>() == "234");
+            else  REQUIRE(field.get<>() == "345");
 
-    size_t i = 0;
-    for (auto& field: row) {
-        if (i == 0) REQUIRE(field.get<>() == "123");
-        else if (i == 1) REQUIRE(field.get<>() == "234");
-        else  REQUIRE(field.get<>() == "345");
-
-        i++;
+            i++;
+        }
     }
 }
 
@@ -83,38 +74,35 @@ TEST_CASE("Test CSVRow Range Based For", "[csv_iter_for]") {
 
 //! [CSVReader Iterator 1]
 TEST_CASE("Basic CSVReader Iterator Test", "[read_ints_iter]") {
-    // A file where each value in the ith row is the number i
-    // There are 100 rows
-    CSVReader reader("./tests/data/fake_data/ints.csv");
-    
-    size_t i = 1;
-    for (auto it = reader.begin(); it != reader.end(); ++it) {
-        REQUIRE((*it)[0].get<int>() == i);
-        i++;
-    }
-}
-
-TEST_CASE("Basic CSVReader Range-Based For Test", "[read_ints_range]") {
+    // A file with 100 rows and columns A, B, ... J
+    // where every value in the ith row is the number i
     CSVReader reader("./tests/data/fake_data/ints.csv");
     std::vector<std::string> col_names = {
         "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"
     };
-
     size_t i = 1;
-    for (auto& row : reader) {
-        for (auto& j : col_names) REQUIRE(row[j].get<int>() == i);
-        i++;
+
+    SECTION("Basic Iterator") {
+        for (auto it = reader.begin(); it != reader.end(); ++it) {
+            REQUIRE((*it)[0].get<int>() == i);
+            i++;
+        }
+    }
+
+    SECTION("Iterator Post-Increment") {
+        auto it = reader.begin();
+        REQUIRE((it++)->operator[]("A").get<int>() == 1);
+        REQUIRE(it->operator[]("A").get<int>() == 2);
+    }
+
+    SECTION("Range-Based For Loop") {
+        for (auto& row : reader) {
+            for (auto& j : col_names) REQUIRE(row[j].get<int>() == i);
+            i++;
+        }
     }
 }
 //! [CSVReader Iterator 1]
-
-TEST_CASE("CSVReader Post-Increment Iterator", "[read_ints_post_iter]") {
-    CSVReader reader("./tests/data/fake_data/ints.csv");
-
-    auto it = reader.begin();
-    REQUIRE((it++)->operator[]("A").get<int>() == 1);
-    REQUIRE(it->operator[]("A").get<int>() == 2);
-}
 
 //! [CSVReader Iterator 2]
 TEST_CASE("CSVReader Iterator + std::max_elem", "[iter_max_elem]") {

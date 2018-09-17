@@ -57,6 +57,9 @@ namespace csv {
 
         /**< @brief RFC 4180 non-compliance -> throw an error */
         bool strict;
+
+        /**< @brief Detect and strip out Unicode byte order marks */
+        bool unicode_detect;
     };
 
     /** Returned by get_file_info() */
@@ -98,13 +101,13 @@ namespace csv {
     const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
     /** @brief A dummy variable used to indicate delimiter should be guessed */
-    const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false };
+    const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false, true };
 
     /** @brief RFC 4180 CSV format */
-    const CSVFormat DEFAULT_CSV = { ',', '"', 0, {}, false };
+    const CSVFormat DEFAULT_CSV = { ',', '"', 0, {}, false, true };
 
     /** @brief RFC 4180 CSV format with strict parsing */
-    const CSVFormat DEFAULT_CSV_STRICT = { ',', '"', 0, {}, true };
+    const CSVFormat DEFAULT_CSV_STRICT = { ',', '"', 0, {}, true, true };
     ///@}
 
     /** @class CSVReader
@@ -201,6 +204,7 @@ namespace csv {
             RowCount correct_rows = 0;   /**< @brief How many correct rows
                                           *    (minus header) have been parsed so far
                                           */
+            bool utf8_bom = false;       /**< @brief Set to true if UTF-8 BOM was detected */
             ///@}
 
             void close();               /**< @brief Close the open file handle.
@@ -264,6 +268,9 @@ namespace csv {
             */
             std::shared_ptr<internals::ColNames> col_names =
                 std::make_shared<internals::ColNames>(std::vector<std::string>({}));
+
+            /** <@brief Whether or not an attempt to find Unicode BOM has been made */
+            bool unicode_bom_scan = false;
             ///@}
 
             /** @name Multi-Threaded File Reading Functions */

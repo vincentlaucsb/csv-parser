@@ -28,7 +28,7 @@ namespace csv {
         //
         std::string_view GiantStringBuffer::get_row() {
             /**
-             * Return a string_viewo ver the current_row
+             * Return a string_view over the current_row
              */
                         
             std::string_view ret(
@@ -299,7 +299,8 @@ namespace csv {
      */
     CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.delim), quote_char(format.quote_char),
-        header_row(format.header), strict(format.strict) {
+        header_row(format.header), strict(format.strict),
+        unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->header_row = -1;
             this->col_names = std::make_shared<internals::ColNames>(format.col_names);
@@ -375,6 +376,16 @@ namespace csv {
         if (parse_flags.empty()) parse_flags = this->make_flags();
 
         bool quote_escape = false;  // Are we currently in a quote escaped field?
+
+        // Unicode BOM Handling
+        if (!this->unicode_bom_scan) {
+            if (in[0] == 0xEF && in[1] == 0xBB && in[2] == 0xEF) {
+                in.remove_prefix(3); // Remove BOM from input string
+                this->utf8_bom = true;
+            }
+
+            this->unicode_bom_scan = true;
+        }
 
         // Optimization
         this->record_buffer->reserve(in.size());
