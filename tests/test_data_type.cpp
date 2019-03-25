@@ -54,3 +54,41 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
     REQUIRE(data_type(e, &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 2.71828));
 }
+
+TEST_CASE("Integer Overflow", "[int_overflow]") {
+    const long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+    const long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+    const long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+
+    std::string s;
+    long double out;
+    
+    s = std::to_string((long long)_INT_MAX + 1);
+    if (_INT_MAX == _LONG_MAX) {
+        REQUIRE(data_type(s, &out) == CSV_LONG_LONG_INT);
+    }
+    else {
+        REQUIRE(data_type(s, &out) == CSV_LONG_INT);
+    }
+
+    REQUIRE(out == (long long)_INT_MAX + 1);
+}
+
+TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
+    std::string s("0.15");
+    long double out;
+    REQUIRE(data_type(s, &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.15));
+}
+
+TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
+    // Test converting double values back and forth
+    long double out;
+    std::string s;
+
+    for (double i = 0; i <= 2.0; i += 0.01) {
+        s = std::to_string(i);
+        REQUIRE(data_type(s, &out) == CSV_DOUBLE);
+        REQUIRE(is_equal(out, i));
+    }
+}

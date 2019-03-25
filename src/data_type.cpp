@@ -20,6 +20,10 @@ namespace csv::internals {
     };
     #endif
 
+    const long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+    const long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+    const long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+
     DataType data_type(std::string_view in, long double* const out) {
         /** Distinguishes numeric from other text values. Used by various
         *  type casting functions, like csv_parser::CSVReader::read_row()
@@ -43,7 +47,7 @@ namespace csv::internals {
         bool prob_float = false;
 
         unsigned places_after_decimal = 0;
-        long double num_buff = 0;
+        unsigned long significand = 0;
 
         for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
             const char& current = in[i];
@@ -66,18 +70,16 @@ namespace csv::internals {
                     // Ex: '510-123-4567'
                     return CSV_STRING;
                 }
-                else {
-                    neg_allowed = false;
-                }
+                
+                neg_allowed = false;
                 break;
             case '.':
                 if (!dot_allowed) {
                     return CSV_STRING;
                 }
-                else {
-                    dot_allowed = false;
-                    prob_float = true;
-                }
+
+                dot_allowed = false;
+                prob_float = true;
                 break;
             default:
                 if (isdigit(current)) {
@@ -91,16 +93,11 @@ namespace csv::internals {
 
                     // Build current number
                     unsigned digit = current - '0';
-                    if (num_buff == 0) {
-                        num_buff = digit;
+                    if (prob_float) {
+                        places_after_decimal++;
                     }
-                    else if (prob_float) {
-                        num_buff += (long double)digit / pow(10.0, ++places_after_decimal);
-                    }
-                    else {
-                        num_buff *= 10;
-                        num_buff += digit;
-                    }
+
+                    significand = (significand * 10) + digit;
                 }
                 else {
                     return CSV_STRING;
@@ -110,29 +107,24 @@ namespace csv::internals {
 
         // No non-numeric/non-whitespace characters found
         if (has_digit) {
-            if (!neg_allowed) num_buff *= -1;
-            if (out) *out = num_buff;
+            long double number = significand * pow(10, -(double)places_after_decimal);
+            if (out) *out = neg_allowed ? number : -number;
 
             if (prob_float)
                 return CSV_DOUBLE;
-            else {
-                long double log10_num_buff;
-                if (!neg_allowed) log10_num_buff = log10(-num_buff);
-                else log10_num_buff = log10(num_buff);
 
-                if (log10_num_buff < log10(std::numeric_limits<int>::max()))
-                    return CSV_INT;
-                else if (log10_num_buff < log10(std::numeric_limits<long int>::max()))
-                    return CSV_LONG_INT;
-                else if (log10_num_buff < log10(std::numeric_limits<long long int>::max()))
-                    return CSV_LONG_LONG_INT;
-                else // Conversion to long long will cause an overflow
-                    return CSV_DOUBLE;
-            }
+            // We can assume number is always positive
+            if (number < _INT_MAX)
+                return CSV_INT;
+            else if (number < _LONG_MAX)
+                return CSV_LONG_INT;
+            else if (number < _LONG_LONG_MAX)
+                return CSV_LONG_LONG_INT;
+            else // Conversion to long long will cause an overflow
+                return CSV_DOUBLE;
         }
-        else {
-            // Just whitespace
-            return CSV_NULL;
-        }
+
+        // Just whitespace
+        return CSV_NULL;
     }
 }
