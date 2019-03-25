@@ -251,6 +251,8 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     csv_string << "3.14,9999" << std::endl
         << "60,70" << std::endl
         << "," << std::endl
+        << (std::numeric_limits<long>::max() - 100) << "," 
+            << (std::numeric_limits<long long>::max()/2) << std::endl
         << std::to_string(big_num) << "," << std::endl;
 
     auto rows = parse(csv_string.str(), format);
@@ -274,6 +276,17 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     row = rows.front();
     REQUIRE(row[0].is_null());
     REQUIRE(row[1].is_null());
+
+    // Fourth Row
+    rows.pop_front();
+    row = rows.front();
+    
+    // Older versions of g++ have issues with numeric_limits
+#if (!defined(__GNUC__) || __GNUC__ >= 5)
+    REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT));
+    REQUIRE(row[0].get<long>() == std::numeric_limits<long>::max() - 100);
+    // REQUIRE(row[1].get<long long>() == std::numeric_limits<long long>::max()/2);
+#endif
 
     // Fourth Row
     rows.pop_front();
