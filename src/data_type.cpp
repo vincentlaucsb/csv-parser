@@ -47,7 +47,8 @@ namespace csv::internals {
         bool prob_float = false;
 
         unsigned places_after_decimal = 0;
-        unsigned long significand = 0;
+        long double integral_part = 0,
+            decimal_part = 0;
 
         for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
             const char& current = in[i];
@@ -95,9 +96,11 @@ namespace csv::internals {
                     unsigned digit = current - '0';
                     if (prob_float) {
                         places_after_decimal++;
+                        decimal_part = (decimal_part * 10) + digit;
                     }
-
-                    significand = (significand * 10) + digit;
+                    else {
+                        integral_part = (integral_part * 10) + digit;
+                    }
                 }
                 else {
                     return CSV_STRING;
@@ -107,7 +110,7 @@ namespace csv::internals {
 
         // No non-numeric/non-whitespace characters found
         if (has_digit) {
-            long double number = significand * pow(10, -(double)places_after_decimal);
+            long double number = integral_part + decimal_part * pow(10, -(double)places_after_decimal);
             if (out) *out = neg_allowed ? number : -number;
 
             if (prob_float)
