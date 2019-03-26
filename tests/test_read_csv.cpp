@@ -291,8 +291,9 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     // Fourth Row
     rows.pop_front();
     row = rows.front();
+    double big_num_csv = row[0].get<double>();
     REQUIRE(row[0].type() == CSV_DOUBLE); // Overflow
-    REQUIRE(internals::is_equal(row[0].get<double>(), big_num));
+    REQUIRE(internals::is_equal(big_num_csv, big_num));
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
