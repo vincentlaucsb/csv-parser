@@ -2,8 +2,6 @@
 #include "../external/string_view.hpp"
 
 namespace csv {
-    using namespace std::literals;
-    using namespace nonstd::literals;
     using namespace nonstd;
 
     #if __cplusplus == 201703L

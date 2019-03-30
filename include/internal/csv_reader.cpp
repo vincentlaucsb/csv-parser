@@ -489,7 +489,7 @@ namespace csv {
                 this->feed_buffer.push_back(std::move(buffer));
                 this->feed_cond.notify_one();
 
-                buffer = std::make_unique<char[]>(BUFFER_UPPER_LIMIT); // New pointer
+                buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
             }
         }
