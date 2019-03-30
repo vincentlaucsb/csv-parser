@@ -1,6 +1,56 @@
 import os
 import re
 
+def header_list(files: list) -> list:
+    '''
+    Given a list of file, compute the list of header files in the order in which they should
+    be included to avoid conflicts
+    '''
+
+    dependencies = {}
+    headers = []
+
+    ''' Iterate over every .cpp and .hpp file '''
+    for file in files:
+        if (file[-4:] == '.hpp' or file[-2:] == '.h'):
+            dependencies[file] = get_dependencies(file)['local']
+
+    while dependencies:
+        for file in list(dependencies.keys()):
+            # Remove includes we've already included
+            dependencies[file] = [i for i in dependencies[file] if i not in headers]
+
+            # If no more dependencies, add file
+            if not dependencies[file]:
+                headers.append(file)
+                dependencies.pop(file)
+
+    return headers
+
+def get_dependencies(file: str) -> dict:
+    ''' Parse a .cpp/.hpp file for its system and local dependencies '''
+
+    dirname = os.path.dirname(file)
+
+    headers = {
+        "system": [],
+        "local": []
+    }
+
+    with open(file, mode='r') as infile:
+        for line in infile:
+            sys_include = re.search('#include <(?P<file>.*)>', line)
+            local_include = re.search('#include "(?P<file>.*)"', line)
+            if sys_include:
+                headers["system"].append(sys_include.group('file'))
+            elif local_include:
+                headers["local"].append(os.path.join(dirname, local_include.group('file')))
+
+            if 'namespace' in line:
+                break
+
+    return headers
+
 class Sources(object):
     def __init__(self):
         self.files = []
@@ -34,43 +84,74 @@ class Sources(object):
         return self.current_lines.pop()
        
 if __name__ == "__main__":
-    # Set of "#include <...>"
-    sys_includes = set()
+    ''' Iterate over every .cpp and .hpp file '''
+    headers = []
+    sources = []
+    system_includes = set()
+
+    for dir in os.walk('src'):
+        files = dir[2]
+
+        for file in files:
+            fname = os.path.join(dir[0], file)
+
+            if (file[-4:] == '.hpp' or file[-2:] == '.h'):
+                headers.append(fname)
+            elif (file[-4:] == '.cpp'):
+                sources.append(fname)
+
+    # Rearrange header order to avoid compilation conflicts
+    headers = header_list(headers)
+
+    # Get system includes
+    for file in sources + headers:       
+        for include in get_dependencies(file)['system']:
+            system_includes.add(include)
 
     # Mapping of strings to namespace contents
-    namespaces = dict()
+    source_namespaces = dict()
 
-    parser = Sources()
-
-    for line in parser:
-        # Deal with includes
-        rmatch = re.match('#include <.*>', line)
-        if (rmatch):
-            # Extract include text w/o extraneous whitespace
-            sys_includes.add(rmatch.group(0))
-
-        rmatch = re.match('namespace', line)
-        if (rmatch):
-            rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', parser.current_source)
+    for cpp in sources:
+        with open(cpp, mode='r') as infile:
+            rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', infile.read())
             if (rmatch):
                 name = rmatch.group('name')
-                if name in namespaces:
-                    namespaces[name] += rmatch.group('code')
+                if name in source_namespaces:
+                    source_namespaces[name] += rmatch.group('code')
                 else:
-                    namespaces[name] = rmatch.group('code')
+                    source_namespaces[name] = rmatch.group('code')
 
-            parser.skip_to_next_file()
+    # Mapping of strings to namespace contents
+    header_namespaces = dict()
+    
+    for hpp in headers:
+        with open(hpp, mode='r') as infile:
+            rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', infile.read())
+            if (rmatch):
+                name = rmatch.group('name')
+                if name in header_namespaces:
+                    header_namespaces[name] += rmatch.group('code')
+                else:
+                    header_namespaces[name] = rmatch.group('code')
 
-    # Create single header file
-    sys_includes = list(sys_includes)
-    sys_includes.sort()
+    # Generate hpp file
+    system_includes = list(system_includes)
+    system_includes.sort()
+    for i in system_includes:
+        print("#include <{}>".format(i))
 
-    for i in sys_includes:
-        print(i)
-
-    for k in namespaces:
+    # Collate header source code
+    for k in header_namespaces:
         formatted = "namespace {name} {{ {code} }}"
         print(formatted.format(
             name=k,
-            code=namespaces[k]
+            code=header_namespaces[k]
+        ))
+
+    # Collate source code
+    for k in source_namespaces:
+        formatted = "namespace {name} {{ {code} }}"
+        print(formatted.format(
+            name=k,
+            code=source_namespaces[k]
         ))
