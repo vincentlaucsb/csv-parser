@@ -1,7 +1,7 @@
 // Tests for the CSVRow and CSVField Data Structures
 
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 using namespace csv;
 
 // Construct a CSVRow and assert that its interface works as expected

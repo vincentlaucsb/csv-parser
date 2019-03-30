@@ -1,5 +1,5 @@
-#include "csv_row.hpp"
 #include <functional>
+#include "csv_row.hpp"
 
 namespace csv {
     namespace internals {

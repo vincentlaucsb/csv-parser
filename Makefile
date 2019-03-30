@@ -1,11 +1,11 @@
 BUILD_DIR = build
 TEST_DIR = tests
-IDIR = src/
+IDIR = include/
 CFLAGS = -pthread -std=c++17
 TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 
 # Main Library
-SOURCES = $(wildcard src/*.cpp)
+SOURCES = $(wildcard include/internal/*.cpp)
 OBJECTS = $(subst .cpp,.o,$(subst src/,$(BUILD_DIR)/,$(SOURCES)))
 
 TEST_SOURCES = $(wildcard tests/*.cpp)

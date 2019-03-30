@@ -1,5 +1,5 @@
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 #include <string>
 
 using namespace csv;

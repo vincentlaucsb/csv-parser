@@ -10,14 +10,17 @@ else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -lgcov --coverage")
 endif(MSVC)
 
-set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
+set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/include/internal/)
 set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
+
+# file(GLOB_RECURSE SOURCES include/ *.hpp *.cpp)
 set(SOURCES
-    ${SOURCE_DIR}/csv_reader.cpp
-    ${SOURCE_DIR}/csv_reader_iterator.cpp
-    ${SOURCE_DIR}/csv_row.cpp
-    ${SOURCE_DIR}/csv_stat.cpp
-    ${SOURCE_DIR}/data_type.cpp
+	${SOURCE_DIR}/csv_reader.cpp
+	${SOURCE_DIR}/csv_reader_iterator.cpp
+	${SOURCE_DIR}/csv_row.cpp
+	${SOURCE_DIR}/csv_stat.cpp
+	${SOURCE_DIR}/csv_utility.cpp
+	${SOURCE_DIR}/data_type.cpp
 )
 set(TEST_SOURCES
 	${TEST_DIR}/catch.hpp
@@ -31,7 +34,7 @@ set(TEST_SOURCES
 	${TEST_DIR}/test_write_csv.cpp
 )
 
-include_directories(${SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_LIST_DIR}/include/)
 include_directories(${TEST_DIR})
 
 ## Main Library
@@ -49,7 +52,8 @@ add_executable(csv_stats ${CMAKE_CURRENT_LIST_DIR}/programs/csv_stats.cpp)
 target_link_libraries(csv_stats csv)
 
 ## Tests
-add_executable(csv_test ${SOURCES} ${TEST_SOURCES})
+add_executable(csv_test ${TEST_SOURCES})
+target_link_libraries(csv_test csv)
 add_custom_command(
 	TARGET csv_test POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
