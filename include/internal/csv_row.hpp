@@ -2,7 +2,7 @@
 // Auxiliary data structures for CSV parser
 
 #include "data_type.h"
-#include "string_view.hpp"
+#include "compatibility.hpp"
 
 #include <math.h>
 #include <vector>
@@ -80,7 +80,7 @@ namespace csv {
 
     private:
         long double value = 0;
-        csv::string_view sv;
+        csv::string_view sv = "";
         int _type = -1;
         void get_value();
     };
@@ -159,6 +159,10 @@ namespace csv {
 
             bool operator==(const iterator&) const;
             bool operator!=(const iterator& other) const { return !operator==(other); }
+
+            #ifndef NDEBUG
+            friend CSVRow;
+            #endif
 
         private:
             const CSVRow * daddy = nullptr;            // Pointer to parent

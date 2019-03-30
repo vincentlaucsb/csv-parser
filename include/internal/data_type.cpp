@@ -1,5 +1,5 @@
 #include "data_type.h"
-#include "string_view.hpp"
+#include "compatibility.hpp"
 
 namespace csv {
     namespace internals {

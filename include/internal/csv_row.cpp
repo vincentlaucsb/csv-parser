@@ -1,3 +1,4 @@
+#include <cassert>
 #include <functional>
 #include "csv_row.hpp"
 

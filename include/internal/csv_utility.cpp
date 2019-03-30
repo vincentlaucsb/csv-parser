@@ -1,7 +1,7 @@
 #include <vector>
 
 #include "constants.hpp"
-#include "csv_utility.h"
+#include "csv_utility.hpp"
 #include "csv_reader.hpp"
 
 namespace csv {
@@ -65,7 +65,11 @@ namespace csv {
     CSVFileInfo get_file_info(const std::string& filename) {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
-        for (auto& row : reader);
+        for (auto& row : reader) {
+            #ifndef NDEBUG
+            SUPPRESS_UNUSED_WARNING(row);
+            #endif
+        }
 
         CSVFileInfo info = {
             filename,

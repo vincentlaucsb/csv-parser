@@ -3,7 +3,7 @@
 #include <cctype>
 #include <string>
 
-#include "string_view.hpp"
+#include "compatibility.hpp"
 
 namespace csv {
     /** Enumerates the different CSV field types that are
