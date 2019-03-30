@@ -31,7 +31,6 @@ namespace csv {
             size_t size() const;
             std::string* get();
             std::string* operator->();
-            void operator+=(const char);
 
             std::shared_ptr<std::string> buffer = nullptr;
             size_t current_end = 0;

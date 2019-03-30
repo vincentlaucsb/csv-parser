@@ -41,10 +41,6 @@ namespace csv {
             return ret;
         }
 
-        void GiantStringBuffer::operator+=(const char ch) {
-            *(this->buffer) += ch;
-        }
-
         size_t GiantStringBuffer::size() const {
             // Return size of current row
             return (this->buffer->size() - this->current_end);
