@@ -2,7 +2,8 @@
 #include <math.h>
 #include <cctype>
 #include <string>
-#include <string_view>
+
+#include "string_view.hpp"
 
 namespace csv {
     /** Enumerates the different CSV field types that are
@@ -41,6 +42,6 @@ namespace csv {
         template<> inline DataType type_num<std::string>() { return CSV_STRING; }
 
         std::string type_name(const DataType&);
-        DataType data_type(std::string_view in, long double* const out = nullptr);
+        DataType data_type(csv::string_view in, long double* const out = nullptr);
     }
 }

@@ -4,6 +4,9 @@ project(csv_parser)
 set(CMAKE_CXX_STANDARD 17)
 
 if (MSVC)
+	# Make Visual Studio report accurate C++ version
+	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
+	set(CMAKE_CXX_FLAGS "/Zc:__cplusplus")
 else()
 	set(CMAKE_CXX_FLAGS "-pthread")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
@@ -15,6 +18,7 @@ set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
 
 # file(GLOB_RECURSE SOURCES include/ *.hpp *.cpp)
 set(SOURCES
+	${CMAKE_CURRENT_LIST_DIR}/include/external/string_view.hpp
 	${SOURCE_DIR}/csv_reader.cpp
 	${SOURCE_DIR}/csv_reader_iterator.cpp
 	${SOURCE_DIR}/csv_row.cpp

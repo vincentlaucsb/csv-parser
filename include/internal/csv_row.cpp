@@ -31,8 +31,8 @@ namespace csv {
     /** @brief      Return a string view of the nth field
      *  @complexity Constant
      */
-    std::string_view CSVRow::get_string_view(size_t n) const {
-        std::string_view ret(this->row_str);
+    csv::string_view CSVRow::get_string_view(size_t n) const {
+        csv::string_view ret(this->row_str);
         size_t beg = 0, end = row_str.size(),
             r_size = this->size();
 
@@ -61,7 +61,7 @@ namespace csv {
      *  This method performs boounds checking, and will throw an std::runtime_error
      *  if n is invalid.
      *
-     *  @complexity Constant, by calling CSVRow::get_string_view()
+     *  @complexity Constant, by calling CSVRow::get_csv::string_view()
      *
      */
     CSVField CSVRow::operator[](size_t n) const {
@@ -125,7 +125,7 @@ namespace csv {
     // CSVField Utility Methods
     //
 
-    bool CSVField::operator==(std::string_view other) const {
+    bool CSVField::operator==(csv::string_view other) const {
         return other == this->sv;
     }
 

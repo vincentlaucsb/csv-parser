@@ -6,13 +6,13 @@
 #include <mutex>
 #include <condition_variable>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "constants.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
 #include "csv_row.hpp"
+#include "string_view.hpp"
 
 namespace csv {
     /** @brief Integer indicating a requested column wasn't found. */
@@ -28,7 +28,7 @@ namespace csv {
 
         /** Class for reducing number of new string malloc() calls */
         struct GiantStringBuffer {
-            std::string_view get_row();
+            csv::string_view get_row();
             size_t size() const;
             std::string* get();
             std::string* operator->();
@@ -108,7 +108,7 @@ namespace csv {
          *  smaller strings.
          */
          ///@{
-        void feed(std::string_view in);
+        void feed(csv::string_view in);
         void end_feed();
         ///@}
 

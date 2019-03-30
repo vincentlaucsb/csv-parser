@@ -1,7 +1,7 @@
 BUILD_DIR = build
 TEST_DIR = tests
 IDIR = include/
-CFLAGS = -pthread -std=c++17
+CFLAGS = -pthread -std=c++11
 TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
 
 # Main Library
