@@ -1,2 +1,3 @@
 ignore:
+	- "include/external"
     - "tests"
