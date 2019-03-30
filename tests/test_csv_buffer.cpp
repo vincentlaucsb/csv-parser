@@ -1,7 +1,7 @@
 // Tests for GiantStringBuffer
 
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 using namespace csv::internals;
 
 TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {

@@ -1,4 +1,5 @@
-#include "csv_parser.hpp"
+#include <string>
+#include "csv_stat.hpp"
 
 namespace csv {
     /** @file
