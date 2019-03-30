@@ -4,15 +4,19 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['valgrind']
+          packages: ['g++-8', 'valgrind']
 dist: trusty
 sudo: required
 language:
   - cpp
 script:
+  - export CC=gcc-8
+  - export CXX=g++-8
   - make test_all
   # - valgrind --leak-check=full ./test_csv_parser
   # Disable until Travis updates their version of Valgrind
 after_success:
-  - cd test_results;
-  - bash <(curl -s https://codecov.io/bash);
+  - if [ "$CXX" == "g++-8" ]; then
+        cd test_results;
+        bash <(curl -s https://codecov.io/bash);
+    fi;
