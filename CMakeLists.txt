@@ -50,6 +50,11 @@ target_link_libraries(csv_stats csv)
 
 ## Tests
 add_executable(csv_test ${SOURCES} ${TEST_SOURCES})
+add_custom_command(
+	TARGET csv_test POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	${TEST_DIR}/data $<TARGET_FILE_DIR:csv_test>/tests/data
+)
 
 enable_testing()
 add_test(test csv_test)
