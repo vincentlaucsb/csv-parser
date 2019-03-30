@@ -32,12 +32,12 @@ namespace csv {
         //
         // GiantStringBuffer
         //
-        std::string_view GiantStringBuffer::get_row() {
+        csv::string_view GiantStringBuffer::get_row() {
             /**
              * Return a string_view over the current_row
              */
                         
-            std::string_view ret(
+            csv::string_view ret(
                 this->buffer->c_str() + this->current_end, // Beginning of string
                 (this->buffer->size() - this->current_end) // Count
             );
@@ -296,10 +296,10 @@ namespace csv {
     }
 
     void CSVReader::feed(std::unique_ptr<char[]>&& buff) {
-        this->feed(std::string_view(buff.get()));
+        this->feed(csv::string_view(buff.get()));
     }
 
-    void CSVReader::feed(std::string_view in) {
+    void CSVReader::feed(csv::string_view in) {
         /** @brief Parse a CSV-formatted string.
          *
          *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.

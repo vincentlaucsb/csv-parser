@@ -2,10 +2,11 @@
 // Auxiliary data structures for CSV parser
 
 #include "data_type.h"
+#include "string_view.hpp"
+
 #include <math.h>
 #include <vector>
 #include <string>
-#include <string_view>
 #include <iterator>
 #include <unordered_map> // For ColNames
 #include <memory> // For CSVField
@@ -37,7 +38,7 @@ namespace csv {
     */
     class CSVField {
     public:
-        CSVField(std::string_view _sv) : sv(_sv) { };
+        CSVField(csv::string_view _sv) : sv(_sv) { };
 
         /** Returns the value casted to the requested type, performing type checking before.
         *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
@@ -45,14 +46,14 @@ namespace csv {
         *  Converting long ints to ints will be checked for overflow.
         *
         *  **Valid options for T**:
-        *   - std::string or std::string_view
+        *   - std::string or csv::string_view
         *   - int
         *   - long
         *   - long long
         *   - double
         *   - long double
         */
-        template<typename T=std::string_view> T get() {
+        template<typename T=csv::string_view> T get() {
             auto dest_type = internals::type_num<T>();
             if (dest_type >= CSV_INT && is_num()) {
                 if (internals::type_num<T>() < this->type())
@@ -65,7 +66,7 @@ namespace csv {
                 internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
         }
 
-        bool operator==(std::string_view other) const;
+        bool operator==(csv::string_view other) const;
         bool operator==(const long double& other);
 
         DataType type();
@@ -79,7 +80,7 @@ namespace csv {
 
     private:
         long double value = 0;
-        std::string_view sv;
+        csv::string_view sv;
         int _type = -1;
         void get_value();
     };
@@ -101,7 +102,7 @@ namespace csv {
         CSVRow() = default;
         CSVRow(
             std::shared_ptr<std::string> _str,
-            std::string_view _row_str,
+            csv::string_view _row_str,
             std::vector<size_t>&& _splits,
             std::shared_ptr<internals::ColNames> _cnames = nullptr) :
             str(_str),
@@ -119,7 +120,7 @@ namespace csv {
             splits(std::move(_splits)),
             col_names(_cnames)
         {
-            row_str = std::string_view(this->str->c_str());
+            row_str = csv::string_view(this->str->c_str());
         };
 
         bool empty() const { return this->row_str.empty(); }
@@ -129,7 +130,7 @@ namespace csv {
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
-        std::string_view get_string_view(size_t n) const;
+        csv::string_view get_string_view(size_t n) const;
         operator std::vector<std::string>() const;
         ///@}
 
@@ -181,7 +182,7 @@ namespace csv {
     private:
         std::shared_ptr<internals::ColNames> col_names = nullptr;
         std::shared_ptr<std::string> str = nullptr;
-        std::string_view row_str;
+        csv::string_view row_str;
         std::vector<size_t> splits;
     };
 
@@ -192,7 +193,7 @@ namespace csv {
     }
 
     template<>
-    inline std::string_view CSVField::get<std::string_view>() {
+    inline csv::string_view CSVField::get<csv::string_view>() {
         return this->sv;
     }
 
