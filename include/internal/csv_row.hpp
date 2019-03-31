@@ -141,7 +141,15 @@ namespace csv {
         public:
             using value_type = CSVField;
             using difference_type = int;
+
+            // Using CSVField * as pointer type causes segfaults in MSVC debug builds
+            // but using shared_ptr as pointer type won't compile in g++
+            #ifdef _MSC_BUILD
+            using pointer = std::shared_ptr<CSVField> ;
+            #else
             using pointer = CSVField * ;
+            #endif
+
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
 
