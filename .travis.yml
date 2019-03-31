@@ -22,12 +22,12 @@ language:
   - cpp
 script:
   - make run_csv_test
-  - if [ "MAIN_BUILD" == "true" ]; then
+  - if [ "$MAIN_BUILD" == "true" ]; then
         make code_cov;
         make valgrind;
     fi;
 after_success:
-  - if [ "MAIN_BUILD" == "true" ]; then
+  - if [ "$MAIN_BUILD" == "true" ]; then
         cd test_results;
         bash <(curl -s https://codecov.io/bash);
     fi;

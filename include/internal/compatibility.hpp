@@ -1,7 +1,7 @@
 #pragma once
 #include "../external/string_view.hpp"
 
-#define SUPPRESS_UNUSED_WARNING(x) x
+#define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {
     using namespace nonstd;

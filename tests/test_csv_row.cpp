@@ -40,7 +40,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
 
     SECTION("operator[] Out of Bounds") {
         try {
-            auto dne = row[4].get<>();
+            row[4].get<>();
         }
         catch (std::runtime_error&) {
             error_caught = true;

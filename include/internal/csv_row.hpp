@@ -192,10 +192,10 @@ namespace csv {
         ///@}
 
     private:
+		std::shared_ptr<std::string> str = nullptr;
+		csv::string_view row_str = "";
+		std::vector<size_t> splits = {};
         std::shared_ptr<internals::ColNames> col_names = nullptr;
-        std::shared_ptr<std::string> str = nullptr;
-        csv::string_view row_str;
-        std::vector<size_t> splits;
     };
 
     // get() specializations

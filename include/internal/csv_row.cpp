@@ -161,7 +161,7 @@ namespace csv {
 
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
-        if (_i < this->daddy->size())
+        if (_i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
                 this->daddy->operator[](_i));
         else
@@ -184,7 +184,7 @@ namespace csv {
     CSVRow::iterator& CSVRow::iterator::operator++() {
         // Pre-increment operator
         this->i++;
-        if (this->i < this->daddy->size())
+        if (this->i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
                 this->daddy->operator[](i));
         else // Reached the end of row
