@@ -141,7 +141,7 @@ namespace csv {
         public:
             using value_type = CSVField;
             using difference_type = int;
-            using pointer = std::shared_ptr<CSVField>;
+            using pointer = CSVField * ;
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
 

@@ -173,7 +173,7 @@ namespace csv {
     }
 
     CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        return this->field;
+        return this->field.get();
     }
 
     CSVRow::iterator& CSVRow::iterator::operator++() {
