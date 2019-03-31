@@ -1,20 +1,23 @@
 matrix:
   include:
     - os: linux
+      env: CXX=g++-8
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-8', 'valgrind']
+    - os: linux
+      env: CXX=clang++
 dist: trusty
 sudo: required
 language:
   - cpp
 script:
-  - export CC=gcc-8
-  - export CXX=g++-8
-  - make test_all
-  # - valgrind --leak-check=full ./test_csv_parser
-  # Disable until Travis updates their version of Valgrind
+  - make run_csv_test
+  - if [ "$CXX" == "g++-8" ]; then
+        make code_cov;
+        make valgrind;
+    fi;
 after_success:
   - if [ "$CXX" == "g++-8" ]; then
         cd test_results;
