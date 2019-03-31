@@ -1,13 +1,13 @@
 matrix:
   include:
     - os: linux
-      env: CXX=g++-8
+      compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-8', 'valgrind']
     - os: linux
-      env: CXX=clang++
+      compiler: clang
 dist: trusty
 sudo: required
 language:
