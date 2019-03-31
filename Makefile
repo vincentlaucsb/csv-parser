@@ -5,11 +5,11 @@ ifeq ($(TRAVIS_COMPILER), gcc)
 	CXX = g++-8
 else ifeq ($(TRAVIS_COMPILER), clang)
 	CXX = clang++
-fi;
+endif
 
 ifeq ($(STD), )
 	STD = c++11
-fi;
+endif
 
 BUILD_DIR = build
 SOURCE_DIR = include
