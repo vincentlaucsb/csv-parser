@@ -51,6 +51,7 @@ docs:
 # Programs #
 ############
 csv_stats: # libcsv.a
+	make csv
 	$(CXX) -o csv_stats -O3 $(CFLAGS) programs/csv_stats.cpp $(wildcard build/*.o) -I$(SOURCE_DIR)
 	# $(CXX) -o csv_stats -O3 -lcsv $(CFLAGS) programs/csv_stats.cpp -L./ -I$(SOURCE_DIR)
 	
