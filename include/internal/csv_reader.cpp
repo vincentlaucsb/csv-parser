@@ -466,6 +466,8 @@ namespace csv {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto line_buffer = buffer.get();
+	line_buffer[0] = '\0';
+
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
@@ -481,6 +483,7 @@ namespace csv {
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
+		line_buffer[0] = '\0';
             }
         }
 

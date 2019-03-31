@@ -213,15 +213,15 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* infile = nullptr;        /**< @brief Current file handle.
-                                                 Destroyed by ~CSVReader(). */
+        std::FILE* infile = nullptr;         /**< @brief Current file handle.
+                                                  Destroyed by ~CSVReader(). */
 
         std::deque<std::unique_ptr<char[]>>
-            feed_buffer;                    /**< @brief Message queue for worker */
+            feed_buffer;                     /**< @brief Message queue for worker */
 
-        std::mutex feed_lock;               /**< @brief Allow only one worker to write */
-        std::condition_variable feed_cond;  /**< @brief Wake up worker */
-        ///@}
+        std::mutex feed_lock;                /**< @brief Allow only one worker to write */
+        std::condition_variable feed_cond;   /**< @brief Wake up worker */
+        ///@} 
 
         /**@}*/ // End of parser internals
     };
