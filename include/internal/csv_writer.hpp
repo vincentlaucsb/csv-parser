@@ -75,7 +75,7 @@ namespace csv {
             */
 
             for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
-                out << csv_escape<Delim, Quote>(record[i]);
+                out << csv_escape<Delim, Quote>(record[i], quote_minimal);
                 if (i + 1 != ilen) out << Delim;
             }
 

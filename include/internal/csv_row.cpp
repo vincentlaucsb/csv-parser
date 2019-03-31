@@ -1,3 +1,4 @@
+#include <cassert>
 #include <functional>
 #include "csv_row.hpp"
 
@@ -151,11 +152,11 @@ namespace csv {
     }
 
     CSVRow::reverse_iterator CSVRow::rbegin() const {
-        return std::make_reverse_iterator<CSVRow::iterator>(this->end());
+        return std::reverse_iterator<CSVRow::iterator>(this->end());
     }
 
     CSVRow::reverse_iterator CSVRow::rend() const {
-        return std::make_reverse_iterator<CSVRow::iterator>(this->begin());
+        return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)

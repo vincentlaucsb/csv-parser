@@ -12,17 +12,16 @@
 #include "data_type.h"
 #include "csv_format.hpp"
 #include "csv_row.hpp"
-#include "string_view.hpp"
+#include "compatibility.hpp"
 
 namespace csv {
     /** @brief Integer indicating a requested column wasn't found. */
     const int CSV_NOT_FOUND = -1;
 
     /** @namespace csv::internals
- *  @brief Stuff that is generally not of interest to end-users
- */
+     *  @brief Stuff that is generally not of interest to end-users
+     */
     namespace internals {
-        bool is_equal(double a, double b, double epsilon = 0.001);
         std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
 
@@ -32,7 +31,6 @@ namespace csv {
             size_t size() const;
             std::string* get();
             std::string* operator->();
-            void operator+=(const char);
 
             std::shared_ptr<std::string> buffer = nullptr;
             size_t current_end = 0;
@@ -125,7 +123,7 @@ namespace csv {
         std::vector<std::string> get_col_names() const;
         int index_of(const std::string& col_name) const;
         ///@}
-
+        
         /** @name CSV Metadata: Attributes */
         ///@{
         RowCount row_num = 0;        /**< @brief How many lines have
@@ -208,8 +206,7 @@ namespace csv {
         void feed(std::unique_ptr<char[]>&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(
             const std::string& filename,
-            const size_t& bytes = ITERATION_CHUNK_SIZE,
-            bool close = true
+            const size_t& bytes = ITERATION_CHUNK_SIZE
         );
         void read_csv_worker();
         ///@}

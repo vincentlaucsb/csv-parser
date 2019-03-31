@@ -1,8 +1,9 @@
 // Calculate benchmarks for CSV parser
 
-#include "csv_parser.hpp"
+#include "csv.hpp"
 #include <chrono>
 #include <iostream>
+#include <sstream>
 
 int main(int argc, char** argv) {
     using namespace csv;

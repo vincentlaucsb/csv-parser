@@ -42,7 +42,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
         try {
             auto dne = row[4].get<>();
         }
-        catch (std::runtime_error& err) {
+        catch (std::runtime_error&) {
             error_caught = true;
         }
 
@@ -53,7 +53,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
         try {
             row["Col5"].get<>();
         }
-        catch (std::runtime_error& err) {
+        catch (std::runtime_error&) {
             error_caught = true;
         }
 

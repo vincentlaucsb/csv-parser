@@ -32,4 +32,12 @@ namespace csv {
     int get_col_pos(const std::string filename, const std::string col_name,
         const CSVFormat format = GUESS_CSV);
     ///@}
+
+    namespace internals {
+        template<typename T>
+        inline bool is_equal(T a, T b, T epsilon = 0.001) {
+            /** Returns true if two doubles are about the same */
+            return std::abs(a - b) < epsilon;
+        }
+    }
 }

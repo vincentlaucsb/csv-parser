@@ -12,11 +12,6 @@
 
 namespace csv {
     namespace internals {
-        bool is_equal(double a, double b, double epsilon) {
-            /** Returns true if two doubles are about the same */
-            return std::abs(a - b) < epsilon;
-        }
-
         std::string format_row(const std::vector<std::string>& row, const std::string& delim) {
             /** Print a CSV row */
             std::stringstream ret;
@@ -44,10 +39,6 @@ namespace csv {
 
             this->current_end = this->buffer->size();
             return ret;
-        }
-
-        void GiantStringBuffer::operator+=(const char ch) {
-            *(this->buffer) += ch;
         }
 
         size_t GiantStringBuffer::size() const {
@@ -266,7 +257,7 @@ namespace csv {
         strict = format.strict;
 
         // Read first 500KB of CSV
-        read_csv(filename, 500000, false);
+        read_csv(filename, 500000);
     }
 
     /** @brief Return the format of the original raw CSV */
@@ -288,9 +279,9 @@ namespace csv {
      *         csv::CSV_NOT_FOUND otherwise.
      */
     int CSVReader::index_of(const std::string& col_name) const {
-        auto col_names = this->get_col_names();
-        for (size_t i = 0; i < col_names.size(); i++)
-            if (col_names[i] == col_name) return (int)i;
+        auto _col_names = this->get_col_names();
+        for (size_t i = 0; i < _col_names.size(); i++)
+            if (_col_names[i] == col_name) return (int)i;
 
         return CSV_NOT_FOUND;
     }
@@ -454,12 +445,11 @@ namespace csv {
      * @brief Parse a CSV file using multiple threads
      *
      * @param[in] nrows Number of rows to read. Set to -1 to read entire file.
-     * @param[in] close Close file after reading?
      *
      * @see CSVReader::read_row()
      * 
      */
-    void CSVReader::read_csv(const std::string& filename, const size_t& bytes, bool close) {
+    void CSVReader::read_csv(const std::string& filename, const size_t& bytes) {
         if (!this->infile) {
             #ifdef _MSC_BUILD
             // Silence compiler warnings in Microsoft Visual C++
@@ -489,7 +479,7 @@ namespace csv {
                 this->feed_buffer.push_back(std::move(buffer));
                 this->feed_cond.notify_one();
 
-                buffer = std::make_unique<char[]>(BUFFER_UPPER_LIMIT); // New pointer
+                buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
             }
         }
@@ -532,7 +522,7 @@ namespace csv {
     bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
-                this->read_csv("", ITERATION_CHUNK_SIZE, false);
+                this->read_csv("", ITERATION_CHUNK_SIZE);
             }
             else return false; // Stop reading
         }
