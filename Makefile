@@ -1,8 +1,27 @@
+# Makefile used for building/testing on Travis CI
+
+# Force Travis to use updated compilers
+ifeq ($(TRAVIS_COMPILER), gcc)
+	CXX = g++-8
+else ifeq ($(TRAVIS_COMPILER), clang)
+	CXX = clang++
+endif
+
+ifeq ($(STD), )
+	STD = c++11
+endif
+
 BUILD_DIR = build
+SOURCE_DIR = include
 TEST_DIR = tests
-IDIR = include/
-CFLAGS = -pthread -std=c++14
-TFLAGS = -I$(IDIR) -Itests/ $(CFLAGS) -Og -g --coverage
+CFLAGS = -pthread -std=$(STD)
+
+TEST_OFLAGS =
+ifeq ($(CXX), g++-8)
+	TEST_OFLAGS = -Og
+endif
+
+TEST_FLAGS = -Itests/ $(CFLAGS) $(TEST_OFLAGS) -g --coverage -Wall
 
 # Main Library
 SOURCES = $(wildcard include/internal/*.cpp)
@@ -13,43 +32,65 @@ TEST_SOURCES_NO_EXT = $(subst tests/,,$(subst .cpp,,$(TEST_SOURCES)))
 
 all: csv_parser test_all clean distclean
 
-# Main Library
-csv_parser:
-	$(CXX) -c -O3 -Wall $(CFLAGS) $(SOURCES) -I$(IDIR)
+################
+# Main Library #
+################
+csv:
+	$(CXX) -c -O3 $(CFLAGS) $(SOURCES)
 	mkdir -p $(BUILD_DIR)
 	mv *.o $(BUILD_DIR)
 	
-test_all:
-	make run_test_csv_parser
-	make code_cov
+libcsv.a:
+	make csv
+	ar rvs libcsv.a $(wildcard build/*.o)
 	
-test_csv_parser:
-	$(CXX) -o test_csv_parser $(SOURCES) $(TEST_SOURCES) $(TFLAGS)
+docs:
+	doxygen Doxyfile
 	
-run_test_csv_parser: test_csv_parser
+############
+# Programs #
+############
+csv_stats: # libcsv.a
+	$(CXX) -o csv_stats -O3 $(CFLAGS) programs/csv_stats.cpp $(SOURCES) -I$(SOURCE_DIR)
+	# $(CXX) -o csv_stats -O3 -lcsv $(CFLAGS) programs/csv_stats.cpp -L./ -I$(SOURCE_DIR)
+	
+#########
+# Tests #
+#########	
+csv_test:
+	$(CXX) -o csv_test $(SOURCES) $(TEST_SOURCES) -I${SOURCE_DIR} $(TEST_FLAGS)
+	
+run_csv_test: csv_test
 	mkdir -p tests/temp
-	./test_csv_parser
+	./csv_test
 	
 	# Test Clean-Up
 	rm -rf $(TEST_DIR)/temp
 	
-code_cov: test_csv_parser
+# Run code coverage analysis
+code_cov: csv_test
 	mkdir -p test_results
 	mv *.gcno *.gcda $(PWD)/test_results
 	gcov-8 $(SOURCES) -o test_results --relative-only
 	mv *.gcov test_results
 	
+# Generate report
 code_cov_report:
 	cd test_results
 	lcov --capture --directory test_results --output-file coverage.info
 	genhtml coverage.info --output-directory out
+
+valgrind: csv_stats
+	# Can't run valgrind against csv_test because it mangles the working directory
+	# which causes csv_test to not be able to find test files
+	valgrind --leak-check=full ./csv_stats $(TEST_DIR)/data/real_data/2016_Gaz_place_national.txt
 	
 .PHONY: all clean distclean
 	
-docs:
-	doxygen Doxyfile
-	
-clean:	
-	rm -rf test_csv_parser
+clean:
+	rm -f build/*
+	rm -f *.gc*
+	rm -f libcsv.a
+	rm -f csv_*
 	
 distclean: clean

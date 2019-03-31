@@ -1,22 +1,33 @@
 matrix:
   include:
     - os: linux
+      env: STD=c++11 MAIN_BUILD=true
+      compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-8', 'valgrind']
+    - os: linux
+      env: STD=c++17
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-8']
+    #- os: linux
+    #  env: CXX=clang++
 dist: trusty
 sudo: required
 language:
   - cpp
 script:
-  - export CC=gcc-8
-  - export CXX=g++-8
-  - make test_all
-  # - valgrind --leak-check=full ./test_csv_parser
-  # Disable until Travis updates their version of Valgrind
+  - make run_csv_test
+  - if [ "$MAIN_BUILD" == "true" ]; then
+        make code_cov;
+        make valgrind;
+    fi;
 after_success:
-  - if [ "$CXX" == "g++-8" ]; then
+  - if [ "$MAIN_BUILD" == "true" ]; then
         cd test_results;
         bash <(curl -s https://codecov.io/bash);
     fi;

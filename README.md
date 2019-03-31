@@ -11,6 +11,9 @@ This CSV parser uses multiple threads to simulatenously pull data from disk and 
 ### RFC 4180 Compliance
 This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt). On the other hand, it is also robust and capable of handling deviances from the standard. An optional strict parsing mode can be enabled to sniff out errors in files.
 
+#### Encoding
+This CSV parser will handle ANSI and UTF-8 encoded files. It does not try to decode UTF-8, except for detecting and stripping byte order marks.
+
 ### Easy to Use and [Well-Documented](https://vincentlaucsb.github.io/csv-parser)
 
 In additon to being easy on your computer's hardware, this library is also easy on you--the developer. Some helpful features include:
@@ -19,13 +22,21 @@ In additon to being easy on your computer's hardware, this library is also easy 
  * Ability to manually set the delimiter and quoting character of the parser
 
 ### Well Tested
-In addition to using modern C++ features to build a memory safe parser while still performing well, this parser has a extensive test suite.
+This CSV parser has an extensive test suite and is checked for memory safety with Valgrind. If you still manage to find a bug,
+do not hesitate to report it.
 
-## Building [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
+## Building and Compatibility [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
 
-All of this library's essentials are located under `src/`, with no dependencies aside from the STL. This is a C++17 library developed using Microsoft Visual Studio and compatible with g++ and clang. The CMakeList and Makefile contain instructions for building the main library, some sample programs, and the test suite.
+This library was developed with Microsoft Visual Studio and is compatible with g++ and clang.
+All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
-**GCC/Clang Compiler Flags**: `-pthread -O3 -std=c++17`
+**One-line compilation** `g++ -pthread -c -O3 -std=c++17 include/internal/*.cpp`
+
+### C++ Version
+C++11 is the minimal version required. This library makes extensive use of string views, either through
+[Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) or 
+`std:string_view` when compiling with C++17. Please be aware of this if you use parts of the public API that
+return string views.
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -41,27 +52,8 @@ target_link_libraries(<your program> csv)
 
 ```
 
-## Thirty-Second Introduction to Vince's CSV Parser
-
-* **Parsing CSV Files from..**
-  * Files: csv::CSVReader(filename)
-  * In-Memory Sources:
-    * Small: csv::parse() or csv::operator""_csv();
-    * Large: csv::CSVReader::feed();
-* **Retrieving Parsed CSV Rows (from CSVReader)**
-  * csv::CSVReader::iterator (supports range-based for loop)
-  * csv::CSVReader::read_row()
-* **Working with CSV Rows**
-  * Index by number or name: csv::CSVRow::operator[]()
-  * Random access iterator: csv::CSVRow::iterator
-  * Conversion: csv::CSVRow::operator std::vector<std::string>();
-* **Calculating Statistics**
-  * Files: csv::CSVStat(filename)
-  * In-Memory: csv::CSVStat::feed()
-* **Utility Functions**
-  * Return column names: get_col_names()
-  * Return the position of a column: get_col_pos();
-  * Return column types (for uploading to a SQL database): csv_data_types();
+### Single Header
+A single header version of this library is in the works.
 
 ## Features & Examples
 ### Reading a Large File (with Iterators)

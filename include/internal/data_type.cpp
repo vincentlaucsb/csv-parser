@@ -1,6 +1,10 @@
 #include "data_type.h"
 #include "compatibility.hpp"
 
+/** @file
+ *  @brief Provides numeric parsing functionality
+ */
+
 namespace csv {
     namespace internals {
         #ifndef DOXYGEN_SHOULD_SKIP_THIS

@@ -13,7 +13,11 @@
 #include "csv_format.hpp"
 #include "csv_row.hpp"
 #include "compatibility.hpp"
+#include "giant_string_buffer.hpp"
 
+/** @namespace csv
+ *  @brief The all encompassing namespace
+ */
 namespace csv {
     /** @brief Integer indicating a requested column wasn't found. */
     const int CSV_NOT_FOUND = -1;
@@ -24,18 +28,6 @@ namespace csv {
     namespace internals {
         std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
-
-        /** Class for reducing number of new string malloc() calls */
-        struct GiantStringBuffer {
-            csv::string_view get_row();
-            size_t size() const;
-            std::string* get();
-            std::string* operator->();
-
-            std::shared_ptr<std::string> buffer = nullptr;
-            size_t current_end = 0;
-            void reset();
-        };
     }
 
     /** @class CSVReader
@@ -213,15 +205,15 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* infile = nullptr;        /**< @brief Current file handle.
-                                                 Destroyed by ~CSVReader(). */
+        std::FILE* infile = nullptr;         /**< @brief Current file handle.
+                                                  Destroyed by ~CSVReader(). */
 
         std::deque<std::unique_ptr<char[]>>
-            feed_buffer;                    /**< @brief Message queue for worker */
+            feed_buffer;                     /**< @brief Message queue for worker */
 
-        std::mutex feed_lock;               /**< @brief Allow only one worker to write */
-        std::condition_variable feed_cond;  /**< @brief Wake up worker */
-        ///@}
+        std::mutex feed_lock;                /**< @brief Allow only one worker to write */
+        std::condition_variable feed_cond;   /**< @brief Wake up worker */
+        ///@} 
 
         /**@}*/ // End of parser internals
     };

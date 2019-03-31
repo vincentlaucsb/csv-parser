@@ -1,6 +1,10 @@
 # Build
 bin/
 
+# Doxygen
+docs/html
+*.tmp
+
 # Visual Studio
 Debug/
 Release/

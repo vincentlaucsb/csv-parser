@@ -25,51 +25,6 @@ namespace csv {
         }
 
         //
-        // GiantStringBuffer
-        //
-        csv::string_view GiantStringBuffer::get_row() {
-            /**
-             * Return a string_view over the current_row
-             */
-                        
-            csv::string_view ret(
-                this->buffer->c_str() + this->current_end, // Beginning of string
-                (this->buffer->size() - this->current_end) // Count
-            );
-
-            this->current_end = this->buffer->size();
-            return ret;
-        }
-
-        size_t GiantStringBuffer::size() const {
-            // Return size of current row
-            return (this->buffer->size() - this->current_end);
-        }
-
-        std::string* GiantStringBuffer::get() {
-            return this->buffer.get();
-        }
-
-        std::string* GiantStringBuffer::operator->() {
-            if (!this->buffer)
-                this->buffer = std::make_shared<std::string>();
-
-            return this->buffer.operator->();
-        }
-
-        void GiantStringBuffer::reset() {
-            auto temp_str = this->buffer->substr(
-                this->current_end,   // Position
-                (this->buffer->size() - this->current_end) // Count
-            );
-
-            this->current_end = 0;
-            this->buffer = std::make_shared<std::string>(
-                temp_str
-            );
-        }
-
-        //
         // CSVGuesser
         //
         void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
@@ -92,15 +47,15 @@ namespace csv {
 
         bool CSVGuesser::first_guess() {
             /** Guess the delimiter of a delimiter separated values file
-            *  by scanning the first 100 lines
-            *
-            *  - "Winner" is based on which delimiter has the most number
-            *    of correctly parsed rows + largest number of columns
-            *  -  **Note:** Assumes that whatever the dialect, all records
-            *     are newline separated
-            *
-            *  Returns True if guess was a good one and second guess isn't needed
-            */
+             *  by scanning the first 100 lines
+             *
+             *  - "Winner" is based on which delimiter has the most number
+             *    of correctly parsed rows + largest number of columns
+             *  -  **Note:** Assumes that whatever the dialect, all records
+             *     are newline separated
+             *
+             *  Returns True if guess was a good one and second guess isn't needed
+             */
 
             CSVFormat format = DEFAULT_CSV;
             char current_delim{ ',' };
@@ -132,10 +87,10 @@ namespace csv {
 
         void CSVGuesser::second_guess() {
             /** For each delimiter, find out which row length was most common.
-            *  The delimiter with the longest mode row length wins.
-            *  Then, the line number of the header row is the first row with
-            *  the mode row length.
-            */
+             *  The delimiter with the longest mode row length wins.
+             *  Then, the line number of the header row is the first row with
+             *  the mode row length.
+             */
 
             CSVFormat format = DEFAULT_CSV;
             size_t max_rlen = 0;
@@ -373,8 +328,8 @@ namespace csv {
 
     void CSVReader::end_feed() {
         /** Indicate that there is no more data to receive,
-        *  and handle the last row
-        */
+         *  and handle the last row
+         */
         this->write_record();
     }
 
@@ -466,6 +421,8 @@ namespace csv {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto line_buffer = buffer.get();
+        line_buffer[0] = '\0';
+
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
@@ -481,6 +438,7 @@ namespace csv {
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
+                line_buffer[0] = '\0';
             }
         }
 
