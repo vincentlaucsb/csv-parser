@@ -1,25 +1,31 @@
 matrix:
   include:
     - os: linux
-      env: CXX=g++-8
+      env: STD=c++11 MAIN_BUILD=true
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-8', 'valgrind']
     - os: linux
-      env: CXX=clang++
+      env: STD=c++17
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-8']
+    #- os: linux
+    #  env: CXX=clang++
 dist: trusty
 sudo: required
 language:
   - cpp
 script:
   - make run_csv_test
-  - if [ "$CXX" == "g++-8" ]; then
+  - if [ "MAIN_BUILD" == "true" ]; then
         make code_cov;
         make valgrind;
     fi;
 after_success:
-  - if [ "$CXX" == "g++-8" ]; then
+  - if [ "MAIN_BUILD" == "true" ]; then
         cd test_results;
         bash <(curl -s https://codecov.io/bash);
     fi;

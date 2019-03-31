@@ -1,10 +1,27 @@
 # Makefile used for building/testing on Travis CI
 
+# Force Travis to use updated compilers
+ifeq ($(TRAVIS_COMPILER), gcc)
+	CXX = g++-8
+else ifeq ($(TRAVIS_COMPILER), clang)
+	CXX = clang++
+fi;
+
+ifeq ($(STD), )
+	STD = c++11
+fi;
+
 BUILD_DIR = build
 SOURCE_DIR = include
 TEST_DIR = tests
-CFLAGS = -pthread -std=c++14
-TFLAGS = -Itests/ $(CFLAGS) -Og -g --coverage -Wall
+CFLAGS = -pthread -std=$(STD)
+
+TEST_OFLAGS =
+ifeq ($(CXX), g++-8)
+	TEST_OFLAGS = -Og
+endif
+
+TEST_FLAGS = -Itests/ $(CFLAGS) $(TEST_OFLAGS) -g --coverage -Wall
 
 # Main Library
 SOURCES = $(wildcard include/internal/*.cpp)
@@ -40,7 +57,7 @@ csv_stats: libcsv.a
 # Tests #
 #########	
 csv_test:
-	$(CXX) -o csv_test $(SOURCES) $(TEST_SOURCES) -I${SOURCE_DIR} $(TFLAGS)
+	$(CXX) -o csv_test $(SOURCES) $(TEST_SOURCES) -I${SOURCE_DIR} $(TEST_FLAGS)
 	
 run_csv_test: csv_test
 	mkdir -p tests/temp
