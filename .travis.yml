@@ -2,12 +2,14 @@ matrix:
   include:
     - os: linux
       env: STD=c++11 MAIN_BUILD=true
+      compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-8', 'valgrind']
     - os: linux
       env: STD=c++17
+      compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
