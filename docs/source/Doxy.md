@@ -12,7 +12,7 @@ With this library, you can easily stream over a large file without reading its e
 
 using namespace csv;
 
-...f
+...
 
 CSVReader reader("very_big_file.csv");
 
