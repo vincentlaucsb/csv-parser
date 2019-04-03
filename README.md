@@ -14,7 +14,7 @@ This CSV parser is much more than a fancy string splitter, and follows every gui
 #### Encoding
 This CSV parser will handle ANSI and UTF-8 encoded files. It does not try to decode UTF-8, except for detecting and stripping byte order marks.
 
-### Easy to Use and [Well-Documented](https://vincentlaucsb.github.io/csv-parser)
+### Easy to Use and [Well-Documented](http://vincela.com/csv)
 
 In additon to being easy on your computer's hardware, this library is also easy on you--the developer. Some helpful features include:
  * Decent ability to guess the dialect of a file (CSV, tab-delimited, etc.)
@@ -61,7 +61,7 @@ With this library, you can easily stream over a large file without reading its e
 
 **C++ Style**
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -97,7 +97,7 @@ while (reader.read_row(row)) {
 Retrieving values using a column name string is a cheap, constant time operation.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -120,7 +120,7 @@ convert them to the proper data type. Type checking is performed on conversions
 to prevent undefined behavior.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -142,7 +142,7 @@ for (auto& row: reader) {
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 # include ...
 
 using namespace csv;
@@ -165,7 +165,7 @@ for (auto& row: reader) {
 ### Parsing an In-Memory String
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -197,7 +197,7 @@ for (auto& r: rows) {
 ### Writing CSV Files
 
 ```cpp
-# include "csv_writer.hpp"
+# include "csv.hpp"
 # include ...
 
 using namespace csv;

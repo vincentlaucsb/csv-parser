@@ -8,11 +8,11 @@ With this library, you can easily stream over a large file without reading its e
 
 **C++ Style**
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
-...
+...f
 
 CSVReader reader("very_big_file.csv");
 
@@ -44,7 +44,7 @@ while (reader.read_row(row)) {
 Retrieving values using a column name string is a cheap, constant time operation.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -67,7 +67,7 @@ convert them to the proper data type. Type checking is performed on conversions
 to prevent undefined behavior.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -89,7 +89,7 @@ for (auto& row: reader) {
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 # include ...
 
 using namespace csv;
@@ -112,7 +112,7 @@ for (auto& row: reader) {
 ### Parsing an In-Memory String
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -144,7 +144,7 @@ for (auto& r: rows) {
 ### Writing CSV Files
 
 ```cpp
-# include "csv_writer.hpp"
+# include "csv.hpp"
 # include ...
 
 using namespace csv;
