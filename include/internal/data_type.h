@@ -41,6 +41,20 @@ namespace csv {
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
         template<> inline DataType type_num<std::string>() { return CSV_STRING; }
 
+        /* Compute 10 to the power of n */
+        template<typename T>
+        const long double pow10(const T& n) {
+            long double multiplicand = n > 0 ? 10 : 0.1,
+                ret = 1;
+            T iterations = n > 0 ? n : -n;
+            
+            for (T i = 0; i < iterations; i++) {
+                ret *= multiplicand;
+            }
+
+            return ret;
+        }
+
         std::string type_name(const DataType&);
         DataType data_type(csv::string_view in, long double* const out = nullptr);
     }
