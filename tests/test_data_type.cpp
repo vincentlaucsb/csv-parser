@@ -1,3 +1,7 @@
+#ifndef CATCH_CONFIG_MAIN
+#define CATCH_CONFIG_MAIN
+#endif
+
 #include "catch.hpp"
 #include "csv.hpp"
 #include <string>
@@ -117,6 +121,9 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
         REQUIRE(is_equal(out, 455000.0L));
     }
 
+    REQUIRE(data_type("2.17222E+02", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 217.222L));
+
     REQUIRE(data_type("4.55E+10", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 45500000000.0L));
 
@@ -131,4 +138,20 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
 
     REQUIRE(data_type("4.55E-000000000005", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 0.0000455L));
+}
+
+TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
+    // Assert parsing butchered scientific notation won't cause a 
+    // crash or any other weird side effects
+    long double out;
+
+    std::vector<std::string> butchered = {
+        "4.55E000a",
+        "4.55000x40",
+        "4.55000E40E40",
+    };
+
+    for (auto& s : butchered) {
+        REQUIRE(data_type(s, &out) == CSV_STRING);
+    }
 }

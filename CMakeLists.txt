@@ -40,7 +40,6 @@ set(TEST_SOURCES
 	${TEST_DIR}/test_csv_iterator.cpp
 	${TEST_DIR}/test_csv_buffer.cpp
 	${TEST_DIR}/test_csv_row.cpp
-	${TEST_DIR}/test_data_type.cpp
 	${TEST_DIR}/test_csv_stat.cpp
 	${TEST_DIR}/test_read_csv.cpp
 	${TEST_DIR}/test_write_csv.cpp
@@ -63,6 +62,9 @@ target_link_libraries(csv_bench csv)
 add_executable(csv_stats ${CMAKE_CURRENT_LIST_DIR}/programs/csv_stats.cpp)
 target_link_libraries(csv_stats csv)
 
+add_executable(csv_generator ${CMAKE_CURRENT_LIST_DIR}/programs/csv_generator.cpp)
+target_link_libraries(csv_generator csv)
+
 add_executable(data_type_bench ${CMAKE_CURRENT_LIST_DIR}/programs/data_type_bench.cpp)
 target_link_libraries(data_type_bench csv)
 
@@ -75,5 +77,9 @@ add_custom_command(
 	${TEST_DIR}/data $<TARGET_FILE_DIR:csv_test>/tests/data
 )
 
+add_executable(data_type_test ${TEST_DIR}/test_data_type.cpp)
+target_link_libraries(data_type_test csv)
+
 enable_testing()
-add_test(test csv_test)
+add_test(test_main csv_test)
+add_test(test_dtype data_type_test)

@@ -1,6 +1,9 @@
 #include <charconv>
 #include <algorithm>
 #include "csv.hpp"
+#ifndef NDEBUG
+#define NDEBUG
+#endif
 
 int main(int argc, char** argv) {
     using namespace csv;

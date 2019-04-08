@@ -1,7 +1,7 @@
+#include <cassert>
+
 #include "data_type.h"
 #include "compatibility.hpp"
-#include <cassert>
-#include <charconv>
 
 /** @file
  *  @brief Provides numeric parsing functionality
@@ -31,6 +31,42 @@ namespace csv {
         constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
         constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
         constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+
+        /** Given a pointer to the start of what is start of 
+         *  the exponential part of a number written (possibly) in scientific notation
+         *  parse the exponent
+         */
+        inline DataType _process_potential_exponential(
+            csv::string_view exponential_part,
+            const long double& coeff,
+            long double * const out) {
+            long double exponent = 0;
+            auto result = data_type(exponential_part, &exponent);
+
+            if (result >= CSV_INT && result <= CSV_DOUBLE) {
+                if (out) *out = coeff * pow10(exponent);
+                return CSV_DOUBLE;
+            }
+            
+            return CSV_STRING;
+        }
+
+        /** Given the absolute value of an integer, determine what numeric type 
+         *  it fits in
+         */
+        inline DataType _determine_integral_type(const long double& number) {
+            // We can assume number is always non-negative
+            assert(number >= 0);
+
+            if (number < _INT_MAX)
+                return CSV_INT;
+            else if (number < _LONG_MAX)
+                return CSV_LONG_INT;
+            else if (number < _LONG_LONG_MAX)
+                return CSV_LONG_LONG_INT;
+            else // Conversion to long long will cause an overflow
+                return CSV_DOUBLE;
+        }
 
         DataType data_type(csv::string_view in, long double* const out) {
             /** Distinguishes numeric from other text values. Used by various
@@ -92,32 +128,23 @@ namespace csv {
                     break;
                 case 'e':
                 case 'E':
-                    if (!prob_float) {
-                        return CSV_STRING;
-                    }
-                    else if (isdigit(in[i + 1]) || in[i + 1] == '-' || in[i + 1] == '+') {
-                        long double exponent;
-                        string_view exponential_part = in;
+                    // Process scientific notation
+                    if (prob_float) {
+                        size_t exponent_start_idx = i + 1;
 
+                        // Strip out plus sign
                         if (in[i + 1] == '+') {
-                            exponential_part.remove_prefix(i + 2);
+                            exponent_start_idx++;
                         }
-                        else {
-                            // Don't strip out minus sign
-                            exponential_part.remove_prefix(i + 1);
-                        }
-                        
-                        auto result = data_type(exponential_part, &exponent);
 
-                        if (result >= CSV_INT || result <= CSV_DOUBLE) {
-                            long double number = integral_part + decimal_part * pow(10, -(double)places_after_decimal);
-                            number *= pow(10, exponent);
-                            
-                            if (out) *out = neg_allowed ? number : -number;
-
-                            return CSV_DOUBLE;
-                        }
+                        return _process_potential_exponential(
+                            in.substr(exponent_start_idx),
+                            neg_allowed ? integral_part + decimal_part : -(integral_part + decimal_part),
+                            out
+                        );
                     }
+
+                    return CSV_STRING;
                     break;
                 default:
                     if (isdigit(current)) {
@@ -132,8 +159,7 @@ namespace csv {
                         // Build current number
                         unsigned digit = current - '0';
                         if (prob_float) {
-                            places_after_decimal++;
-                            decimal_part = (decimal_part * 10) + digit;
+                            decimal_part += digit / pow10(++places_after_decimal);
                         }
                         else {
                             integral_part = (integral_part * 10) + digit;
@@ -147,28 +173,16 @@ namespace csv {
 
             // No non-numeric/non-whitespace characters found
             if (has_digit) {
-                long double number = integral_part + decimal_part * pow(10, -(double)places_after_decimal);
-                if (out) *out = neg_allowed ? number : -number;
+                long double number = integral_part + decimal_part;
+                if (out) {
+                    *out = neg_allowed ? number : -number;
+                }
 
-                if (prob_float)
-                    return CSV_DOUBLE;
-
-                // We can assume number is always non-negative
-                assert(out >= 0);
-
-                if (number < _INT_MAX)
-                    return CSV_INT;
-                else if (number < _LONG_MAX)
-                    return CSV_LONG_INT;
-                else if (number < _LONG_LONG_MAX)
-                    return CSV_LONG_LONG_INT;
-                else // Conversion to long long will cause an overflow
-                    return CSV_DOUBLE;
+                return prob_float ? CSV_DOUBLE : _determine_integral_type(number);
             }
 
             // Just whitespace
             return CSV_NULL;
         }
-
     }
 }
