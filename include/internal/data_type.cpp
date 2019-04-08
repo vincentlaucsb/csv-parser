@@ -1,5 +1,7 @@
 #include "data_type.h"
 #include "compatibility.hpp"
+#include <cassert>
+#include <charconv>
 
 /** @file
  *  @brief Provides numeric parsing functionality
@@ -26,31 +28,31 @@ namespace csv {
         };
         #endif
 
-        const long double _INT_MAX = (long double)std::numeric_limits<int>::max();
-        const long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
-        const long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
 
         DataType data_type(csv::string_view in, long double* const out) {
             /** Distinguishes numeric from other text values. Used by various
-            *  type casting functions, like csv_parser::CSVReader::read_row()
-            *
-            *  #### Rules
-            *   - Leading and trailing whitespace ("padding") ignored
-            *   - A string of just whitespace is NULL
-            *
-            *  @param[in] in String value to be examined
-            */
+             *  type casting functions, like csv_parser::CSVReader::read_row()
+             *
+             *  #### Rules
+             *   - Leading and trailing whitespace ("padding") ignored
+             *   - A string of just whitespace is NULL
+             *
+             *  @param[in] in String value to be examined
+             */
 
             // Empty string --> NULL
             if (in.size() == 0)
                 return CSV_NULL;
 
-            bool ws_allowed = true;
-            bool neg_allowed = true;
-            bool dot_allowed = true;
-            bool digit_allowed = true;
-            bool has_digit = false;
-            bool prob_float = false;
+            bool ws_allowed = true,
+                neg_allowed = true,
+                dot_allowed = true,
+                digit_allowed = true,
+                has_digit = false,
+                prob_float = false;
 
             unsigned places_after_decimal = 0;
             long double integral_part = 0,
@@ -88,6 +90,35 @@ namespace csv {
                     dot_allowed = false;
                     prob_float = true;
                     break;
+                case 'e':
+                case 'E':
+                    if (!prob_float) {
+                        return CSV_STRING;
+                    }
+                    else if (isdigit(in[i + 1]) || in[i + 1] == '-' || in[i + 1] == '+') {
+                        long double exponent;
+                        string_view exponential_part = in;
+
+                        if (in[i + 1] == '+') {
+                            exponential_part.remove_prefix(i + 2);
+                        }
+                        else {
+                            // Don't strip out minus sign
+                            exponential_part.remove_prefix(i + 1);
+                        }
+                        
+                        auto result = data_type(exponential_part, &exponent);
+
+                        if (result >= CSV_INT || result <= CSV_DOUBLE) {
+                            long double number = integral_part + decimal_part * pow(10, -(double)places_after_decimal);
+                            number *= pow(10, exponent);
+                            
+                            if (out) *out = neg_allowed ? number : -number;
+
+                            return CSV_DOUBLE;
+                        }
+                    }
+                    break;
                 default:
                     if (isdigit(current)) {
                         // Process digit
@@ -122,7 +153,9 @@ namespace csv {
                 if (prob_float)
                     return CSV_DOUBLE;
 
-                // We can assume number is always positive
+                // We can assume number is always non-negative
+                assert(out >= 0);
+
                 if (number < _INT_MAX)
                     return CSV_INT;
                 else if (number < _LONG_MAX)
@@ -136,5 +169,6 @@ namespace csv {
             // Just whitespace
             return CSV_NULL;
         }
+
     }
 }

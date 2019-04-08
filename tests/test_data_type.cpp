@@ -99,3 +99,36 @@ TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
         REQUIRE(is_equal(out, i));
     }
 }
+
+TEST_CASE("Parse Scientific Notation", "[e_notation]") {
+    // Test parsing e notation
+    long double out;
+
+    std::vector<std::string> _455_thousand = {
+        "4.55e5", "4.55E5",
+        "4.55E+5", "4.55e+5",
+        "4.55E+05",
+        "4.55e0000005", "4.55E0000005",
+        "4.55e+0000005", "4.55E+0000005"
+    };
+
+    for (auto number : _455_thousand) {
+        REQUIRE(data_type(number, &out) == CSV_DOUBLE);
+        REQUIRE(is_equal(out, 455000.0L));
+    }
+
+    REQUIRE(data_type("4.55E+10", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 45500000000.0L));
+
+    REQUIRE(data_type("4.55E+11", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 455000000000.0L));
+
+    REQUIRE(data_type("4.55E-1", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.455L));
+
+    REQUIRE(data_type("4.55E-5", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.0000455L));
+
+    REQUIRE(data_type("4.55E-000000000005", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.0000455L));
+}

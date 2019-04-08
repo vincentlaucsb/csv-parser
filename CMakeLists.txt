@@ -63,6 +63,9 @@ target_link_libraries(csv_bench csv)
 add_executable(csv_stats ${CMAKE_CURRENT_LIST_DIR}/programs/csv_stats.cpp)
 target_link_libraries(csv_stats csv)
 
+add_executable(data_type_bench ${CMAKE_CURRENT_LIST_DIR}/programs/data_type_bench.cpp)
+target_link_libraries(data_type_bench csv)
+
 ## Tests
 add_executable(csv_test ${TEST_SOURCES})
 target_link_libraries(csv_test csv)
