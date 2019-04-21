@@ -135,6 +135,10 @@ namespace csv {
         void CSVGuesser::get_csv_head() {
             const size_t bytes = 500000;
             std::ifstream infile(this->filename);
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + this->filename);
+            }
+
             std::unique_ptr<char[]> buffer(new char[bytes + 1]);
             char * head_buffer = buffer.get();
 
