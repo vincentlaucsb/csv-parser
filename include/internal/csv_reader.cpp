@@ -133,12 +133,16 @@ namespace csv {
 
         /** Read the first 500KB of a CSV file */
         void CSVGuesser::get_csv_head() {
+            const size_t bytes = 500000;
             std::ifstream infile(this->filename);
-            std::unique_ptr<char[]> buffer(new char[500000]);
+            std::unique_ptr<char[]> buffer(new char[bytes + 1]);
             char * head_buffer = buffer.get();
 
-            head_buffer[0] = '\0';
-            infile.read(head_buffer, 500000);
+            for (size_t i = 0; i < bytes + 1; i++) {
+                head_buffer[i] = '\0';
+            }
+
+            infile.read(head_buffer, bytes);
             this->head = head_buffer;
         }
     }
