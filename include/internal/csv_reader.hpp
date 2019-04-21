@@ -244,7 +244,9 @@ namespace csv {
             int header_row = 0;
 
         private:
+            void get_csv_head();
             std::string filename;
+            std::string head;
         };
     }
 }
