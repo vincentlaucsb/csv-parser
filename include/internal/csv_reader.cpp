@@ -131,13 +131,15 @@ namespace csv {
             this->header_row = static_cast<int>(header);
         }
 
-        /** Read the first 500kb of a CSV file */
+        /** Read the first 500KB of a CSV file */
         void CSVGuesser::get_csv_head() {
             std::ifstream infile(this->filename);
             std::unique_ptr<char[]> buffer(new char[500000]);
-            buffer.get()[0] = '\0';
-            infile.read(buffer.get(), 500000);
-            this->head = buffer.get();
+            char * head_buffer = buffer.get();
+
+            head_buffer[0] = '\0';
+            infile.read(head_buffer, 500000);
+            this->head = head_buffer;
         }
     }
 
