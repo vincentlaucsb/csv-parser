@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdio>   // For read_csv()
 #include <cstring>  // For read_csv()
+#include <fstream>
 #include <sstream>
 
 #include "constants.hpp"
@@ -59,13 +60,18 @@ namespace csv {
 
             CSVFormat format = DEFAULT_CSV;
             char current_delim{ ',' };
-            RowCount max_rows = 0;
-            RowCount temp_rows = 0;
+            RowCount max_rows = 0,
+                temp_rows = 0;
             size_t max_cols = 0;
 
-            for (size_t i = 0; i < delims.size(); i++) {
-                format.delim = delims[i];
-                CSVReader guesser(this->filename, format);
+            // Read first 500KB of the CSV file
+            this->get_csv_head();
+
+            for (char delim: this->delims) {
+                format.delim = delim;
+                CSVReader guesser(format);
+                guesser.feed(this->head);
+                guesser.end_feed();
 
                 // WORKAROUND on Unix systems because certain newlines
                 // get double counted
@@ -75,7 +81,7 @@ namespace csv {
                     (guesser.get_col_names().size() > max_cols)) {
                     max_rows = temp_rows;
                     max_cols = guesser.get_col_names().size();
-                    current_delim = delims[i];
+                    current_delim = delim;
                 }
             }
 
@@ -93,13 +99,14 @@ namespace csv {
              */
 
             CSVFormat format = DEFAULT_CSV;
-            size_t max_rlen = 0;
-            size_t header = 0;
+            size_t max_rlen = 0,
+                header = 0;
 
-            for (auto it = delims.begin(); it != delims.end(); ++it) {
-                format.delim = *it;
+            for (char delim: this->delims) {
+                format.delim = delim;
                 Guesser guess(format);
-                guess.read_csv(filename, 500000);
+                guess.feed(this->head);
+                guess.end_feed();
 
                 // Most common row length
                 auto max = std::max_element(guess.row_tally.begin(), guess.row_tally.end(),
@@ -122,6 +129,25 @@ namespace csv {
             }
 
             this->header_row = static_cast<int>(header);
+        }
+
+        /** Read the first 500KB of a CSV file */
+        void CSVGuesser::get_csv_head() {
+            const size_t bytes = 500000;
+            std::ifstream infile(this->filename);
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + this->filename);
+            }
+
+            std::unique_ptr<char[]> buffer(new char[bytes + 1]);
+            char * head_buffer = buffer.get();
+
+            for (size_t i = 0; i < bytes + 1; i++) {
+                head_buffer[i] = '\0';
+            }
+
+            infile.read(head_buffer, bytes);
+            this->head = head_buffer;
         }
     }
 

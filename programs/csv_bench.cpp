@@ -27,8 +27,10 @@ int main(int argc, char** argv) {
     std::stringstream buffer;
     buffer << csv.rdbuf();
 
+    auto csv_str = buffer.str();
+
     start = std::chrono::system_clock::now();
-    parse(buffer.str());
+    parse(csv_str);
     end = std::chrono::system_clock::now();
     diff = end - start;
 
