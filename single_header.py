@@ -1,9 +1,68 @@
 import os
 import re
 
+CPP_SEP = '/'
+
+''' Represents a file path '''
+class Path(list):
+    def __init__(self, *args):
+        super().__init__()
+
+        if (len(args) > 0 and type(args[0]) is list):
+            for p in args[0]:
+                self.append(p)
+        else:
+            for p in args:
+                self.append(p)
+
+    def append(self, sub: str):
+        separated = sub.split(os.sep)
+        if (len(separated) == 1):
+            separated = sub.split(CPP_SEP)
+
+        for i in separated:
+            if (i == '..'):
+                # Go up a path
+                self.pop()
+            else:
+                super().append(i)
+
+    def copy(self):
+        temp = Path()
+        for i in self:
+            temp.append(i)
+        return temp
+
+    def join(self, sub: str):
+        temp = self.copy()
+        temp.append(sub)
+        return temp
+
+    ''' Return the first element of the path '''
+    def dirname(self) -> str:
+        try:
+            return self[0]
+        except IndexError:
+            return ''
+
+    def ext(self) -> str:
+        try:
+            return self[-1].split('.')[-1]
+        except IndexError:
+            return ''
+
+    def __str__(self):
+        if (len(self) == 1):
+            return self[0] + '/'
+
+        return '/'.join(self)
+
+    def __hash__(self):
+        return hash(str(self))
+
 def header_list(files: list) -> list:
     '''
-    Given a list of file, compute the list of header files in the order in which they should
+    Given a list of files, compute the list of header files in the order in which they should
     be included to avoid conflicts
     '''
 
@@ -12,7 +71,8 @@ def header_list(files: list) -> list:
 
     ''' Iterate over every .cpp and .hpp file '''
     for file in files:
-        if (file[-4:] == '.hpp' or file[-2:] == '.h'):
+        file_ext = file.ext()
+        if (file_ext == 'hpp' or file_ext == 'h'):
             dependencies[file] = get_dependencies(file)['local']
 
     while dependencies:
@@ -27,24 +87,24 @@ def header_list(files: list) -> list:
 
     return headers
 
-def get_dependencies(file: str) -> dict:
+def get_dependencies(file: Path) -> dict:
     ''' Parse a .cpp/.hpp file for its system and local dependencies '''
 
-    dirname = os.path.dirname(file)
+    dir = Path(file[:-1])
 
     headers = {
         "system": [],
         "local": []
     }
 
-    with open(file, mode='r') as infile:
+    with open(str(file), mode='r') as infile:
         for line in infile:
             sys_include = re.search('#include <(?P<file>.*)>', line)
             local_include = re.search('#include "(?P<file>.*)"', line)
             if sys_include:
                 headers["system"].append(sys_include.group('file'))
             elif local_include:
-                headers["local"].append(os.path.join(dirname, local_include.group('file')))
+                headers["local"].append(dir.join(local_include.group('file')))
 
             if 'namespace' in line:
                 break
@@ -63,7 +123,7 @@ class Sources(object):
             files = dir[2]
 
             for file in files:
-                self.files.append(os.path.join(dir[0], file))
+                self.files.append(Path(dir[0], file))
 
     def __iter__(self):
         return self
@@ -89,11 +149,11 @@ if __name__ == "__main__":
     sources = []
     system_includes = set()
 
-    for dir in os.walk('src'):
+    for dir in os.walk('include'):
         files = dir[2]
 
         for file in files:
-            fname = os.path.join(dir[0], file)
+            fname = Path(dir[0], file)
 
             if (file[-4:] == '.hpp' or file[-2:] == '.h'):
                 headers.append(fname)
@@ -112,7 +172,7 @@ if __name__ == "__main__":
     source_namespaces = dict()
 
     for cpp in sources:
-        with open(cpp, mode='r') as infile:
+        with open(str(cpp), mode='r') as infile:
             rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', infile.read())
             if (rmatch):
                 name = rmatch.group('name')
@@ -125,7 +185,7 @@ if __name__ == "__main__":
     header_namespaces = dict()
     
     for hpp in headers:
-        with open(hpp, mode='r') as infile:
+        with open(str(hpp), mode='r') as infile:
             rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', infile.read())
             if (rmatch):
                 name = rmatch.group('name')
