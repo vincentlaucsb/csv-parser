@@ -111,37 +111,23 @@ def get_dependencies(file: Path) -> dict:
 
     return headers
 
-class Sources(object):
-    def __init__(self):
-        self.files = []
-        self.current_lines = []
-        self.current_file = None
-        self.current_source = None
-        
-        ''' Iterate over every .cpp and .hpp file '''
-        for dir in os.walk('src'):
-            files = dir[2]
+''' Strip include statements and #pragma once declarations from header files '''
+def file_strip(file: Path) -> str:
+    new_file = ''
+    strip_these = [
+        '#include <(?P<file>.*)>',
+        '#include "(?P<file>.*)"',
+        '#pragma once'
+    ]
 
-            for file in files:
-                self.files.append(Path(dir[0], file))
+    with open(str(file), mode='r') as infile:
+        for line in infile:
+            add_this_line = sum(re.search(strip, line) is not None for strip in strip_these) == 0
 
-    def __iter__(self):
-        return self
+            if (add_this_line):
+                new_file += line
 
-    def skip_to_next_file(self):
-        self.current_lines.clear()
-
-    def __next__(self):
-        if (not self.current_lines):
-            if (self.files):
-                self.current_file = self.files.pop()
-                with open(self.current_file) as infile:
-                    self.current_lines = infile.readlines()
-                    self.current_source = ''.join(self.current_lines)
-            else:
-                raise StopIteration
-
-        return self.current_lines.pop()
+    return new_file
        
 if __name__ == "__main__":
     ''' Iterate over every .cpp and .hpp file '''
@@ -163,36 +149,31 @@ if __name__ == "__main__":
     # Rearrange header order to avoid compilation conflicts
     headers = header_list(headers)
 
+    # Reorder files such that master headers are first
+    MASTER_HPP = [
+        Path("include", "csv.hpp"), 
+        Path("include", "external", "string_view.hpp")
+    ]
+
+    for hpp in MASTER_HPP:
+        headers.remove(hpp)
+
+    headers = MASTER_HPP + headers
+
     # Get system includes
     for file in sources + headers:       
         for include in get_dependencies(file)['system']:
             system_includes.add(include)
 
-    # Mapping of strings to namespace contents
-    source_namespaces = dict()
+    # Collate header and source files
+    source_collate = ''
+    header_collate = ''
 
     for cpp in sources:
-        with open(str(cpp), mode='r') as infile:
-            rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', infile.read())
-            if (rmatch):
-                name = rmatch.group('name')
-                if name in source_namespaces:
-                    source_namespaces[name] += rmatch.group('code')
-                else:
-                    source_namespaces[name] = rmatch.group('code')
-
-    # Mapping of strings to namespace contents
-    header_namespaces = dict()
+        source_collate += file_strip(cpp)
     
     for hpp in headers:
-        with open(str(hpp), mode='r') as infile:
-            rmatch = re.search('namespace (?P<name>(.*)) {(?P<code>(\n.*)*)}', infile.read())
-            if (rmatch):
-                name = rmatch.group('name')
-                if name in header_namespaces:
-                    header_namespaces[name] += rmatch.group('code')
-                else:
-                    header_namespaces[name] = rmatch.group('code')
+        header_collate += file_strip(hpp)
 
     # Generate hpp file
     system_includes = list(system_includes)
@@ -200,18 +181,5 @@ if __name__ == "__main__":
     for i in system_includes:
         print("#include <{}>".format(i))
 
-    # Collate header source code
-    for k in header_namespaces:
-        formatted = "namespace {name} {{ {code} }}"
-        print(formatted.format(
-            name=k,
-            code=header_namespaces[k]
-        ))
-
-    # Collate source code
-    for k in source_namespaces:
-        formatted = "namespace {name} {{ {code} }}"
-        print(formatted.format(
-            name=k,
-            code=source_namespaces[k]
-        ))
+    print(header_collate)
+    print(source_collate)
