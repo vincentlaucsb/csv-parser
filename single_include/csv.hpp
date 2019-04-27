@@ -30,7 +30,8 @@ SOFTWARE.
 #define CSV_HPP
 
 
-#endif// Copyright 2017-2019 by Martin Moene
+#endif
+// Copyright 2017-2019 by Martin Moene
 //
 // string-view lite, a C++17-like string_view for C++98 and later.
 // For more information see https://github.com/martinmoene/string-view-lite
@@ -1350,6 +1351,7 @@ nssv_RESTORE_WARNINGS()
 #endif // nssv_HAVE_STD_STRING_VIEW
 #endif // NONSTD_SV_LITE_H_INCLUDED
 
+
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {
@@ -1361,7 +1363,8 @@ namespace csv {
     #else
         using string_view = nonstd::string_view;
     #endif
-}#include <string>
+}
+#include <string>
 #include <vector>
 
 namespace csv {
@@ -1390,7 +1393,8 @@ namespace csv {
         /**< @brief Detect and strip out Unicode byte order marks */
         bool unicode_detect;
     };
-}#include <iostream>
+}
+#include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
@@ -1516,7 +1520,8 @@ namespace csv {
     }
 
     ///@}
-}#include <math.h>
+}
+#include <math.h>
 #include <cctype>
 #include <string>
 
@@ -1574,7 +1579,8 @@ namespace csv {
         std::string type_name(const DataType&);
         DataType data_type(csv::string_view in, long double* const out = nullptr);
     }
-}#include <memory>
+}
+#include <memory>
 
 
 namespace csv {
@@ -1593,7 +1599,8 @@ namespace csv {
             size_t current_end = 0;
         };
     }
-}// Auxiliary data structures for CSV parser
+}
+// Auxiliary data structures for CSV parser
 
 
 #include <math.h>
@@ -1808,7 +1815,8 @@ namespace csv {
 
         return this->value;
     }
-}#include <deque>
+}
+#include <deque>
 
 
 namespace csv {
@@ -1852,7 +1860,8 @@ namespace csv {
     /** @brief RFC 4180 CSV format with strict parsing */
     const CSVFormat DEFAULT_CSV_STRICT = { ',', '"', 0, {}, true, true };
     ///@}
-}#include <deque>
+}
+#include <deque>
 #include <iterator>
 #include <memory>
 #include <thread>
@@ -2096,7 +2105,8 @@ namespace csv {
             std::string head;
         };
     }
-}#include <unordered_map>
+}
+#include <unordered_map>
 #include <vector>
 
 namespace csv {
@@ -2143,6 +2153,7 @@ namespace csv {
         void calc_worker(const size_t&);
     };
 }
+
 #include <string>
 
 namespace csv {
@@ -2183,6 +2194,7 @@ namespace csv {
         }
     }
 }
+
 #include <algorithm>
 #include <cstdio>   // For read_csv()
 #include <cstring>  // For read_csv()
@@ -2700,6 +2712,7 @@ namespace csv {
         return true;
     }
 }
+
 namespace csv {
     /**
      * @brief Return an iterator to the first row in the reader
@@ -2766,7 +2779,8 @@ namespace csv {
     bool CSVReader::iterator::operator==(const CSVReader::iterator& other) const {
         return (this->daddy == other.daddy) && (this->i == other.i);
     }
-}#include <cassert>
+}
+#include <cassert>
 #include <functional>
 
 namespace csv {
@@ -2995,7 +3009,8 @@ namespace csv {
     bool CSVRow::iterator::operator==(const iterator& other) const {
         return this->i == other.i;
     }
-}#include <string>
+}
+#include <string>
 
 namespace csv {
     /** @file
@@ -3238,7 +3253,8 @@ namespace csv {
 
         return csv_dtypes;
     }
-}#include <vector>
+}
+#include <vector>
 
 
 namespace csv {
@@ -3318,7 +3334,8 @@ namespace csv {
 
         return info;
     }
-}#include <cassert>
+}
+#include <cassert>
 
 
 /** @file
@@ -3504,6 +3521,7 @@ namespace csv {
         }
     }
 }
+
 namespace csv {
     namespace internals {
         /**
@@ -3545,3 +3563,4 @@ namespace csv {
         }
     }
 }
+

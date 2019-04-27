@@ -106,10 +106,6 @@ def get_dependencies(file: Path) -> dict:
             elif local_include:
                 headers["local"].append(dir.join(local_include.group('file')))
 
-            # Prevents includes nested inside namespaces from working
-            #if 'namespace' in line:
-            #    break
-
     return headers
 
 ''' Strip local include statements and #pragma once declarations from header files '''
@@ -170,10 +166,10 @@ if __name__ == "__main__":
     header_collate = ''
 
     for cpp in sources:
-        source_collate += file_strip(cpp)
+        source_collate += file_strip(cpp) + '\n'
     
     for hpp in headers:
-        header_collate += file_strip(hpp)
+        header_collate += file_strip(hpp) + '\n'
 
     # Generate hpp file
     print("#pragma once")
