@@ -4,7 +4,7 @@
 
 #include <stdio.h> // remove()
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 
 using namespace csv;
 using std::vector;

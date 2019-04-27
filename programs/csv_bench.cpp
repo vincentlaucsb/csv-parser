@@ -1,8 +1,9 @@
 // Calculate benchmarks for CSV parser
 
-#include "csv_parser.hpp"
+#include "csv.hpp"
 #include <chrono>
 #include <iostream>
+#include <sstream>
 
 int main(int argc, char** argv) {
     using namespace csv;
@@ -26,8 +27,10 @@ int main(int argc, char** argv) {
     std::stringstream buffer;
     buffer << csv.rdbuf();
 
+    auto csv_str = buffer.str();
+
     start = std::chrono::system_clock::now();
-    parse(buffer.str());
+    parse(csv_str);
     end = std::chrono::system_clock::now();
     diff = end - start;
 

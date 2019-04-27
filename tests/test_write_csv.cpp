@@ -2,8 +2,7 @@
 #include <sstream>
 #include <queue>
 #include "catch.hpp"
-#include "csv_parser.hpp"
-#include "csv_writer.hpp"
+#include "csv.hpp"
 
 using namespace csv;
 using std::queue;

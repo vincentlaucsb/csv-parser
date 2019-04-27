@@ -11,7 +11,10 @@ This CSV parser uses multiple threads to simulatenously pull data from disk and 
 ### RFC 4180 Compliance
 This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt). On the other hand, it is also robust and capable of handling deviances from the standard. An optional strict parsing mode can be enabled to sniff out errors in files.
 
-### Easy to Use and [Well-Documented](https://vincentlaucsb.github.io/csv-parser)
+#### Encoding
+This CSV parser will handle ANSI and UTF-8 encoded files. It does not try to decode UTF-8, except for detecting and stripping byte order marks.
+
+### Easy to Use and [Well-Documented](http://vincela.com/csv)
 
 In additon to being easy on your computer's hardware, this library is also easy on you--the developer. Some helpful features include:
  * Decent ability to guess the dialect of a file (CSV, tab-delimited, etc.)
@@ -19,13 +22,21 @@ In additon to being easy on your computer's hardware, this library is also easy 
  * Ability to manually set the delimiter and quoting character of the parser
 
 ### Well Tested
-In addition to using modern C++ features to build a memory safe parser while still performing well, this parser has a extensive test suite.
+This CSV parser has an extensive test suite and is checked for memory safety with Valgrind. If you still manage to find a bug,
+do not hesitate to report it.
 
-## Building [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
+## Building and Compatibility [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
 
-All of this library's essentials are located under `src/`, with no dependencies aside from the STL. This is a C++17 library developed using Microsoft Visual Studio and compatible with g++ and clang. The CMakeList and Makefile contain instructions for building the main library, some sample programs, and the test suite.
+This library was developed with Microsoft Visual Studio and is compatible with g++ and clang.
+All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
-**GCC/Clang Compiler Flags**: `-pthread -O3 -std=c++17`
+**One-line compilation** `g++ -pthread -c -O3 -std=c++17 include/internal/*.cpp`
+
+### C++ Version
+C++11 is the minimal version required. This library makes extensive use of string views, either through
+[Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) or 
+`std:string_view` when compiling with C++17. Please be aware of this if you use parts of the public API that
+return string views.
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -41,27 +52,8 @@ target_link_libraries(<your program> csv)
 
 ```
 
-## Thirty-Second Introduction to Vince's CSV Parser
-
-* **Parsing CSV Files from..**
-  * Files: csv::CSVReader(filename)
-  * In-Memory Sources:
-    * Small: csv::parse() or csv::operator""_csv();
-    * Large: csv::CSVReader::feed();
-* **Retrieving Parsed CSV Rows (from CSVReader)**
-  * csv::CSVReader::iterator (supports range-based for loop)
-  * csv::CSVReader::read_row()
-* **Working with CSV Rows**
-  * Index by number or name: csv::CSVRow::operator[]()
-  * Random access iterator: csv::CSVRow::iterator
-  * Conversion: csv::CSVRow::operator std::vector<std::string>();
-* **Calculating Statistics**
-  * Files: csv::CSVStat(filename)
-  * In-Memory: csv::CSVStat::feed()
-* **Utility Functions**
-  * Return column names: get_col_names()
-  * Return the position of a column: get_col_pos();
-  * Return column types (for uploading to a SQL database): csv_data_types();
+### Single Header
+A single header version of this library is in the works.
 
 ## Features & Examples
 ### Reading a Large File (with Iterators)
@@ -69,7 +61,7 @@ With this library, you can easily stream over a large file without reading its e
 
 **C++ Style**
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -105,7 +97,7 @@ while (reader.read_row(row)) {
 Retrieving values using a column name string is a cheap, constant time operation.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -128,7 +120,7 @@ convert them to the proper data type. Type checking is performed on conversions
 to prevent undefined behavior.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -150,7 +142,7 @@ for (auto& row: reader) {
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 # include ...
 
 using namespace csv;
@@ -173,7 +165,7 @@ for (auto& row: reader) {
 ### Parsing an In-Memory String
 
 ```cpp
-# include "csv_parser.hpp"
+# include "csv.hpp"
 
 using namespace csv;
 
@@ -205,7 +197,7 @@ for (auto& r: rows) {
 ### Writing CSV Files
 
 ```cpp
-# include "csv_writer.hpp"
+# include "csv.hpp"
 # include ...
 
 using namespace csv;

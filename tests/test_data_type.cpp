@@ -1,6 +1,8 @@
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 #include <string>
+
+#define INT_IS_LONG_INT
 
 using namespace csv;
 using namespace csv::internals;
@@ -46,25 +48,30 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
     long double out;
     
     REQUIRE(data_type(float_a, &out) == CSV_DOUBLE);
-    REQUIRE(is_equal(out, 3.14));
+    REQUIRE(is_equal(out, 3.14L));
 
     REQUIRE(data_type(float_b, &out) ==  CSV_DOUBLE);
-    REQUIRE(is_equal(out, -3.14));
+    REQUIRE(is_equal(out, -3.14L));
 
     REQUIRE(data_type(e, &out) == CSV_DOUBLE);
-    REQUIRE(is_equal(out, 2.71828));
+    REQUIRE(is_equal(out, 2.71828L));
 }
 
 TEST_CASE("Integer Overflow", "[int_overflow]") {
-    const long double _INT_MAX = (long double)std::numeric_limits<int>::max();
-    const long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
-    const long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+    constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+    constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+    constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
 
     std::string s;
     long double out;
     
     s = std::to_string((long long)_INT_MAX + 1);
+
+    #if __cplusplus == 201703L
+    if constexpr (_INT_MAX == _LONG_MAX) {
+    #else
     if (_INT_MAX == _LONG_MAX) {
+    #endif    
         REQUIRE(data_type(s, &out) == CSV_LONG_LONG_INT);
     }
     else {
@@ -78,7 +85,7 @@ TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
     std::string s("0.15");
     long double out;
     REQUIRE(data_type(s, &out) == CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.15));
+    REQUIRE(is_equal(out, 0.15L));
 }
 
 TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
@@ -86,9 +93,61 @@ TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
     long double out;
     std::string s;
 
-    for (double i = 0; i <= 2.0; i += 0.01) {
+    for (long double i = 0; i <= 2.0; i += 0.01) {
         s = std::to_string(i);
         REQUIRE(data_type(s, &out) == CSV_DOUBLE);
         REQUIRE(is_equal(out, i));
+    }
+}
+
+TEST_CASE("Parse Scientific Notation", "[e_notation]") {
+    // Test parsing e notation
+    long double out;
+
+    std::vector<std::string> _455_thousand = {
+        "4.55e5", "4.55E5",
+        "4.55E+5", "4.55e+5",
+        "4.55E+05",
+        "4.55e0000005", "4.55E0000005",
+        "4.55e+0000005", "4.55E+0000005"
+    };
+
+    for (auto number : _455_thousand) {
+        REQUIRE(data_type(number, &out) == CSV_DOUBLE);
+        REQUIRE(is_equal(out, 455000.0L));
+    }
+
+    REQUIRE(data_type("2.17222E+02", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 217.222L));
+
+    REQUIRE(data_type("4.55E+10", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 45500000000.0L));
+
+    REQUIRE(data_type("4.55E+11", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 455000000000.0L));
+
+    REQUIRE(data_type("4.55E-1", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.455L));
+
+    REQUIRE(data_type("4.55E-5", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.0000455L));
+
+    REQUIRE(data_type("4.55E-000000000005", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.0000455L));
+}
+
+TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
+    // Assert parsing butchered scientific notation won't cause a 
+    // crash or any other weird side effects
+    long double out;
+
+    std::vector<std::string> butchered = {
+        "4.55E000a",
+        "4.55000x40",
+        "4.55000E40E40",
+    };
+
+    for (auto& s : butchered) {
+        REQUIRE(data_type(s, &out) == CSV_STRING);
     }
 }

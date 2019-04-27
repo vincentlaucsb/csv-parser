@@ -1,7 +1,7 @@
 // Tests for the CSVRow and CSVField Data Structures
 
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 using namespace csv;
 
 // Construct a CSVRow and assert that its interface works as expected
@@ -40,9 +40,9 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
 
     SECTION("operator[] Out of Bounds") {
         try {
-            auto dne = row[4].get<>();
+            row[4].get<>();
         }
-        catch (std::runtime_error& err) {
+        catch (std::runtime_error&) {
             error_caught = true;
         }
 
@@ -53,7 +53,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
         try {
             row["Col5"].get<>();
         }
-        catch (std::runtime_error& err) {
+        catch (std::runtime_error&) {
             error_caught = true;
         }
 

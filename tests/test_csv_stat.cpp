@@ -1,5 +1,5 @@
 #include "catch.hpp"
-#include "csv_parser.hpp"
+#include "csv.hpp"
 using namespace csv;
 
 const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";

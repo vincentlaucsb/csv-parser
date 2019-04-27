@@ -1,3 +1,7 @@
+/*
+CSV for C++, version 1.1.3
+https://github.com/vincentlaucsb/csv-parser
+
 MIT License
 
 Copyright (c) 2017-2019 Vincent La
@@ -19,3 +23,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+*/
+
+#pragma once
+#ifndef CSV_HPP
+#define CSV_HPP
+
+#include "internal/csv_reader.hpp"
+#include "internal/csv_stat.hpp"
+#include "internal/csv_utility.hpp"
+#include "internal/csv_writer.hpp"
+
+#endif
