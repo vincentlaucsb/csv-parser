@@ -106,16 +106,16 @@ def get_dependencies(file: Path) -> dict:
             elif local_include:
                 headers["local"].append(dir.join(local_include.group('file')))
 
-            if 'namespace' in line:
-                break
+            # Prevents includes nested inside namespaces from working
+            #if 'namespace' in line:
+            #    break
 
     return headers
 
-''' Strip include statements and #pragma once declarations from header files '''
+''' Strip local include statements and #pragma once declarations from header files '''
 def file_strip(file: Path) -> str:
     new_file = ''
     strip_these = [
-        '#include <(?P<file>.*)>',
         '#include "(?P<file>.*)"',
         '#pragma once'
     ]
@@ -176,10 +176,6 @@ if __name__ == "__main__":
         header_collate += file_strip(hpp)
 
     # Generate hpp file
-    system_includes = list(system_includes)
-    system_includes.sort()
-    for i in system_includes:
-        print("#include <{}>".format(i))
-
+    print("#pragma once")
     print(header_collate)
     print(source_collate)
