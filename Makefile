@@ -13,6 +13,7 @@ endif
 
 BUILD_DIR = build
 SOURCE_DIR = include
+SINGLE_INCLUDE_DIR = single_include
 TEST_DIR = tests
 CFLAGS = -pthread -std=$(STD)
 
@@ -50,9 +51,8 @@ docs:
 ############
 # Programs #
 ############
-csv_stats: # libcsv.a
-	$(CXX) -o csv_stats -O3 $(CFLAGS) programs/csv_stats.cpp $(SOURCES) -I$(SOURCE_DIR)
-	# $(CXX) -o csv_stats -O3 -lcsv $(CFLAGS) programs/csv_stats.cpp -L./ -I$(SOURCE_DIR)
+csv_stats:
+	$(CXX) -o csv_stats -O3 $(CFLAGS) programs/csv_stats.cpp -I$(SINGLE_INCLUDE_DIR)
 	
 #########
 # Tests #
