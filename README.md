@@ -30,13 +30,15 @@ do not hesitate to report it.
 This library was developed with Microsoft Visual Studio and is compatible with g++ and clang.
 All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
-**One-line compilation** `g++ -pthread -c -O3 -std=c++17 include/internal/*.cpp`
-
 ### C++ Version
 C++11 is the minimal version required. This library makes extensive use of string views, either through
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) or 
 `std:string_view` when compiling with C++17. Please be aware of this if you use parts of the public API that
 return string views.
+
+### Single Header
+This library is available as a single `.hpp` file under `single_include/csv.hpp`. This header includes all necessary 
+internal and external dependencies.
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -51,9 +53,6 @@ add_executable(<your program> ...)
 target_link_libraries(<your program> csv)
 
 ```
-
-### Single Header
-A single header version of this library is in the works.
 
 ## Features & Examples
 ### Reading a Large File (with Iterators)
