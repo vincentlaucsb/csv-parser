@@ -111,10 +111,7 @@ def get_dependencies(file: Path) -> dict:
 ''' Strip local include statements and #pragma once declarations from header files '''
 def file_strip(file: Path) -> str:
     new_file = ''
-    strip_these = [
-        '#include "(?P<file>.*)"',
-        '#pragma once'
-    ]
+    strip_these = [ '#include "(?P<file>.*)"', '#pragma once' ]
 
     with open(str(file), mode='r') as infile:
         for line in infile:

@@ -1,28 +1,39 @@
 #pragma once
 #include <deque>
 
+#if defined(_WIN32)
+    #include <Windows.h>
+    #undef max
+    #undef min
+#elif defined(__linux__) 
+    #include <unistd.h>
+#endif
+
 #include "csv_format.hpp"
 #include "csv_row.hpp"
 
 namespace csv {
-    // Get operating system specific details
-    #if defined(_WIN32)
-        #include <Windows.h>
-        #undef max
-        #undef min
-        inline int getpagesize() {
-            _SYSTEM_INFO sys_info = {};
-            GetSystemInfo(&sys_info);
-            return sys_info.dwPageSize;
-        }
+    namespace internals {
+        // Get operating system specific details
+        #if defined(_WIN32)
+            inline int getpagesize() {
+                _SYSTEM_INFO sys_info = {};
+                GetSystemInfo(&sys_info);
+                return sys_info.dwPageSize;
+            }
 
-        const int PAGE_SIZE = getpagesize();
-    #elif defined(__linux__) 
-        #include <unistd.h>
-        const int PAGE_SIZE = getpagesize();
-    #else
-        const int PAGE_SIZE = 4096;
-    #endif
+            const int PAGE_SIZE = getpagesize();
+        #elif defined(__linux__) 
+            const int PAGE_SIZE = getpagesize();
+        #else
+            const int PAGE_SIZE = 4096;
+        #endif
+
+        /** @brief For functions that lazy load a large CSV, this determines how
+         *         many bytes are read at a time
+         */
+        const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
+    }
 
     /** @brief Used for counting number of rows */
     using RowCount = long long int;
@@ -31,11 +42,6 @@ namespace csv {
 
     /** @name Global Constants */
     ///@{
-    /** @brief For functions that lazy load a large CSV, this determines how
-    *         many bytes are read at a time
-    */
-    const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
-
     /** @brief A dummy variable used to indicate delimiter should be guessed */
     const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false, true };
 
