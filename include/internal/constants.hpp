@@ -1,14 +1,6 @@
 #pragma once
 #include <deque>
 
-#if defined(_WIN32)
-    #include <Windows.h>
-    #undef max
-    #undef min
-#elif defined(__linux__) 
-    #include <unistd.h>
-#endif
-
 #include "csv_format.hpp"
 #include "csv_row.hpp"
 
@@ -16,6 +8,10 @@ namespace csv {
     namespace internals {
         // Get operating system specific details
         #if defined(_WIN32)
+            #include <Windows.h>
+            #undef max
+            #undef min
+
             inline int getpagesize() {
                 _SYSTEM_INFO sys_info = {};
                 GetSystemInfo(&sys_info);
@@ -24,6 +20,7 @@ namespace csv {
 
             const int PAGE_SIZE = getpagesize();
         #elif defined(__linux__) 
+            #include <unistd.h>
             const int PAGE_SIZE = getpagesize();
         #else
             const int PAGE_SIZE = 4096;
