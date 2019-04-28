@@ -34,21 +34,29 @@ namespace csv {
      */
     csv::string_view CSVRow::get_string_view(size_t n) const {
         csv::string_view ret(this->row_str);
-        size_t beg = 0, end = row_str.size(),
+        size_t beg = 0,
+            end = 0,
             r_size = this->size();
 
         if (n >= r_size)
             throw std::runtime_error("Index out of bounds.");
 
         if (!splits.empty()) {
-            if (n == 0 || r_size == 2) {
-                if (n == 0) end = this->splits[0];
-                else beg = this->splits[0];
+            if (n == 0) {
+                end = this->splits[0];
+            }
+            else if (r_size == 2) {
+                beg = this->splits[0];
             }
             else {
                 beg = this->splits[n - 1];
                 if (n != r_size - 1) end = this->splits[n];
             }
+        }
+
+        // Performance optimization
+        if (end == 0) {
+            end = row_str.size();
         }
         
         return ret.substr(
