@@ -452,7 +452,7 @@ namespace csv {
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
-            char * result = std::fgets(line_buffer, PAGE_SIZE, this->infile);
+            char * result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
             if (result == NULL) break;
             line_buffer += std::strlen(line_buffer);
 
@@ -506,7 +506,7 @@ namespace csv {
     bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
-                this->read_csv("", ITERATION_CHUNK_SIZE);
+                this->read_csv("", internals::ITERATION_CHUNK_SIZE);
             }
             else return false; // Stop reading
         }

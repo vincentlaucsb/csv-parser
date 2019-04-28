@@ -4,8 +4,6 @@
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {
-    using namespace nonstd;
-
     #if __cplusplus >= 201703L
         #include <string_view>
         using string_view = std::string_view;

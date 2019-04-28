@@ -198,7 +198,7 @@ namespace csv {
         void feed(std::unique_ptr<char[]>&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(
             const std::string& filename,
-            const size_t& bytes = ITERATION_CHUNK_SIZE
+            const size_t& bytes = internals::ITERATION_CHUNK_SIZE
         );
         void read_csv_worker();
         ///@}
