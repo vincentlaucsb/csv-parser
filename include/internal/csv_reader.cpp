@@ -296,56 +296,54 @@ namespace csv {
         this->record_buffer->reserve(in.size());
         std::string& _record_buffer = *(this->record_buffer.get());
 
-        for (size_t i = 0; i < in.size(); i++) {
-            if (!quote_escape) {
-                switch (this->parse_flags[in[i] + 128]) {
-                case NOT_SPECIAL:
-                    _record_buffer +=in[i];
-                    break;
+        const size_t in_size = in.size();
+        for (size_t i = 0; i < in_size; i++) {
+            switch (this->parse_flags[in[i] + 128]) {
                 case DELIMITER:
-                    this->split_buffer.push_back(this->record_buffer.size());
-                    break;
-                case NEWLINE:
-                    // End of record -> Write record
-                    if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
-                        ++i;
-                    this->write_record();
-                    break;
-                default: // Quote
-                    // Case: Previous character was delimiter or newline
-                    if (i) { // Don't deref past beginning
-                        auto prev_ch = this->parse_flags[in[i - 1] + 128];
-                        if (prev_ch >= DELIMITER) quote_escape = true;
+                    if (!quote_escape) {
+                        this->split_buffer.push_back(this->record_buffer.size());
+                        break;
                     }
-                    break;
-                }
-            }
-            else {
-                switch (this->parse_flags[in[i] + 128]) {
-                case NOT_SPECIAL:
-                case DELIMITER:
                 case NEWLINE:
-                    // Treat as a regular character
-                    _record_buffer +=in[i];
+                    if (!quote_escape) {
+                        // End of record -> Write record
+                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                            ++i;
+                        this->write_record();
+                        break;
+                    }
+                case NOT_SPECIAL:
+                    _record_buffer += in[i];
                     break;
                 default: // Quote
+                    if (!quote_escape) {
+                        // Don't deref past beginning
+                        if (i && this->parse_flags[in[i - 1] + 128] >= DELIMITER) {
+                            // Case: Previous character was delimiter or newline
+                            quote_escape = true;
+                        }
+
+                        break;
+                    }
+
                     auto next_ch = this->parse_flags[in[i + 1] + 128];
                     if (next_ch >= DELIMITER) {
                         // Case: Delim or newline => end of field
                         quote_escape = false;
+                        break;
                     }
-                    else {
-                        // Case: Escaped quote
-                        _record_buffer +=in[i];
+                        
+                    // Case: Escaped quote
+                    _record_buffer += in[i];
 
-                        if (next_ch == QUOTE)
-                            ++i;  // Case: Two consecutive quotes
-                        else if (this->strict)
-                            throw std::runtime_error("Unescaped single quote around line " +
-                                std::to_string(this->correct_rows) + " near:\n" +
-                                std::string(in.substr(i, 100)));
-                    }
-                }
+                    if (next_ch == QUOTE)
+                        ++i;  // Case: Two consecutive quotes
+                    else if (this->strict)
+                        throw std::runtime_error("Unescaped single quote around line " +
+                            std::to_string(this->correct_rows) + " near:\n" +
+                            std::string(in.substr(i, 100)));
+                        
+                    break;
             }
         }
 
