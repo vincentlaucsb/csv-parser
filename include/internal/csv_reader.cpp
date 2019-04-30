@@ -267,8 +267,8 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    void CSVReader::feed(std::unique_ptr<char[]>&& buff) {
-        this->feed(csv::string_view(buff.get()));
+    void CSVReader::feed(WorkItem&& buff) {
+        this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
     void CSVReader::feed(csv::string_view in) {
@@ -431,7 +431,7 @@ namespace csv {
             this->feed_buffer.pop_front();
 
             // Nullptr --> Die
-            if (!in) break;
+            if (!in.first) break;
 
             lock.unlock();      // Release lock
             this->feed(std::move(in));
@@ -471,11 +471,12 @@ namespace csv {
             char * result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
             if (result == NULL) break;
             line_buffer += std::strlen(line_buffer);
+            size_t current_strlen = line_buffer - buffer.get();
 
-            if ((line_buffer - buffer.get()) >= 0.9 * BUFFER_UPPER_LIMIT) {
+            if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
                 processed += (line_buffer - buffer.get());
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
-                this->feed_buffer.push_back(std::move(buffer));
+                this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
                 this->feed_cond.notify_one();
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
@@ -486,8 +487,8 @@ namespace csv {
 
         // Feed remaining bits
         std::unique_lock<std::mutex> lock{ this->feed_lock };
-        this->feed_buffer.push_back(std::move(buffer));
-        this->feed_buffer.push_back(nullptr); // Termination signal
+        this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), line_buffer - buffer.get()));
+        this->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
         this->feed_cond.notify_one();
         lock.unlock();
         worker.join();

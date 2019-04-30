@@ -151,6 +151,9 @@ namespace csv {
             NEWLINE
         };
 
+        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>; /**<
+            @brief A string buffer and its size */
+
         std::vector<CSVReader::ParseFlags> make_flags() const;
 
         internals::GiantStringBuffer record_buffer; /**<
@@ -195,7 +198,7 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed(std::unique_ptr<char[]>&&); /**< @brief Helper for read_csv_worker() */
+        void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(
             const std::string& filename,
             const size_t& bytes = internals::ITERATION_CHUNK_SIZE
@@ -208,8 +211,7 @@ namespace csv {
         std::FILE* infile = nullptr;         /**< @brief Current file handle.
                                                   Destroyed by ~CSVReader(). */
 
-        std::deque<std::unique_ptr<char[]>>
-            feed_buffer;                     /**< @brief Message queue for worker */
+        std::deque<WorkItem> feed_buffer;                     /**< @brief Message queue for worker */
 
         std::mutex feed_lock;                /**< @brief Allow only one worker to write */
         std::condition_variable feed_cond;   /**< @brief Wake up worker */
