@@ -312,9 +312,19 @@ namespace csv {
                         this->write_record();
                         break;
                     }
-                case NOT_SPECIAL:
-                    _record_buffer += in[i];
+                case NOT_SPECIAL: {
+                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                    // sequences, use the loop below to avoid having to go through the outer
+                    // switch statement as much as possible
+                    size_t start = i;
+                    while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                        i++;
+                    }
+
+                    _record_buffer += in.substr(start, i - start + 1);
+
                     break;
+                }
                 default: // Quote
                     if (!quote_escape) {
                         // Don't deref past beginning
