@@ -267,8 +267,8 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    void CSVReader::feed(std::unique_ptr<char[]>&& buff) {
-        this->feed(csv::string_view(buff.get()));
+    void CSVReader::feed(WorkItem&& buff) {
+        this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
     void CSVReader::feed(csv::string_view in) {
@@ -296,56 +296,72 @@ namespace csv {
         this->record_buffer->reserve(in.size());
         std::string& _record_buffer = *(this->record_buffer.get());
 
-        for (size_t i = 0; i < in.size(); i++) {
-            if (!quote_escape) {
-                switch (this->parse_flags[in[i] + 128]) {
-                case NOT_SPECIAL:
-                    _record_buffer +=in[i];
-                    break;
+        const size_t in_size = in.size();
+        for (size_t i = 0; i < in_size; i++) {
+            switch (this->parse_flags[in[i] + 128]) {
                 case DELIMITER:
-                    this->split_buffer.push_back(this->record_buffer.size());
-                    break;
-                case NEWLINE:
-                    // End of record -> Write record
-                    if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
-                        ++i;
-                    this->write_record();
-                    break;
-                default: // Quote
-                    // Case: Previous character was delimiter or newline
-                    if (i) { // Don't deref past beginning
-                        auto prev_ch = this->parse_flags[in[i - 1] + 128];
-                        if (prev_ch >= DELIMITER) quote_escape = true;
+                    if (!quote_escape) {
+                        this->split_buffer.push_back(this->record_buffer.size());
+                        break;
                     }
+                case NEWLINE:
+                    if (!quote_escape) {
+                        // End of record -> Write record
+                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                            ++i;
+                        this->write_record();
+                        break;
+                    }
+                case NOT_SPECIAL: {
+                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                    // sequences, use the loop below to avoid having to go through the outer
+                    // switch statement as much as possible
+                    #if __cplusplus >= 201703L
+                    size_t start = i;
+                    while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                        i++;
+                    }
+
+                    _record_buffer += in.substr(start, i - start + 1);
+                    #else
+                    _record_buffer += in[i];
+
+                    while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                        _record_buffer += in[++i];
+                    }
+                    #endif
+
                     break;
                 }
-            }
-            else {
-                switch (this->parse_flags[in[i] + 128]) {
-                case NOT_SPECIAL:
-                case DELIMITER:
-                case NEWLINE:
-                    // Treat as a regular character
-                    _record_buffer +=in[i];
-                    break;
                 default: // Quote
+                    if (!quote_escape) {
+                        // Don't deref past beginning
+                        if (i && this->parse_flags[in[i - 1] + 128] >= DELIMITER) {
+                            // Case: Previous character was delimiter or newline
+                            quote_escape = true;
+                        }
+
+                        break;
+                    }
+
                     auto next_ch = this->parse_flags[in[i + 1] + 128];
                     if (next_ch >= DELIMITER) {
                         // Case: Delim or newline => end of field
                         quote_escape = false;
+                        break;
                     }
-                    else {
-                        // Case: Escaped quote
-                        _record_buffer +=in[i];
+                        
+                    // Case: Escaped quote
+                    _record_buffer += in[i];
 
-                        if (next_ch == QUOTE)
-                            ++i;  // Case: Two consecutive quotes
-                        else if (this->strict)
-                            throw std::runtime_error("Unescaped single quote around line " +
-                                std::to_string(this->correct_rows) + " near:\n" +
-                                std::string(in.substr(i, 100)));
-                    }
-                }
+                    if (next_ch == QUOTE)
+                        ++i;  // Case: Two consecutive quotes
+                    else if (this->strict)
+                        throw std::runtime_error("Unescaped single quote around line " +
+                            std::to_string(this->correct_rows) + " near:\n" +
+                            std::string(in.substr(i, 100)));
+                        
+                    break;
             }
         }
 
@@ -415,7 +431,7 @@ namespace csv {
             this->feed_buffer.pop_front();
 
             // Nullptr --> Die
-            if (!in) break;
+            if (!in.first) break;
 
             lock.unlock();      // Release lock
             this->feed(std::move(in));
@@ -455,11 +471,12 @@ namespace csv {
             char * result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
             if (result == NULL) break;
             line_buffer += std::strlen(line_buffer);
+            size_t current_strlen = line_buffer - buffer.get();
 
-            if ((line_buffer - buffer.get()) >= 0.9 * BUFFER_UPPER_LIMIT) {
+            if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
                 processed += (line_buffer - buffer.get());
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
-                this->feed_buffer.push_back(std::move(buffer));
+                this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
                 this->feed_cond.notify_one();
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
@@ -470,8 +487,8 @@ namespace csv {
 
         // Feed remaining bits
         std::unique_lock<std::mutex> lock{ this->feed_lock };
-        this->feed_buffer.push_back(std::move(buffer));
-        this->feed_buffer.push_back(nullptr); // Termination signal
+        this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), line_buffer - buffer.get()));
+        this->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
         this->feed_cond.notify_one();
         lock.unlock();
         worker.join();
