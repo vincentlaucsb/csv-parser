@@ -316,12 +316,20 @@ namespace csv {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
+                    #if __cplusplus >= 201703L
                     size_t start = i;
                     while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
                         i++;
                     }
 
                     _record_buffer += in.substr(start, i - start + 1);
+                    #else
+                    _record_buffer += in[i];
+
+                    while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                        _record_buffer += in[++i];
+                    }
+                    #endif
 
                     break;
                 }
