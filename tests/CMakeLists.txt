@@ -1,6 +1,7 @@
 add_executable(csv_test "")
 target_sources(csv_test
 	PRIVATE
+		${CSV_INCLUDE_DIR}/csv.hpp
 		catch.hpp
 		main.cpp
 		test_csv_iterator.cpp

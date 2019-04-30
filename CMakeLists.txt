@@ -19,10 +19,11 @@ else()
 	set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -lgcov --coverage")
 endif(MSVC)
 
-set(CSV_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/include/internal/)
+set(CSV_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include/)
+set(CSV_SOURCE_DIR ${CSV_INCLUDE_DIR}/internal/)
 set(CSV_TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
 
-include_directories(${CMAKE_CURRENT_LIST_DIR}/include/)
+include_directories(${CSV_INCLUDE_DIR})
 
 ## Main Library
 add_subdirectory(${CSV_SOURCE_DIR})
