@@ -1,3 +1,5 @@
+#include "csv_reader.hpp"
+#include "csv_reader.hpp"
 #include <algorithm>
 #include <cstdio>   // For read_csv()
 #include <cstring>  // For read_csv()
@@ -271,6 +273,12 @@ namespace csv {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
+    constexpr void CSVReader::move_to_end_of_field(const CSVReader::ParseFlags* flags, csv::string_view in, size_t& i, const size_t in_size) {
+        while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+            i++;
+        }
+    }
+
     void CSVReader::feed(csv::string_view in) {
         /** @brief Parse a CSV-formatted string.
          *
@@ -313,16 +321,17 @@ namespace csv {
                         this->write_record();
                         break;
                     }
+
+                    // Treat as regular character
+                    _record_buffer += in[i];
+                    break;
                 case NOT_SPECIAL: {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
                     #if __cplusplus >= 201703L
                     size_t start = i;
-                    while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
-                        i++;
-                    }
-
+                    this->move_to_end_of_field(parse_flags, in, i, in_size);
                     _record_buffer += in.substr(start, i - start + 1);
                     #else
                     _record_buffer += in[i];
@@ -383,31 +392,39 @@ namespace csv {
 
         size_t col_names_size = this->col_names->size();
 
-        auto row = CSVRow(
-            this->record_buffer.buffer,
-            this->record_buffer.get_row(),
-            std::move(this->split_buffer),
-            this->col_names
-        );
-
         if (this->row_num > this->header_row) {
             // Make sure record is of the right length
-            if (row.size() == col_names_size) {
+            if (this->split_buffer.size() + 1 == col_names_size) {
                 this->correct_rows++;
-                this->records.push_back(std::move(row));
+                this->records.push_back(CSVRow(
+                    this->record_buffer.buffer,
+                    this->record_buffer.get_row(),
+                    std::move(this->split_buffer),
+                    this->col_names
+                ));
             }
             else {
                 /* 1) Zero-length record, probably caused by extraneous newlines
                  * 2) Too short or too long
                  */
                 this->row_num--;
-                if (!row.empty())
-                    bad_row_handler(std::vector<std::string>(row));
+                if (!split_buffer.empty())
+                    bad_row_handler(std::vector<std::string>(CSVRow(
+                        this->record_buffer.buffer,
+                        this->record_buffer.get_row(),
+                        std::move(this->split_buffer),
+                        this->col_names
+                    )));
             }
         }
         else if (this->row_num == this->header_row) {
             this->col_names = std::make_shared<internals::ColNames>(
-                std::vector<std::string>(row));
+                std::vector<std::string>(CSVRow(
+                    this->record_buffer.buffer,
+                    this->record_buffer.get_row(),
+                    std::move(this->split_buffer),
+                    this->col_names
+                )));
         } // else: Ignore rows before header row
 
         // Some memory allocation optimizations
