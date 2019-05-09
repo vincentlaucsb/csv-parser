@@ -159,7 +159,7 @@ namespace csv {
         internals::GiantStringBuffer record_buffer; /**<
             @brief Buffer for current row being parsed */
 
-        std::vector<size_t> split_buffer; /**<
+        std::vector<unsigned short> split_buffer; /**<
             @brief Positions where current row is split */
 
         std::deque<CSVRow> records; /**< @brief Queue of parsed CSV rows */

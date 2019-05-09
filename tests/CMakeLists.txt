@@ -16,7 +16,7 @@ target_link_libraries(csv_test csv)
 add_custom_command(
 	TARGET csv_test POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
-	data $<TARGET_FILE_DIR:csv_test>/tests/data
+	${CMAKE_CURRENT_LIST_DIR}/data $<TARGET_FILE_DIR:csv_test>/data
 )
 
 enable_testing()

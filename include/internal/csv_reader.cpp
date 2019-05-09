@@ -295,10 +295,11 @@ namespace csv {
         // Optimization
         this->record_buffer->reserve(in.size());
         std::string& _record_buffer = *(this->record_buffer.get());
+        const auto parse_flags = this->parse_flags.data();
 
         const size_t in_size = in.size();
         for (size_t i = 0; i < in_size; i++) {
-            switch (this->parse_flags[in[i] + 128]) {
+            switch (parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
                         this->split_buffer.push_back(this->record_buffer.size());
@@ -318,7 +319,7 @@ namespace csv {
                     // switch statement as much as possible
                     #if __cplusplus >= 201703L
                     size_t start = i;
-                    while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                    while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
                         i++;
                     }
 
@@ -326,7 +327,7 @@ namespace csv {
                     #else
                     _record_buffer += in[i];
 
-                    while (i + 1 < in_size && this->parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                    while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
                         _record_buffer += in[++i];
                     }
                     #endif
@@ -336,7 +337,7 @@ namespace csv {
                 default: // Quote
                     if (!quote_escape) {
                         // Don't deref past beginning
-                        if (i && this->parse_flags[in[i - 1] + 128] >= DELIMITER) {
+                        if (i && parse_flags[in[i - 1] + 128] >= DELIMITER) {
                             // Case: Previous character was delimiter or newline
                             quote_escape = true;
                         }
@@ -344,7 +345,7 @@ namespace csv {
                         break;
                     }
 
-                    auto next_ch = this->parse_flags[in[i + 1] + 128];
+                    auto next_ch = parse_flags[in[i + 1] + 128];
                     if (next_ch >= DELIMITER) {
                         // Case: Delim or newline => end of field
                         quote_escape = false;

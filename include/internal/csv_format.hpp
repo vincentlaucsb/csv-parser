@@ -27,5 +27,8 @@ namespace csv {
 
         /**< @brief Detect and strip out Unicode byte order marks */
         bool unicode_detect;
+
+        /**< @brief Whitespace characters to strip */
+        std::vector<char> whitespace;
     };
 }

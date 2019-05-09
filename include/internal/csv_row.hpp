@@ -103,7 +103,7 @@ namespace csv {
         CSVRow(
             std::shared_ptr<std::string> _str,
             csv::string_view _row_str,
-            std::vector<size_t>&& _splits,
+            std::vector<unsigned short>&& _splits,
             std::shared_ptr<internals::ColNames> _cnames = nullptr) :
             str(_str),
             row_str(_row_str),
@@ -113,7 +113,7 @@ namespace csv {
 
         CSVRow(
             std::string _row_str,
-            std::vector<size_t>&& _splits,
+            std::vector<unsigned short>&& _splits,
             std::shared_ptr<internals::ColNames> _cnames = nullptr
             ) :
             str(std::make_shared<std::string>(_row_str)),
@@ -194,7 +194,7 @@ namespace csv {
     private:
 		std::shared_ptr<std::string> str = nullptr;
 		csv::string_view row_str = "";
-		std::vector<size_t> splits = {};
+		std::vector<unsigned short> splits = {};
         std::shared_ptr<internals::ColNames> col_names = nullptr;
     };
 
