@@ -1,4 +1,6 @@
 #include "giant_string_buffer.hpp"
+#include "giant_string_buffer.hpp"
+#include "giant_string_buffer.hpp"
 
 namespace csv {
     namespace internals {
@@ -38,6 +40,28 @@ namespace csv {
 
             this->current_end = 0;
             this->buffer = std::make_shared<std::string>(temp_str);
+        }
+
+        GiantSplitBuffer::GiantSplitBuffer()
+        {
+            this->current_head = this->buffer.get();
+        }
+
+        ColumnPositions * csv::internals::GiantSplitBuffer::append(std::vector<unsigned short>& in)
+        {
+            ColumnPositions * const ptr = (ColumnPositions*)this->current_head;
+
+            const size_t arr_size = sizeof(unsigned short) * in.size();
+            ptr->n_cols = in.size();
+            std::memcpy(ptr->splits, in.data(), arr_size);
+            this->current_head += arr_size + sizeof(size_t);
+
+            return ptr;
+        }
+
+        void GiantSplitBuffer::reset()
+        {
+            this->buffer = std::shared_ptr<char[]>(new char[50000]);
         }
     }
 }

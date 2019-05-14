@@ -32,4 +32,5 @@ add_subdirectory(${CSV_SOURCE_DIR})
 add_subdirectory("programs")
 
 ## Tests
+enable_testing()
 add_subdirectory("tests")

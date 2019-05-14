@@ -15,28 +15,28 @@ using std::string;
 //
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
     int pos = get_col_pos(
-        "./tests/data/real_data/2015_StateDepartment.csv",
+        "./data/real_data/2015_StateDepartment.csv",
         "Entity Type");
     REQUIRE(pos == 1);
 }
 
 TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
     CSVFormat format = guess_format(
-        "./tests/data/real_data/2009PowerStatus.txt");
+        "./data/real_data/2009PowerStatus.txt");
     REQUIRE(format.delim == '|');
     REQUIRE(format.header == 0);
 }
 
 TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
     CSVFormat format = guess_format(
-        "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
+        "./data/real_data/YEAR07_CBSA_NAC3.txt");
     REQUIRE(format.delim == ';');
     REQUIRE(format.header == 0);
 }
 
 TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
     CSVFormat format = guess_format(
-        "./tests/data/fake_data/ints_comments.csv");
+        "./data/fake_data/ints_comments.csv");
     REQUIRE(format.delim == ',');
     REQUIRE(format.header == 5);
 }
@@ -44,7 +44,7 @@ TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
 // get_file_info()
 TEST_CASE("get_file_info() Test", "[test_file_info]") {
     CSVFileInfo info = get_file_info(
-        "./tests/data/real_data/2009PowerStatus.txt");
+        "./data/real_data/2009PowerStatus.txt");
         
     REQUIRE(info.delim == '|');
     REQUIRE(info.n_rows == 37960); // Can confirm with Excel
@@ -188,7 +188,7 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
-    const std::string data_file = "./tests/data/real_data/2015_StateDepartment.csv";
+    const std::string data_file = "./data/real_data/2015_StateDepartment.csv";
     CSVReader reader(data_file, DEFAULT_CSV);
     CSVRow row;
     reader.read_row(row); // Populate row with first line
@@ -229,7 +229,7 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
 //! [CSVField Example]
 TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
     // Test that integers are type-casted properly
-    CSVReader reader("./tests/data/fake_data/ints.csv");
+    CSVReader reader("./data/fake_data/ints.csv");
     CSVRow row;
 
     while (reader.read_row(row)) {
@@ -297,7 +297,7 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
-    CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
+    CSVReader reader("./data/real_data/2009PowerStatus.txt");
     CSVRow row;
     bool caught_error = false;
 

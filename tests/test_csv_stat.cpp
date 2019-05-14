@@ -2,7 +2,7 @@
 #include "csv.hpp"
 using namespace csv;
 
-const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";
+const std::string PERSONS_CSV = "./data/mimesis_data/persons.csv";
 
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
@@ -39,7 +39,7 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
 
 TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
     // Header on first row
-    CSVStat reader("./tests/data/fake_data/ints.csv");
+    CSVStat reader("./data/fake_data/ints.csv");
 
     // Expected Results
     std::vector<long double> means = {
@@ -55,7 +55,7 @@ TEST_CASE( "Statistics - ints.csv", "[read_csv_stat]" ) {
 
 TEST_CASE( "Statistics (Line Feed Record-Separated)",
     "[read_csv_stat2]" ) {
-    CSVStat reader("./tests/data/fake_data/ints_newline_sep.csv");
+    CSVStat reader("./data/fake_data/ints_newline_sep.csv");
     std::vector<long double> expected_means = {
         50.5, 50.5, 50.5, 50.5, 50.5,
         50.5, 50.5, 50.5, 50.5, 50.5

@@ -21,3 +21,16 @@ TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {
     REQUIRE(second_row == "5678");
     REQUIRE(third_row == "abcd");
 }
+
+TEST_CASE("GiantSplitBufferTest", "[test_giant_split_buffer]") {
+    GiantSplitBuffer buffer;
+
+    ColumnPositions * first = buffer.append(std::vector<unsigned short>({ 10, 20, 30, 40 })),
+                    * second = buffer.append(std::vector<unsigned short>({ 1, 2, 3, 5, 8, 11 }));
+
+    REQUIRE(first->n_cols == 4);
+    REQUIRE(first->operator[](3) == 40);
+
+    REQUIRE(second->n_cols == 6);
+    REQUIRE(second->operator[](3) == 5);
+}

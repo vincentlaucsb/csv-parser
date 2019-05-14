@@ -19,5 +19,4 @@ add_custom_command(
 	${CMAKE_CURRENT_LIST_DIR}/data $<TARGET_FILE_DIR:csv_test>/data
 )
 
-enable_testing()
 add_test(test csv_test)
