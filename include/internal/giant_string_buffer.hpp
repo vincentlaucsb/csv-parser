@@ -53,10 +53,10 @@ namespace csv {
             const RawRowBuffer * parent;
 
             /// Where in split_buffer the array of column positions begins
-            unsigned short start;
+            size_t start;
 
             /// Number of columns
-            unsigned short size;
+            size_t size;
 
             /// Get the n-th column index
             unsigned short operator[](int n) const;

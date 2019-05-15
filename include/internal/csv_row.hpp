@@ -83,10 +83,7 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
-        CSVRow(
-            internals::BufferPtr _str,
-            std::shared_ptr<internals::ColNames> _cnames = nullptr) :
-            str(_str)
+        CSVRow(internals::BufferPtr _str) : str(_str)
         {
             this->row_str = _str->get_row();
             this->splits = _str->get_splits();
