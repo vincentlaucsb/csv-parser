@@ -2,12 +2,14 @@ add_library(csv STATIC "")
 
 target_sources(csv
 	PRIVATE
+		csv_reader.hpp
 		csv_reader.cpp
 		csv_reader_iterator.cpp
 		csv_row.cpp
 		csv_stat.cpp
 		csv_utility.cpp
 		data_type.cpp
+		giant_string_buffer.hpp
 		giant_string_buffer.cpp
 )
 

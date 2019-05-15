@@ -156,7 +156,7 @@ namespace csv {
 
         std::vector<CSVReader::ParseFlags> make_flags() const;
 
-        internals::GiantStringBuffer record_buffer; /**<
+        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::GiantStringBuffer()); /**<
             @brief Buffer for current row being parsed */
 
         std::vector<unsigned short> split_buffer; /**<

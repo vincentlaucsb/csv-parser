@@ -6,15 +6,16 @@
 
 namespace csv {
     namespace internals {
+        class GiantStringBuffer;
+        using BufferPtr = std::shared_ptr<GiantStringBuffer>;
+
         /** Class for reducing number of new string malloc() calls */
         class GiantStringBuffer {
         public:
             csv::string_view get_row();
             size_t size() const;
-            std::string* get() const;
-            std::string* operator->() const;
-            std::shared_ptr<std::string> buffer = std::make_shared<std::string>();
-            void reset();
+            std::string buffer;
+            BufferPtr reset();
 
         private:
             size_t current_end = 0;

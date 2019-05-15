@@ -301,8 +301,8 @@ namespace csv {
         }
 
         // Optimization
-        this->record_buffer->reserve(in.size());
-        std::string& _record_buffer = *(this->record_buffer.get());
+        this->record_buffer->buffer.reserve(in.size());
+        std::string& _record_buffer = this->record_buffer->buffer;
         const auto parse_flags = this->parse_flags.data();
 
         const size_t in_size = in.size();
@@ -310,7 +310,7 @@ namespace csv {
             switch (parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
-                        this->split_buffer.push_back(this->record_buffer.size());
+                        this->split_buffer.push_back(this->record_buffer->size());
                         break;
                     }
                 case NEWLINE:
@@ -375,7 +375,7 @@ namespace csv {
             }
         }
 
-        this->record_buffer.reset();
+        this->record_buffer = this->record_buffer->reset();
     }
 
     void CSVReader::end_feed() {
@@ -397,8 +397,8 @@ namespace csv {
             if (this->split_buffer.size() + 1 == col_names_size) {
                 this->correct_rows++;
                 this->records.push_back(CSVRow(
-                    this->record_buffer.buffer,
-                    this->record_buffer.get_row(),
+                    this->record_buffer,
+                    this->record_buffer->get_row(),
                     std::move(this->split_buffer),
                     this->col_names
                 ));
@@ -410,8 +410,8 @@ namespace csv {
                 this->row_num--;
                 if (!split_buffer.empty())
                     bad_row_handler(std::vector<std::string>(CSVRow(
-                        this->record_buffer.buffer,
-                        this->record_buffer.get_row(),
+                        this->record_buffer,
+                        this->record_buffer->get_row(),
                         std::move(this->split_buffer),
                         this->col_names
                     )));
@@ -420,8 +420,8 @@ namespace csv {
         else if (this->row_num == this->header_row) {
             this->col_names = std::make_shared<internals::ColNames>(
                 std::vector<std::string>(CSVRow(
-                    this->record_buffer.buffer,
-                    this->record_buffer.get_row(),
+                    this->record_buffer,
+                    this->record_buffer->get_row(),
                     std::move(this->split_buffer),
                     this->col_names
                 )));

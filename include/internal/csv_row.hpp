@@ -3,6 +3,7 @@
 
 #include "data_type.h"
 #include "compatibility.hpp"
+#include "giant_string_buffer.hpp"
 
 #include <math.h>
 #include <vector>
@@ -101,7 +102,7 @@ namespace csv {
     public:
         CSVRow() = default;
         CSVRow(
-            std::shared_ptr<std::string> _str,
+            internals::BufferPtr _str,
             csv::string_view _row_str,
             std::vector<unsigned short>&& _splits,
             std::shared_ptr<internals::ColNames> _cnames = nullptr) :
@@ -111,6 +112,7 @@ namespace csv {
             col_names(_cnames)
         {};
 
+        /**
         CSVRow(
             std::string _row_str,
             std::vector<unsigned short>&& _splits,
@@ -120,8 +122,8 @@ namespace csv {
             splits(std::move(_splits)),
             col_names(_cnames)
         {
-            row_str = csv::string_view(this->str->c_str());
-        };
+            row_str = csv::string_view(this->str->buffer->c_str());
+        };*/
 
         bool empty() const { return this->row_str.empty(); }
         size_t size() const;
@@ -192,7 +194,7 @@ namespace csv {
         ///@}
 
     private:
-		std::shared_ptr<std::string> str = nullptr;
+		internals::BufferPtr str = nullptr;
 		csv::string_view row_str = "";
 		std::vector<unsigned short> splits = {};
         std::shared_ptr<internals::ColNames> col_names = nullptr;
