@@ -21,7 +21,7 @@ namespace csv {
     */
     class CSVField {
     public:
-        CSVField(csv::string_view _sv) : sv(_sv) { };
+        constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
 
         /** Returns the value casted to the requested type, performing type checking before.
         *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
@@ -83,7 +83,7 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
-        CSVRow(internals::BufferPtr _str) : str(_str)
+        CSVRow(const internals::BufferPtr& _str) : str(_str)
         {
             this->row_str = _str->get_row();
             this->splits = _str->get_splits();

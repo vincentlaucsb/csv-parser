@@ -300,20 +300,20 @@ namespace csv {
             this->unicode_bom_scan = true;
         }
 
-        // Optimization
-        this->record_buffer->buffer.reserve(in.size());
-        std::string& _record_buffer = this->record_buffer->buffer;
-        auto& split_buffer = this->record_buffer->split_buffer;
-        split_buffer.reserve(in.size() / 10);
-
+        // Optimizations
         const auto parse_flags = this->parse_flags.data();
+        auto& row_buffer = *(this->record_buffer.get());
+        auto& text_buffer = row_buffer.buffer;
+        auto& split_buffer = row_buffer.split_buffer;
+        text_buffer.reserve(in.size());
+        split_buffer.reserve(in.size() / 10);
 
         const size_t in_size = in.size();
         for (size_t i = 0; i < in_size; i++) {
             switch (parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
-                        split_buffer.push_back(this->record_buffer->size());
+                        split_buffer.push_back(row_buffer.size());
                         break;
                     }
                 case NEWLINE:
@@ -326,7 +326,7 @@ namespace csv {
                     }
 
                     // Treat as regular character
-                    _record_buffer += in[i];
+                    text_buffer += in[i];
                     break;
                 case NOT_SPECIAL: {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
@@ -335,12 +335,12 @@ namespace csv {
                     #if __cplusplus >= 201703L
                     size_t start = i;
                     this->move_to_end_of_field(parse_flags, in, i, in_size);
-                    _record_buffer += in.substr(start, i - start + 1);
+                    text_buffer += in.substr(start, i - start + 1);
                     #else
-                    _record_buffer += in[i];
+                    text_buffer += in[i];
 
                     while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
-                        _record_buffer += in[++i];
+                        text_buffer += in[++i];
                     }
                     #endif
 
@@ -365,7 +365,7 @@ namespace csv {
                     }
                         
                     // Case: Escaped quote
-                    _record_buffer += in[i];
+                    text_buffer += in[i];
 
                     if (next_ch == QUOTE)
                         ++i;  // Case: Two consecutive quotes
@@ -378,7 +378,7 @@ namespace csv {
             }
         }
 
-        this->record_buffer = this->record_buffer->reset();
+        this->record_buffer = row_buffer.reset();
     }
 
     void CSVReader::end_feed() {
@@ -400,9 +400,7 @@ namespace csv {
             // Make sure record is of the right length
             if (row_size + 1 == col_names_size) {
                 this->correct_rows++;
-                this->records.push_back(CSVRow(
-                    this->record_buffer
-                ));
+                this->records.push_back(CSVRow(this->record_buffer));
             }
             else {
                 /* 1) Zero-length record, probably caused by extraneous newlines
@@ -417,9 +415,7 @@ namespace csv {
         }
         else if (this->row_num == this->header_row) {
             this->col_names = std::make_shared<internals::ColNames>(
-                std::vector<std::string>(CSVRow(
-                    this->record_buffer
-                )));
+                std::vector<std::string>(CSVRow(this->record_buffer)));
             this->record_buffer->col_names = this->col_names;
         } // else: Ignore rows before header row
 

@@ -14,7 +14,6 @@ target_sources(csv
 		csv_stat.hpp
 		csv_utility.cpp
 		csv_utility.hpp
-		data_type.cpp
 		data_type.h
 		giant_string_buffer.hpp
 		giant_string_buffer.cpp
