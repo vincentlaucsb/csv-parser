@@ -26,7 +26,7 @@ namespace csv {
 
     /** @brief Return the number of fields in this row */
     size_t CSVRow::size() const {
-        return splits.size() + 1;
+        return this->splits.size;
     }
 
     /** @brief      Return a string view of the nth field
@@ -41,7 +41,7 @@ namespace csv {
         if (n >= r_size)
             throw std::runtime_error("Index out of bounds.");
 
-        if (!splits.empty()) {
+        if (this->size() > 1) {
             if (n == 0) {
                 end = this->splits[0];
             }

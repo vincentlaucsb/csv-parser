@@ -1,11 +1,11 @@
-// Tests for GiantStringBuffer
+// Tests for RawRowBuffer
 
 #include "catch.hpp"
 #include "csv.hpp"
 using namespace csv::internals;
 
 TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {
-    GiantStringBuffer buffer;
+    RawRowBuffer buffer;
 
     buffer.buffer.append("1234");
     std::string first_row = std::string(buffer.get_row());
@@ -23,14 +23,24 @@ TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {
 }
 
 TEST_CASE("GiantSplitBufferTest", "[test_giant_split_buffer]") {
-    GiantSplitBuffer buffer;
+    RawRowBuffer buffer;
+    auto & splits = buffer.split_buffer;
 
-    ColumnPositions * first = buffer.append(std::vector<unsigned short>({ 10, 20, 30, 40 })),
-                    * second = buffer.append(std::vector<unsigned short>({ 1, 2, 3, 5, 8, 11 }));
+    splits.push_back(1);
+    splits.push_back(2);
+    splits.push_back(3);
 
-    REQUIRE(first->n_cols == 4);
-    REQUIRE(first->operator[](3) == 40);
+    auto pos = buffer.get_splits();
+    REQUIRE(pos[0] == 1);
+    REQUIRE(pos[1] == 2);
+    REQUIRE(pos[2] == 3);
+    REQUIRE(pos.size == 4);
 
-    REQUIRE(second->n_cols == 6);
-    REQUIRE(second->operator[](3) == 5);
+    splits.push_back(4);
+    splits.push_back(5);
+
+    pos = buffer.get_splits();
+    REQUIRE(pos[0] == 4);
+    REQUIRE(pos[1] == 5);
+    REQUIRE(pos.size == 3);
 }

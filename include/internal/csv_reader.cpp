@@ -303,6 +303,8 @@ namespace csv {
         // Optimization
         this->record_buffer->buffer.reserve(in.size());
         std::string& _record_buffer = this->record_buffer->buffer;
+        auto& split_buffer = this->record_buffer->split_buffer;
+
         const auto parse_flags = this->parse_flags.data();
 
         const size_t in_size = in.size();
@@ -310,7 +312,7 @@ namespace csv {
             switch (parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
-                        this->split_buffer.push_back(this->record_buffer->size());
+                        split_buffer.push_back(this->record_buffer->size());
                         break;
                     }
                 case NEWLINE:
@@ -391,15 +393,14 @@ namespace csv {
          */
 
         size_t col_names_size = this->col_names->size();
+        size_t row_size = this->record_buffer->splits_size();
 
         if (this->row_num > this->header_row) {
             // Make sure record is of the right length
-            if (this->split_buffer.size() + 1 == col_names_size) {
+            if (row_size + 1 == col_names_size) {
                 this->correct_rows++;
                 this->records.push_back(CSVRow(
                     this->record_buffer,
-                    this->record_buffer->get_row(),
-                    std::move(this->split_buffer),
                     this->col_names
                 ));
             }
@@ -408,11 +409,9 @@ namespace csv {
                  * 2) Too short or too long
                  */
                 this->row_num--;
-                if (!split_buffer.empty())
+                if (row_size > 0)
                     bad_row_handler(std::vector<std::string>(CSVRow(
                         this->record_buffer,
-                        this->record_buffer->get_row(),
-                        std::move(this->split_buffer),
                         this->col_names
                     )));
             }
@@ -421,16 +420,9 @@ namespace csv {
             this->col_names = std::make_shared<internals::ColNames>(
                 std::vector<std::string>(CSVRow(
                     this->record_buffer,
-                    this->record_buffer->get_row(),
-                    std::move(this->split_buffer),
                     this->col_names
                 )));
         } // else: Ignore rows before header row
-
-        // Some memory allocation optimizations
-        this->split_buffer = {};
-        if (this->split_buffer.capacity() < col_names_size)
-            split_buffer.reserve(col_names_size);
 
         this->row_num++;
     }

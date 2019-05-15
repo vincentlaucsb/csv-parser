@@ -156,11 +156,8 @@ namespace csv {
 
         std::vector<CSVReader::ParseFlags> make_flags() const;
 
-        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::GiantStringBuffer()); /**<
+        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer()); /**<
             @brief Buffer for current row being parsed */
-
-        std::vector<unsigned short> split_buffer; /**<
-            @brief Positions where current row is split */
 
         std::deque<CSVRow> records; /**< @brief Queue of parsed CSV rows */
         inline bool eof() { return !(this->infile); };

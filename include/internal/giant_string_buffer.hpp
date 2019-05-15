@@ -6,40 +6,42 @@
 
 namespace csv {
     namespace internals {
-        class GiantStringBuffer;
-        using BufferPtr = std::shared_ptr<GiantStringBuffer>;
+        class RawRowBuffer;
+        class ColumnPositions;
+        using BufferPtr = std::shared_ptr<RawRowBuffer>;
 
         /** Class for reducing number of new string malloc() calls */
-        class GiantStringBuffer {
+        class RawRowBuffer {
         public:
             csv::string_view get_row();
+            ColumnPositions get_splits();
+
             size_t size() const;
-            std::string buffer;
+            size_t splits_size() const;
+
             BufferPtr reset();
+
+            std::string buffer;
+            std::vector<unsigned short> split_buffer = {};
 
         private:
             size_t current_end = 0;
+            size_t current_split_idx = 0;
         };
 
         struct ColumnPositions {
-            size_t n_cols;
-            unsigned short splits[1];
-            
-            constexpr unsigned short operator[](size_t n) {
-                return this->splits[n];
-            }
-        };
+            ColumnPositions() {};
+            ColumnPositions(const RawRowBuffer& _parent) : parent(&_parent) {};
+            const RawRowBuffer * parent = nullptr;
 
-        /** Class for reducing number of vector malloc() calls */
-        class GiantSplitBuffer {
-        public:
-            GiantSplitBuffer();
-            ColumnPositions * append(std::vector<unsigned short>& in);
-            void reset();
+            /// Where in split_buffer the array of column positions begins
+            size_t start;
 
-        private:
-            std::shared_ptr<char[]> buffer = std::shared_ptr<char[]>(new char[50000]);
-            char * current_head = nullptr;
+            /// Number of columns
+            size_t size;
+
+            /// Get the n-th column index
+            unsigned short operator[](int n) const;
         };
     }
 }

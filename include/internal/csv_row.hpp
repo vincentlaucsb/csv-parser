@@ -103,14 +103,12 @@ namespace csv {
         CSVRow() = default;
         CSVRow(
             internals::BufferPtr _str,
-            csv::string_view _row_str,
-            std::vector<unsigned short>&& _splits,
             std::shared_ptr<internals::ColNames> _cnames = nullptr) :
-            str(_str),
-            row_str(_row_str),
-            splits(std::move(_splits)),
-            col_names(_cnames)
-        {};
+            str(_str), col_names(_cnames)
+        {
+            this->row_str = _str->get_row();
+            this->splits = _str->get_splits();
+        };
 
         /**
         CSVRow(
@@ -196,7 +194,7 @@ namespace csv {
     private:
 		internals::BufferPtr str = nullptr;
 		csv::string_view row_str = "";
-		std::vector<unsigned short> splits = {};
+        internals::ColumnPositions splits;
         std::shared_ptr<internals::ColNames> col_names = nullptr;
     };
 

@@ -7,7 +7,7 @@ namespace csv {
         /**
          * Return a string_view over the current_row
          */
-        csv::string_view GiantStringBuffer::get_row() {
+        csv::string_view RawRowBuffer::get_row() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
                 (this->buffer.size() - this->current_end) // Count
@@ -17,15 +17,32 @@ namespace csv {
             return ret;
         }
 
+        ColumnPositions RawRowBuffer::get_splits()
+        {
+            ColumnPositions pos(*this);
+            size_t head_idx = this->current_split_idx,
+                size = this->split_buffer.size();
+            this->current_split_idx = size;
+
+            pos.start = head_idx;
+            pos.size = size - head_idx + 1;
+            return pos;
+        }
+
         /** Return size of current row */
-        size_t GiantStringBuffer::size() const {
+        size_t RawRowBuffer::size() const {
             return this->buffer.size() - this->current_end;
+        }
+
+        /** Return number of columns minus one of current row */
+        size_t RawRowBuffer::splits_size() const {
+            return this->split_buffer.size() - this->current_split_idx;
         }
         
         /** Clear out the buffer, but save current row in progress */
-        std::shared_ptr<GiantStringBuffer> GiantStringBuffer::reset() {
+        std::shared_ptr<RawRowBuffer> RawRowBuffer::reset() {
             // Save current row in progress
-            auto new_buff = std::shared_ptr<GiantStringBuffer>(new GiantStringBuffer());
+            auto new_buff = std::shared_ptr<RawRowBuffer>(new RawRowBuffer());
 
             new_buff->buffer = this->buffer.substr(
                 this->current_end,   // Position
@@ -37,26 +54,8 @@ namespace csv {
             return new_buff;
         }
 
-        GiantSplitBuffer::GiantSplitBuffer()
-        {
-            this->current_head = this->buffer.get();
-        }
-
-        ColumnPositions * csv::internals::GiantSplitBuffer::append(std::vector<unsigned short>& in)
-        {
-            ColumnPositions * const ptr = (ColumnPositions*)this->current_head;
-
-            const size_t arr_size = sizeof(unsigned short) * in.size();
-            ptr->n_cols = in.size();
-            std::memcpy(ptr->splits, in.data(), arr_size);
-            this->current_head += arr_size + sizeof(size_t);
-
-            return ptr;
-        }
-
-        void GiantSplitBuffer::reset()
-        {
-            this->buffer = std::shared_ptr<char[]>(new char[50000]);
+        unsigned short ColumnPositions::operator[](int n) const {
+            return this->parent->split_buffer[this->start + n];
         }
     }
 }
