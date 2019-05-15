@@ -14,24 +14,6 @@
 #include <limits> // For CSVField
 
 namespace csv {
-    namespace internals {
-        /** @struct ColNames
-         *  @brief A data structure for handling column name information.
-         *
-         *  These are created by CSVReader and passed (via smart pointer)
-         *  to CSVRow objects it creates, thus
-         *  allowing for indexing by column name.
-         */
-        struct ColNames {
-            ColNames(const std::vector<std::string>&);
-            std::vector<std::string> col_names;
-            std::unordered_map<std::string, size_t> col_pos;
-
-            std::vector<std::string> get_col_names() const;
-            size_t size() const;
-        };
-    }
-
     /**
     * @class CSVField
     * @brief Data type representing individual CSV values. 
@@ -104,7 +86,7 @@ namespace csv {
         CSVRow(
             internals::BufferPtr _str,
             std::shared_ptr<internals::ColNames> _cnames = nullptr) :
-            str(_str), col_names(_cnames)
+            str(_str)
         {
             this->row_str = _str->get_row();
             this->splits = _str->get_splits();
@@ -195,7 +177,6 @@ namespace csv {
 		internals::BufferPtr str = nullptr;
 		csv::string_view row_str = "";
         internals::ColumnPositions splits;
-        std::shared_ptr<internals::ColNames> col_names = nullptr;
     };
 
     // get() specializations

@@ -29,7 +29,7 @@ namespace csv {
         /** @brief For functions that lazy load a large CSV, this determines how
          *         many bytes are read at a time
          */
-        const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
+        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
     }
 
     /** @brief Used for counting number of rows */

@@ -4,6 +4,25 @@
 
 namespace csv {
     namespace internals {
+        //////////////
+        // ColNames //
+        //////////////
+
+        ColNames::ColNames(const std::vector<std::string>& _cnames)
+            : col_names(_cnames) {
+            for (size_t i = 0; i < _cnames.size(); i++) {
+                this->col_pos[_cnames[i]] = i;
+            }
+        }
+
+        std::vector<std::string> ColNames::get_col_names() const {
+            return this->col_names;
+        }
+
+        size_t ColNames::size() const {
+            return this->col_names.size();
+        }
+
         /**
          * Return a string_view over the current_row
          */
@@ -19,14 +38,11 @@ namespace csv {
 
         ColumnPositions RawRowBuffer::get_splits()
         {
-            ColumnPositions pos(*this);
-            size_t head_idx = this->current_split_idx,
-                size = this->split_buffer.size();
-            this->current_split_idx = size;
-
-            pos.start = head_idx;
-            pos.size = size - head_idx + 1;
-            return pos;
+            const size_t head_idx = this->current_split_idx,
+                new_split_idx = this->split_buffer.size();
+         
+            this->current_split_idx = new_split_idx;
+            return ColumnPositions(*this, head_idx, new_split_idx - head_idx + 1);
         }
 
         /** Return size of current row */
@@ -34,13 +50,13 @@ namespace csv {
             return this->buffer.size() - this->current_end;
         }
 
-        /** Return number of columns minus one of current row */
+        /** Return (num columns - 1) for current row */
         size_t RawRowBuffer::splits_size() const {
             return this->split_buffer.size() - this->current_split_idx;
         }
         
         /** Clear out the buffer, but save current row in progress */
-        std::shared_ptr<RawRowBuffer> RawRowBuffer::reset() {
+        std::shared_ptr<RawRowBuffer> RawRowBuffer::reset() const {
             // Save current row in progress
             auto new_buff = std::shared_ptr<RawRowBuffer>(new RawRowBuffer());
 
@@ -49,8 +65,10 @@ namespace csv {
                 (this->buffer.size() - this->current_end) // Count
             );
 
-            // No need to remove unnecessary bits from this buffer
+            new_buff->col_names = this->col_names;
 
+            // No need to remove unnecessary bits from this buffer
+            // (memory savings would be marginal anyways)
             return new_buff;
         }
 

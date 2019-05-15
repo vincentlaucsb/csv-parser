@@ -304,6 +304,7 @@ namespace csv {
         this->record_buffer->buffer.reserve(in.size());
         std::string& _record_buffer = this->record_buffer->buffer;
         auto& split_buffer = this->record_buffer->split_buffer;
+        split_buffer.reserve(in.size() / 10);
 
         const auto parse_flags = this->parse_flags.data();
 
@@ -400,8 +401,7 @@ namespace csv {
             if (row_size + 1 == col_names_size) {
                 this->correct_rows++;
                 this->records.push_back(CSVRow(
-                    this->record_buffer,
-                    this->col_names
+                    this->record_buffer
                 ));
             }
             else {
@@ -411,17 +411,16 @@ namespace csv {
                 this->row_num--;
                 if (row_size > 0)
                     bad_row_handler(std::vector<std::string>(CSVRow(
-                        this->record_buffer,
-                        this->col_names
+                        this->record_buffer
                     )));
             }
         }
         else if (this->row_num == this->header_row) {
             this->col_names = std::make_shared<internals::ColNames>(
                 std::vector<std::string>(CSVRow(
-                    this->record_buffer,
-                    this->col_names
+                    this->record_buffer
                 )));
+            this->record_buffer->col_names = this->col_names;
         } // else: Ignore rows before header row
 
         this->row_num++;

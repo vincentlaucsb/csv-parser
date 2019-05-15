@@ -3,27 +3,6 @@
 #include "csv_row.hpp"
 
 namespace csv {
-    namespace internals {
-        //////////////
-        // ColNames //
-        //////////////
-
-        ColNames::ColNames(const std::vector<std::string>& _cnames)
-            : col_names(_cnames) {
-            for (size_t i = 0; i < _cnames.size(); i++) {
-                this->col_pos[_cnames[i]] = i;
-            }
-        }
-
-        std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
-        }
-
-        size_t ColNames::size() const {
-            return this->col_names.size();
-        }
-    }
-
     /** @brief Return the number of fields in this row */
     size_t CSVRow::size() const {
         return this->splits.size;
@@ -41,7 +20,7 @@ namespace csv {
         if (n >= r_size)
             throw std::runtime_error("Index out of bounds.");
 
-        if (this->size() > 1) {
+        if (r_size > 1) {
             if (n == 0) {
                 end = this->splits[0];
             }
@@ -86,8 +65,9 @@ namespace csv {
      *  @param[in] col_name The column to look for
      */
     CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto col_pos = this->col_names->col_pos.find(col_name);
-        if (col_pos != this->col_names->col_pos.end())
+        auto & col_names = this->str->col_names;
+        auto col_pos = col_names->col_pos.find(col_name);
+        if (col_pos != col_names->col_pos.end())
             return this->operator[](col_pos->second);
 
         throw std::runtime_error("Can't find a column named " + col_name);
