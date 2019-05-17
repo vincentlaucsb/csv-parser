@@ -273,7 +273,7 @@ namespace csv {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
-    constexpr void CSVReader::move_to_end_of_field(const CSVReader::ParseFlags* flags, csv::string_view in, size_t& i, const size_t in_size) {
+    CONSTEXPR void CSVReader::move_to_end_of_field(const CSVReader::ParseFlags* flags, csv::string_view in, size_t& i, const size_t in_size) {
         while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
             i++;
         }
