@@ -4,8 +4,8 @@
 
 namespace csv {
     /** @brief Return the number of fields in this row */
-    size_t CSVRow::size() const {
-        return this->splits.size;
+    constexpr size_t CSVRow::size() const {
+        return this->n_cols;
     }
 
     /** @brief      Return a string view of the nth field
@@ -22,14 +22,14 @@ namespace csv {
 
         if (r_size > 1) {
             if (n == 0) {
-                end = this->splits[0];
+                end = this->split_at(0);
             }
             else if (r_size == 2) {
-                beg = this->splits[0];
+                beg = this->split_at(0);
             }
             else {
-                beg = this->splits[n - 1];
-                if (n != r_size - 1) end = this->splits[n];
+                beg = this->split_at(n - 1);
+                if (n != r_size - 1) end = this->split_at(n);
             }
         }
 
@@ -65,7 +65,7 @@ namespace csv {
      *  @param[in] col_name The column to look for
      */
     CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto & col_names = this->str->col_names;
+        auto & col_names = this->buffer->col_names;
         auto col_pos = col_names->col_pos.find(col_name);
         if (col_pos != col_names->col_pos.end())
             return this->operator[](col_pos->second);
@@ -145,6 +145,11 @@ namespace csv {
 
     CSVRow::reverse_iterator CSVRow::rend() const {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
+    }
+
+    unsigned short CSVRow::split_at(size_t n) const
+    {
+        return this->buffer->split_buffer[this->start + n];
     }
 
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)

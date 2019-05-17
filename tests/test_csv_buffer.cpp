@@ -31,16 +31,16 @@ TEST_CASE("GiantSplitBufferTest", "[test_giant_split_buffer]") {
     splits.push_back(3);
 
     auto pos = buffer.get_splits();
-    REQUIRE(pos[0] == 1);
-    REQUIRE(pos[1] == 2);
-    REQUIRE(pos[2] == 3);
-    REQUIRE(pos.size == 4);
+    REQUIRE(pos.split_at(0) == 1);
+    REQUIRE(pos.split_at(1) == 2);
+    REQUIRE(pos.split_at(2) == 3);
+    REQUIRE(pos.n_cols == 4);
 
     splits.push_back(4);
     splits.push_back(5);
 
     pos = buffer.get_splits();
-    REQUIRE(pos[0] == 4);
-    REQUIRE(pos[1] == 5);
-    REQUIRE(pos.size == 3);
+    REQUIRE(pos.split_at(0) == 4);
+    REQUIRE(pos.split_at(1) == 5);
+    REQUIRE(pos.n_cols == 3);
 }

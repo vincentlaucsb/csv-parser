@@ -6,7 +6,7 @@ target_sources(csv_test
 		main.cpp
 		test_csv_iterator.cpp
 		test_csv_buffer.cpp
-		#test_csv_row.cpp
+		test_csv_row.cpp
 		test_csv_stat.cpp
 		test_read_csv.cpp
 		test_write_csv.cpp

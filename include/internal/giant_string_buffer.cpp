@@ -72,7 +72,7 @@ namespace csv {
             return new_buff;
         }
 
-        unsigned short ColumnPositions::operator[](int n) const {
+        unsigned short ColumnPositions::split_at(int n) const {
             return this->parent->split_buffer[this->start + n];
         }
     }

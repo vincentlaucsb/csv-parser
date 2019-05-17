@@ -83,27 +83,22 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
-        CSVRow(const internals::BufferPtr& _str) : str(_str)
+        CSVRow(const internals::BufferPtr& _str) : buffer(_str)
         {
             this->row_str = _str->get_row();
-            this->splits = _str->get_splits();
+
+            auto splits = _str->get_splits();
+            this->start = splits.start;
+            this->n_cols = splits.n_cols;
         };
 
-        /**
-        CSVRow(
-            std::string _row_str,
-            std::vector<unsigned short>&& _splits,
-            std::shared_ptr<internals::ColNames> _cnames = nullptr
-            ) :
-            str(std::make_shared<std::string>(_row_str)),
-            splits(std::move(_splits)),
-            col_names(_cnames)
-        {
-            row_str = csv::string_view(this->str->buffer->c_str());
-        };*/
+        /** @brief Constructor for testing */
+        CSVRow(const std::string& str, const std::vector<unsigned short> splits, 
+            const std::shared_ptr<internals::ColNames>& col_names)
+            : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
-        bool empty() const { return this->row_str.empty(); }
-        size_t size() const;
+        constexpr bool empty() const { return this->row_str.empty(); }
+        constexpr size_t size() const;
 
         /** @name Value Retrieval */
         ///@{
@@ -171,9 +166,12 @@ namespace csv {
         ///@}
 
     private:
-		internals::BufferPtr str = nullptr;
+        unsigned short split_at(size_t n) const;
+
+		internals::BufferPtr buffer = nullptr;
 		csv::string_view row_str = "";
-        internals::ColumnPositions splits;
+        size_t start;
+        unsigned short n_cols;
     };
 
     // get() specializations

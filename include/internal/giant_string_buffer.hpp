@@ -30,6 +30,11 @@ namespace csv {
         /** Class for reducing number of new string malloc() calls */
         class RawRowBuffer {
         public:
+            RawRowBuffer() = default;
+            RawRowBuffer(const std::string& _buffer, const std::vector<unsigned short>& _splits,
+                const std::shared_ptr<internals::ColNames>& _col_names) :
+                buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
+
             csv::string_view get_row();
             ColumnPositions get_splits();
 
@@ -49,17 +54,17 @@ namespace csv {
         struct ColumnPositions {
             ColumnPositions() : parent(nullptr) {};
             constexpr ColumnPositions(const RawRowBuffer& _parent,
-                size_t _start, size_t _size) : parent(&_parent), start(_start), size(_size) {};
+                size_t _start, size_t _size) : parent(&_parent), start(_start), n_cols(_size) {};
             const RawRowBuffer * parent;
 
             /// Where in split_buffer the array of column positions begins
             size_t start;
 
             /// Number of columns
-            size_t size;
+            unsigned short n_cols;
 
             /// Get the n-th column index
-            unsigned short operator[](int n) const;
+            unsigned short split_at(int n) const;
         };
     }
 }
