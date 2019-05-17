@@ -196,7 +196,8 @@ namespace csv {
                     return CSV_STRING;
                     break;
                 default:
-                    if (current >= '0' && current <= '9') {
+                    short digit = current - '0';
+                    if (digit >= 0 && digit <= 9) {
                         // Process digit
                         has_digit = true;
 
@@ -206,13 +207,10 @@ namespace csv {
                             ws_allowed = false;
 
                         // Build current number
-                        unsigned digit = current - '0';
-                        if (prob_float) {
+                        if (prob_float)
                             decimal_part += digit / pow10(++places_after_decimal);
-                        }
-                        else {
+                        else
                             integral_part = (integral_part * 10) + digit;
-                        }
                     }
                     else {
                         return CSV_STRING;
