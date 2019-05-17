@@ -17,16 +17,16 @@ namespace csv {
             #if __cplusplus >= 201703L && (__GNUC_MINOR__ >= 2 || __GNUC__ >= 8)
                 #define CONSTEXPR constexpr
             #else
-                #define CONSTEXPR
+                #define CONSTEXPR inline
             #endif
         #else
-            #define CONSTEXPR
+            #define CONSTEXPR inline
         #endif
     #else
         #if __cplusplus >= 201703L
             #define CONSTEXPR constexpr
         #else
-            #define CONSTEXPR
+            #define CONSTEXPR inline
         #endif
     #endif
 }

@@ -79,13 +79,13 @@ namespace csv {
         constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
         constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
 
-        constexpr DataType data_type(csv::string_view in, long double* const out = nullptr);
+        CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        constexpr inline DataType _process_potential_exponential(
+        CONSTEXPR DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
             long double * const out) {
@@ -103,7 +103,7 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        constexpr DataType _determine_integral_type(const long double& number) {
+        CONSTEXPR DataType _determine_integral_type(const long double& number) {
             // We can assume number is always non-negative
             assert(number >= 0);
 
@@ -117,7 +117,7 @@ namespace csv {
                 return CSV_DOUBLE;
         }
 
-        constexpr DataType data_type(csv::string_view in, long double* const out) {
+        CONSTEXPR DataType data_type(csv::string_view in, long double* const out) {
             /** Distinguishes numeric from other text values. Used by various
              *  type casting functions, like csv_parser::CSVReader::read_row()
              *
