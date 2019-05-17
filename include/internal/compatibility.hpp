@@ -13,12 +13,14 @@ namespace csv {
 
     // Resolves g++ bug with regard to constexpr methods
     #ifdef __GNUC__
-        #if __GNUC__ >= 7 && __GNUC_MINOR__ >= 2
-            #if __cplusplus >= 201703L
+        #if __GNUC__ >= 7
+            #if __cplusplus >= 201703L && (__GNUC_MINOR__ >= 2 || __GNUC__ >= 8)
                 #define CONSTEXPR constexpr
             #else
                 #define CONSTEXPR
             #endif
+        #else
+            #define CONSTEXPR
         #endif
     #else
         #if __cplusplus >= 201703L
