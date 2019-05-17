@@ -3,11 +3,6 @@
 #include "csv_row.hpp"
 
 namespace csv {
-    /** @brief Return the number of fields in this row */
-    constexpr size_t CSVRow::size() const {
-        return this->n_cols;
-    }
-
     /** @brief      Return a string view of the nth field
      *  @complexity Constant
      */

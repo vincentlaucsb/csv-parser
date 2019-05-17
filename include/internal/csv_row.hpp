@@ -97,8 +97,10 @@ namespace csv {
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
-        constexpr bool empty() const { return this->row_str.empty(); }
-        constexpr size_t size() const;
+        CONSTEXPR bool empty() const { return this->row_str.empty(); }
+
+        /** @brief Return the number of fields in this row */
+        CONSTEXPR size_t size() const { return this->n_cols; }
 
         /** @name Value Retrieval */
         ///@{

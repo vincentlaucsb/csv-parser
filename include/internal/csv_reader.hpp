@@ -196,7 +196,7 @@ namespace csv {
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
-        constexpr void move_to_end_of_field(const CSVReader::ParseFlags * flags, csv::string_view in, size_t & i, const size_t in_size);
+        CONSTEXPR void move_to_end_of_field(const CSVReader::ParseFlags * flags, csv::string_view in, size_t & i, const size_t in_size);
         void read_csv(
             const std::string& filename,
             const size_t& bytes = internals::ITERATION_CHUNK_SIZE
