@@ -22,7 +22,7 @@ language:
   - cpp
 script:
   - if [ "$MAIN_BUILD" == "true" ]; then
-        cmake -DCMAKE_BUILD_TYPE=DEBUG -G "Unix Makefiles";
+        CXX=g++-8 cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles";
         make csv_coverage;
     fi;
 after_success:
