@@ -49,13 +49,9 @@ enable_testing()
 add_subdirectory("tests")
 
 if (CMAKE_COMPILER_IS_GNUCXX)
-	set(COVERAGE_LCOV_EXCLUDES 
-		'/home/csv-parser/tests/*'
-	)
-	message("Coverage: ${COVERAGE_LCOV_EXCLUDES}")
 	setup_target_for_coverage_lcov(
 		NAME ${PROJECT_NAME}_coverage
 		EXECUTABLE csv_test
-		DEPENDENCIES csv
+		DEPENDENCIES csv_test
 	)
 endif()
