@@ -24,6 +24,7 @@ else()
 	message("Using ${CMAKE_CXX_FLAGS}")
 endif(MSVC)
 
+set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(CSV_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include/)
 set(CSV_SOURCE_DIR ${CSV_INCLUDE_DIR}/internal/)
 set(CSV_TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)

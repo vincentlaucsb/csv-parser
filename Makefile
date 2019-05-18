@@ -62,7 +62,7 @@ csv_test:
 	
 run_csv_test: csv_test
 	mkdir -p tests/temp
-	(cd ./$(TEST_DIR) && exec ./csv_test)
+	./csv_test
 	
 	# Test Clean-Up
 	rm -rf $(TEST_DIR)/temp

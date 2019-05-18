@@ -19,4 +19,8 @@ add_custom_command(
 	${CMAKE_CURRENT_LIST_DIR}/data $<TARGET_FILE_DIR:csv_test>/data
 )
 
-add_test(test csv_test)
+add_test(
+	NAME test
+	COMMAND csv_test
+	WORKING_DIRECTORY ${CSV_ROOT_DIR}
+)
