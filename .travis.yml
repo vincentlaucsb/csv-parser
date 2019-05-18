@@ -6,14 +6,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'lcov', 'valgrind']
+          packages: ['g++-8', 'valgrind']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'lcov']
+          packages: ['g++-8']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
@@ -21,16 +21,13 @@ sudo: required
 language:
   - cpp
 script:
-  - if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
-        CMAKE_URL="http://www.cmake.org/files/v3.14/cmake-3.14.0-Linux-x86_64.tar.gz"
-        mkdir cmake && travis_retry wget --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
-        export PATH=${DEPS_DIR}/cmake/bin:${PATH}
-    fi;
+  - make run_csv_test
   - if [ "$MAIN_BUILD" == "true" ]; then
-        CXX=g++-8 cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles";
-        make csv_coverage;
+        make code_cov;
+        make valgrind;
     fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
+        cd test_results;
         bash <(curl -s https://codecov.io/bash);
     fi;
