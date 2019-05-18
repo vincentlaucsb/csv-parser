@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(csv_parser)
+project(csv)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -15,13 +15,26 @@ if (MSVC)
 
 else()
 	set(CMAKE_CXX_FLAGS "-pthread")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-	set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -lgcov --coverage")
+	if(CMAKE_BUILD_TYPE MATCHES Debug)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+	else()
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -g")
+	endif(CMAKE_BUILD_TYPE MATCHES Debug)
+	
+	message("Using ${CMAKE_CXX_FLAGS}")
 endif(MSVC)
 
 set(CSV_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include/)
 set(CSV_SOURCE_DIR ${CSV_INCLUDE_DIR}/internal/)
 set(CSV_TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+if (CMAKE_COMPILER_IS_GNUCXX)
+	include(CodeCoverage)
+	APPEND_COVERAGE_COMPILER_FLAGS("-lgcov --coverage")
+	set(GCC_COVERAGE_LINK_FLAGS "-lgcov")
+endif()
 
 include_directories(${CSV_INCLUDE_DIR})
 
@@ -34,3 +47,15 @@ add_subdirectory("programs")
 ## Tests
 enable_testing()
 add_subdirectory("tests")
+
+if (CMAKE_COMPILER_IS_GNUCXX)
+	set(COVERAGE_LCOV_EXCLUDES 
+		'/home/csv-parser/tests/*'
+	)
+	message("Coverage: ${COVERAGE_LCOV_EXCLUDES}")
+	setup_target_for_coverage_lcov(
+		NAME ${PROJECT_NAME}_coverage
+		EXECUTABLE csv_test
+		DEPENDENCIES csv
+	)
+endif()
