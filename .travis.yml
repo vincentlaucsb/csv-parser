@@ -6,14 +6,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'valgrind']
+          packages: ['g++-8', 'lcov', 'valgrind']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8']
+          packages: ['g++-8', 'lcov']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
@@ -21,7 +21,6 @@ sudo: required
 language:
   - cpp
 script:
-  - make run_csv_test
   - if [ "$MAIN_BUILD" == "true" ]; then
         cmake -DCMAKE_BUILD_TYPE=DEBUG -G "Unix Makefiles";
         make csv_coverage;
