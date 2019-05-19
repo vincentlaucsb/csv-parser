@@ -1,0 +1,6 @@
+# This file contains settings that developers working on this library itself
+# would want to enable
+#
+# To enable this file, rename this file to remove its leading underscore
+
+set(CSV_DEVELOPER TRUE)

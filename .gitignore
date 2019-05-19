@@ -1,12 +1,15 @@
+# Custom Settigns
+CMakeLists2.txt
+
 # Build
 bin/
+build/
 
 # Doxygen
 docs/html
 *.tmp
 
 # Visual Studio
-build/
 .vs/
 *.pdb
 *.i*
