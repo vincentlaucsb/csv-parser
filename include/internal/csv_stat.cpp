@@ -1,11 +1,11 @@
+/** @file
+ *  Calculates statistics from CSV files
+ */
+
 #include <string>
 #include "csv_stat.hpp"
 
 namespace csv {
-    /** @file
-      * Calculates statistics from CSV files
-      */
-
     CSVStat::CSVStat(std::string filename, CSVFormat format) :
         CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor
@@ -13,7 +13,7 @@ namespace csv {
          *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
          */
         while (!this->eof()) {
-            this->read_csv("", internals::ITERATION_CHUNK_SIZE);
+            this->read_csv(internals::ITERATION_CHUNK_SIZE);
             this->calc();
         }
 

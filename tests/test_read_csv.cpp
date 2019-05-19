@@ -23,22 +23,22 @@ TEST_CASE("col_pos() Test", "[test_col_pos]") {
 TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
     CSVFormat format = guess_format(
         "./tests/data/real_data/2009PowerStatus.txt");
-    REQUIRE(format.delim == '|');
-    REQUIRE(format.header == 0);
+    REQUIRE(format.get_delim() == '|');
+    REQUIRE(format.get_header() == 0);
 }
 
 TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
     CSVFormat format = guess_format(
         "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
-    REQUIRE(format.delim == ';');
-    REQUIRE(format.header == 0);
+    REQUIRE(format.get_delim() == ';');
+    REQUIRE(format.get_header() == 0);
 }
 
 TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
     CSVFormat format = guess_format(
         "./tests/data/fake_data/ints_comments.csv");
-    REQUIRE(format.delim == ',');
-    REQUIRE(format.header == 5);
+    REQUIRE(format.get_delim() == ',');
+    REQUIRE(format.get_header() == 5);
 }
 
 // get_file_info()
@@ -136,10 +136,7 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     std::string error_message("");
 
     try {
-        auto strict_format = DEFAULT_CSV;
-        strict_format.strict = true;
-
-        auto should_fail = parse(csv_string, strict_format);
+        auto should_fail = parse(csv_string, CSVFormat::RFC4180_STRICT);
     }
     catch (std::runtime_error& err) {
         caught_single_quote = true;
@@ -160,7 +157,7 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     bool error_caught = false;
 
     try {
-        parse(csv_string, DEFAULT_CSV_STRICT);
+        parse(csv_string, CSVFormat::RFC4180_STRICT);
     }
     catch (std::runtime_error& err) {
         error_caught = true;
@@ -189,7 +186,7 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
     const std::string data_file = "./tests/data/real_data/2015_StateDepartment.csv";
-    CSVReader reader(data_file, DEFAULT_CSV);
+    CSVReader reader(data_file, CSVFormat());
     CSVRow row;
     reader.read_row(row); // Populate row with first line
     
@@ -242,8 +239,8 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
 //! [CSVField Example]
 
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
-    CSVFormat format = DEFAULT_CSV;
-    format.col_names = { "A", "B" };
+    CSVFormat format;
+    format.column_names({ "A", "B" });
 
     std::stringstream csv_string;
     double big_num = ((double)std::numeric_limits<long long>::max() * 2.0);

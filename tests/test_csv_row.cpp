@@ -16,13 +16,9 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
         "Col3"
         "Col4";
 
-    std::vector<size_t> splits = { 4, 8, 12 };
+    std::vector<unsigned short> splits = { 4, 8, 12 };
 
-    CSVRow row(
-        std::move(str),
-        std::move(splits),
-        col_names
-    );
+    CSVRow row(str, splits, col_names);
 
     bool error_caught = false;
 
@@ -77,11 +73,11 @@ TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
         "3"
         "3.14";
 
-    std::vector<size_t> splits = { 1, 2, 3 };
-    CSVRow row(std::move(str), std::move(splits), col_names);
+    std::vector<unsigned short> splits = { 1, 2, 3 };
+    CSVRow row(str, splits, col_names);
 
     REQUIRE(row["A"] == 1);
     REQUIRE(row["B"] == 2);
     REQUIRE(row["C"] == 3);
-    REQUIRE(row["D"].get<double>() == 3.14);
+    REQUIRE(internals::is_equal(row["D"].get<long double>(), 3.14L));
 }

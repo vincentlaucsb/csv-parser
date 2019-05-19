@@ -22,7 +22,7 @@ ifeq ($(CXX), g++-8)
 	TEST_OFLAGS = -Og
 endif
 
-TEST_FLAGS = -Itests/ $(CFLAGS) $(TEST_OFLAGS) -g --coverage -Wall
+TEST_FLAGS = -Itests/ $(CFLAGS) $(TEST_OFLAGS) -g --coverage -Wno-unknown-pragmas -Wall
 
 # Main Library
 SOURCES = $(wildcard include/internal/*.cpp)

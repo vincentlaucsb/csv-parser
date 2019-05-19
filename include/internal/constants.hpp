@@ -18,6 +18,7 @@ namespace csv {
                 return sys_info.dwPageSize;
             }
 
+            /** Size of a memory page in bytes */
             const int PAGE_SIZE = getpagesize();
         #elif defined(__linux__) 
             #include <unistd.h>
@@ -29,23 +30,11 @@ namespace csv {
         /** @brief For functions that lazy load a large CSV, this determines how
          *         many bytes are read at a time
          */
-        const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
+        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
     }
 
     /** @brief Used for counting number of rows */
     using RowCount = long long int;
 
     using CSVCollection = std::deque<CSVRow>;
-
-    /** @name Global Constants */
-    ///@{
-    /** @brief A dummy variable used to indicate delimiter should be guessed */
-    const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false, true };
-
-    /** @brief RFC 4180 CSV format */
-    const CSVFormat DEFAULT_CSV = { ',', '"', 0, {}, false, true };
-
-    /** @brief RFC 4180 CSV format with strict parsing */
-    const CSVFormat DEFAULT_CSV_STRICT = { ',', '"', 0, {}, true, true };
-    ///@}
 }

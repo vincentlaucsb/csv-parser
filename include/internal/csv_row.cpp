@@ -1,34 +1,12 @@
+/** @file
+ *  Defines the data type used for storing information about a CSV row
+ */
+
 #include <cassert>
 #include <functional>
 #include "csv_row.hpp"
 
 namespace csv {
-    namespace internals {
-        //////////////
-        // ColNames //
-        //////////////
-
-        ColNames::ColNames(const std::vector<std::string>& _cnames)
-            : col_names(_cnames) {
-            for (size_t i = 0; i < _cnames.size(); i++) {
-                this->col_pos[_cnames[i]] = i;
-            }
-        }
-
-        std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
-        }
-
-        size_t ColNames::size() const {
-            return this->col_names.size();
-        }
-    }
-
-    /** @brief Return the number of fields in this row */
-    size_t CSVRow::size() const {
-        return splits.size() + 1;
-    }
-
     /** @brief      Return a string view of the nth field
      *  @complexity Constant
      */
@@ -41,16 +19,16 @@ namespace csv {
         if (n >= r_size)
             throw std::runtime_error("Index out of bounds.");
 
-        if (!splits.empty()) {
+        if (r_size > 1) {
             if (n == 0) {
-                end = this->splits[0];
+                end = this->split_at(0);
             }
             else if (r_size == 2) {
-                beg = this->splits[0];
+                beg = this->split_at(0);
             }
             else {
-                beg = this->splits[n - 1];
-                if (n != r_size - 1) end = this->splits[n];
+                beg = this->split_at(n - 1);
+                if (n != r_size - 1) end = this->split_at(n);
             }
         }
 
@@ -86,18 +64,19 @@ namespace csv {
      *  @param[in] col_name The column to look for
      */
     CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto col_pos = this->col_names->col_pos.find(col_name);
-        if (col_pos != this->col_names->col_pos.end())
+        auto & col_names = this->buffer->col_names;
+        auto col_pos = col_names->col_pos.find(col_name);
+        if (col_pos != col_names->col_pos.end())
             return this->operator[](col_pos->second);
 
         throw std::runtime_error("Can't find a column named " + col_name);
     }
 
+    /** Convert this CSVRow into a vector of strings.
+     *  **Note**: This is a less efficient method of
+     *  accessing data than using the [] operator.
+     */
     CSVRow::operator std::vector<std::string>() const {
-        /** Convert this CSVRow into a vector of strings.
-         *  **Note**: This is a less efficient method of
-         *  accessing data than using the [] operator.
-         */
 
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
@@ -106,34 +85,7 @@ namespace csv {
         return ret;
     }
 
-    //////////////////////
-    // CSVField Methods //
-    //////////////////////
-
-    /**< @brief Return the type number of the stored value in
-     *          accordance with the DataType enum
-     */
-    DataType CSVField::type() {
-        this->get_value();
-        return (DataType)_type;
-    }
-
-    #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    void CSVField::get_value() {
-        /* Check to see if value has been cached previously, if not
-         * evaluate it
-         */
-        if (_type < 0) {
-            auto dtype = internals::data_type(this->sv, &this->value);
-            this->_type = (int)dtype;
-        }
-    }
-    #endif
-
-    //
-    // CSVField Utility Methods
-    //
-
+#pragma region CSVField Methods
     bool CSVField::operator==(csv::string_view other) const {
         return other == this->sv;
     }
@@ -142,10 +94,9 @@ namespace csv {
         return other == this->get<long double>();
     }
 
-    /////////////////////
-    // CSVRow Iterator //
-    /////////////////////
+#pragma endregion CSVField Methods
 
+#pragma region CSVRow Iterator
     /** @brief Return an iterator pointing to the first field. */
     CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
@@ -165,6 +116,11 @@ namespace csv {
 
     CSVRow::reverse_iterator CSVRow::rend() const {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
+    }
+
+    unsigned short CSVRow::split_at(size_t n) const
+    {
+        return this->buffer->split_buffer[this->start + n];
     }
 
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
@@ -236,4 +192,5 @@ namespace csv {
     bool CSVRow::iterator::operator==(const iterator& other) const {
         return this->i == other.i;
     }
+#pragma endregion CSVRow Iterator
 }

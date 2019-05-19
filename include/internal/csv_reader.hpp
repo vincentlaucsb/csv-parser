@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <deque>
 #include <iterator>
 #include <memory>
@@ -13,14 +14,14 @@
 #include "csv_format.hpp"
 #include "csv_row.hpp"
 #include "compatibility.hpp"
-#include "giant_string_buffer.hpp"
+#include "row_buffer.hpp"
 
 /** @namespace csv
  *  @brief The all encompassing namespace
  */
 namespace csv {
     /** @brief Integer indicating a requested column wasn't found. */
-    const int CSV_NOT_FOUND = -1;
+    constexpr int CSV_NOT_FOUND = -1;
 
     /** @namespace csv::internals
      *  @brief Stuff that is generally not of interest to end-users
@@ -51,11 +52,13 @@ namespace csv {
          */
         class iterator {
         public:
+            #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVRow;
             using difference_type = std::ptrdiff_t;
             using pointer = CSVRow * ;
             using reference = CSVRow & ;
             using iterator_category = std::input_iterator_tag;
+            #endif
 
             iterator() = default;
             iterator(CSVReader* reader) : daddy(reader) {};
@@ -63,8 +66,8 @@ namespace csv {
 
             reference operator*();
             pointer operator->();
-            iterator& operator++(); // Pre-inc
-            iterator operator++(int); // Post-inc
+            iterator& operator++();   /**< Pre-increment iterator */
+            iterator operator++(int); /**< Post-increment ierator */
             iterator& operator--();
 
             bool operator==(const iterator&) const;
@@ -80,8 +83,8 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        CSVReader(const std::string& filename, CSVFormat format = GUESS_CSV);
-        CSVReader(CSVFormat format = DEFAULT_CSV);
+        CSVReader(const std::string& filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVReader(CSVFormat format = CSVFormat());
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor
@@ -118,18 +121,15 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount row_num = 0;        /**< @brief How many lines have
-                                      *    been parsed so far
+        RowCount row_num = 0;        /**< How many lines have been parsed so far */
+        RowCount correct_rows = 0;   /**< How many correct rows (minus header)
+                                      *   have been parsed so far
                                       */
-        RowCount correct_rows = 0;   /**< @brief How many correct rows
-                                      *    (minus header) have been parsed so far
-                                      */
-        bool utf8_bom = false;       /**< @brief Set to true if UTF-8 BOM was detected */
+        bool utf8_bom = false;       /**< Set to true if UTF-8 BOM was detected */
         ///@}
 
-        void close();               /**< @brief Close the open file handle.
-                                    *   Automatically called by ~CSVReader().
-                                    */
+        /** Close the open file handle. Automatically called by ~CSVReader(). */
+        void close();
 
         friend CSVCollection parse(const std::string&, CSVFormat);
     protected:
@@ -141,80 +141,94 @@ namespace csv {
          */
 
          /**  @typedef ParseFlags
-          *   @brief   An enum used for describing the significance of each character
-          *            with respect to CSV parsing
+          *   An enum used for describing the significance of each character
+          *   with respect to CSV parsing
           */
         enum ParseFlags {
-            NOT_SPECIAL,
-            QUOTE,
-            DELIMITER,
-            NEWLINE
+            NOT_SPECIAL, /**< Characters with no special meaning */
+            QUOTE,       /**< Characters which may signify a quote escape */
+            DELIMITER,   /**< Characters which may signify a new field */
+            NEWLINE      /**< Characters which may signify a new row */
         };
 
-        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>; /**<
-            @brief A string buffer and its size */
+        /** A string buffer and its size. Consumed by read_csv_worker(). */
+        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
 
-        std::vector<CSVReader::ParseFlags> make_flags() const;
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        CONSTEXPR std::array<CSVReader::ParseFlags, 256> make_flags() const;
 
-        internals::GiantStringBuffer record_buffer; /**<
-            @brief Buffer for current row being parsed */
+        /** Open a file for reading. Implementation is compiler specific. */
+        void fopen(const std::string& filename);
 
-        std::vector<size_t> split_buffer; /**<
-            @brief Positions where current row is split */
+        /** Sets this reader's column names and associated data */
+        void set_col_names(const std::vector<std::string>&);
 
-        std::deque<CSVRow> records; /**< @brief Queue of parsed CSV rows */
-        inline bool eof() { return !(this->infile); };
+        /** Returns true if we have reached end of file */
+        bool eof() { return !(this->infile); };
+
+        /** Buffer for current row being parsed */
+        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer());
+
+        /** Queue of parsed CSV rows */
+        std::deque<CSVRow> records;
 
         /** @name CSV Parsing Callbacks
          *  The heart of the CSV parser.
          *  These methods are called by feed().
-        */
+         */
         ///@{
         void write_record();
+
+        /** Handles possible Unicode byte order mark */
+        CONSTEXPR void handle_unicode_bom(csv::string_view& in);
         virtual void bad_row_handler(std::vector<std::string>);
         ///@}
 
         /** @name CSV Settings **/
         ///@{
-        char delimiter;                /**< @brief Delimiter character */
-        char quote_char;               /**< @brief Quote character */
-        int header_row;                /**< @brief Line number of the header row (zero-indexed) */
-        bool strict = false;           /**< @brief Strictness of parser */
+        char delimiter;         /**< Delimiter character */
+        char quote_char;        /**< Quote character */
+        int header_row;         /**< Line number of the header row (zero-indexed) */
+        bool strict = false;    /**< Strictness of parser */
 
-        std::vector<CSVReader::ParseFlags> parse_flags; /**< @brief
-        A table where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+        /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+        std::array<ParseFlags, 256> parse_flags;
         ///@}
 
         /** @name Parser State */
         ///@{
-        /** <@brief Pointer to a object containing column information
-        */
-        std::shared_ptr<internals::ColNames> col_names =
-            std::make_shared<internals::ColNames>(std::vector<std::string>({}));
+        /** Pointer to a object containing column information */
+        internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>(
+            std::vector<std::string>({}));
 
-        /** <@brief Whether or not an attempt to find Unicode BOM has been made */
+        /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
+
+        /** Whether or not we have parsed the header row */
+        bool header_was_parsed = false;
+
+        /** The number of columns in this CSV */
+        size_t n_cols = 0;
         ///@}
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
-        void read_csv(
-            const std::string& filename,
-            const size_t& bytes = internals::ITERATION_CHUNK_SIZE
-        );
+        CONSTEXPR void move_to_end_of_field(csv::string_view in, size_t & i, const size_t& in_size);
+        void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
         void read_csv_worker();
         ///@}
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* infile = nullptr;         /**< @brief Current file handle.
+        std::FILE* infile = nullptr;         /**< Current file handle.
                                                   Destroyed by ~CSVReader(). */
-
-        std::deque<WorkItem> feed_buffer;                     /**< @brief Message queue for worker */
-
-        std::mutex feed_lock;                /**< @brief Allow only one worker to write */
-        std::condition_variable feed_cond;   /**< @brief Wake up worker */
+        std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
+        std::mutex feed_lock;                /**< Allow only one worker to write */
+        std::condition_variable feed_cond;   /**< Wake up worker */
         ///@} 
 
         /**@}*/ // End of parser internals
@@ -236,19 +250,21 @@ namespace csv {
             };
 
         public:
-            CSVGuesser(const std::string& _filename) : filename(_filename) {};
-            std::vector<char> delims = { ',', '|', '\t', ';', '^' };
-            void guess_delim();
+            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) :
+                filename(_filename), delims(_delims) {};
+            CSVFormat guess_delim();
             bool first_guess();
             void second_guess();
 
-            char delim;
-            int header_row = 0;
-
         private:
-            void get_csv_head();
-            std::string filename;
-            std::string head;
+			std::string filename;      /**< File to read */
+			std::string head;          /**< First x bytes of file */
+            std::vector<char> delims;  /**< Candidate delimiters */
+
+            char delim;                /**< Chosen delimiter (set by guess_delim()) */
+            int header_row = 0;        /**< Chosen header row (set by guess_delim()) */
+
+            void get_csv_head();       /**< Retrieve the first x bytes of a file */
         };
     }
 }

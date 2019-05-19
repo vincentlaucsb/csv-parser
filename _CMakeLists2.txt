@@ -1,0 +1,12 @@
+# This file contains settings intended only for those developing the CSV
+# library itself.
+#
+# To enable this file, rename it from '_CMakeLists2.txt' -> 'CMakeLists2.txt'
+
+set(CSV_DEVELOPER TRUE)
+
+# Generate a single header library
+add_custom_target(generate_single_header
+	COMMAND python single_header.py > single_include/csv.hpp
+	WORKING_DIRECTORY ${CSV_ROOT_DIR}
+)

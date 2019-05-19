@@ -1,9 +1,8 @@
+/** @file
+ *  Defines the data type used for storing information about a CSV row
+ */
+
 #pragma once
-// Auxiliary data structures for CSV parser
-
-#include "data_type.h"
-#include "compatibility.hpp"
-
 #include <math.h>
 #include <vector>
 #include <string>
@@ -12,25 +11,11 @@
 #include <memory> // For CSVField
 #include <limits> // For CSVField
 
+#include "data_type.h"
+#include "compatibility.hpp"
+#include "row_buffer.hpp"
+
 namespace csv {
-    namespace internals {
-        /** @struct ColNames
-         *  @brief A data structure for handling column name information.
-         *
-         *  These are created by CSVReader and passed (via smart pointer)
-         *  to CSVRow objects it creates, thus
-         *  allowing for indexing by column name.
-         */
-        struct ColNames {
-            ColNames(const std::vector<std::string>&);
-            std::vector<std::string> col_names;
-            std::unordered_map<std::string, size_t> col_pos;
-
-            std::vector<std::string> get_col_names() const;
-            size_t size() const;
-        };
-    }
-
     /**
     * @class CSVField
     * @brief Data type representing individual CSV values. 
@@ -38,7 +23,8 @@ namespace csv {
     */
     class CSVField {
     public:
-        CSVField(csv::string_view _sv) : sv(_sv) { };
+        /** Constructs a CSVField from a string_view */
+        constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
 
         /** Returns the value casted to the requested type, performing type checking before.
         *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
@@ -52,8 +38,14 @@ namespace csv {
         *   - long long
         *   - double
         *   - long double
+        *
+        @warning Any string_views returned are only guaranteed to be valid
+        *        if the parent CSVRow is still alive. If you are concerned
+        *        about object lifetimes, then grab a std::string or a
+        *        numeric value.
+        *
         */
-        template<typename T=csv::string_view> T get() {
+        template<typename T=std::string> T get() {
             auto dest_type = internals::type_num<T>();
             if (dest_type >= CSV_INT && is_num()) {
                 if (internals::type_num<T>() < this->type())
@@ -69,20 +61,41 @@ namespace csv {
         bool operator==(csv::string_view other) const;
         bool operator==(const long double& other);
 
-        DataType type();
-        bool is_null() { return type() == CSV_NULL; }
-        bool is_str() { return type() == CSV_STRING; }
-        bool is_num() { return type() >= CSV_INT; }
-        bool is_int() {
+        /** Returns true if field is an empty string or string of whitespace characters */
+        CONSTEXPR bool is_null() { return type() == CSV_NULL; }
+
+        /** Returns true if field is a non-numeric string */
+        CONSTEXPR bool is_str() { return type() == CSV_STRING; }
+
+        /** Returns true if field is an integer or float */
+        CONSTEXPR bool is_num() { return type() >= CSV_INT; }
+
+        /** Returns true if field is an integer */
+        CONSTEXPR bool is_int() {
             return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
         }
-        bool is_float() { return type() == CSV_DOUBLE; };
+
+        /** Returns true if field is a float*/
+        CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
+
+        /** Return the type of the underlying CSV data */
+        CONSTEXPR DataType type() {
+            this->get_value();
+            return (DataType)_type;
+        }
 
     private:
-        long double value = 0;
-        csv::string_view sv = "";
-        int _type = -1;
-        void get_value();
+        long double value = 0;    /**< Cached numeric value */
+        csv::string_view sv = ""; /**< A pointer to this field's text */
+        DataType _type = UNKNOWN; /**< Cached data type value */
+        CONSTEXPR void get_value() {
+            /* Check to see if value has been cached previously, if not
+             * evaluate it
+             */
+            if (_type < 0) {
+                this->_type = internals::data_type(this->sv, &this->value);
+            }
+        }
     };
 
     /**
@@ -100,31 +113,27 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
-        CSVRow(
-            std::shared_ptr<std::string> _str,
-            csv::string_view _row_str,
-            std::vector<size_t>&& _splits,
-            std::shared_ptr<internals::ColNames> _cnames = nullptr) :
-            str(_str),
-            row_str(_row_str),
-            splits(std::move(_splits)),
-            col_names(_cnames)
-        {};
 
-        CSVRow(
-            std::string _row_str,
-            std::vector<size_t>&& _splits,
-            std::shared_ptr<internals::ColNames> _cnames = nullptr
-            ) :
-            str(std::make_shared<std::string>(_row_str)),
-            splits(std::move(_splits)),
-            col_names(_cnames)
+        /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
+        CSVRow(const internals::BufferPtr& _str) : buffer(_str)
         {
-            row_str = csv::string_view(this->str->c_str());
+            this->row_str = _str->get_row();
+
+            auto splits = _str->get_splits();
+            this->start = splits.start;
+            this->n_cols = splits.n_cols;
         };
 
-        bool empty() const { return this->row_str.empty(); }
-        size_t size() const;
+        /** Constructor for testing */
+        CSVRow(const std::string& str, const std::vector<unsigned short> splits, 
+            const std::shared_ptr<internals::ColNames>& col_names)
+            : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
+
+        /** Indicates whether row is empty or not */
+        CONSTEXPR bool empty() const { return this->row_str.empty(); }
+
+        /** @brief Return the number of fields in this row */
+        CONSTEXPR size_t size() const { return this->n_cols; }
 
         /** @name Value Retrieval */
         ///@{
@@ -139,6 +148,7 @@ namespace csv {
          */
         class iterator {
         public:
+            #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVField;
             using difference_type = int;
 
@@ -152,6 +162,7 @@ namespace csv {
 
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
+            #endif
 
             iterator(const CSVRow*, int i);
 
@@ -192,28 +203,39 @@ namespace csv {
         ///@}
 
     private:
-		std::shared_ptr<std::string> str = nullptr;
-		csv::string_view row_str = "";
-		std::vector<size_t> splits = {};
-        std::shared_ptr<internals::ColNames> col_names = nullptr;
+        /** Get the index in CSVRow's text buffer where the n-th field begins */
+        unsigned short split_at(size_t n) const;
+
+		internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
+		csv::string_view row_str = "";         /**< Text data for this row */
+        size_t start;                          /**< Where in split buffer this row begins */
+        unsigned short n_cols;                 /**< Numbers of columns this row has */
     };
 
-    // get() specializations
+#pragma region CSVField::get Specializations
+    /** Retrieve this field's original string */
     template<>
     inline std::string CSVField::get<std::string>() {
         return std::string(this->sv);
     }
 
+    /** Retrieve a view over this field's string
+     *
+     *  @warning This string_view is only guaranteed to be valid as long as this 
+     *           CSVRow is still alive.
+     */
     template<>
-    inline csv::string_view CSVField::get<csv::string_view>() {
+    CONSTEXPR csv::string_view CSVField::get<csv::string_view>() {
         return this->sv;
     }
 
+    /** Retrieve this field's value as a long double */
     template<>
-    inline long double CSVField::get<long double>() {
+    CONSTEXPR long double CSVField::get<long double>() {
         if (!is_num())
             throw std::runtime_error("Not a number.");
 
         return this->value;
     }
+#pragma endregion CSVField::get Specializations
 }

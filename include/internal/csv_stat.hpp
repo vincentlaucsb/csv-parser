@@ -1,3 +1,7 @@
+/** @file
+ *  Calculates statistics from CSV files
+ */
+
 #pragma once
 #include <unordered_map>
 #include <vector>
@@ -24,8 +28,8 @@ namespace csv {
         std::vector<FreqCount> get_counts() const;
         std::vector<TypeCount> get_dtypes() const;
 
-        CSVStat(std::string filename, CSVFormat format = GUESS_CSV);
-        CSVStat(CSVFormat format = DEFAULT_CSV) : CSVReader(format) {};
+        CSVStat(std::string filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVStat(CSVFormat format = CSVFormat()) : CSVReader(format) {};
     private:
         // An array of rolling averages
         // Each index corresponds to the rolling mean for the column at said index

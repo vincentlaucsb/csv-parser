@@ -18,19 +18,20 @@ namespace csv {
      */
      ///@{
     CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(const std::string& in, CSVFormat format = DEFAULT_CSV);
+    CSVCollection parse(const std::string& in, CSVFormat format = CSVFormat());
     ///@}
 
     /** @name Utility Functions */
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
-    CSVFormat guess_format(const std::string& filename);
+    CSVFormat guess_format(const std::string& filename,
+        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     std::vector<std::string> get_col_names(
         const std::string& filename,
-        const CSVFormat format = GUESS_CSV);
+        const CSVFormat format = CSVFormat::GUESS_CSV);
     int get_col_pos(const std::string filename, const std::string col_name,
-        const CSVFormat format = GUESS_CSV);
+        const CSVFormat format = CSVFormat::GUESS_CSV);
     ///@}
 
     namespace internals {
