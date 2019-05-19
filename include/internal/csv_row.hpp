@@ -3,7 +3,7 @@
 
 #include "data_type.h"
 #include "compatibility.hpp"
-#include "giant_string_buffer.hpp"
+#include "row_buffer.hpp"
 
 #include <math.h>
 #include <vector>

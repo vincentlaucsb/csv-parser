@@ -332,7 +332,7 @@ namespace csv {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
-                    #if __cplusplus >= 201703L
+                    #ifdef CSV_HAS_CXX17
                     size_t start = i;
                     this->move_to_end_of_field(parse_flags, in, i, in_size);
                     text_buffer += in.substr(start, i - start + 1);

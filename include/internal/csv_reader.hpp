@@ -13,7 +13,7 @@
 #include "csv_format.hpp"
 #include "csv_row.hpp"
 #include "compatibility.hpp"
-#include "giant_string_buffer.hpp"
+#include "row_buffer.hpp"
 
 /** @namespace csv
  *  @brief The all encompassing namespace

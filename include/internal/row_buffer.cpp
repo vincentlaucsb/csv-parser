@@ -1,6 +1,4 @@
-#include "giant_string_buffer.hpp"
-#include "giant_string_buffer.hpp"
-#include "giant_string_buffer.hpp"
+#include "row_buffer.hpp"
 
 namespace csv {
     namespace internals {

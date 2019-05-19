@@ -14,9 +14,10 @@ target_sources(csv
 		csv_stat.hpp
 		csv_utility.cpp
 		csv_utility.hpp
+		csv_writer.hpp
 		data_type.h
-		giant_string_buffer.hpp
-		giant_string_buffer.cpp
+		row_buffer.hpp
+		row_buffer.cpp
 )
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
