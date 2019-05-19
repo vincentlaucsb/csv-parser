@@ -250,7 +250,8 @@ namespace csv {
             };
 
         public:
-            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) : filename(_filename), delims(_delims) {};
+            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) :
+                filename(_filename), delims(_delims) {};
             CSVFormat guess_delim();
             bool first_guess();
             void second_guess();

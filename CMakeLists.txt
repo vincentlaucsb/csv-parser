@@ -21,7 +21,7 @@ if(MSVC)
 	endif(CMAKE_BUILD_TYPE MATCHES Debug)
 else()
 	# Ignore Visual Studio pragma regions
-	set(CMAKE_CXX_FLAGS "-pthread -Wunknown-pragmas")
+	set(CMAKE_CXX_FLAGS "-pthread -Wno-unknown-pragmas")
 	if(CMAKE_BUILD_TYPE MATCHES Debug)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 	else()
