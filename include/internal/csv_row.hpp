@@ -214,13 +214,13 @@ namespace csv {
      *           CSVRow is still alive.
      */
     template<>
-    inline csv::string_view CSVField::get<csv::string_view>() {
+    CONSTEXPR csv::string_view CSVField::get<csv::string_view>() {
         return this->sv;
     }
 
     /** Retrieve this field's value as a long double */
     template<>
-    inline long double CSVField::get<long double>() {
+    CONSTEXPR long double CSVField::get<long double>() {
         if (!is_num())
             throw std::runtime_error("Not a number.");
 
