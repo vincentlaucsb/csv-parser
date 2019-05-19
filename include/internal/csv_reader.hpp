@@ -161,7 +161,7 @@ namespace csv {
         void fopen(const std::string& filename);
 
         /** @brief Sets this reader's column names (and other related data) */
-        void set_col_names(const std::vector<std::string>& col_names);
+        void set_col_names(const std::vector<std::string>&);
 
         /** @brief Returns true if we have reached end of file */
         CONSTEXPR bool eof() { return !(this->infile); };
@@ -211,7 +211,7 @@ namespace csv {
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
-        CONSTEXPR void move_to_end_of_field(const CSVReader::ParseFlags * flags, csv::string_view in, size_t & i, const size_t in_size);
+        CONSTEXPR void move_to_end_of_field(csv::string_view in, size_t & i, const size_t& in_size);
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
         void read_csv_worker();
         ///@}

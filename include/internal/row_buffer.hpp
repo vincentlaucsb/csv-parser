@@ -57,7 +57,7 @@ namespace csv {
         struct ColumnPositions {
             ColumnPositions() : parent(nullptr) {};
             constexpr ColumnPositions(const RawRowBuffer& _parent,
-                size_t _start, size_t _size) : parent(&_parent), start(_start), n_cols(_size) {};
+                size_t _start, unsigned short _size) : parent(&_parent), start(_start), n_cols(_size) {};
             const RawRowBuffer * parent;
 
             /// Where in split_buffer the array of column positions begins

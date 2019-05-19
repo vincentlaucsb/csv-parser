@@ -70,8 +70,8 @@ namespace csv {
             // Read first 500KB of the CSV file
             this->get_csv_head();
 
-            for (char delim: this->delims) {
-                format.delim = delim;
+            for (char cand_delim: this->delims) {
+                format.delim = cand_delim;
                 CSVReader guesser(format);
                 guesser.feed(this->head);
                 guesser.end_feed();
@@ -84,7 +84,7 @@ namespace csv {
                     (guesser.get_col_names().size() > max_cols)) {
                     max_rows = temp_rows;
                     max_cols = guesser.get_col_names().size();
-                    current_delim = delim;
+                    current_delim = cand_delim;
                 }
             }
 
@@ -105,8 +105,8 @@ namespace csv {
             size_t max_rlen = 0,
                 header = 0;
 
-            for (char delim: this->delims) {
-                format.delim = delim;
+            for (char cand_delim: this->delims) {
+                format.delim = cand_delim;
                 Guesser guess(format);
                 guess.feed(this->head);
                 guess.end_feed();
@@ -285,7 +285,7 @@ namespace csv {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
-    CONSTEXPR void CSVReader::move_to_end_of_field(const CSVReader::ParseFlags* flags, csv::string_view in, size_t& i, const size_t in_size) {
+    CONSTEXPR void CSVReader::move_to_end_of_field(csv::string_view in, size_t& i, const size_t& in_size) {
         while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
             i++;
         }
@@ -302,7 +302,6 @@ namespace csv {
         bool quote_escape = false;  // Are we currently in a quote escaped field?
 
         // Optimizations
-        const auto parse_flags = this->parse_flags.data();
         auto& row_buffer = *(this->record_buffer.get());
         auto& text_buffer = row_buffer.buffer;
         auto& split_buffer = row_buffer.split_buffer;
@@ -314,7 +313,7 @@ namespace csv {
             switch (parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
-                        split_buffer.push_back(row_buffer.size());
+                        split_buffer.push_back((unsigned short)row_buffer.size());
                         break;
                     }
                 case NEWLINE:
@@ -335,7 +334,7 @@ namespace csv {
                     // switch statement as much as possible
                     #ifdef CSV_HAS_CXX17
                     size_t start = i;
-                    this->move_to_end_of_field(parse_flags, in, i, in_size);
+                    this->move_to_end_of_field(in, i, in_size);
                     text_buffer += in.substr(start, i - start + 1);
                     #else
                     text_buffer += in[i];
@@ -465,12 +464,12 @@ namespace csv {
         }
     }
 
-    void CSVReader::set_col_names(const std::vector<std::string>& col_names)
+    void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
-        this->col_names = std::make_shared<internals::ColNames>(col_names);
+        this->col_names = std::make_shared<internals::ColNames>(names);
         this->record_buffer->col_names = this->col_names;
         this->header_was_parsed = true;
-        this->n_cols = col_names.size();
+        this->n_cols = names.size();
     }
 
     /**
