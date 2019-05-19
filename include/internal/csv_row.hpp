@@ -79,7 +79,7 @@ namespace csv {
         CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
-        CONSTEXPR DataType CSVField::type() {
+        CONSTEXPR DataType type() {
             this->get_value();
             return (DataType)_type;
         }
@@ -88,7 +88,7 @@ namespace csv {
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
         DataType _type = UNKNOWN; /**< Cached data type value */
-        CONSTEXPR void CSVField::get_value() {
+        CONSTEXPR void get_value() {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */

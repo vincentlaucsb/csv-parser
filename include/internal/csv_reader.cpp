@@ -61,7 +61,7 @@ namespace csv {
              *  Returns True if guess was a good one and second guess isn't needed
              */
 
-            CSVFormat format = CSVFormat::DEFAULT_CSV;
+            CSVFormat format;
             char current_delim{ ',' };
             RowCount max_rows = 0,
                 temp_rows = 0;
@@ -101,7 +101,7 @@ namespace csv {
              *  the mode row length.
              */
 
-            CSVFormat format = CSVFormat::DEFAULT_CSV;
+            CSVFormat format;
             size_t max_rlen = 0,
                 header = 0;
 

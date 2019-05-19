@@ -1,16 +1,6 @@
 #include "csv_format.hpp"
 
 namespace csv {
-    CSVFormat create_default_csv() {
-        CSVFormat format;
-        format.delimiter(',')
-            .quote('"')
-            .header_row(0)
-            .detect_bom(true);
-
-        return format;
-    }
-
     CSVFormat create_default_csv_strict() {
         CSVFormat format;
         format.delimiter(',')
@@ -32,7 +22,6 @@ namespace csv {
         return format;
     }
 
-    const CSVFormat CSVFormat::DEFAULT_CSV = create_default_csv();
-    const CSVFormat CSVFormat::DEFAULT_CSV_STRICT = create_default_csv_strict();
+    const CSVFormat CSVFormat::RFC4180_STRICT = create_default_csv_strict();
     const CSVFormat CSVFormat::GUESS_CSV = create_guess_csv();
 }

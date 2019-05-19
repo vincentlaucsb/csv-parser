@@ -18,7 +18,7 @@ namespace csv {
      */
      ///@{
     CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(const std::string& in, CSVFormat format = CSVFormat::DEFAULT_CSV);
+    CSVCollection parse(const std::string& in, CSVFormat format = CSVFormat());
     ///@}
 
     /** @name Utility Functions */

@@ -136,7 +136,7 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     std::string error_message("");
 
     try {
-        auto should_fail = parse(csv_string, CSVFormat::DEFAULT_CSV_STRICT);
+        auto should_fail = parse(csv_string, CSVFormat::RFC4180_STRICT);
     }
     catch (std::runtime_error& err) {
         caught_single_quote = true;
@@ -157,7 +157,7 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     bool error_caught = false;
 
     try {
-        parse(csv_string, CSVFormat::DEFAULT_CSV_STRICT);
+        parse(csv_string, CSVFormat::RFC4180_STRICT);
     }
     catch (std::runtime_error& err) {
         error_caught = true;
@@ -186,7 +186,7 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
     const std::string data_file = "./tests/data/real_data/2015_StateDepartment.csv";
-    CSVReader reader(data_file, CSVFormat::DEFAULT_CSV);
+    CSVReader reader(data_file, CSVFormat());
     CSVRow row;
     reader.read_row(row); // Populate row with first line
     
@@ -239,7 +239,7 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
 //! [CSVField Example]
 
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
-    CSVFormat format = CSVFormat::DEFAULT_CSV;
+    CSVFormat format;
     format.column_names({ "A", "B" });
 
     std::stringstream csv_string;

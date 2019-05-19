@@ -84,7 +84,7 @@ namespace csv {
          */
          ///@{
         CSVReader(const std::string& filename, CSVFormat format = CSVFormat::GUESS_CSV);
-        CSVReader(CSVFormat format = CSVFormat::DEFAULT_CSV);
+        CSVReader(CSVFormat format = CSVFormat());
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor

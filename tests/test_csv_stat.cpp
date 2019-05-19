@@ -13,7 +13,7 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
     }
     
     // Expected results
-    CSVFormat format = CSVFormat::DEFAULT_CSV;
+    CSVFormat format;
     format.column_names({ "A", "B", "C" });
 
     CSVStat reader(format);

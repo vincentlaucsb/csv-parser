@@ -11,11 +11,12 @@ namespace csv {
      *   - Can be used to initialize a csv::CSVReader() object
      *   - The preferred way to pass CSV format information between functions
      *
-     *  @see csv::DEFAULT_CSV, csv::GUESS_CSV
-     *
      */
     class CSVFormat {
     public:
+        /** Settings for parsing a RFC 4180 CSV file */
+        CSVFormat() = default;
+
         CSVFormat& delimiter(char delim) {
             this->possible_delimiters = { delim };
             return *this;
@@ -67,8 +68,7 @@ namespace csv {
         }
 
         static const CSVFormat GUESS_CSV;
-        static const CSVFormat DEFAULT_CSV;
-        static const CSVFormat DEFAULT_CSV_STRICT;
+        static const CSVFormat RFC4180_STRICT;
 
         friend CSVReader;
     private:
@@ -76,7 +76,7 @@ namespace csv {
             return this->possible_delimiters.size() > 1;
         }
 
-        std::vector<char> possible_delimiters = {};
+        std::vector<char> possible_delimiters = { ',' };
 
         char quote_char = '"';
 
