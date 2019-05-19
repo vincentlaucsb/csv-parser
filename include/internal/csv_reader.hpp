@@ -157,7 +157,7 @@ namespace csv {
         std::vector<CSVReader::ParseFlags> make_flags() const;
 
         /** @brief Open a file for reading */
-        void CSVReader::fopen(const std::string& filename);
+        void fopen(const std::string& filename);
 
         /** @brief Sets this reader's column names (and other related data) */
         void set_col_names(const std::vector<std::string>& col_names);
