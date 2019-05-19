@@ -87,7 +87,7 @@ namespace csv {
 
 #pragma region CSVField Methods
     /** Return the type of the underlying CSV data */
-    DataType CSVField::type() {
+    CONSTEXPR DataType CSVField::type() {
         this->get_value();
         return (DataType)_type;
     }

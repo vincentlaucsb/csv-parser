@@ -61,24 +61,24 @@ namespace csv {
         bool operator==(csv::string_view other) const;
         bool operator==(const long double& other);
 
-        DataType type();
+        CONSTEXPR DataType type();
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        bool is_null() { return type() == CSV_NULL; }
+        CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
         /** Returns true if field is a non-numeric string */
-        bool is_str() { return type() == CSV_STRING; }
+        CONSTEXPR bool is_str() { return type() == CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        bool is_num() { return type() >= CSV_INT; }
+        CONSTEXPR bool is_num() { return type() >= CSV_INT; }
 
         /** Returns true if field is an integer */
-        bool is_int() {
+        CONSTEXPR bool is_int() {
             return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
         }
 
         /** Returns true if field is a float*/
-        bool is_float() { return type() == CSV_DOUBLE; };
+        CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
     private:
         long double value = 0;    /**< Cached numeric value */
