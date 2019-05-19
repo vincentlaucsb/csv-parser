@@ -36,6 +36,9 @@ set(CSV_TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
 
 include_directories(${CSV_INCLUDE_DIR})
 
+## Load developer specific CMake settings
+include(CMakeLists2.txt OPTIONAL)
+
 ## Main Library
 add_subdirectory(${CSV_SOURCE_DIR})
 
@@ -45,6 +48,3 @@ add_subdirectory("programs")
 ## Tests
 enable_testing()
 add_subdirectory("tests")
-
-## Load developer specific CMake settings
-include(CMakeLists2.txt OPTIONAL)

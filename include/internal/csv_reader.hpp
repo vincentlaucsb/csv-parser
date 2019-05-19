@@ -178,8 +178,8 @@ namespace csv {
         int header_row;                /**< @brief Line number of the header row (zero-indexed) */
         bool strict = false;           /**< @brief Strictness of parser */
 
-        std::vector<CSVReader::ParseFlags> parse_flags; /**< @brief
-        A table where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+        /**< @brief A table where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+        std::vector<CSVReader::ParseFlags> parse_flags;
         ///@}
 
         /** @name Parser State */

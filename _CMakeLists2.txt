@@ -5,7 +5,7 @@
 
 set(CSV_DEVELOPER TRUE)
 
-message("Root: ${CSV_ROOT_DIR}")
+# Generate a single header library
 add_custom_target(generate_single_header
 	COMMAND python single_header.py > single_include/csv.hpp
 	WORKING_DIRECTORY ${CSV_ROOT_DIR}
