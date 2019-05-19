@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.1.3
+CSV for C++, version 1.1.4
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -1430,7 +1430,6 @@ namespace csv {
         /** Tells the parser to detect and remove UTF-8 byte order marks */
         CSVFormat& detect_bom(bool detect = true);
 
-
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() {
             // This error should never be received by end users.
@@ -2057,7 +2056,7 @@ namespace csv {
         };
 
         /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<unsigned short> splits, 
+        CSVRow(const std::string& str, const std::vector<unsigned short>& splits, 
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
@@ -2460,8 +2459,8 @@ namespace csv {
             void second_guess();
 
         private:
-			std::string filename;      /**< File to read */
-			std::string head;          /**< First x bytes of file */
+            std::string filename;      /**< File to read */
+            std::string head;          /**< First x bytes of file */
             std::vector<char> delims;  /**< Candidate delimiters */
 
             char delim;                /**< Chosen delimiter (set by guess_delim()) */

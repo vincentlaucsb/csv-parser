@@ -125,7 +125,7 @@ namespace csv {
         };
 
         /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<unsigned short> splits, 
+        CSVRow(const std::string& str, const std::vector<unsigned short>& splits, 
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
