@@ -29,17 +29,10 @@ else()
 endif(MSVC)
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(CSV_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(CSV_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include/)
 set(CSV_SOURCE_DIR ${CSV_INCLUDE_DIR}/internal/)
 set(CSV_TEST_DIR ${CMAKE_CURRENT_LIST_DIR}/tests)
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
-
-if(CMAKE_COMPILER_IS_GNUCXX)
-	include(CodeCoverage)
-	APPEND_COVERAGE_COMPILER_FLAGS("-lgcov --coverage")
-	set(GCC_COVERAGE_LINK_FLAGS "-lgcov")
-endif()
 
 include_directories(${CSV_INCLUDE_DIR})
 
@@ -52,11 +45,3 @@ add_subdirectory("programs")
 ## Tests
 enable_testing()
 add_subdirectory("tests")
-
-if(CMAKE_COMPILER_IS_GNUCXX)
-	setup_target_for_coverage_lcov(
-		NAME ${PROJECT_NAME}_coverage
-		EXECUTABLE csv_test
-		DEPENDENCIES csv_test
-	)
-endif()

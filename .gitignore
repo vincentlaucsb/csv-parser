@@ -6,8 +6,7 @@ docs/html
 *.tmp
 
 # Visual Studio
-Debug/
-Release/
+build/
 .vs/
 *.pdb
 *.i*

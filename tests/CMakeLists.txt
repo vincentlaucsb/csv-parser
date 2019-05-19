@@ -13,11 +13,6 @@ target_sources(csv_test
 		test_data_type.cpp
 )
 target_link_libraries(csv_test csv)
-add_custom_command(
-	TARGET csv_test POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_directory
-	${CMAKE_CURRENT_LIST_DIR}/data $<TARGET_FILE_DIR:csv_test>/data
-)
 
 add_test(
 	NAME test
