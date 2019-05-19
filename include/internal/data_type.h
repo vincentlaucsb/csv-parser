@@ -44,7 +44,7 @@ namespace csv {
 
         /* Compute 10 to the power of n */
         template<typename T>
-        constexpr long double pow10(const T& n) {
+        CONSTEXPR long double pow10(const T& n) {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -59,7 +59,7 @@ namespace csv {
         }
 
         template<>
-        constexpr long double pow10(const unsigned& n) {
+        CONSTEXPR long double pow10(const unsigned& n) {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
