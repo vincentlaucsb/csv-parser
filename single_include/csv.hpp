@@ -1355,7 +1355,11 @@ nssv_RESTORE_WARNINGS()
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {
-    #if __cplusplus >= 201703L
+    #if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
+        #define CSV_HAS_CXX17
+    #endif
+
+    #ifdef CSV_HAS_CXX17
         #include <string_view>
         using string_view = std::string_view;
     #else
@@ -1365,20 +1369,18 @@ namespace csv {
     // Resolves g++ bug with regard to constexpr methods
     #ifdef __GNUC__
         #if __GNUC__ >= 7
-            #if __cplusplus >= 201703L && (__GNUC_MINOR__ >= 2 || __GNUC__ >= 8)
+            #if defined(CSV_HAS_CXX17) && (__GNUC_MINOR__ >= 2 || __GNUC__ >= 8)
                 #define CONSTEXPR constexpr
-            #else
-                #define CONSTEXPR inline
             #endif
-        #else
-            #define CONSTEXPR inline
         #endif
     #else
-        #if __cplusplus >= 201703L
+        #ifdef CSV_HAS_CXX17
             #define CONSTEXPR constexpr
-        #else
-            #define CONSTEXPR inline
         #endif
+    #endif
+
+    #ifndef CONSTEXPR
+        #define CONSTEXPR inline
     #endif
 }
 #include <string>
@@ -2747,7 +2749,7 @@ namespace csv {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
-                    #if __cplusplus >= 201703L
+                    #ifdef CSV_HAS_CXX17
                     size_t start = i;
                     this->move_to_end_of_field(parse_flags, in, i, in_size);
                     text_buffer += in.substr(start, i - start + 1);

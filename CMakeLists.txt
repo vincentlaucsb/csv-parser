@@ -7,9 +7,6 @@ else()
 	set(CMAKE_CXX_STANDARD 17)
 endif(CSV_CXX_STANDARD)
 
-# Load developer specific CMake settings
-include(CMakeLists2.txt OPTIONAL)
-
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
 
@@ -48,3 +45,6 @@ add_subdirectory("programs")
 ## Tests
 enable_testing()
 add_subdirectory("tests")
+
+## Load developer specific CMake settings
+include(CMakeLists2.txt OPTIONAL)
