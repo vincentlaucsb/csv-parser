@@ -208,7 +208,6 @@ namespace csv {
         header_row(format.header), strict(format.strict),
         unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
-            this->header_row = -1;
             this->set_col_names(format.col_names);
         }
 
@@ -235,7 +234,6 @@ namespace csv {
             format = guess_format(filename, format.possible_delimiters);
 
         if (!format.col_names.empty()) {
-            this->header_row = -1;
             this->set_col_names(format.col_names);
         }
         else {
