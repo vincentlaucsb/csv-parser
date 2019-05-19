@@ -1,11 +1,11 @@
+/** @file
+ *  Calculates statistics from CSV files
+ */
+
 #include <string>
 #include "csv_stat.hpp"
 
 namespace csv {
-    /** @file
-      * Calculates statistics from CSV files
-      */
-
     CSVStat::CSVStat(std::string filename, CSVFormat format) :
         CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor

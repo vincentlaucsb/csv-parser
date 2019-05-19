@@ -1,10 +1,8 @@
+/** @file
+ *  Defines the data type used for storing information about a CSV row
+ */
+
 #pragma once
-// Auxiliary data structures for CSV parser
-
-#include "data_type.h"
-#include "compatibility.hpp"
-#include "row_buffer.hpp"
-
 #include <math.h>
 #include <vector>
 #include <string>
@@ -12,6 +10,10 @@
 #include <unordered_map> // For ColNames
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+
+#include "data_type.h"
+#include "compatibility.hpp"
+#include "row_buffer.hpp"
 
 namespace csv {
     /**
@@ -21,6 +23,7 @@ namespace csv {
     */
     class CSVField {
     public:
+        /** Constructs a CSVField from a string_view */
         constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
 
         /** Returns the value casted to the requested type, performing type checking before.
@@ -35,8 +38,14 @@ namespace csv {
         *   - long long
         *   - double
         *   - long double
+        *
+        @warning Any string_views returned are only guaranteed to be valid
+        *        if the parent CSVRow is still alive. If you are concerned
+        *        about object lifetimes, then grab a std::string or a
+        *        numeric value.
+        *
         */
-        template<typename T=csv::string_view> T get() {
+        template<typename T=std::string> T get() {
             auto dest_type = internals::type_num<T>();
             if (dest_type >= CSV_INT && is_num()) {
                 if (internals::type_num<T>() < this->type())
@@ -53,19 +62,29 @@ namespace csv {
         bool operator==(const long double& other);
 
         DataType type();
+
+        /** Returns true if field is an empty string or string of whitespace characters */
         bool is_null() { return type() == CSV_NULL; }
+
+        /** Returns true if field is a non-numeric string */
         bool is_str() { return type() == CSV_STRING; }
+
+        /** Returns true if field is an integer or float */
         bool is_num() { return type() >= CSV_INT; }
+
+        /** Returns true if field is an integer */
         bool is_int() {
             return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
         }
+
+        /** Returns true if field is a float*/
         bool is_float() { return type() == CSV_DOUBLE; };
 
     private:
-        long double value = 0;
-        csv::string_view sv = "";
-        int _type = -1;
-        void get_value();
+        long double value = 0;    /**< Cached numeric value */
+        csv::string_view sv = ""; /**< A pointer to this field's text */
+        DataType _type = UNKNOWN; /**< Cached data type value */
+        CONSTEXPR void get_value();
     };
 
     /**
@@ -83,6 +102,8 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
+
+        /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
         CSVRow(const internals::BufferPtr& _str) : buffer(_str)
         {
             this->row_str = _str->get_row();
@@ -92,11 +113,12 @@ namespace csv {
             this->n_cols = splits.n_cols;
         };
 
-        /** @brief Constructor for testing */
+        /** Constructor for testing */
         CSVRow(const std::string& str, const std::vector<unsigned short> splits, 
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
+        /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const { return this->row_str.empty(); }
 
         /** @brief Return the number of fields in this row */
@@ -115,6 +137,7 @@ namespace csv {
          */
         class iterator {
         public:
+            #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVField;
             using difference_type = int;
 
@@ -128,6 +151,7 @@ namespace csv {
 
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
+            #endif
 
             iterator(const CSVRow*, int i);
 
@@ -168,25 +192,33 @@ namespace csv {
         ///@}
 
     private:
+        /** Get the index in CSVRow's text buffer where the n-th field begins */
         unsigned short split_at(size_t n) const;
 
-		internals::BufferPtr buffer = nullptr;
-		csv::string_view row_str = "";
-        size_t start;
-        unsigned short n_cols;
+		internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
+		csv::string_view row_str = "";         /**< Text data for this row */
+        size_t start;                          /**< Where in split buffer this row begins */
+        unsigned short n_cols;                 /**< Numbers of columns this row has */
     };
 
-    // get() specializations
+#pragma region CSVField::get Specializations
+    /** Retrieve this field's original string */
     template<>
     inline std::string CSVField::get<std::string>() {
         return std::string(this->sv);
     }
 
+    /** Retrieve a view over this field's string
+     *
+     *  @warning This string_view is only guaranteed to be valid as long as this 
+     *           CSVRow is still alive.
+     */
     template<>
     inline csv::string_view CSVField::get<csv::string_view>() {
         return this->sv;
     }
 
+    /** Retrieve this field's value as a long double */
     template<>
     inline long double CSVField::get<long double>() {
         if (!is_num())
@@ -194,4 +226,5 @@ namespace csv {
 
         return this->value;
     }
+#pragma endregion CSVField::get Specializations
 }

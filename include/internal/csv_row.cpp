@@ -1,3 +1,7 @@
+/** @file
+ *  Defines the data type used for storing information about a CSV row
+ */
+
 #include <cassert>
 #include <functional>
 #include "csv_row.hpp"
@@ -68,11 +72,11 @@ namespace csv {
         throw std::runtime_error("Can't find a column named " + col_name);
     }
 
+    /** Convert this CSVRow into a vector of strings.
+     *  **Note**: This is a less efficient method of
+     *  accessing data than using the [] operator.
+     */
     CSVRow::operator std::vector<std::string>() const {
-        /** Convert this CSVRow into a vector of strings.
-         *  **Note**: This is a less efficient method of
-         *  accessing data than using the [] operator.
-         */
 
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
@@ -81,33 +85,23 @@ namespace csv {
         return ret;
     }
 
-    //////////////////////
-    // CSVField Methods //
-    //////////////////////
-
-    /**< @brief Return the type number of the stored value in
-     *          accordance with the DataType enum
-     */
+#pragma region CSVField Methods
+    /** Return the type of the underlying CSV data */
     DataType CSVField::type() {
         this->get_value();
         return (DataType)_type;
     }
 
     #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    void CSVField::get_value() {
+    CONSTEXPR void CSVField::get_value() {
         /* Check to see if value has been cached previously, if not
          * evaluate it
          */
         if (_type < 0) {
-            auto dtype = internals::data_type(this->sv, &this->value);
-            this->_type = (int)dtype;
+            this->_type = internals::data_type(this->sv, &this->value);
         }
     }
     #endif
-
-    //
-    // CSVField Utility Methods
-    //
 
     bool CSVField::operator==(csv::string_view other) const {
         return other == this->sv;
@@ -117,10 +111,9 @@ namespace csv {
         return other == this->get<long double>();
     }
 
-    /////////////////////
-    // CSVRow Iterator //
-    /////////////////////
+#pragma endregion CSVField Methods
 
+#pragma region CSVRow Iterator
     /** @brief Return an iterator pointing to the first field. */
     CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
@@ -216,4 +209,5 @@ namespace csv {
     bool CSVRow::iterator::operator==(const iterator& other) const {
         return this->i == other.i;
     }
+#pragma endregion CSVRow Iterator
 }

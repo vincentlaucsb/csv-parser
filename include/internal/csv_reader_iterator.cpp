@@ -1,19 +1,15 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    /**
-     * @brief Return an iterator to the first row in the reader
-     *
-     */
+    /** Return an iterator to the first row in the reader */
     CSVReader::iterator CSVReader::begin() {
         CSVReader::iterator ret(this, std::move(this->records.front()));
         this->records.pop_front();
         return ret;
     }
 
-    /**
-     * @brief A placeholder for the imaginary past the end row in a CSV.
-     *        Attempting to deference this will lead to bad things.
+    /** A placeholder for the imaginary past the end row in a CSV.
+     *  Attempting to deference this will lead to bad things.
      */
     CSVReader::iterator CSVReader::end() {
         return CSVReader::iterator();

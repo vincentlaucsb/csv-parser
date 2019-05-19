@@ -21,9 +21,6 @@ namespace csv {
             return this->col_names.size();
         }
 
-        /**
-         * Return a string_view over the current_row
-         */
         csv::string_view RawRowBuffer::get_row() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
@@ -43,17 +40,14 @@ namespace csv {
             return ColumnPositions(*this, head_idx, new_split_idx - head_idx + 1);
         }
 
-        /** Return size of current row */
         size_t RawRowBuffer::size() const {
             return this->buffer.size() - this->current_end;
         }
 
-        /** Return (num columns - 1) for current row */
         size_t RawRowBuffer::splits_size() const {
             return this->split_buffer.size() - this->current_split_idx;
         }
         
-        /** Clear out the buffer, but save current row in progress */
         BufferPtr RawRowBuffer::reset() const {
             // Save current row in progress
             auto new_buff = BufferPtr(new RawRowBuffer());

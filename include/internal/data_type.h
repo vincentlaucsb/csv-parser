@@ -8,20 +8,21 @@
 
 namespace csv {
     /** Enumerates the different CSV field types that are
-    *  recognized by this library
-    *
-    *  - 0. CSV_NULL (empty string)
-    *  - 1. CSV_STRING
-    *  - 2. CSV_INT
-    *  - 3. CSV_LONG_INT
-    *  - 4. CSV_LONG_LONG_INT
-    *  - 5. CSV_DOUBLE
-    *
-    *  **Note**: Overflowing integers will be stored and classified as doubles.
-    *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
-    *  compiler and platform.
-    */
+     *  recognized by this library
+     *
+     *  - 0. CSV_NULL (empty string)
+     *  - 1. CSV_STRING
+     *  - 2. CSV_INT
+     *  - 3. CSV_LONG_INT
+     *  - 4. CSV_LONG_LONG_INT
+     *  - 5. CSV_DOUBLE
+     *
+     *  **Note**: Overflowing integers will be stored and classified as doubles.
+     *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
+     *  compiler and platform.
+     */
     enum DataType {
+        UNKNOWN = -1,
         CSV_NULL,
         CSV_STRING,
         CSV_INT,
@@ -31,18 +32,7 @@ namespace csv {
     };
 
     namespace internals {
-        template<typename T>
-        DataType type_num();
-
-        template<> inline DataType type_num<int>() { return CSV_INT; }
-        template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
-        template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
-        template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
-        template<> inline DataType type_num<std::string>() { return CSV_STRING; }
-
-        /* Compute 10 to the power of n */
+        /** Compute 10 to the power of n */
         template<typename T>
         CONSTEXPR long double pow10(const T& n) {
             long double multiplicand = n > 0 ? 10 : 0.1,
@@ -58,6 +48,7 @@ namespace csv {
             return ret;
         }
 
+        /** Compute 10 to the power of n */
         template<>
         CONSTEXPR long double pow10(const unsigned& n) {
             long double multiplicand = n > 0 ? 10 : 0.1,
@@ -71,6 +62,17 @@ namespace csv {
         }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
+        template<typename T>
+        DataType type_num();
+
+        template<> inline DataType type_num<int>() { return CSV_INT; }
+        template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
+        template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
+        template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
+        template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
+        template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
+        template<> inline DataType type_num<std::string>() { return CSV_STRING; }
+
         inline std::string type_name(const DataType& dtype) {
             switch (dtype) {
             case CSV_STRING:
@@ -87,13 +89,18 @@ namespace csv {
                 return "null";
             }
         };
-#endif
-
-        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
-        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
-        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
 
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
+#endif
+
+        /** Largest number that can be stored in an integer */
+        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+
+        /** Largest number that can be stored in a long int */
+        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+
+        /** Largest number that can be stored in an long long int */
+        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
@@ -131,18 +138,19 @@ namespace csv {
                 return CSV_DOUBLE;
         }
 
+        /** Distinguishes numeric from other text values. Used by various
+         *  type casting functions, like csv_parser::CSVReader::read_row()
+         *
+         *  #### Rules
+         *   - Leading and trailing whitespace ("padding") ignored
+         *   - A string of just whitespace is NULL
+         *
+         *  @param[in]  in  String value to be examined
+         *  @param[out] out Pointer to long double where results of numeric parsing
+         *                  get stored
+         */
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out) {
-            /** Distinguishes numeric from other text values. Used by various
-             *  type casting functions, like csv_parser::CSVReader::read_row()
-             *
-             *  #### Rules
-             *   - Leading and trailing whitespace ("padding") ignored
-             *   - A string of just whitespace is NULL
-             *
-             *  @param[in] in String value to be examined
-             */
-
-             // Empty string --> NULL
+            // Empty string --> NULL
             if (in.size() == 0)
                 return CSV_NULL;
 

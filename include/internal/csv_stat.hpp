@@ -1,3 +1,7 @@
+/** @file
+ *  Calculates statistics from CSV files
+ */
+
 #pragma once
 #include <unordered_map>
 #include <vector>

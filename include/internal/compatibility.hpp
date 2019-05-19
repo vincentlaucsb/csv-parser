@@ -10,8 +10,14 @@ namespace csv {
 
     #ifdef CSV_HAS_CXX17
         #include <string_view>
+        /** @typedef string_view
+         *  The string_view class used by this library.
+         */
         using string_view = std::string_view;
     #else
+        /** @typedef string_view
+         *  The string_view class used by this library.
+         */
         using string_view = nonstd::string_view;
     #endif
 

@@ -18,6 +18,7 @@ namespace csv {
                 return sys_info.dwPageSize;
             }
 
+            /** Size of a memory page in bytes */
             const int PAGE_SIZE = getpagesize();
         #elif defined(__linux__) 
             #include <unistd.h>

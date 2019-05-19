@@ -162,11 +162,6 @@ namespace csv {
     }
 
     CONSTEXPR std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character and, v[i + 128] labels it according to
-         *  the CSVReader::ParseFlags enum
-         */
-
         std::array<ParseFlags, 256> ret = {};
         for (int i = -128; i < 128; i++) {
             const int arr_idx = i + 128;
@@ -464,6 +459,9 @@ namespace csv {
         }
     }
 
+    /**
+     *  @param[in] names Column names
+     */
     void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
         this->col_names = std::make_shared<internals::ColNames>(names);
@@ -473,12 +471,12 @@ namespace csv {
     }
 
     /**
-     * @brief Parse a CSV file using multiple threads
+     * Parse a CSV file using multiple threads
      *
-     * @param[in] nrows Number of rows to read. Set to -1 to read entire file.
+     * @pre CSVReader::infile points to a valid file handle, i.e. CSVReader::fopen was called
      *
+     * @param[in] bytes Number of bytes to read.
      * @see CSVReader::read_row()
-     * 
      */
     void CSVReader::read_csv(const size_t& bytes) {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
