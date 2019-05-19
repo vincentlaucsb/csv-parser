@@ -61,7 +61,7 @@ namespace csv {
              *  Returns True if guess was a good one and second guess isn't needed
              */
 
-            CSVFormat format = DEFAULT_CSV;
+            CSVFormat format = CSVFormat::DEFAULT_CSV;
             char current_delim{ ',' };
             RowCount max_rows = 0,
                 temp_rows = 0;
@@ -71,7 +71,7 @@ namespace csv {
             this->get_csv_head();
 
             for (char cand_delim: this->delims) {
-                format.delim = cand_delim;
+                format.delimiter(cand_delim);
                 CSVReader guesser(format);
                 guesser.feed(this->head);
                 guesser.end_feed();
@@ -101,12 +101,12 @@ namespace csv {
              *  the mode row length.
              */
 
-            CSVFormat format = DEFAULT_CSV;
+            CSVFormat format = CSVFormat::DEFAULT_CSV;
             size_t max_rlen = 0,
                 header = 0;
 
             for (char cand_delim: this->delims) {
-                format.delim = cand_delim;
+                format.delimiter(cand_delim);
                 Guesser guess(format);
                 guess.feed(this->head);
                 guess.end_feed();
@@ -155,10 +155,16 @@ namespace csv {
     }
 
     /** @brief Guess the delimiter used by a delimiter-separated values file */
-    CSVFormat guess_format(const std::string& filename) {
-        internals::CSVGuesser guesser(filename);
+    CSVFormat guess_format(const std::string& filename, const std::vector<char>& delims) {
+        internals::CSVGuesser guesser(filename, delims);
         guesser.guess_delim();
-        return { guesser.delim, '"', guesser.header_row };
+
+        CSVFormat format;
+        format.delimiter(guesser.delim)
+            .quote('"')
+            .header_row(guesser.header_row);
+
+        return format;
     }
 
     CONSTEXPR std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
@@ -202,7 +208,7 @@ namespace csv {
      *  @brief Allows parsing in-memory sources (by calling feed() and end_feed()).
      */
     CSVReader::CSVReader(CSVFormat format) :
-        delimiter(format.delim), quote_char(format.quote_char),
+        delimiter(format.get_delim()), quote_char(format.quote_char),
         header_row(format.header), strict(format.strict),
         unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
@@ -229,8 +235,8 @@ namespace csv {
      *
      */
     CSVReader::CSVReader(const std::string& filename, CSVFormat format) {
-        if (format.delim == '\0')
-            format = guess_format(filename);
+        if (format.guess_delim())
+            format = guess_format(filename, format.possible_delimiters);
 
         if (!format.col_names.empty()) {
             this->header_row = -1;
@@ -240,7 +246,7 @@ namespace csv {
             header_row = format.header;
         }
 
-        delimiter = format.delim;
+        delimiter = format.get_delim();
         quote_char = format.quote_char;
         strict = format.strict;
         parse_flags = this->make_flags();
@@ -252,12 +258,13 @@ namespace csv {
 
     /** @brief Return the format of the original raw CSV */
     CSVFormat CSVReader::get_format() const {
-        return {
-            this->delimiter,
-            this->quote_char,
-            this->header_row,
-            this->col_names->col_names
-        };
+        CSVFormat format;
+        format.delimiter(this->delimiter)
+            .quote(this->quote_char)
+            .header_row(this->header_row)
+            .column_names(this->col_names->col_names);
+
+        return format;
     }
 
     /** @brief Return the CSV's column names as a vector of strings. */

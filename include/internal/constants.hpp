@@ -37,16 +37,4 @@ namespace csv {
     using RowCount = long long int;
 
     using CSVCollection = std::deque<CSVRow>;
-
-    /** @name Global Constants */
-    ///@{
-    /** @brief A dummy variable used to indicate delimiter should be guessed */
-    const CSVFormat GUESS_CSV = { '\0', '"', 0, {}, false, true };
-
-    /** @brief RFC 4180 CSV format */
-    const CSVFormat DEFAULT_CSV = { ',', '"', 0, {}, false, true };
-
-    /** @brief RFC 4180 CSV format with strict parsing */
-    const CSVFormat DEFAULT_CSV_STRICT = { ',', '"', 0, {}, true, true };
-    ///@}
 }

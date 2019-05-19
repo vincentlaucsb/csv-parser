@@ -86,23 +86,6 @@ namespace csv {
     }
 
 #pragma region CSVField Methods
-    /** Return the type of the underlying CSV data */
-    CONSTEXPR DataType CSVField::type() {
-        this->get_value();
-        return (DataType)_type;
-    }
-
-    #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    CONSTEXPR void CSVField::get_value() {
-        /* Check to see if value has been cached previously, if not
-         * evaluate it
-         */
-        if (_type < 0) {
-            this->_type = internals::data_type(this->sv, &this->value);
-        }
-    }
-    #endif
-
     bool CSVField::operator==(csv::string_view other) const {
         return other == this->sv;
     }

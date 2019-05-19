@@ -83,8 +83,8 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        CSVReader(const std::string& filename, CSVFormat format = GUESS_CSV);
-        CSVReader(CSVFormat format = DEFAULT_CSV);
+        CSVReader(const std::string& filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVReader(CSVFormat format = CSVFormat::DEFAULT_CSV);
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor
@@ -167,7 +167,7 @@ namespace csv {
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        CONSTEXPR bool eof() { return !(this->infile); };
+        bool eof() { return !(this->infile); };
 
         /** Buffer for current row being parsed */
         internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer());
@@ -250,8 +250,7 @@ namespace csv {
             };
 
         public:
-            CSVGuesser(const std::string& _filename) : filename(_filename) {};
-            std::vector<char> delims = { ',', '|', '\t', ';', '^' };
+            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) : filename(_filename), delims(_delims) {};
             void guess_delim();
             bool first_guess();
             void second_guess();
@@ -260,6 +259,7 @@ namespace csv {
             int header_row = 0;
 
         private:
+            std::vector<char> delims;
             void get_csv_head();
             std::string filename;
             std::string head;

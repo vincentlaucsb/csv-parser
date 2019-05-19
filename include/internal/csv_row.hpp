@@ -61,8 +61,6 @@ namespace csv {
         bool operator==(csv::string_view other) const;
         bool operator==(const long double& other);
 
-        CONSTEXPR DataType type();
-
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
@@ -80,11 +78,24 @@ namespace csv {
         /** Returns true if field is a float*/
         CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
+        /** Return the type of the underlying CSV data */
+        CONSTEXPR DataType CSVField::type() {
+            this->get_value();
+            return (DataType)_type;
+        }
+
     private:
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
         DataType _type = UNKNOWN; /**< Cached data type value */
-        CONSTEXPR void get_value();
+        CONSTEXPR void CSVField::get_value() {
+            /* Check to see if value has been cached previously, if not
+             * evaluate it
+             */
+            if (_type < 0) {
+                this->_type = internals::data_type(this->sv, &this->value);
+            }
+        }
     };
 
     /**
