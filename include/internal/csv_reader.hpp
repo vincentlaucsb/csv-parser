@@ -251,18 +251,19 @@ namespace csv {
 
         public:
             CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) : filename(_filename), delims(_delims) {};
-            void guess_delim();
+            CSVFormat guess_delim();
             bool first_guess();
             void second_guess();
 
-            char delim;
-            int header_row = 0;
-
         private:
-            std::vector<char> delims;
-            void get_csv_head();
-            std::string filename;
-            std::string head;
+            std::vector<char> delims;  /**< Candidate delimiters */
+            std::string filename;      /**< File to read */
+            std::string head;          /**< First x bytes of file */
+
+            char delim;                /**< Chosen delimiter (set by guess_delim()) */
+            int header_row = 0;        /**< Chosen header row (set by guess_delim()) */
+
+            void get_csv_head();       /**< Retrieve the first x bytes of a file */
         };
     }
 }

@@ -40,13 +40,16 @@ namespace csv {
             }
         }
 
-        void CSVGuesser::guess_delim() {
+        CSVFormat CSVGuesser::guess_delim() {
             /** Guess the delimiter of a CSV by scanning the first 100 lines by
             *  First assuming that the header is on the first row
             *  If the first guess returns too few rows, then we move to the second
             *  guess method
             */
+            CSVFormat format;
             if (!first_guess()) second_guess();
+
+            return format.delimiter(this->delim).header_row(this->header_row);
         }
 
         bool CSVGuesser::first_guess() {
@@ -157,14 +160,7 @@ namespace csv {
     /** @brief Guess the delimiter used by a delimiter-separated values file */
     CSVFormat guess_format(const std::string& filename, const std::vector<char>& delims) {
         internals::CSVGuesser guesser(filename, delims);
-        guesser.guess_delim();
-
-        CSVFormat format;
-        format.delimiter(guesser.delim)
-            .quote('"')
-            .header_row(guesser.header_row);
-
-        return format;
+        return guesser.guess_delim();
     }
 
     CONSTEXPR std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {

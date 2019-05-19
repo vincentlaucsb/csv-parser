@@ -1,6 +1,5 @@
 #include <vector>
 
-#include "constants.hpp"
 #include "csv_utility.hpp"
 #include "csv_reader.hpp"
 
