@@ -156,6 +156,12 @@ namespace csv {
 
         std::vector<CSVReader::ParseFlags> make_flags() const;
 
+        /** @brief Open a file for reading */
+        void CSVReader::fopen(const std::string& filename);
+
+        /** @brief Sets this reader's column names (and other related data) */
+        void set_col_names(const std::vector<std::string>& col_names);
+
         internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer()); /**<
             @brief Buffer for current row being parsed */
 
@@ -191,16 +197,19 @@ namespace csv {
 
         /** <@brief Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
+
+        /** <@brief Whether or not we have parsed the header row */
+        bool header_was_parsed = false;
+
+        /** <@brief The number of columns in this CSV */
+        size_t n_cols = 0;
         ///@}
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
         CONSTEXPR void move_to_end_of_field(const CSVReader::ParseFlags * flags, csv::string_view in, size_t & i, const size_t in_size);
-        void read_csv(
-            const std::string& filename,
-            const size_t& bytes = internals::ITERATION_CHUNK_SIZE
-        );
+        void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
         void read_csv_worker();
         ///@}
 
@@ -209,7 +218,7 @@ namespace csv {
         std::FILE* infile = nullptr;         /**< @brief Current file handle.
                                                   Destroyed by ~CSVReader(). */
 
-        std::deque<WorkItem> feed_buffer;                     /**< @brief Message queue for worker */
+        std::deque<WorkItem> feed_buffer;    /**< @brief Message queue for worker */
 
         std::mutex feed_lock;                /**< @brief Allow only one worker to write */
         std::condition_variable feed_cond;   /**< @brief Wake up worker */

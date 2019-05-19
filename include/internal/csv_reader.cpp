@@ -1,5 +1,6 @@
 #include "csv_reader.hpp"
 #include "csv_reader.hpp"
+#include "csv_reader.hpp"
 #include <algorithm>
 #include <cstdio>   // For read_csv()
 #include <cstring>  // For read_csv()
@@ -210,7 +211,7 @@ namespace csv {
         unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->header_row = -1;
-            this->col_names = std::make_shared<internals::ColNames>(format.col_names);
+            this->set_col_names(format.col_names);
         }
     };
 
@@ -233,14 +234,21 @@ namespace csv {
         if (format.delim == '\0')
             format = guess_format(filename);
 
-        this->col_names = std::make_shared<internals::ColNames>(format.col_names);
+        if (!format.col_names.empty()) {
+            this->header_row = -1;
+            this->set_col_names(format.col_names);
+        }
+        else {
+            header_row = format.header;
+        }
+
         delimiter = format.delim;
         quote_char = format.quote_char;
-        header_row = format.header;
         strict = format.strict;
 
         // Read first 500KB of CSV
-        read_csv(filename, 500000);
+        this->fopen(filename);
+        this->read_csv(500000);
     }
 
     /** @brief Return the format of the original raw CSV */
@@ -393,12 +401,10 @@ namespace csv {
          *  Drop it otherwise.
          */
 
-        size_t col_names_size = this->col_names->size();
-        size_t row_size = this->record_buffer->splits_size();
-
-        if (this->row_num > this->header_row) {
+        if (header_was_parsed) {
             // Make sure record is of the right length
-            if (row_size + 1 == col_names_size) {
+            const size_t row_size = this->record_buffer->splits_size();
+            if (row_size + 1 == this->n_cols) {
                 this->correct_rows++;
                 this->records.push_back(CSVRow(this->record_buffer));
             }
@@ -409,14 +415,11 @@ namespace csv {
                 this->row_num--;
                 if (row_size > 0)
                     bad_row_handler(std::vector<std::string>(CSVRow(
-                        this->record_buffer
-                    )));
+                        this->record_buffer)));
             }
         }
         else if (this->row_num == this->header_row) {
-            this->col_names = std::make_shared<internals::ColNames>(
-                std::vector<std::string>(CSVRow(this->record_buffer)));
-            this->record_buffer->col_names = this->col_names;
+            this->set_col_names(std::vector<std::string>(CSVRow(this->record_buffer)));
         } // else: Ignore rows before header row
 
         this->row_num++;
@@ -443,6 +446,29 @@ namespace csv {
         }
     }
 
+    void CSVReader::fopen(const std::string& filename) {
+        if (!this->infile) {
+#ifdef _MSC_BUILD
+            // Silence compiler warnings in Microsoft Visual C++
+            size_t err = fopen_s(&(this->infile), filename.c_str(), "rb");
+            if (err)
+                throw std::runtime_error("Cannot open file " + filename);
+#else
+            this->infile = std::fopen(filename.c_str(), "rb");
+            if (!this->infile)
+                throw std::runtime_error("Cannot open file " + filename);
+#endif
+        }
+    }
+
+    void CSVReader::set_col_names(const std::vector<std::string>& col_names)
+    {
+        this->col_names = std::make_shared<internals::ColNames>(col_names);
+        this->record_buffer->col_names = this->col_names;
+        this->header_was_parsed = true;
+        this->n_cols = col_names.size();
+    }
+
     /**
      * @brief Parse a CSV file using multiple threads
      *
@@ -451,20 +477,7 @@ namespace csv {
      * @see CSVReader::read_row()
      * 
      */
-    void CSVReader::read_csv(const std::string& filename, const size_t& bytes) {
-        if (!this->infile) {
-            #ifdef _MSC_BUILD
-            // Silence compiler warnings in Microsoft Visual C++
-            size_t err = fopen_s(&(this->infile), filename.c_str(), "rb");
-            if (err)
-                throw std::runtime_error("Cannot open file " + filename);
-            #else
-            this->infile = std::fopen(filename.c_str(), "rb");
-            if (!this->infile)
-                throw std::runtime_error("Cannot open file " + filename);
-            #endif
-        }
-
+    void CSVReader::read_csv(const size_t& bytes) {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto line_buffer = buffer.get();
@@ -528,7 +541,9 @@ namespace csv {
     bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
-                this->read_csv("", internals::ITERATION_CHUNK_SIZE);
+                // TODO/Suggestion: Make this call non-blocking, 
+                // i.e. move to it another thread
+                this->read_csv(internals::ITERATION_CHUNK_SIZE);
             }
             else return false; // Stop reading
         }
