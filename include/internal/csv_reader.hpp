@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <deque>
 #include <iterator>
 #include <memory>
@@ -154,7 +155,7 @@ namespace csv {
         using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>; /**<
             @brief A string buffer and its size */
 
-        std::vector<CSVReader::ParseFlags> make_flags() const;
+        CONSTEXPR std::array<CSVReader::ParseFlags, 256> make_flags() const;
 
         /** @brief Open a file for reading */
         void fopen(const std::string& filename);
@@ -162,11 +163,13 @@ namespace csv {
         /** @brief Sets this reader's column names (and other related data) */
         void set_col_names(const std::vector<std::string>& col_names);
 
+        /** @brief Returns true if we have reached end of file */
+        CONSTEXPR bool eof() { return !(this->infile); };
+
         internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer()); /**<
             @brief Buffer for current row being parsed */
 
         std::deque<CSVRow> records; /**< @brief Queue of parsed CSV rows */
-        inline bool eof() { return !(this->infile); };
 
         /** @name CSV Parsing Callbacks
          *  The heart of the CSV parser.
@@ -174,6 +177,7 @@ namespace csv {
         */
         ///@{
         void write_record();
+        CONSTEXPR void handle_unicode_bom(csv::string_view& in);
         virtual void bad_row_handler(std::vector<std::string>);
         ///@}
 
@@ -185,15 +189,14 @@ namespace csv {
         bool strict = false;           /**< @brief Strictness of parser */
 
         /**< @brief A table where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        std::vector<CSVReader::ParseFlags> parse_flags;
+        std::array<ParseFlags, 256> parse_flags;
         ///@}
 
         /** @name Parser State */
         ///@{
-        /** <@brief Pointer to a object containing column information
-        */
-        std::shared_ptr<internals::ColNames> col_names =
-            std::make_shared<internals::ColNames>(std::vector<std::string>({}));
+        /** <@brief Pointer to a object containing column information */
+        internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>(
+            std::vector<std::string>({}));
 
         /** <@brief Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;

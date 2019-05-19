@@ -161,24 +161,25 @@ namespace csv {
         return { guesser.delim, '"', guesser.header_row };
     }
 
-    std::vector<CSVReader::ParseFlags> CSVReader::make_flags() const {
+    CONSTEXPR std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
 
-        std::vector<ParseFlags> ret;
+        std::array<ParseFlags, 256> ret = {};
         for (int i = -128; i < 128; i++) {
+            const int arr_idx = i + 128;
             char ch = char(i);
 
             if (ch == this->delimiter)
-                ret.push_back(DELIMITER);
+                ret[arr_idx] = DELIMITER;
             else if (ch == this->quote_char)
-                ret.push_back(QUOTE);
+                ret[arr_idx] = QUOTE;
             else if (ch == '\r' || ch == '\n')
-                ret.push_back(NEWLINE);
+                ret[arr_idx] = NEWLINE;
             else
-                ret.push_back(NOT_SPECIAL);
+                ret[arr_idx] = NOT_SPECIAL;
         }
 
         return ret;
@@ -213,6 +214,8 @@ namespace csv {
             this->header_row = -1;
             this->set_col_names(format.col_names);
         }
+
+        parse_flags = this->make_flags();
     };
 
     /**
@@ -245,6 +248,7 @@ namespace csv {
         delimiter = format.delim;
         quote_char = format.quote_char;
         strict = format.strict;
+        parse_flags = this->make_flags();
 
         // Read first 500KB of CSV
         this->fopen(filename);
@@ -294,19 +298,8 @@ namespace csv {
          *  **Note**: end_feed() should be called after the last string
          */
 
-        if (parse_flags.empty()) parse_flags = this->make_flags();
-
+        this->handle_unicode_bom(in);
         bool quote_escape = false;  // Are we currently in a quote escaped field?
-
-        // Unicode BOM Handling
-        if (!this->unicode_bom_scan) {
-            if (in[0] == 0xEF && in[1] == 0xBB && in[2] == 0xEF) {
-                in.remove_prefix(3); // Remove BOM from input string
-                this->utf8_bom = true;
-            }
-
-            this->unicode_bom_scan = true;
-        }
 
         // Optimizations
         const auto parse_flags = this->parse_flags.data();
@@ -394,6 +387,17 @@ namespace csv {
          *  and handle the last row
          */
         this->write_record();
+    }
+
+    CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {
+        if (!this->unicode_bom_scan) {
+            if (in[0] == 0xEF && in[1] == 0xBB && in[2] == 0xEF) {
+                in.remove_prefix(3); // Remove BOM from input string
+                this->utf8_bom = true;
+            }
+
+            this->unicode_bom_scan = true;
+        }
     }
 
     void CSVReader::write_record() {

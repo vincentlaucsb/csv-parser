@@ -54,9 +54,9 @@ namespace csv {
         }
         
         /** Clear out the buffer, but save current row in progress */
-        std::shared_ptr<RawRowBuffer> RawRowBuffer::reset() const {
+        BufferPtr RawRowBuffer::reset() const {
             // Save current row in progress
-            auto new_buff = std::shared_ptr<RawRowBuffer>(new RawRowBuffer());
+            auto new_buff = BufferPtr(new RawRowBuffer());
 
             new_buff->buffer = this->buffer.substr(
                 this->current_end,   // Position

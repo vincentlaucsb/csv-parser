@@ -9,7 +9,10 @@ namespace csv {
     namespace internals {
         class RawRowBuffer;
         struct ColumnPositions;
+        struct ColNames;
         using BufferPtr = std::shared_ptr<RawRowBuffer>;
+        using ColNamesPtr = std::shared_ptr<ColNames>;
+        using SplitArray = std::vector<unsigned short>;
 
         /** @struct ColNames
          *  @brief A data structure for handling column name information.
@@ -43,8 +46,8 @@ namespace csv {
             BufferPtr reset() const;
 
             std::string buffer;
-            std::vector<unsigned short> split_buffer = {};
-            std::shared_ptr<internals::ColNames> col_names = nullptr;
+            SplitArray split_buffer = {};
+            ColNamesPtr col_names = nullptr;
 
         private:
             size_t current_end = 0;
