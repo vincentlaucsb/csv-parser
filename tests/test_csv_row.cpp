@@ -79,5 +79,5 @@ TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
     REQUIRE(row["A"] == 1);
     REQUIRE(row["B"] == 2);
     REQUIRE(row["C"] == 3);
-    REQUIRE(row["D"].get<long double>() == 3.14);
+    REQUIRE(internals::is_equal(row["D"].get<long double>(), 3.14L));
 }
