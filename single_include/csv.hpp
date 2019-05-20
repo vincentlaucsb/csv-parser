@@ -3817,10 +3817,16 @@ namespace csv {
             // Save current row in progress
             auto new_buff = BufferPtr(new RawRowBuffer());
 
+            // Save text
             new_buff->buffer = this->buffer.substr(
                 this->current_end,   // Position
                 (this->buffer.size() - this->current_end) // Count
             );
+
+            // Save split buffer in progress
+            for (size_t i = this->current_split_idx; i < this->split_buffer.size(); i++) {
+                new_buff->split_buffer.push_back(this->split_buffer[i]);
+            }
 
             new_buff->col_names = this->col_names;
 
