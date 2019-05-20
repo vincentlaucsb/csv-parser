@@ -40,7 +40,6 @@ namespace csv {
         /** Tells the parser to detect and remove UTF-8 byte order marks */
         CSVFormat& detect_bom(bool detect = true);
 
-
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() {
             // This error should never be received by end users.

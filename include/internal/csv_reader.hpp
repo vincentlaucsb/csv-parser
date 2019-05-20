@@ -257,8 +257,8 @@ namespace csv {
             void second_guess();
 
         private:
-			std::string filename;      /**< File to read */
-			std::string head;          /**< First x bytes of file */
+            std::string filename;      /**< File to read */
+            std::string head;          /**< First x bytes of file */
             std::vector<char> delims;  /**< Candidate delimiters */
 
             char delim;                /**< Chosen delimiter (set by guess_delim()) */

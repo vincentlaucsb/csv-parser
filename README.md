@@ -158,7 +158,10 @@ format.delimiter('\t')
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out
 
-CSVReader reader("wierd_csv_dialect.csv", {}, format);
+// Alternatively, we can use format.delimiter({ '\t', ',', ... })
+// to tell the CSV guesser which delimiters to try out
+
+CSVReader reader("wierd_csv_dialect.csv", format);
 
 for (auto& row: reader) {
     // Do stuff with rows here
