@@ -34,7 +34,8 @@ namespace csv {
     namespace internals {
         /** Compute 10 to the power of n */
         template<typename T>
-        CONSTEXPR long double pow10(const T& n) {
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const T& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -50,7 +51,8 @@ namespace csv {
 
         /** Compute 10 to the power of n */
         template<>
-        CONSTEXPR long double pow10(const unsigned& n) {
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const unsigned& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -126,7 +128,7 @@ namespace csv {
          *  it fits in
          */
         HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
-        DataType _determine_integral_type(const long double& number) {
+        DataType _determine_integral_type(const long double& number) noexcept {
             // We can assume number is always non-negative
             assert(number >= 0);
 

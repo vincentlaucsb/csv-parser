@@ -486,7 +486,7 @@ namespace csv {
     void CSVReader::read_csv(const size_t& bytes) {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
-        auto line_buffer = buffer.get();
+        auto * HEDLEY_RESTRICT line_buffer = buffer.get();
         line_buffer[0] = '\0';
 
         std::thread worker(&CSVReader::read_csv_worker, this);
@@ -502,11 +502,12 @@ namespace csv {
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
 
                 this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
-                this->feed_cond.notify_one();
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
                 line_buffer[0] = '\0';
+
+                this->feed_cond.notify_one();
             }
         }
 

@@ -109,7 +109,7 @@ namespace csv {
         ///@{
         bool read_row(CSVRow &row);
         iterator begin();
-        iterator end();
+        HEDLEY_CONST iterator end() const;
         ///@}
 
         /** @name CSV Metadata */

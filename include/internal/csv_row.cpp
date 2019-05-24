@@ -123,6 +123,7 @@ namespace csv {
         return this->buffer->split_buffer[this->start + n];
     }
 
+    HEDLEY_NON_NULL(1)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
         if (_i < (int)this->daddy->size())
