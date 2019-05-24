@@ -225,7 +225,8 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* infile = nullptr;         /**< Current file handle.
+        std::FILE* HEDLEY_RESTRICT
+            infile = nullptr;                /**< Current file handle.
                                                   Destroyed by ~CSVReader(). */
         std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
         std::mutex feed_lock;                /**< Allow only one worker to write */
