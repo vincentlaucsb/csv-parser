@@ -163,7 +163,8 @@ namespace csv {
         return guesser.guess_delim();
     }
 
-    CONSTEXPR std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
+    HEDLEY_CONST CONSTEXPR
+    std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
         std::array<ParseFlags, 256> ret = {};
         for (int i = -128; i < 128; i++) {
             const int arr_idx = i + 128;
@@ -298,6 +299,7 @@ namespace csv {
         bool quote_escape = false;  // Are we currently in a quote escaped field?
 
         // Optimizations
+        auto * HEDLEY_RESTRICT _parse_flags = this->parse_flags.data();
         auto& row_buffer = *(this->record_buffer.get());
         auto& text_buffer = row_buffer.buffer;
         auto& split_buffer = row_buffer.split_buffer;
@@ -306,12 +308,14 @@ namespace csv {
 
         const size_t in_size = in.size();
         for (size_t i = 0; i < in_size; i++) {
-            switch (parse_flags[in[i] + 128]) {
+            switch (_parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
                         split_buffer.push_back((unsigned short)row_buffer.size());
                         break;
                     }
+
+                    HEDLEY_FALL_THROUGH;
                 case NEWLINE:
                     if (!quote_escape) {
                         // End of record -> Write record
@@ -345,7 +349,7 @@ namespace csv {
                 default: // Quote
                     if (!quote_escape) {
                         // Don't deref past beginning
-                        if (i && parse_flags[in[i - 1] + 128] >= DELIMITER) {
+                        if (i && _parse_flags[in[i - 1] + 128] >= DELIMITER) {
                             // Case: Previous character was delimiter or newline
                             quote_escape = true;
                         }
@@ -353,7 +357,7 @@ namespace csv {
                         break;
                     }
 
-                    auto next_ch = parse_flags[in[i + 1] + 128];
+                    auto next_ch = _parse_flags[in[i + 1] + 128];
                     if (next_ch >= DELIMITER) {
                         // Case: Delim or newline => end of field
                         quote_escape = false;
@@ -373,7 +377,7 @@ namespace csv {
                     break;
             }
         }
-
+        
         this->record_buffer = row_buffer.reset();
     }
 
@@ -488,7 +492,7 @@ namespace csv {
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
-            char * result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
+            char * HEDLEY_RESTRICT result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
             if (result == NULL) break;
             line_buffer += std::strlen(line_buffer);
             size_t current_strlen = line_buffer - buffer.get();
@@ -496,6 +500,7 @@ namespace csv {
             if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
                 processed += (line_buffer - buffer.get());
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
+
                 this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
                 this->feed_cond.notify_one();
 

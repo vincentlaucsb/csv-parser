@@ -158,7 +158,8 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        CONSTEXPR std::array<CSVReader::ParseFlags, 256> make_flags() const;
+        HEDLEY_CONST CONSTEXPR
+            std::array<CSVReader::ParseFlags, 256> make_flags() const;
 
         /** Open a file for reading. Implementation is compiler specific. */
         void fopen(const std::string& filename);

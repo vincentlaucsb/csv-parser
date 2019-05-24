@@ -1,6 +1,10 @@
 #pragma once
 #include "../external/string_view.hpp"
 
+#ifndef HEDLEY_VERSION
+#include "../external/hedley.h"
+#endif
+
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {

@@ -90,7 +90,7 @@ namespace csv {
             }
         };
 
-        CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
+        HEDLEY_PURE CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
         /** Largest number that can be stored in an integer */
@@ -106,7 +106,8 @@ namespace csv {
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        CONSTEXPR DataType _process_potential_exponential(
+        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
+        DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
             long double * const out) {
@@ -124,7 +125,8 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        CONSTEXPR DataType _determine_integral_type(const long double& number) {
+        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
+        DataType _determine_integral_type(const long double& number) {
             // We can assume number is always non-negative
             assert(number >= 0);
 
@@ -149,7 +151,8 @@ namespace csv {
          *  @param[out] out Pointer to long double where results of numeric parsing
          *                  get stored
          */
-        CONSTEXPR DataType data_type(csv::string_view in, long double* const out) {
+        HEDLEY_PURE CONSTEXPR
+        DataType data_type(csv::string_view in, long double* const out) {
             // Empty string --> NULL
             if (in.size() == 0)
                 return CSV_NULL;

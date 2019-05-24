@@ -27,7 +27,7 @@ namespace csv {
         CSVFormat& quote(char quote);
 
         /** Sets the column names */
-        CSVFormat& column_names(const std::vector<std::string>& col_names);
+        CSVFormat& column_names(const std::vector<std::string>& names);
 
         /** Sets the header row */
         CSVFormat& header_row(int row);
