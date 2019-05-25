@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h> // remove()
+#include <sstream>
 #include "catch.hpp"
 #include "csv.hpp"
 

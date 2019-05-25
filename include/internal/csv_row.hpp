@@ -24,7 +24,7 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) : sv(_sv) { };
 
         /** Returns the value casted to the requested type, performing type checking before.
         *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
@@ -58,10 +58,9 @@ namespace csv {
                 internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
         }
 
-        bool operator==(csv::string_view other) const;
-        bool operator==(const int& other);
-        bool operator==(const long double& other);
-
+        template<typename T>
+        bool operator==(T other) const;
+        
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
@@ -239,4 +238,36 @@ namespace csv {
         return this->value;
     }
 #pragma endregion CSVField::get Specializations
+
+    template<typename T>
+    inline bool CSVField::operator==(T other) const
+    {
+        if (this->_type != UNKNOWN) {
+            return value == other;
+        }
+
+        long double out = 0;
+        
+        // TODO: Check correct type
+        internals::data_type(this->sv, &out);
+        return out == other;
+    }
+
+    template<>
+    inline bool CSVField::operator==(const char * other) const
+    {
+        return this->sv == other;
+    }
+
+    template<>
+    inline bool CSVField::operator==(char * other) const
+    {
+        return this->sv == other;
+    }
+
+    template<>
+    inline bool CSVField::operator==(std::string other) const
+    {
+        return this->sv == other;
+    }
 }
