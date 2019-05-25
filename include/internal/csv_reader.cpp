@@ -454,7 +454,7 @@ namespace csv {
             if (err)
                 throw std::runtime_error("Cannot open file " + std::string(filename));
 #else
-            this->infile = std::fopen(filename.c_str(), "rb");
+            this->infile = std::fopen(filename.data(), "rb");
             if (!this->infile)
                 throw std::runtime_error("Cannot open file " + std::string(filename));
 #endif
