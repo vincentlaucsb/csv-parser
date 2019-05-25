@@ -22,17 +22,11 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
 }
 
 TEST_CASE( "Recognize Strings Properly", "[dtype_str]" ) {
-    std::string str_a("test");
-    std::string str_b("999.999.9999");
-    std::string str_c("510-123-4567");
-    std::string str_d("510 123");
-    std::string str_e("510 123 4567");
-    
-    REQUIRE( data_type(str_a) ==  CSV_STRING );
-    REQUIRE( data_type(str_b) ==  CSV_STRING );
-    REQUIRE( data_type(str_c) ==  CSV_STRING );
-    REQUIRE( data_type(str_d) ==  CSV_STRING );
-    REQUIRE( data_type(str_e) ==  CSV_STRING );
+    auto str = GENERATE(as<std::string> {}, "test", "999.999.9999", "510-123-4567", "510 123", "510 123 4567");
+
+    SECTION("String Recognition") {
+        REQUIRE(data_type(str) == CSV_STRING);
+    }
 }
 
 TEST_CASE( "Recognize Null Properly", "[dtype_null]" ) {
@@ -140,14 +134,12 @@ TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
     // Assert parsing butchered scientific notation won't cause a 
     // crash or any other weird side effects
     long double out;
-
-    std::vector<std::string> butchered = {
+    auto butchered = GENERATE(as<std::string>{},
         "4.55E000a",
         "4.55000x40",
-        "4.55000E40E40",
-    };
+        "4.55000E40E40");
 
-    for (auto& s : butchered) {
-        REQUIRE(data_type(s, &out) == CSV_STRING);
+    SECTION("Butchered Parsing Attempt") {
+        REQUIRE(data_type(butchered, &out) == CSV_STRING);
     }
 }

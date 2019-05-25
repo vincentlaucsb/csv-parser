@@ -67,6 +67,7 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
 }
 
 TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
+    // TODO: Actually check to see if flag is set
     auto rows = "\uFEFFA,B,C\r\n" // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
