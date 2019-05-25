@@ -59,6 +59,7 @@ namespace csv {
         }
 
         bool operator==(csv::string_view other) const;
+        bool operator==(const int& other);
         bool operator==(const long double& other);
 
         /** Returns true if field is an empty string or string of whitespace characters */

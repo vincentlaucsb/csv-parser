@@ -28,7 +28,7 @@ namespace csv {
      */
     namespace internals {
         std::string type_name(const DataType& dtype);
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
+        std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
     /** @class CSVReader
@@ -83,7 +83,7 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        CSVReader(const std::string& filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::GUESS_CSV);
         CSVReader(CSVFormat format = CSVFormat());
         ///@}
 
@@ -116,7 +116,7 @@ namespace csv {
         ///@{
         CSVFormat get_format() const;
         std::vector<std::string> get_col_names() const;
-        int index_of(const std::string& col_name) const;
+        int index_of(csv::string_view col_name) const;
         ///@}
         
         /** @name CSV Metadata: Attributes */
@@ -131,7 +131,7 @@ namespace csv {
         /** Close the open file handle. Automatically called by ~CSVReader(). */
         void close();
 
-        friend CSVCollection parse(const std::string&, CSVFormat);
+        friend CSVCollection parse(csv::string_view, CSVFormat);
     protected:
         /**
          * \defgroup csv_internal CSV Parser Internals
@@ -162,7 +162,7 @@ namespace csv {
             std::array<CSVReader::ParseFlags, 256> make_flags() const;
 
         /** Open a file for reading. Implementation is compiler specific. */
-        void fopen(const std::string& filename);
+        void fopen(csv::string_view filename);
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
@@ -252,7 +252,7 @@ namespace csv {
             };
 
         public:
-            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) :
+            CSVGuesser(csv::string_view _filename, const std::vector<char>& _delims) :
                 filename(_filename), delims(_delims) {};
             CSVFormat guess_delim();
             bool first_guess();

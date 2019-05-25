@@ -4,25 +4,22 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    /**
-     *  @brief Shorthand function for parsing an in-memory CSV string,
+    /** Shorthand function for parsing an in-memory CSV string,
      *  a collection of CSVRow objects
      *
      *  \snippet tests/test_read_csv.cpp Parse Example
-     *
      */
-    CSVCollection parse(const std::string& in, CSVFormat format) {
+    CSVCollection parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
         parser.feed(in);
         parser.end_feed();
         return parser.records;
     }
 
-    /**
-     * @brief Parse a RFC 4180 CSV string, returning a collection
-     *        of CSVRow objects
+    /** Parse a RFC 4180 CSV string, returning a collection
+     *  of CSVRow objects
      *
-     * **Example:**
+     *  **Example:**
      *  \snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
@@ -31,8 +28,7 @@ namespace csv {
         return parse(temp);
     }
 
-    /**
-     *  @brief Return a CSV's column names
+    /** Return a CSV's column names
      *
      *  @param[in] filename  Path to CSV file
      *  @param[in] format    Format of the CSV file

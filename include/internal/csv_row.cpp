@@ -90,6 +90,10 @@ namespace csv {
         return other == this->sv;
     }
 
+    bool CSVField::operator==(const int& other) {
+        return other == this->get<int>();
+    }
+
     bool CSVField::operator==(const long double& other) {
         return other == this->get<long double>();
     }

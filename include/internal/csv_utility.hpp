@@ -1,4 +1,5 @@
 #pragma once
+#include "compatibility.hpp"
 #include "constants.hpp"
 
 #include <string>
@@ -18,14 +19,14 @@ namespace csv {
      */
      ///@{
     CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(const std::string& in, CSVFormat format = CSVFormat());
+    CSVCollection parse(csv::string_view in, CSVFormat format = CSVFormat());
     ///@}
 
     /** @name Utility Functions */
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
-    CSVFormat guess_format(const std::string& filename,
+    CSVFormat guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     std::vector<std::string> get_col_names(
         const std::string& filename,
