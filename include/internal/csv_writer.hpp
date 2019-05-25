@@ -78,9 +78,12 @@ namespace csv {
          */
         template<typename T, typename Alloc, template <typename, typename> class Container>
         void write_row(const Container<T, Alloc>& record, bool quote_minimal = true) {
-            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
-                out << csv_escape<Delim, Quote>(record[i], quote_minimal);
+            const size_t ilen = record.size();
+            size_t i = 0;
+            for (auto& field: record) {
+                out << csv_escape<Delim, Quote>(field, quote_minimal);
                 if (i + 1 != ilen) out << Delim;
+                i++;
             }
 
             out << std::endl;
