@@ -25,6 +25,14 @@ namespace csv {
         using string_view = nonstd::string_view;
     #endif
 
+    #ifdef CSV_HAS_CXX17
+        #define IF_CONSTEXPR if constexpr
+        #define CONSTEXPR_VALUE constexpr
+    #else
+        #define IF_CONSTEXPR if
+        #define CONSTEXPR_VALUE const
+    #endif
+
     // Resolves g++ bug with regard to constexpr methods
     #ifdef __GNUC__
         #if __GNUC__ >= 7

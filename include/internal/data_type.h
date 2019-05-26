@@ -65,27 +65,23 @@ namespace csv {
         }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
+        /** Private site-indexed array mapping byte sizes to an integer size enum */
+        constexpr DataType int_type_arr[8] = {
+            CSV_INT8,  // 1
+            CSV_INT16, // 2
+            UNKNOWN,
+            CSV_INT32, // 4
+            UNKNOWN,
+            UNKNOWN,
+            UNKNOWN,
+            CSV_INT64  // 8
+        };
+
         template<typename T>
         inline DataType type_num() {
             static_assert(std::is_integral<T>::value, "T should be an integral type.");
-
-            if constexpr (sizeof(T) == 1) {
-                return CSV_INT8;
-            }
-
-            if constexpr (sizeof(T) == 2) {
-                return CSV_INT16;
-            }
-
-            if constexpr (sizeof(T) == 4) {
-                return CSV_INT32;
-            }
-            
-            if constexpr (sizeof(T) == 8) {
-                return CSV_INT64;
-            }
-
-            HEDLEY_UNREACHABLE_RETURN(UNKNOWN);
+            static_assert(sizeof(T) <= 8, "Byte size must be no greater than 8.");
+            return int_type_arr[sizeof(T) - 1];
         }
 
         template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
@@ -116,40 +112,45 @@ namespace csv {
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
+        /** Given a byte size, return the largest number than can be stored in
+         *  an integer of that size
+         */
         template<size_t Bytes>
-        constexpr long double get_int_max() {
-            if constexpr (sizeof(signed char) == Bytes) {
+        CONSTEXPR long double get_int_max() {
+            IF_CONSTEXPR (sizeof(signed char) == Bytes) {
                 return (long double)std::numeric_limits<signed char>::max();
             }
 
-            if constexpr (sizeof(short) == Bytes) {
+            IF_CONSTEXPR (sizeof(short) == Bytes) {
                 return (long double)std::numeric_limits<short>::max();
             }
 
-            if constexpr (sizeof(int) == Bytes) {
+            IF_CONSTEXPR (sizeof(int) == Bytes) {
                 return (long double)std::numeric_limits<int>::max();
             }
 
-            if constexpr (sizeof(long int) == Bytes) {
+            IF_CONSTEXPR (sizeof(long int) == Bytes) {
                 return (long double)std::numeric_limits<long int>::max();
             }
 
-            if constexpr (sizeof(long long int) == Bytes) {
+            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
                 return (long double)std::numeric_limits<long long int>::max();
             }
+
+            HEDLEY_UNREACHABLE_RETURN();
         }
 
         /** Largest number that can be stored in a 1-bit integer */
-        constexpr long double CSV_INT8_MAX = get_int_max<1>();
+        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
 
         /** Largest number that can be stored in a 16-bit integer */
-        constexpr long double CSV_INT16_MAX = get_int_max<2>();
+        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
 
         /** Largest number that can be stored in a 32-bit integer */
-        constexpr long double CSV_INT32_MAX = get_int_max<4>();
+        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
 
         /** Largest number that can be stored in a 64-bit integer */
-        constexpr long double CSV_INT64_MAX = get_int_max<8>();
+        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation

@@ -66,7 +66,7 @@ namespace csv {
                     throw std::runtime_error(internals::ERROR_NAN);
                 }
             }
-            
+
             if constexpr (std::is_integral<T>::value) {
                 if (this->is_float()) {
                     throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
