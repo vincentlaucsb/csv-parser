@@ -101,7 +101,7 @@ namespace csv {
                     return false;
                 }
 
-                return internals::is_equal(value, static_cast<long double>(other));
+                return internals::is_equal(value, static_cast<long double>(other), 0.000001L);
             }
 
             long double out = 0;
@@ -109,7 +109,7 @@ namespace csv {
                 return false;
             }
 
-            return internals::is_equal(out, static_cast<long double>(other));
+            return internals::is_equal(out, static_cast<long double>(other), 0.000001L);
         }
         
         /** Returns true if field is an empty string or string of whitespace characters */
