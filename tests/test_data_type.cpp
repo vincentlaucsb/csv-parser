@@ -11,13 +11,13 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string a("1"), b(" 2018   "), c(" -69 ");
     long double out;
 
-    REQUIRE(data_type(a, &out) ==  CSV_INT_32);
+    REQUIRE(data_type(a, &out) ==  CSV_INT16);
     REQUIRE(out == 1);
 
-    REQUIRE(data_type(b, &out) == CSV_INT_32);
+    REQUIRE(data_type(b, &out) == CSV_INT16);
     REQUIRE(out == 2018);
 
-    REQUIRE(data_type(c, &out) == CSV_INT_32);
+    REQUIRE(data_type(c, &out) == CSV_INT16);
     REQUIRE(out == -69);
 }
 
@@ -66,10 +66,10 @@ TEST_CASE("Integer Overflow", "[int_overflow]") {
     #else
     if (_INT_MAX == _LONG_MAX) {
     #endif    
-        REQUIRE(data_type(s, &out) == CSV_INT_64);
+        REQUIRE(data_type(s, &out) == CSV_INT64);
     }
     else {
-        REQUIRE(data_type(s, &out) == CSV_INT_32);
+        REQUIRE(data_type(s, &out) == CSV_INT32);
     }
 
     REQUIRE(out == (long long)_INT_MAX + 1);

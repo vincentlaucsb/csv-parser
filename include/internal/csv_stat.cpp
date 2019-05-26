@@ -122,7 +122,7 @@ namespace csv {
             this->dtype(current_field, i);
 
             // Numeric Stuff
-            if (current_field.type() >= CSV_INT_32) {
+            if (current_field.type() >= CSV_INT32) {
                 long double x_n = current_field.get<long double>();
 
                 // This actually calculates mean AND variance
@@ -230,10 +230,10 @@ namespace csv {
 
             if (col[CSV_STRING])
                 csv_dtypes[col_name] = CSV_STRING;
-            else if (col[CSV_INT_64])
-                csv_dtypes[col_name] = CSV_INT_64;
-            else if (col[CSV_INT_32])
-                csv_dtypes[col_name] = CSV_INT_32;
+            else if (col[CSV_INT64])
+                csv_dtypes[col_name] = CSV_INT64;
+            else if (col[CSV_INT32])
+                csv_dtypes[col_name] = CSV_INT32;
             else
                 csv_dtypes[col_name] = CSV_DOUBLE;
         }

@@ -25,8 +25,9 @@ namespace csv {
         UNKNOWN = -1,
         CSV_NULL,
         CSV_STRING,
-        CSV_INT_32,
-        CSV_INT_64,
+        CSV_INT16,
+        CSV_INT32,
+        CSV_INT64,
         CSV_DOUBLE
     };
 
@@ -68,11 +69,11 @@ namespace csv {
             static_assert(std::is_integral<T>::value, "T should be an integral type.");
 
             if constexpr (sizeof(T) == 4) {
-                return CSV_INT_32;
+                return CSV_INT32;
             }
             
             if constexpr (sizeof(T) == 8) {
-                return CSV_INT_64;
+                return CSV_INT64;
             }
 
             HEDLEY_UNREACHABLE_RETURN(UNKNOWN);
@@ -88,9 +89,11 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
-            case CSV_INT_32:
+            case CSV_INT16:
+                return "int16";
+            case CSV_INT32:
                 return "int32";
-            case CSV_INT_64:
+            case CSV_INT64:
                 return "int64";
             case CSV_DOUBLE:
                 return "double";
@@ -101,6 +104,9 @@ namespace csv {
 
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
+        /** Largest number that can be stored in an integer */
+        constexpr long double _SHORT_MAX = (long double)std::numeric_limits<short>::max();
+
         /** Largest number that can be stored in an integer */
         constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
 
@@ -122,7 +128,7 @@ namespace csv {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT_32 && result <= CSV_DOUBLE) {
+            if (result >= CSV_INT16 && result <= CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -139,10 +145,12 @@ namespace csv {
             assert(number >= 0);
 
             // TODO: Refactor
-            if (number < _INT_MAX)
-                return CSV_INT_32;
+            if (number < _SHORT_MAX)
+                return CSV_INT16;
+            else if (number < _INT_MAX)
+                return CSV_INT32;
             else if (number < _LONG_LONG_MAX)
-                return CSV_INT_64;
+                return CSV_INT64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;
         }
