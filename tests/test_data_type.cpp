@@ -58,20 +58,9 @@ TEST_CASE("Integer Overflow", "[int_overflow]") {
 
     std::string s;
     long double out;
-    
     s = std::to_string((long long)_INT_MAX + 1);
 
-    #if __cplusplus == 201703L
-    if constexpr (_INT_MAX == _LONG_MAX) {
-    #else
-    if (_INT_MAX == _LONG_MAX) {
-    #endif    
-        REQUIRE(data_type(s, &out) == CSV_INT64);
-    }
-    else {
-        REQUIRE(data_type(s, &out) == CSV_INT32);
-    }
-
+    REQUIRE(data_type(s, &out) == CSV_INT64);
     REQUIRE(out == (long long)_INT_MAX + 1);
 }
 
