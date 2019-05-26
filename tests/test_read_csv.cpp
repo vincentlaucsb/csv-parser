@@ -277,7 +277,6 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
     CSVRow row;
-    bool caught_error = false;
 
     size_t date = reader.index_of("ReportDt"),
         unit = reader.index_of("Unit"),

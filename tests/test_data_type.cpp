@@ -50,16 +50,16 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
 }
 
 TEST_CASE("Integer Overflow", "[int_overflow]") {
-    constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
-    constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
-    constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
-
     std::string s;
     long double out;
-    s = std::to_string((long long)_INT_MAX + 1);
 
+    s = std::to_string((long long)csv::internals::CSV_INT16_MAX + 1);
+    REQUIRE(data_type(s, &out) == CSV_INT32);
+    REQUIRE(out == (long long)CSV_INT16_MAX + 1);
+
+    s = std::to_string((long long)csv::internals::CSV_INT32_MAX + 1);
     REQUIRE(data_type(s, &out) == CSV_INT64);
-    REQUIRE(out == (long long)_INT_MAX + 1);
+    REQUIRE(out == (long long)CSV_INT32_MAX + 1);
 }
 
 TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
