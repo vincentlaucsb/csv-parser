@@ -3137,26 +3137,18 @@ namespace csv {
     /** Enumerates the different CSV field types that are
      *  recognized by this library
      *
-     *  - 0. CSV_NULL (empty string)
-     *  - 1. CSV_STRING
-     *  - 2. CSV_INT
-     *  - 3. CSV_LONG_INT
-     *  - 4. CSV_LONG_LONG_INT
-     *  - 5. CSV_DOUBLE
-     *
-     *  **Note**: Overflowing integers will be stored and classified as doubles.
-     *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
-     *  compiler and platform.
+     *  @note Overflowing integers will be stored and classified as doubles.
+     *  @note Unlike previous releases, integer enums here are platform agnostic.
      */
     enum DataType {
         UNKNOWN = -1,
-        CSV_NULL,
-        CSV_STRING,
-        CSV_INT8,
-        CSV_INT16,
-        CSV_INT32,
-        CSV_INT64,
-        CSV_DOUBLE
+        CSV_NULL,   /**< Empty string */
+        CSV_STRING, /**< Non-numeric string */
+        CSV_INT8,   /**< 8-bit integer */
+        CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
+        CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
+        CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
+        CSV_DOUBLE  /**< Floating point value */
     };
 
     static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
@@ -3268,7 +3260,7 @@ namespace csv {
                 return (long double)std::numeric_limits<long long int>::max();
             }
 
-            HEDLEY_UNREACHABLE_RETURN();
+            HEDLEY_UNREACHABLE();
         }
 
         /** Largest number that can be stored in a 1-bit integer */
