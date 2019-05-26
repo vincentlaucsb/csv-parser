@@ -242,14 +242,20 @@ namespace csv {
     template<typename T>
     inline bool CSVField::operator==(T other) const
     {
+        // This function gets called for numeric values
         if (this->_type != UNKNOWN) {
+            if (this->_type == CSV_STRING) {
+                return false;
+            }
+
             return value == other;
         }
 
         long double out = 0;
-        
-        // TODO: Check correct type
-        internals::data_type(this->sv, &out);
+        if (internals::data_type(this->sv, &out) == CSV_STRING) {
+            return false;
+        }
+
         return out == other;
     }
 
@@ -260,13 +266,7 @@ namespace csv {
     }
 
     template<>
-    inline bool CSVField::operator==(char * other) const
-    {
-        return this->sv == other;
-    }
-
-    template<>
-    inline bool CSVField::operator==(std::string other) const
+    inline bool CSVField::operator==(csv::string_view other) const
     {
         return this->sv == other;
     }

@@ -98,19 +98,6 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     // Test parsing e notation
     long double out;
 
-    std::vector<std::string> _455_thousand = {
-        "4.55e5", "4.55E5",
-        "4.55E+5", "4.55e+5",
-        "4.55E+05",
-        "4.55e0000005", "4.55E0000005",
-        "4.55e+0000005", "4.55E+0000005"
-    };
-
-    for (auto number : _455_thousand) {
-        REQUIRE(data_type(number, &out) == CSV_DOUBLE);
-        REQUIRE(is_equal(out, 455000.0L));
-    }
-
     REQUIRE(data_type("2.17222E+02", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 217.222L));
 
@@ -128,6 +115,21 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
 
     REQUIRE(data_type("4.55E-000000000005", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 0.0000455L));
+}
+
+TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diversity]") {
+    auto number = GENERATE(as<std::string> {},
+        "4.55e5", "4.55E5",
+        "4.55E+5", "4.55e+5",
+        "4.55E+05",
+        "4.55e0000005", "4.55E0000005",
+        "4.55e+0000005", "4.55E+0000005");
+
+    SECTION("Recognize 455 thousand") {
+        long double out;
+        REQUIRE(data_type(number, &out) == CSV_DOUBLE);
+        REQUIRE(is_equal(out, 455000.0L));
+    }
 }
 
 TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
