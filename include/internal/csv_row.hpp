@@ -58,9 +58,10 @@ namespace csv {
                     throw std::runtime_error("String is not a numeric value.");
                 }
             }
-            else if constexpr (std::is_integral<T>::value) {
+            
+            if constexpr (std::is_integral<T>::value) {
                 if (this->is_float()) {
-                    throw std::runtime_error("Attempted to convert a floating point value"
+                    throw std::runtime_error("Attempted to convert a floating point value "
                         "to an integral type.");
                 }
             }
@@ -79,7 +80,7 @@ namespace csv {
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
-        /** Returns true if field is a non-numeric string */
+        /** Returns true if field is a non-numeric, non-empty string */
         CONSTEXPR bool is_str() { return type() == CSV_STRING; }
 
         /** Returns true if field is an integer or float */
@@ -90,13 +91,13 @@ namespace csv {
             return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
         }
 
-        /** Returns true if field is a float*/
+        /** Returns true if field is a floating point value */
         CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
             this->get_value();
-            return (DataType)_type;
+            return _type;
         }
 
     private:

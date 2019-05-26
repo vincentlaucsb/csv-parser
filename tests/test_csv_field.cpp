@@ -38,9 +38,25 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
     CSVField euler("2.718");
     REQUIRE(euler.get<>() == "2.718");
     REQUIRE(euler.get<csv::string_view>() == "2.718");
-    // REQUIRE(euler.get<float>() == 2.718f);
+    REQUIRE(euler.get<float>() == 2.718f);
     REQUIRE(euler.get<double>() == 2.718);
     REQUIRE(euler.get<long double>() == 2.718l);
+}
+
+TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",
+    short, int, long long int) {
+    CSVField euler("2.718");
+    bool ex_caught = false;
+
+    try {
+        euler.get<TestType>();
+    }
+    catch (std::runtime_error& err) {
+        REQUIRE(err.what() == std::string("Attempted to convert a floating point value to an integral type."));
+        ex_caught = true;
+    }
+
+    REQUIRE(ex_caught);
 }
 
 TEST_CASE("CSVField Equality Operator", "[test_csv_field_operator==]") {

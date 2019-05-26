@@ -72,6 +72,7 @@ namespace csv {
         template<> inline DataType type_num<int>() { return CSV_INT; }
         template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
         template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
+        template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
