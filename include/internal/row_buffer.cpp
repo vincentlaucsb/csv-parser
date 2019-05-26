@@ -37,7 +37,7 @@ namespace csv {
                 new_split_idx = this->split_buffer.size();
          
             this->current_split_idx = new_split_idx;
-            return ColumnPositions(*this, head_idx, new_split_idx - head_idx + 1);
+            return ColumnPositions(*this, head_idx, (unsigned short)(new_split_idx - head_idx + 1));
         }
 
         size_t RawRowBuffer::size() const {
@@ -48,6 +48,7 @@ namespace csv {
             return this->split_buffer.size() - this->current_split_idx;
         }
         
+        HEDLEY_WARN_UNUSED_RESULT
         BufferPtr RawRowBuffer::reset() const {
             // Save current row in progress
             auto new_buff = BufferPtr(new RawRowBuffer());

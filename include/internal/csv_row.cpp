@@ -85,17 +85,6 @@ namespace csv {
         return ret;
     }
 
-#pragma region CSVField Methods
-    bool CSVField::operator==(csv::string_view other) const {
-        return other == this->sv;
-    }
-
-    bool CSVField::operator==(const long double& other) {
-        return other == this->get<long double>();
-    }
-
-#pragma endregion CSVField Methods
-
 #pragma region CSVRow Iterator
     /** @brief Return an iterator pointing to the first field. */
     CSVRow::iterator CSVRow::begin() const {
@@ -123,6 +112,7 @@ namespace csv {
         return this->buffer->split_buffer[this->start + n];
     }
 
+    HEDLEY_NON_NULL(1)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
         if (_i < (int)this->daddy->size())

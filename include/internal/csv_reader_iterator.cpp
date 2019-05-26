@@ -11,7 +11,7 @@ namespace csv {
     /** A placeholder for the imaginary past the end row in a CSV.
      *  Attempting to deference this will lead to bad things.
      */
-    CSVReader::iterator CSVReader::end() {
+    HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
         return CSVReader::iterator();
     }
 

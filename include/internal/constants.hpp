@@ -2,7 +2,6 @@
 #include <deque>
 
 #include "csv_format.hpp"
-#include "csv_row.hpp"
 
 namespace csv {
     namespace internals {
@@ -36,5 +35,6 @@ namespace csv {
     /** @brief Used for counting number of rows */
     using RowCount = long long int;
 
+    class CSVRow;
     using CSVCollection = std::deque<CSVRow>;
 }

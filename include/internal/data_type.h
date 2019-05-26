@@ -10,31 +10,29 @@ namespace csv {
     /** Enumerates the different CSV field types that are
      *  recognized by this library
      *
-     *  - 0. CSV_NULL (empty string)
-     *  - 1. CSV_STRING
-     *  - 2. CSV_INT
-     *  - 3. CSV_LONG_INT
-     *  - 4. CSV_LONG_LONG_INT
-     *  - 5. CSV_DOUBLE
-     *
-     *  **Note**: Overflowing integers will be stored and classified as doubles.
-     *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
-     *  compiler and platform.
+     *  @note Overflowing integers will be stored and classified as doubles.
+     *  @note Unlike previous releases, integer enums here are platform agnostic.
      */
     enum DataType {
         UNKNOWN = -1,
-        CSV_NULL,
-        CSV_STRING,
-        CSV_INT,
-        CSV_LONG_INT,
-        CSV_LONG_LONG_INT,
-        CSV_DOUBLE
+        CSV_NULL,   /**< Empty string */
+        CSV_STRING, /**< Non-numeric string */
+        CSV_INT8,   /**< 8-bit integer */
+        CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
+        CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
+        CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
+        CSV_DOUBLE  /**< Floating point value */
     };
+
+    static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
+    static_assert(CSV_INT8 < CSV_INT64, "Smaller integer types should come before larger integer types.");
+    static_assert(CSV_INT64 < CSV_DOUBLE, "Integer types should come before floating point value types.");
 
     namespace internals {
         /** Compute 10 to the power of n */
         template<typename T>
-        CONSTEXPR long double pow10(const T& n) {
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const T& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -50,7 +48,8 @@ namespace csv {
 
         /** Compute 10 to the power of n */
         template<>
-        CONSTEXPR long double pow10(const unsigned& n) {
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const unsigned& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -62,12 +61,26 @@ namespace csv {
         }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        template<typename T>
-        DataType type_num();
+        /** Private site-indexed array mapping byte sizes to an integer size enum */
+        constexpr DataType int_type_arr[8] = {
+            CSV_INT8,  // 1
+            CSV_INT16, // 2
+            UNKNOWN,
+            CSV_INT32, // 4
+            UNKNOWN,
+            UNKNOWN,
+            UNKNOWN,
+            CSV_INT64  // 8
+        };
 
-        template<> inline DataType type_num<int>() { return CSV_INT; }
-        template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
-        template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
+        template<typename T>
+        inline DataType type_num() {
+            static_assert(std::is_integral<T>::value, "T should be an integral type.");
+            static_assert(sizeof(T) <= 8, "Byte size must be no greater than 8.");
+            return int_type_arr[sizeof(T) - 1];
+        }
+
+        template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
@@ -77,12 +90,14 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
-            case CSV_INT:
-                return "int";
-            case CSV_LONG_INT:
-                return "long int";
-            case CSV_LONG_LONG_INT:
-                return "long long int";
+            case CSV_INT8:
+                return "int8";
+            case CSV_INT16:
+                return "int16";
+            case CSV_INT32:
+                return "int32";
+            case CSV_INT64:
+                return "int64";
             case CSV_DOUBLE:
                 return "double";
             default:
@@ -93,27 +108,59 @@ namespace csv {
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
-        /** Largest number that can be stored in an integer */
-        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+        /** Given a byte size, return the largest number than can be stored in
+         *  an integer of that size
+         */
+        template<size_t Bytes>
+        CONSTEXPR long double get_int_max() {
+            IF_CONSTEXPR (sizeof(signed char) == Bytes) {
+                return (long double)std::numeric_limits<signed char>::max();
+            }
 
-        /** Largest number that can be stored in a long int */
-        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+            IF_CONSTEXPR (sizeof(short) == Bytes) {
+                return (long double)std::numeric_limits<short>::max();
+            }
 
-        /** Largest number that can be stored in an long long int */
-        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+            IF_CONSTEXPR (sizeof(int) == Bytes) {
+                return (long double)std::numeric_limits<int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+                return (long double)std::numeric_limits<long int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+                return (long double)std::numeric_limits<long long int>::max();
+            }
+
+            HEDLEY_UNREACHABLE();
+        }
+
+        /** Largest number that can be stored in a 1-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
+
+        /** Largest number that can be stored in a 16-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
+
+        /** Largest number that can be stored in a 32-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
+
+        /** Largest number that can be stored in a 64-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        CONSTEXPR DataType _process_potential_exponential(
+        HEDLEY_PRIVATE CONSTEXPR
+        DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
             long double * const out) {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT && result <= CSV_DOUBLE) {
+            if (result >= CSV_INT8 && result <= CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -124,16 +171,19 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        CONSTEXPR DataType _determine_integral_type(const long double& number) {
+        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
+        DataType _determine_integral_type(const long double& number) noexcept {
             // We can assume number is always non-negative
             assert(number >= 0);
 
-            if (number < _INT_MAX)
-                return CSV_INT;
-            else if (number < _LONG_MAX)
-                return CSV_LONG_INT;
-            else if (number < _LONG_LONG_MAX)
-                return CSV_LONG_LONG_INT;
+            if (number < internals::CSV_INT8_MAX)
+                return CSV_INT8;
+            else if (number < internals::CSV_INT16_MAX)
+                return CSV_INT16;
+            else if (number < internals::CSV_INT32_MAX)
+                return CSV_INT32;
+            else if (number < internals::CSV_INT64_MAX)
+                return CSV_INT64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;
         }
@@ -149,7 +199,8 @@ namespace csv {
          *  @param[out] out Pointer to long double where results of numeric parsing
          *                  get stored
          */
-        CONSTEXPR DataType data_type(csv::string_view in, long double* const out) {
+        CONSTEXPR
+        DataType data_type(csv::string_view in, long double* const out) {
             // Empty string --> NULL
             if (in.size() == 0)
                 return CSV_NULL;

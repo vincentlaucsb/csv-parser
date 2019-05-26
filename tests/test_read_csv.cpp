@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h> // remove()
+#include <sstream>
 #include "catch.hpp"
 #include "csv.hpp"
 
@@ -66,6 +67,7 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
 }
 
 TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
+    // TODO: Actually check to see if flag is set
     auto rows = "\uFEFFA,B,C\r\n" // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
@@ -247,10 +249,7 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
 
     csv_string << "3.14,9999" << std::endl
         << "60,70" << std::endl
-        << "," << std::endl
-        << (std::numeric_limits<long>::max() - 100) << "," 
-            << (std::numeric_limits<long long>::max()/2) << std::endl
-        << std::to_string(big_num) << "," << std::endl;
+        << "," << std::endl;
 
     auto rows = parse(csv_string.str(), format);
     CSVRow row = rows.front();
@@ -273,30 +272,11 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     row = rows.front();
     REQUIRE(row[0].is_null());
     REQUIRE(row[1].is_null());
-
-    // Fourth Row
-    rows.pop_front();
-    row = rows.front();
-    
-    // Older versions of g++ have issues with numeric_limits
-#if (!defined(__GNUC__) || __GNUC__ >= 5)
-    REQUIRE((row[0].type() == CSV_INT || row[0].type() == CSV_LONG_INT));
-    REQUIRE(row[0].get<long>() == std::numeric_limits<long>::max() - 100);
-    // REQUIRE(row[1].get<long long>() == std::numeric_limits<long long>::max()/2);
-#endif
-
-    // Fourth Row
-    rows.pop_front();
-    row = rows.front();
-    double big_num_csv = row[0].get<double>();
-    REQUIRE(row[0].type() == CSV_DOUBLE); // Overflow
-    REQUIRE(internals::is_equal(big_num_csv, big_num));
 }
 
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
     CSVRow row;
-    bool caught_error = false;
 
     size_t date = reader.index_of("ReportDt"),
         unit = reader.index_of("Unit"),
@@ -316,28 +296,6 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             REQUIRE(row[power].get<int>() == 100);
             REQUIRE(row[date].get<>() == "12/31/2009"); // string_view
             REQUIRE(row[unit].get<std::string>() == "Beaver Valley 1");
-
-            // Assert misusing API throws the appropriate errors
-            try {
-                row[0].get<long long int>();
-            }
-            catch (std::runtime_error&) {
-                caught_error = true;
-            }
-
-            REQUIRE(caught_error);
-            caught_error = false;
-
-            try {
-                row[0].get<double>();
-            }
-            catch (std::runtime_error& err) {
-                REQUIRE(err.what() == std::string("Attempted to convert a "
-                    "value of type string to double."));
-                caught_error = true;
-            }
-
-            REQUIRE(caught_error);
         }
     }
 }

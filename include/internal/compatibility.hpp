@@ -1,6 +1,10 @@
 #pragma once
 #include "../external/string_view.hpp"
 
+#ifndef HEDLEY_VERSION
+#include "../external/hedley.h"
+#endif
+
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {
@@ -19,6 +23,14 @@ namespace csv {
          *  The string_view class used by this library.
          */
         using string_view = nonstd::string_view;
+    #endif
+
+    #ifdef CSV_HAS_CXX17
+        #define IF_CONSTEXPR if constexpr
+        #define CONSTEXPR_VALUE constexpr
+    #else
+        #define IF_CONSTEXPR if
+        #define CONSTEXPR_VALUE const
     #endif
 
     // Resolves g++ bug with regard to constexpr methods

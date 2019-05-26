@@ -2,8 +2,6 @@
 #include "csv.hpp"
 #include <string>
 
-#define INT_IS_LONG_INT
-
 using namespace csv;
 using namespace csv::internals;
 
@@ -11,28 +9,22 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string a("1"), b(" 2018   "), c(" -69 ");
     long double out;
 
-    REQUIRE(data_type(a, &out) ==  CSV_INT);
+    REQUIRE(data_type(a, &out) ==  CSV_INT8);
     REQUIRE(out == 1);
 
-    REQUIRE(data_type(b, &out) == CSV_INT);
+    REQUIRE(data_type(b, &out) == CSV_INT16);
     REQUIRE(out == 2018);
 
-    REQUIRE(data_type(c, &out) == CSV_INT);
+    REQUIRE(data_type(c, &out) == CSV_INT8);
     REQUIRE(out == -69);
 }
 
 TEST_CASE( "Recognize Strings Properly", "[dtype_str]" ) {
-    std::string str_a("test");
-    std::string str_b("999.999.9999");
-    std::string str_c("510-123-4567");
-    std::string str_d("510 123");
-    std::string str_e("510 123 4567");
-    
-    REQUIRE( data_type(str_a) ==  CSV_STRING );
-    REQUIRE( data_type(str_b) ==  CSV_STRING );
-    REQUIRE( data_type(str_c) ==  CSV_STRING );
-    REQUIRE( data_type(str_d) ==  CSV_STRING );
-    REQUIRE( data_type(str_e) ==  CSV_STRING );
+    auto str = GENERATE(as<std::string> {}, "test", "999.999.9999", "510-123-4567", "510 123", "510 123 4567");
+
+    SECTION("String Recognition") {
+        REQUIRE(data_type(str) == CSV_STRING);
+    }
 }
 
 TEST_CASE( "Recognize Null Properly", "[dtype_null]" ) {
@@ -58,27 +50,16 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
 }
 
 TEST_CASE("Integer Overflow", "[int_overflow]") {
-    constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
-    constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
-    constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
-
     std::string s;
     long double out;
-    
-    s = std::to_string((long long)_INT_MAX + 1);
 
-    #if __cplusplus == 201703L
-    if constexpr (_INT_MAX == _LONG_MAX) {
-    #else
-    if (_INT_MAX == _LONG_MAX) {
-    #endif    
-        REQUIRE(data_type(s, &out) == CSV_LONG_LONG_INT);
-    }
-    else {
-        REQUIRE(data_type(s, &out) == CSV_LONG_INT);
-    }
+    s = std::to_string((long long)csv::internals::CSV_INT16_MAX + 1);
+    REQUIRE(data_type(s, &out) == CSV_INT32);
+    REQUIRE(out == (long long)CSV_INT16_MAX + 1);
 
-    REQUIRE(out == (long long)_INT_MAX + 1);
+    s = std::to_string((long long)csv::internals::CSV_INT32_MAX + 1);
+    REQUIRE(data_type(s, &out) == CSV_INT64);
+    REQUIRE(out == (long long)CSV_INT32_MAX + 1);
 }
 
 TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
@@ -104,19 +85,6 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     // Test parsing e notation
     long double out;
 
-    std::vector<std::string> _455_thousand = {
-        "4.55e5", "4.55E5",
-        "4.55E+5", "4.55e+5",
-        "4.55E+05",
-        "4.55e0000005", "4.55E0000005",
-        "4.55e+0000005", "4.55E+0000005"
-    };
-
-    for (auto number : _455_thousand) {
-        REQUIRE(data_type(number, &out) == CSV_DOUBLE);
-        REQUIRE(is_equal(out, 455000.0L));
-    }
-
     REQUIRE(data_type("2.17222E+02", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 217.222L));
 
@@ -136,18 +104,31 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     REQUIRE(is_equal(out, 0.0000455L));
 }
 
+TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diversity]") {
+    auto number = GENERATE(as<std::string> {},
+        "4.55e5", "4.55E5",
+        "4.55E+5", "4.55e+5",
+        "4.55E+05",
+        "4.55e0000005", "4.55E0000005",
+        "4.55e+0000005", "4.55E+0000005");
+
+    SECTION("Recognize 455 thousand") {
+        long double out;
+        REQUIRE(data_type(number, &out) == CSV_DOUBLE);
+        REQUIRE(is_equal(out, 455000.0L));
+    }
+}
+
 TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
     // Assert parsing butchered scientific notation won't cause a 
     // crash or any other weird side effects
     long double out;
-
-    std::vector<std::string> butchered = {
+    auto butchered = GENERATE(as<std::string>{},
         "4.55E000a",
         "4.55000x40",
-        "4.55000E40E40",
-    };
+        "4.55000E40E40");
 
-    for (auto& s : butchered) {
-        REQUIRE(data_type(s, &out) == CSV_STRING);
+    SECTION("Butchered Parsing Attempt") {
+        REQUIRE(data_type(butchered, &out) == CSV_STRING);
     }
 }

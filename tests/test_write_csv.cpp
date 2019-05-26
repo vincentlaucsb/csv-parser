@@ -1,6 +1,7 @@
 #include <stdio.h> // For remove()
 #include <sstream>
 #include <queue>
+#include <list>
 #include "catch.hpp"
 #include "csv.hpp"
 
@@ -51,24 +52,31 @@ TEST_CASE("CSV to Stringstream", "[test_csv_sstream1]") {
     REQUIRE(out.str() == correct.str());
 }
 
-TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]") {
-    std::stringstream comma_out, tab_out, correct_comma, correct_tab;
+TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
+    std::vector<std::string>, std::deque<std::string>, std::list<std::string>) {
+    std::stringstream output, correct_comma, correct_tab;
 
     // Build correct strings
     correct_comma << "A,B,C" << std::endl << "\"1,1\",2,3" << std::endl;
     correct_tab << "A\tB\tC" << std::endl << "1,1\t2\t3" << std::endl;
 
-    auto csv_writer = make_csv_writer(comma_out);
-    csv_writer << vector<string>({ "A", "B", "C" })
-        << vector<string>({ "1,1", "2", "3" });
+    // Test input
+    auto test_row_1 = TestType({ "A", "B", "C" }),
+        test_row_2 = TestType({ "1,1", "2", "3" });
 
-    REQUIRE(comma_out.str() == correct_comma.str());
+    SECTION("CSV Writer") {
+        auto csv_writer = make_csv_writer(output);
+        csv_writer << test_row_1 << test_row_2;
 
-    auto tsv_writer = make_tsv_writer(tab_out);
-    tsv_writer << vector<string>({ "A", "B", "C" })
-        << vector<string>({ "1,1", "2", "3" });
+        REQUIRE(output.str() == correct_comma.str());
+    }
 
-    REQUIRE(tab_out.str() == correct_tab.str());
+    SECTION("TSV Writer") {
+        auto tsv_writer = make_tsv_writer(output);
+        tsv_writer << test_row_1 << test_row_2;
+
+        REQUIRE(output.str() == correct_tab.str());
+    }
 }
 
 /*

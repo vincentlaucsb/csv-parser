@@ -4,8 +4,9 @@ target_sources(csv_test
 		${CSV_INCLUDE_DIR}/csv.hpp
 		catch.hpp
 		main.cpp
-		test_csv_iterator.cpp
 		test_csv_buffer.cpp
+		test_csv_field.cpp
+		test_csv_iterator.cpp
 		test_csv_row.cpp
 		test_csv_stat.cpp
 		test_read_csv.cpp

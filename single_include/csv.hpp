@@ -1351,6 +1351,1515 @@ nssv_RESTORE_WARNINGS()
 #endif // nssv_HAVE_STD_STRING_VIEW
 #endif // NONSTD_SV_LITE_H_INCLUDED
 
+/* Hedley - https://nemequ.github.io/hedley
+ * Created by Evan Nemerson <evan@nemerson.com>
+ *
+ * To the extent possible under law, the author(s) have dedicated all
+ * copyright and related and neighboring rights to this software to
+ * the public domain worldwide. This software is distributed without
+ * any warranty.
+ *
+ * For details, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+ * SPDX-License-Identifier: CC0-1.0
+ */
+
+#if !defined(HEDLEY_VERSION) || (HEDLEY_VERSION < 9)
+#if defined(HEDLEY_VERSION)
+#  undef HEDLEY_VERSION
+#endif
+#define HEDLEY_VERSION 9
+
+#if defined(HEDLEY_STRINGIFY_EX)
+#  undef HEDLEY_STRINGIFY_EX
+#endif
+#define HEDLEY_STRINGIFY_EX(x) #x
+
+#if defined(HEDLEY_STRINGIFY)
+#  undef HEDLEY_STRINGIFY
+#endif
+#define HEDLEY_STRINGIFY(x) HEDLEY_STRINGIFY_EX(x)
+
+#if defined(HEDLEY_CONCAT_EX)
+#  undef HEDLEY_CONCAT_EX
+#endif
+#define HEDLEY_CONCAT_EX(a,b) a##b
+
+#if defined(HEDLEY_CONCAT)
+#  undef HEDLEY_CONCAT
+#endif
+#define HEDLEY_CONCAT(a,b) HEDLEY_CONCAT_EX(a,b)
+
+#if defined(HEDLEY_VERSION_ENCODE)
+#  undef HEDLEY_VERSION_ENCODE
+#endif
+#define HEDLEY_VERSION_ENCODE(major,minor,revision) (((major) * 1000000) + ((minor) * 1000) + (revision))
+
+#if defined(HEDLEY_VERSION_DECODE_MAJOR)
+#  undef HEDLEY_VERSION_DECODE_MAJOR
+#endif
+#define HEDLEY_VERSION_DECODE_MAJOR(version) ((version) / 1000000)
+
+#if defined(HEDLEY_VERSION_DECODE_MINOR)
+#  undef HEDLEY_VERSION_DECODE_MINOR
+#endif
+#define HEDLEY_VERSION_DECODE_MINOR(version) (((version) % 1000000) / 1000)
+
+#if defined(HEDLEY_VERSION_DECODE_REVISION)
+#  undef HEDLEY_VERSION_DECODE_REVISION
+#endif
+#define HEDLEY_VERSION_DECODE_REVISION(version) ((version) % 1000)
+
+#if defined(HEDLEY_GNUC_VERSION)
+#  undef HEDLEY_GNUC_VERSION
+#endif
+#if defined(__GNUC__) && defined(__GNUC_PATCHLEVEL__)
+#  define HEDLEY_GNUC_VERSION HEDLEY_VERSION_ENCODE(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#elif defined(__GNUC__)
+#  define HEDLEY_GNUC_VERSION HEDLEY_VERSION_ENCODE(__GNUC__, __GNUC_MINOR__, 0)
+#endif
+
+#if defined(HEDLEY_GNUC_VERSION_CHECK)
+#  undef HEDLEY_GNUC_VERSION_CHECK
+#endif
+#if defined(HEDLEY_GNUC_VERSION)
+#  define HEDLEY_GNUC_VERSION_CHECK(major,minor,patch) (HEDLEY_GNUC_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_GNUC_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_MSVC_VERSION)
+#  undef HEDLEY_MSVC_VERSION
+#endif
+#if defined(_MSC_FULL_VER) && (_MSC_FULL_VER >= 140000000)
+#  define HEDLEY_MSVC_VERSION HEDLEY_VERSION_ENCODE(_MSC_FULL_VER / 10000000, (_MSC_FULL_VER % 10000000) / 100000, (_MSC_FULL_VER % 100000) / 100)
+#elif defined(_MSC_FULL_VER)
+#  define HEDLEY_MSVC_VERSION HEDLEY_VERSION_ENCODE(_MSC_FULL_VER / 1000000, (_MSC_FULL_VER % 1000000) / 10000, (_MSC_FULL_VER % 10000) / 10)
+#elif defined(_MSC_VER)
+#  define HEDLEY_MSVC_VERSION HEDLEY_VERSION_ENCODE(_MSC_VER / 100, _MSC_VER % 100, 0)
+#endif
+
+#if defined(HEDLEY_MSVC_VERSION_CHECK)
+#  undef HEDLEY_MSVC_VERSION_CHECK
+#endif
+#if !defined(_MSC_VER)
+#  define HEDLEY_MSVC_VERSION_CHECK(major,minor,patch) (0)
+#elif defined(_MSC_VER) && (_MSC_VER >= 1400)
+#  define HEDLEY_MSVC_VERSION_CHECK(major,minor,patch) (_MSC_FULL_VER >= ((major * 10000000) + (minor * 100000) + (patch)))
+#elif defined(_MSC_VER) && (_MSC_VER >= 1200)
+#  define HEDLEY_MSVC_VERSION_CHECK(major,minor,patch) (_MSC_FULL_VER >= ((major * 1000000) + (minor * 10000) + (patch)))
+#else
+#  define HEDLEY_MSVC_VERSION_CHECK(major,minor,patch) (_MSC_VER >= ((major * 100) + (minor)))
+#endif
+
+#if defined(HEDLEY_INTEL_VERSION)
+#  undef HEDLEY_INTEL_VERSION
+#endif
+#if defined(__INTEL_COMPILER) && defined(__INTEL_COMPILER_UPDATE)
+#  define HEDLEY_INTEL_VERSION HEDLEY_VERSION_ENCODE(__INTEL_COMPILER / 100, __INTEL_COMPILER % 100, __INTEL_COMPILER_UPDATE)
+#elif defined(__INTEL_COMPILER)
+#  define HEDLEY_INTEL_VERSION HEDLEY_VERSION_ENCODE(__INTEL_COMPILER / 100, __INTEL_COMPILER % 100, 0)
+#endif
+
+#if defined(HEDLEY_INTEL_VERSION_CHECK)
+#  undef HEDLEY_INTEL_VERSION_CHECK
+#endif
+#if defined(HEDLEY_INTEL_VERSION)
+#  define HEDLEY_INTEL_VERSION_CHECK(major,minor,patch) (HEDLEY_INTEL_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_INTEL_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_PGI_VERSION)
+#  undef HEDLEY_PGI_VERSION
+#endif
+#if defined(__PGI) && defined(__PGIC__) && defined(__PGIC_MINOR__) && defined(__PGIC_PATCHLEVEL__)
+#  define HEDLEY_PGI_VERSION HEDLEY_VERSION_ENCODE(__PGIC__, __PGIC_MINOR__, __PGIC_PATCHLEVEL__)
+#endif
+
+#if defined(HEDLEY_PGI_VERSION_CHECK)
+#  undef HEDLEY_PGI_VERSION_CHECK
+#endif
+#if defined(HEDLEY_PGI_VERSION)
+#  define HEDLEY_PGI_VERSION_CHECK(major,minor,patch) (HEDLEY_PGI_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_PGI_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_SUNPRO_VERSION)
+#  undef HEDLEY_SUNPRO_VERSION
+#endif
+#if defined(__SUNPRO_C) && (__SUNPRO_C > 0x1000)
+#  define HEDLEY_SUNPRO_VERSION HEDLEY_VERSION_ENCODE((((__SUNPRO_C >> 16) & 0xf) * 10) + ((__SUNPRO_C >> 12) & 0xf), (((__SUNPRO_C >> 8) & 0xf) * 10) + ((__SUNPRO_C >> 4) & 0xf), (__SUNPRO_C & 0xf) * 10)
+#elif defined(__SUNPRO_C)
+#  define HEDLEY_SUNPRO_VERSION HEDLEY_VERSION_ENCODE((__SUNPRO_C >> 8) & 0xf, (__SUNPRO_C >> 4) & 0xf, (__SUNPRO_C) & 0xf)
+#elif defined(__SUNPRO_CC) && (__SUNPRO_CC > 0x1000)
+#  define HEDLEY_SUNPRO_VERSION HEDLEY_VERSION_ENCODE((((__SUNPRO_CC >> 16) & 0xf) * 10) + ((__SUNPRO_CC >> 12) & 0xf), (((__SUNPRO_CC >> 8) & 0xf) * 10) + ((__SUNPRO_CC >> 4) & 0xf), (__SUNPRO_CC & 0xf) * 10)
+#elif defined(__SUNPRO_CC)
+#  define HEDLEY_SUNPRO_VERSION HEDLEY_VERSION_ENCODE((__SUNPRO_CC >> 8) & 0xf, (__SUNPRO_CC >> 4) & 0xf, (__SUNPRO_CC) & 0xf)
+#endif
+
+#if defined(HEDLEY_SUNPRO_VERSION_CHECK)
+#  undef HEDLEY_SUNPRO_VERSION_CHECK
+#endif
+#if defined(HEDLEY_SUNPRO_VERSION)
+#  define HEDLEY_SUNPRO_VERSION_CHECK(major,minor,patch) (HEDLEY_SUNPRO_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_SUNPRO_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_EMSCRIPTEN_VERSION)
+#  undef HEDLEY_EMSCRIPTEN_VERSION
+#endif
+#if defined(__EMSCRIPTEN__)
+#  define HEDLEY_EMSCRIPTEN_VERSION HEDLEY_VERSION_ENCODE(__EMSCRIPTEN_major__, __EMSCRIPTEN_minor__, __EMSCRIPTEN_tiny__)
+#endif
+
+#if defined(HEDLEY_EMSCRIPTEN_VERSION_CHECK)
+#  undef HEDLEY_EMSCRIPTEN_VERSION_CHECK
+#endif
+#if defined(HEDLEY_EMSCRIPTEN_VERSION)
+#  define HEDLEY_EMSCRIPTEN_VERSION_CHECK(major,minor,patch) (HEDLEY_EMSCRIPTEN_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_EMSCRIPTEN_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_ARM_VERSION)
+#  undef HEDLEY_ARM_VERSION
+#endif
+#if defined(__CC_ARM) && defined(__ARMCOMPILER_VERSION)
+#  define HEDLEY_ARM_VERSION HEDLEY_VERSION_ENCODE(__ARMCOMPILER_VERSION / 1000000, (__ARMCOMPILER_VERSION % 1000000) / 10000, (__ARMCOMPILER_VERSION % 10000) / 100)
+#elif defined(__CC_ARM) && defined(__ARMCC_VERSION)
+#  define HEDLEY_ARM_VERSION HEDLEY_VERSION_ENCODE(__ARMCC_VERSION / 1000000, (__ARMCC_VERSION % 1000000) / 10000, (__ARMCC_VERSION % 10000) / 100)
+#endif
+
+#if defined(HEDLEY_ARM_VERSION_CHECK)
+#  undef HEDLEY_ARM_VERSION_CHECK
+#endif
+#if defined(HEDLEY_ARM_VERSION)
+#  define HEDLEY_ARM_VERSION_CHECK(major,minor,patch) (HEDLEY_ARM_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_ARM_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_IBM_VERSION)
+#  undef HEDLEY_IBM_VERSION
+#endif
+#if defined(__ibmxl__)
+#  define HEDLEY_IBM_VERSION HEDLEY_VERSION_ENCODE(__ibmxl_version__, __ibmxl_release__, __ibmxl_modification__)
+#elif defined(__xlC__) && defined(__xlC_ver__)
+#  define HEDLEY_IBM_VERSION HEDLEY_VERSION_ENCODE(__xlC__ >> 8, __xlC__ & 0xff, (__xlC_ver__ >> 8) & 0xff)
+#elif defined(__xlC__)
+#  define HEDLEY_IBM_VERSION HEDLEY_VERSION_ENCODE(__xlC__ >> 8, __xlC__ & 0xff, 0)
+#endif
+
+#if defined(HEDLEY_IBM_VERSION_CHECK)
+#  undef HEDLEY_IBM_VERSION_CHECK
+#endif
+#if defined(HEDLEY_IBM_VERSION)
+#  define HEDLEY_IBM_VERSION_CHECK(major,minor,patch) (HEDLEY_IBM_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_IBM_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_TI_VERSION)
+#  undef HEDLEY_TI_VERSION
+#endif
+#if defined(__TI_COMPILER_VERSION__)
+#  define HEDLEY_TI_VERSION HEDLEY_VERSION_ENCODE(__TI_COMPILER_VERSION__ / 1000000, (__TI_COMPILER_VERSION__ % 1000000) / 1000, (__TI_COMPILER_VERSION__ % 1000))
+#endif
+
+#if defined(HEDLEY_TI_VERSION_CHECK)
+#  undef HEDLEY_TI_VERSION_CHECK
+#endif
+#if defined(HEDLEY_TI_VERSION)
+#  define HEDLEY_TI_VERSION_CHECK(major,minor,patch) (HEDLEY_TI_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_TI_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_CRAY_VERSION)
+#  undef HEDLEY_CRAY_VERSION
+#endif
+#if defined(_CRAYC)
+#  if defined(_RELEASE_PATCHLEVEL)
+#    define HEDLEY_CRAY_VERSION HEDLEY_VERSION_ENCODE(_RELEASE_MAJOR, _RELEASE_MINOR, _RELEASE_PATCHLEVEL)
+#  else
+#    define HEDLEY_CRAY_VERSION HEDLEY_VERSION_ENCODE(_RELEASE_MAJOR, _RELEASE_MINOR, 0)
+#  endif
+#endif
+
+#if defined(HEDLEY_CRAY_VERSION_CHECK)
+#  undef HEDLEY_CRAY_VERSION_CHECK
+#endif
+#if defined(HEDLEY_CRAY_VERSION)
+#  define HEDLEY_CRAY_VERSION_CHECK(major,minor,patch) (HEDLEY_CRAY_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_CRAY_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_IAR_VERSION)
+#  undef HEDLEY_IAR_VERSION
+#endif
+#if defined(__IAR_SYSTEMS_ICC__)
+#  if __VER__ > 1000
+#    define HEDLEY_IAR_VERSION HEDLEY_VERSION_ENCODE((__VER__ / 1000000), ((__VER__ / 1000) % 1000), (__VER__ % 1000))
+#  else
+#    define HEDLEY_IAR_VERSION HEDLEY_VERSION_ENCODE(VER / 100, __VER__ % 100, 0)
+#  endif
+#endif
+
+#if defined(HEDLEY_IAR_VERSION_CHECK)
+#  undef HEDLEY_IAR_VERSION_CHECK
+#endif
+#if defined(HEDLEY_IAR_VERSION)
+#  define HEDLEY_IAR_VERSION_CHECK(major,minor,patch) (HEDLEY_IAR_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_IAR_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_TINYC_VERSION)
+#  undef HEDLEY_TINYC_VERSION
+#endif
+#if defined(__TINYC__)
+#  define HEDLEY_TINYC_VERSION HEDLEY_VERSION_ENCODE(__TINYC__ / 1000, (__TINYC__ / 100) % 10, __TINYC__ % 100)
+#endif
+
+#if defined(HEDLEY_TINYC_VERSION_CHECK)
+#  undef HEDLEY_TINYC_VERSION_CHECK
+#endif
+#if defined(HEDLEY_TINYC_VERSION)
+#  define HEDLEY_TINYC_VERSION_CHECK(major,minor,patch) (HEDLEY_TINYC_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_TINYC_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_DMC_VERSION)
+#  undef HEDLEY_DMC_VERSION
+#endif
+#if defined(__DMC__)
+#  define HEDLEY_DMC_VERSION HEDLEY_VERSION_ENCODE(__DMC__ >> 8, (__DMC__ >> 4) & 0xf, __DMC__ & 0xf)
+#endif
+
+#if defined(HEDLEY_DMC_VERSION_CHECK)
+#  undef HEDLEY_DMC_VERSION_CHECK
+#endif
+#if defined(HEDLEY_DMC_VERSION)
+#  define HEDLEY_DMC_VERSION_CHECK(major,minor,patch) (HEDLEY_DMC_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_DMC_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_COMPCERT_VERSION)
+#  undef HEDLEY_COMPCERT_VERSION
+#endif
+#if defined(__COMPCERT_VERSION__)
+#  define HEDLEY_COMPCERT_VERSION HEDLEY_VERSION_ENCODE(__COMPCERT_VERSION__ / 10000, (__COMPCERT_VERSION__ / 100) % 100, __COMPCERT_VERSION__ % 100)
+#endif
+
+#if defined(HEDLEY_COMPCERT_VERSION_CHECK)
+#  undef HEDLEY_COMPCERT_VERSION_CHECK
+#endif
+#if defined(HEDLEY_COMPCERT_VERSION)
+#  define HEDLEY_COMPCERT_VERSION_CHECK(major,minor,patch) (HEDLEY_COMPCERT_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_COMPCERT_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_PELLES_VERSION)
+#  undef HEDLEY_PELLES_VERSION
+#endif
+#if defined(__POCC__)
+#  define HEDLEY_PELLES_VERSION HEDLEY_VERSION_ENCODE(__POCC__ / 100, __POCC__ % 100, 0)
+#endif
+
+#if defined(HEDLEY_PELLES_VERSION_CHECK)
+#  undef HEDLEY_PELLES_VERSION_CHECK
+#endif
+#if defined(HEDLEY_PELLES_VERSION)
+#  define HEDLEY_PELLES_VERSION_CHECK(major,minor,patch) (HEDLEY_PELLES_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_PELLES_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_GCC_VERSION)
+#  undef HEDLEY_GCC_VERSION
+#endif
+#if \
+  defined(HEDLEY_GNUC_VERSION) && \
+  !defined(__clang__) && \
+  !defined(HEDLEY_INTEL_VERSION) && \
+  !defined(HEDLEY_PGI_VERSION) && \
+  !defined(HEDLEY_ARM_VERSION) && \
+  !defined(HEDLEY_TI_VERSION) && \
+  !defined(__COMPCERT__)
+#  define HEDLEY_GCC_VERSION HEDLEY_GNUC_VERSION
+#endif
+
+#if defined(HEDLEY_GCC_VERSION_CHECK)
+#  undef HEDLEY_GCC_VERSION_CHECK
+#endif
+#if defined(HEDLEY_GCC_VERSION)
+#  define HEDLEY_GCC_VERSION_CHECK(major,minor,patch) (HEDLEY_GCC_VERSION >= HEDLEY_VERSION_ENCODE(major, minor, patch))
+#else
+#  define HEDLEY_GCC_VERSION_CHECK(major,minor,patch) (0)
+#endif
+
+#if defined(HEDLEY_HAS_ATTRIBUTE)
+#  undef HEDLEY_HAS_ATTRIBUTE
+#endif
+#if defined(__has_attribute)
+#  define HEDLEY_HAS_ATTRIBUTE(attribute) __has_attribute(attribute)
+#else
+#  define HEDLEY_HAS_ATTRIBUTE(attribute) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_ATTRIBUTE)
+#  undef HEDLEY_GNUC_HAS_ATTRIBUTE
+#endif
+#if defined(__has_attribute)
+#  define HEDLEY_GNUC_HAS_ATTRIBUTE(attribute,major,minor,patch) __has_attribute(attribute)
+#else
+#  define HEDLEY_GNUC_HAS_ATTRIBUTE(attribute,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_ATTRIBUTE)
+#  undef HEDLEY_GCC_HAS_ATTRIBUTE
+#endif
+#if defined(__has_attribute)
+#  define HEDLEY_GCC_HAS_ATTRIBUTE(attribute,major,minor,patch) __has_attribute(attribute)
+#else
+#  define HEDLEY_GCC_HAS_ATTRIBUTE(attribute,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_HAS_CPP_ATTRIBUTE)
+#  undef HEDLEY_HAS_CPP_ATTRIBUTE
+#endif
+#if defined(__has_cpp_attribute) && defined(__cplusplus)
+#  define HEDLEY_HAS_CPP_ATTRIBUTE(attribute) __has_cpp_attribute(attribute)
+#else
+#  define HEDLEY_HAS_CPP_ATTRIBUTE(attribute) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_CPP_ATTRIBUTE)
+#  undef HEDLEY_GNUC_HAS_CPP_ATTRIBUTE
+#endif
+#if defined(__has_cpp_attribute) && defined(__cplusplus)
+#  define HEDLEY_GNUC_HAS_CPP_ATTRIBUTE(attribute,major,minor,patch) __has_cpp_attribute(attribute)
+#else
+#  define HEDLEY_GNUC_HAS_CPP_ATTRIBUTE(attribute,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_CPP_ATTRIBUTE)
+#  undef HEDLEY_GCC_HAS_CPP_ATTRIBUTE
+#endif
+#if defined(__has_cpp_attribute) && defined(__cplusplus)
+#  define HEDLEY_GCC_HAS_CPP_ATTRIBUTE(attribute,major,minor,patch) __has_cpp_attribute(attribute)
+#else
+#  define HEDLEY_GCC_HAS_CPP_ATTRIBUTE(attribute,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_HAS_BUILTIN)
+#  undef HEDLEY_HAS_BUILTIN
+#endif
+#if defined(__has_builtin)
+#  define HEDLEY_HAS_BUILTIN(builtin) __has_builtin(builtin)
+#else
+#  define HEDLEY_HAS_BUILTIN(builtin) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_BUILTIN)
+#  undef HEDLEY_GNUC_HAS_BUILTIN
+#endif
+#if defined(__has_builtin)
+#  define HEDLEY_GNUC_HAS_BUILTIN(builtin,major,minor,patch) __has_builtin(builtin)
+#else
+#  define HEDLEY_GNUC_HAS_BUILTIN(builtin,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_BUILTIN)
+#  undef HEDLEY_GCC_HAS_BUILTIN
+#endif
+#if defined(__has_builtin)
+#  define HEDLEY_GCC_HAS_BUILTIN(builtin,major,minor,patch) __has_builtin(builtin)
+#else
+#  define HEDLEY_GCC_HAS_BUILTIN(builtin,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_HAS_FEATURE)
+#  undef HEDLEY_HAS_FEATURE
+#endif
+#if defined(__has_feature)
+#  define HEDLEY_HAS_FEATURE(feature) __has_feature(feature)
+#else
+#  define HEDLEY_HAS_FEATURE(feature) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_FEATURE)
+#  undef HEDLEY_GNUC_HAS_FEATURE
+#endif
+#if defined(__has_feature)
+#  define HEDLEY_GNUC_HAS_FEATURE(feature,major,minor,patch) __has_feature(feature)
+#else
+#  define HEDLEY_GNUC_HAS_FEATURE(feature,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_FEATURE)
+#  undef HEDLEY_GCC_HAS_FEATURE
+#endif
+#if defined(__has_feature)
+#  define HEDLEY_GCC_HAS_FEATURE(feature,major,minor,patch) __has_feature(feature)
+#else
+#  define HEDLEY_GCC_HAS_FEATURE(feature,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_HAS_EXTENSION)
+#  undef HEDLEY_HAS_EXTENSION
+#endif
+#if defined(__has_extension)
+#  define HEDLEY_HAS_EXTENSION(extension) __has_extension(extension)
+#else
+#  define HEDLEY_HAS_EXTENSION(extension) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_EXTENSION)
+#  undef HEDLEY_GNUC_HAS_EXTENSION
+#endif
+#if defined(__has_extension)
+#  define HEDLEY_GNUC_HAS_EXTENSION(extension,major,minor,patch) __has_extension(extension)
+#else
+#  define HEDLEY_GNUC_HAS_EXTENSION(extension,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_EXTENSION)
+#  undef HEDLEY_GCC_HAS_EXTENSION
+#endif
+#if defined(__has_extension)
+#  define HEDLEY_GCC_HAS_EXTENSION(extension,major,minor,patch) __has_extension(extension)
+#else
+#  define HEDLEY_GCC_HAS_EXTENSION(extension,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_HAS_DECLSPEC_ATTRIBUTE)
+#  undef HEDLEY_HAS_DECLSPEC_ATTRIBUTE
+#endif
+#if defined(__has_declspec_attribute)
+#  define HEDLEY_HAS_DECLSPEC_ATTRIBUTE(attribute) __has_declspec_attribute(attribute)
+#else
+#  define HEDLEY_HAS_DECLSPEC_ATTRIBUTE(attribute) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_DECLSPEC_ATTRIBUTE)
+#  undef HEDLEY_GNUC_HAS_DECLSPEC_ATTRIBUTE
+#endif
+#if defined(__has_declspec_attribute)
+#  define HEDLEY_GNUC_HAS_DECLSPEC_ATTRIBUTE(attribute,major,minor,patch) __has_declspec_attribute(attribute)
+#else
+#  define HEDLEY_GNUC_HAS_DECLSPEC_ATTRIBUTE(attribute,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_DECLSPEC_ATTRIBUTE)
+#  undef HEDLEY_GCC_HAS_DECLSPEC_ATTRIBUTE
+#endif
+#if defined(__has_declspec_attribute)
+#  define HEDLEY_GCC_HAS_DECLSPEC_ATTRIBUTE(attribute,major,minor,patch) __has_declspec_attribute(attribute)
+#else
+#  define HEDLEY_GCC_HAS_DECLSPEC_ATTRIBUTE(attribute,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_HAS_WARNING)
+#  undef HEDLEY_HAS_WARNING
+#endif
+#if defined(__has_warning)
+#  define HEDLEY_HAS_WARNING(warning) __has_warning(warning)
+#else
+#  define HEDLEY_HAS_WARNING(warning) (0)
+#endif
+
+#if defined(HEDLEY_GNUC_HAS_WARNING)
+#  undef HEDLEY_GNUC_HAS_WARNING
+#endif
+#if defined(__has_warning)
+#  define HEDLEY_GNUC_HAS_WARNING(warning,major,minor,patch) __has_warning(warning)
+#else
+#  define HEDLEY_GNUC_HAS_WARNING(warning,major,minor,patch) HEDLEY_GNUC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_GCC_HAS_WARNING)
+#  undef HEDLEY_GCC_HAS_WARNING
+#endif
+#if defined(__has_warning)
+#  define HEDLEY_GCC_HAS_WARNING(warning,major,minor,patch) __has_warning(warning)
+#else
+#  define HEDLEY_GCC_HAS_WARNING(warning,major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if \
+  (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || \
+  defined(__clang__) || \
+  HEDLEY_GCC_VERSION_CHECK(3,0,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_IAR_VERSION_CHECK(8,0,0) || \
+  HEDLEY_PGI_VERSION_CHECK(18,4,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(6,0,0) || \
+  HEDLEY_CRAY_VERSION_CHECK(5,0,0) || \
+  HEDLEY_TINYC_VERSION_CHECK(0,9,17) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_IBM_VERSION_CHECK(10,1,0) && defined(__C99_PRAGMA_OPERATOR))
+#  define HEDLEY_PRAGMA(value) _Pragma(#value)
+#elif HEDLEY_MSVC_VERSION_CHECK(15,0,0)
+#  define HEDLEY_PRAGMA(value) __pragma(value)
+#else
+#  define HEDLEY_PRAGMA(value)
+#endif
+
+#if defined(HEDLEY_DIAGNOSTIC_PUSH)
+#  undef HEDLEY_DIAGNOSTIC_PUSH
+#endif
+#if defined(HEDLEY_DIAGNOSTIC_POP)
+#  undef HEDLEY_DIAGNOSTIC_POP
+#endif
+#if defined(__clang__)
+#  define HEDLEY_DIAGNOSTIC_PUSH _Pragma("clang diagnostic push")
+#  define HEDLEY_DIAGNOSTIC_POP _Pragma("clang diagnostic pop")
+#elif HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_DIAGNOSTIC_PUSH _Pragma("warning(push)")
+#  define HEDLEY_DIAGNOSTIC_POP _Pragma("warning(pop)")
+#elif HEDLEY_GCC_VERSION_CHECK(4,6,0)
+#  define HEDLEY_DIAGNOSTIC_PUSH _Pragma("GCC diagnostic push")
+#  define HEDLEY_DIAGNOSTIC_POP _Pragma("GCC diagnostic pop")
+#elif HEDLEY_MSVC_VERSION_CHECK(15,0,0)
+#  define HEDLEY_DIAGNOSTIC_PUSH __pragma(warning(push))
+#  define HEDLEY_DIAGNOSTIC_POP __pragma(warning(pop))
+#elif HEDLEY_ARM_VERSION_CHECK(5,6,0)
+#  define HEDLEY_DIAGNOSTIC_PUSH _Pragma("push")
+#  define HEDLEY_DIAGNOSTIC_POP _Pragma("pop")
+#elif HEDLEY_TI_VERSION_CHECK(8,1,0)
+#  define HEDLEY_DIAGNOSTIC_PUSH _Pragma("diag_push")
+#  define HEDLEY_DIAGNOSTIC_POP _Pragma("diag_pop")
+#elif HEDLEY_PELLES_VERSION_CHECK(2,90,0)
+#  define HEDLEY_DIAGNOSTIC_PUSH _Pragma("warning(push)")
+#  define HEDLEY_DIAGNOSTIC_POP _Pragma("warning(pop)")
+#else
+#  define HEDLEY_DIAGNOSTIC_PUSH
+#  define HEDLEY_DIAGNOSTIC_POP
+#endif
+
+#if defined(HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED)
+#  undef HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED
+#endif
+#if HEDLEY_HAS_WARNING("-Wdeprecated-declarations")
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+#elif HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("warning(disable:1478 1786)")
+#elif HEDLEY_PGI_VERSION_CHECK(17,10,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("diag_suppress 1215,1444")
+#elif HEDLEY_GCC_VERSION_CHECK(4,3,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#elif HEDLEY_MSVC_VERSION_CHECK(15,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED __pragma(warning(disable:4996))
+#elif HEDLEY_TI_VERSION_CHECK(8,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("diag_suppress 1291,1718")
+#elif HEDLEY_SUNPRO_VERSION_CHECK(5,13,0) && !defined(__cplusplus)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("error_messages(off,E_DEPRECATED_ATT,E_DEPRECATED_ATT_MESS)")
+#elif HEDLEY_SUNPRO_VERSION_CHECK(5,13,0) && defined(__cplusplus)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("error_messages(off,symdeprecated,symdeprecated2)")
+#elif HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("diag_suppress=Pe1444,Pe1215")
+#elif HEDLEY_PELLES_VERSION_CHECK(2,90,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED _Pragma("warn(disable:2241)")
+#else
+#  define HEDLEY_DIAGNOSTIC_DISABLE_DEPRECATED
+#endif
+
+#if defined(HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS)
+#  undef HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS
+#endif
+#if HEDLEY_HAS_WARNING("-Wunknown-pragmas")
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS _Pragma("clang diagnostic ignored \"-Wunknown-pragmas\"")
+#elif HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS _Pragma("warning(disable:161)")
+#elif HEDLEY_PGI_VERSION_CHECK(17,10,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS _Pragma("diag_suppress 1675")
+#elif HEDLEY_GCC_VERSION_CHECK(4,3,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS _Pragma("GCC diagnostic ignored \"-Wunknown-pragmas\"")
+#elif HEDLEY_MSVC_VERSION_CHECK(15,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS __pragma(warning(disable:4068))
+#elif HEDLEY_TI_VERSION_CHECK(8,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS _Pragma("diag_suppress 163")
+#elif HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS _Pragma("diag_suppress=Pe161")
+#else
+#  define HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS
+#endif
+
+#if defined(HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL)
+#  undef HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL
+#endif
+#if HEDLEY_HAS_WARNING("-Wcast-qual")
+#  define HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL _Pragma("clang diagnostic ignored \"-Wcast-qual\"")
+#elif HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL _Pragma("warning(disable:2203 2331)")
+#elif HEDLEY_GCC_VERSION_CHECK(3,0,0)
+#  define HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL _Pragma("GCC diagnostic ignored \"-Wcast-qual\"")
+#else
+#  define HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL
+#endif
+
+#if defined(HEDLEY_DEPRECATED)
+#  undef HEDLEY_DEPRECATED
+#endif
+#if defined(HEDLEY_DEPRECATED_FOR)
+#  undef HEDLEY_DEPRECATED_FOR
+#endif
+#if defined(__cplusplus) && (__cplusplus >= 201402L)
+#  define HEDLEY_DEPRECATED(since) [[deprecated("Since " #since)]]
+#  define HEDLEY_DEPRECATED_FOR(since, replacement) [[deprecated("Since " #since "; use " #replacement)]]
+#elif \
+  HEDLEY_HAS_EXTENSION(attribute_deprecated_with_message) || \
+  HEDLEY_GCC_VERSION_CHECK(4,5,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_ARM_VERSION_CHECK(5,6,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,13,0) || \
+  HEDLEY_PGI_VERSION_CHECK(17,10,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,3,0)
+#  define HEDLEY_DEPRECATED(since) __attribute__((__deprecated__("Since " #since)))
+#  define HEDLEY_DEPRECATED_FOR(since, replacement) __attribute__((__deprecated__("Since " #since "; use " #replacement)))
+#elif \
+  HEDLEY_HAS_ATTRIBUTE(deprecated) || \
+  HEDLEY_GCC_VERSION_CHECK(3,1,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#  define HEDLEY_DEPRECATED(since) __attribute__((__deprecated__))
+#  define HEDLEY_DEPRECATED_FOR(since, replacement) __attribute__((__deprecated__))
+#elif HEDLEY_MSVC_VERSION_CHECK(14,0,0)
+#  define HEDLEY_DEPRECATED(since) __declspec(deprecated("Since " # since))
+#  define HEDLEY_DEPRECATED_FOR(since, replacement) __declspec(deprecated("Since " #since "; use " #replacement))
+#elif \
+  HEDLEY_MSVC_VERSION_CHECK(13,10,0) || \
+  HEDLEY_PELLES_VERSION_CHECK(6,50,0)
+#  define HEDLEY_DEPRECATED(since) _declspec(deprecated)
+#  define HEDLEY_DEPRECATED_FOR(since, replacement) __declspec(deprecated)
+#elif HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_DEPRECATED(since) _Pragma("deprecated")
+#  define HEDLEY_DEPRECATED_FOR(since, replacement) _Pragma("deprecated")
+#else
+#  define HEDLEY_DEPRECATED(since)
+#  define HEDLEY_DEPRECATED_FOR(since, replacement)
+#endif
+
+#if defined(HEDLEY_UNAVAILABLE)
+#  undef HEDLEY_UNAVAILABLE
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(warning) || \
+  HEDLEY_GCC_VERSION_CHECK(4,3,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_UNAVAILABLE(available_since) __attribute__((__warning__("Not available until " #available_since)))
+#else
+#  define HEDLEY_UNAVAILABLE(available_since)
+#endif
+
+#if defined(HEDLEY_WARN_UNUSED_RESULT)
+#  undef HEDLEY_WARN_UNUSED_RESULT
+#endif
+#if defined(__cplusplus) && (__cplusplus >= 201703L)
+#  define HEDLEY_WARN_UNUSED_RESULT [[nodiscard]]
+#elif \
+  HEDLEY_HAS_ATTRIBUTE(warn_unused_result) || \
+  HEDLEY_GCC_VERSION_CHECK(3,4,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__)) || \
+  (HEDLEY_SUNPRO_VERSION_CHECK(5,15,0) && defined(__cplusplus)) || \
+  HEDLEY_PGI_VERSION_CHECK(17,10,0)
+#  define HEDLEY_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
+#elif defined(_Check_return_) /* SAL */
+#  define HEDLEY_WARN_UNUSED_RESULT _Check_return_
+#else
+#  define HEDLEY_WARN_UNUSED_RESULT
+#endif
+
+#if defined(HEDLEY_SENTINEL)
+#  undef HEDLEY_SENTINEL
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(sentinel) || \
+  HEDLEY_GCC_VERSION_CHECK(4,0,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_ARM_VERSION_CHECK(5,4,0)
+#  define HEDLEY_SENTINEL(position) __attribute__((__sentinel__(position)))
+#else
+#  define HEDLEY_SENTINEL(position)
+#endif
+
+#if defined(HEDLEY_NO_RETURN)
+#  undef HEDLEY_NO_RETURN
+#endif
+#if HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_NO_RETURN __noreturn
+#elif HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_NO_RETURN __attribute__((__noreturn__))
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#  define HEDLEY_NO_RETURN _Noreturn
+#elif defined(__cplusplus) && (__cplusplus >= 201103L)
+#  define HEDLEY_NO_RETURN [[noreturn]]
+#elif \
+  HEDLEY_HAS_ATTRIBUTE(noreturn) || \
+  HEDLEY_GCC_VERSION_CHECK(3,2,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(18,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(17,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#  define HEDLEY_NO_RETURN __attribute__((__noreturn__))
+#elif HEDLEY_MSVC_VERSION_CHECK(13,10,0)
+#  define HEDLEY_NO_RETURN __declspec(noreturn)
+#elif HEDLEY_TI_VERSION_CHECK(6,0,0) && defined(__cplusplus)
+#  define HEDLEY_NO_RETURN _Pragma("FUNC_NEVER_RETURNS;")
+#elif HEDLEY_COMPCERT_VERSION_CHECK(3,2,0)
+#  define HEDLEY_NO_RETURN __attribute((noreturn))
+#elif HEDLEY_PELLES_VERSION_CHECK(9,0,0)
+#  define HEDLEY_NO_RETURN __declspec(noreturn)
+#else
+#  define HEDLEY_NO_RETURN
+#endif
+
+#if defined(HEDLEY_UNREACHABLE)
+#  undef HEDLEY_UNREACHABLE
+#endif
+#if defined(HEDLEY_UNREACHABLE_RETURN)
+#  undef HEDLEY_UNREACHABLE_RETURN
+#endif
+#if \
+  (HEDLEY_HAS_BUILTIN(__builtin_unreachable) && (!defined(HEDLEY_ARM_VERSION))) || \
+  HEDLEY_GCC_VERSION_CHECK(4,5,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_IBM_VERSION_CHECK(13,1,5)
+#  define HEDLEY_UNREACHABLE() __builtin_unreachable()
+#elif HEDLEY_MSVC_VERSION_CHECK(13,10,0)
+#  define HEDLEY_UNREACHABLE() __assume(0)
+#elif HEDLEY_TI_VERSION_CHECK(6,0,0)
+#  if defined(__cplusplus)
+#    define HEDLEY_UNREACHABLE() std::_nassert(0)
+#  else
+#    define HEDLEY_UNREACHABLE() _nassert(0)
+#  endif
+#  define HEDLEY_UNREACHABLE_RETURN(value) return value
+#elif defined(EXIT_FAILURE)
+#  define HEDLEY_UNREACHABLE() abort()
+#else
+#  define HEDLEY_UNREACHABLE()
+#  define HEDLEY_UNREACHABLE_RETURN(value) return value
+#endif
+#if !defined(HEDLEY_UNREACHABLE_RETURN)
+#  define HEDLEY_UNREACHABLE_RETURN(value) HEDLEY_UNREACHABLE()
+#endif
+
+#if defined(HEDLEY_ASSUME)
+#  undef HEDLEY_ASSUME
+#endif
+#if \
+  HEDLEY_MSVC_VERSION_CHECK(13,10,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_ASSUME(expr) __assume(expr)
+#elif HEDLEY_HAS_BUILTIN(__builtin_assume)
+#  define HEDLEY_ASSUME(expr) __builtin_assume(expr)
+#elif HEDLEY_TI_VERSION_CHECK(6,0,0)
+#  if defined(__cplusplus)
+#    define HEDLEY_ASSUME(expr) std::_nassert(expr)
+#  else
+#    define HEDLEY_ASSUME(expr) _nassert(expr)
+#  endif
+#elif \
+  (HEDLEY_HAS_BUILTIN(__builtin_unreachable) && !defined(HEDLEY_ARM_VERSION)) || \
+  HEDLEY_GCC_VERSION_CHECK(4,5,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_IBM_VERSION_CHECK(13,1,5)
+#  define HEDLEY_ASSUME(expr) ((void) ((expr) ? 1 : (__builtin_unreachable(), 1)))
+#else
+#  define HEDLEY_ASSUME(expr) ((void) (expr))
+#endif
+
+
+HEDLEY_DIAGNOSTIC_PUSH
+#if \
+  HEDLEY_HAS_WARNING("-Wvariadic-macros") || \
+  HEDLEY_GCC_VERSION_CHECK(4,0,0)
+#  if defined(__clang__)
+#    pragma clang diagnostic ignored "-Wvariadic-macros"
+#  elif defined(HEDLEY_GCC_VERSION)
+#    pragma GCC diagnostic ignored "-Wvariadic-macros"
+#  endif
+#endif
+#if defined(HEDLEY_NON_NULL)
+#  undef HEDLEY_NON_NULL
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(nonnull) || \
+  HEDLEY_GCC_VERSION_CHECK(3,3,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0)
+#  define HEDLEY_NON_NULL(...) __attribute__((__nonnull__(__VA_ARGS__)))
+#else
+#  define HEDLEY_NON_NULL(...)
+#endif
+HEDLEY_DIAGNOSTIC_POP
+
+#if defined(HEDLEY_PRINTF_FORMAT)
+#  undef HEDLEY_PRINTF_FORMAT
+#endif
+#if defined(__MINGW32__) && HEDLEY_GCC_HAS_ATTRIBUTE(format,4,4,0) && !defined(__USE_MINGW_ANSI_STDIO)
+#  define HEDLEY_PRINTF_FORMAT(string_idx,first_to_check) __attribute__((__format__(ms_printf, string_idx, first_to_check)))
+#elif defined(__MINGW32__) && HEDLEY_GCC_HAS_ATTRIBUTE(format,4,4,0) && defined(__USE_MINGW_ANSI_STDIO)
+#  define HEDLEY_PRINTF_FORMAT(string_idx,first_to_check) __attribute__((__format__(gnu_printf, string_idx, first_to_check)))
+#elif \
+  HEDLEY_HAS_ATTRIBUTE(format) || \
+  HEDLEY_GCC_VERSION_CHECK(3,1,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_ARM_VERSION_CHECK(5,6,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#  define HEDLEY_PRINTF_FORMAT(string_idx,first_to_check) __attribute__((__format__(__printf__, string_idx, first_to_check)))
+#elif HEDLEY_PELLES_VERSION_CHECK(6,0,0)
+#  define HEDLEY_PRINTF_FORMAT(string_idx,first_to_check) __declspec(vaformat(printf,string_idx,first_to_check))
+#else
+#  define HEDLEY_PRINTF_FORMAT(string_idx,first_to_check)
+#endif
+
+#if defined(HEDLEY_CONSTEXPR)
+#  undef HEDLEY_CONSTEXPR
+#endif
+#if defined(__cplusplus)
+#  if __cplusplus >= 201103L
+#    define HEDLEY_CONSTEXPR constexpr
+#  endif
+#endif
+#if !defined(HEDLEY_CONSTEXPR)
+#  define HEDLEY_CONSTEXPR
+#endif
+
+#if defined(HEDLEY_PREDICT)
+#  undef HEDLEY_PREDICT
+#endif
+#if defined(HEDLEY_LIKELY)
+#  undef HEDLEY_LIKELY
+#endif
+#if defined(HEDLEY_UNLIKELY)
+#  undef HEDLEY_UNLIKELY
+#endif
+#if defined(HEDLEY_UNPREDICTABLE)
+#  undef HEDLEY_UNPREDICTABLE
+#endif
+#if HEDLEY_HAS_BUILTIN(__builtin_unpredictable)
+#  define HEDLEY_UNPREDICTABLE(expr) __builtin_unpredictable(!!(expr))
+#endif
+#if \
+  HEDLEY_HAS_BUILTIN(__builtin_expect_with_probability) || \
+  HEDLEY_GCC_VERSION_CHECK(9,0,0)
+#  define HEDLEY_PREDICT(expr, value, probability) __builtin_expect_with_probability(expr, value, probability)
+#  define HEDLEY_PREDICT_TRUE(expr, probability) __builtin_expect_with_probability(!!(expr), 1, probability)
+#  define HEDLEY_PREDICT_FALSE(expr, probability) __builtin_expect_with_probability(!!(expr), 0, probability)
+#  define HEDLEY_LIKELY(expr) __builtin_expect(!!(expr), 1)
+#  define HEDLEY_UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#  if !defined(HEDLEY_BUILTIN_UNPREDICTABLE)
+#    define HEDLEY_BUILTIN_UNPREDICTABLE(expr) __builtin_expect_with_probability(!!(expr), 1, 0.5)
+#  endif
+#elif \
+  HEDLEY_HAS_BUILTIN(__builtin_expect) || \
+  HEDLEY_GCC_VERSION_CHECK(3,0,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  (HEDLEY_SUNPRO_VERSION_CHECK(5,15,0) && defined(__cplusplus)) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(6,1,0) || \
+  HEDLEY_TINYC_VERSION_CHECK(0,9,27)
+#  define HEDLEY_PREDICT(expr, expected, probability) \
+  (((probability) >= 0.9) ? __builtin_expect(!!(expr), (expected)) : (((void) (expected)), !!(expr)))
+#  define HEDLEY_PREDICT_TRUE(expr, probability) \
+     (__extension__ ({ \
+       HEDLEY_CONSTEXPR double hedley_probability_ = (probability); \
+       ((hedley_probability_ >= 0.9) ? __builtin_expect(!!(expr), 1) : ((hedley_probability_ <= 0.1) ? __builtin_expect(!!(expr), 0) : !!(expr))); \
+     }))
+#  define HEDLEY_PREDICT_FALSE(expr, probability) \
+     (__extension__ ({ \
+       HEDLEY_CONSTEXPR double hedley_probability_ = (probability); \
+       ((hedley_probability_ >= 0.9) ? __builtin_expect(!!(expr), 0) : ((hedley_probability_ <= 0.1) ? __builtin_expect(!!(expr), 1) : !!(expr))); \
+     }))
+#  define HEDLEY_LIKELY(expr)   __builtin_expect(!!(expr), 1)
+#  define HEDLEY_UNLIKELY(expr) __builtin_expect(!!(expr), 0)
+#else
+#  define HEDLEY_PREDICT(expr, expected, probability) (((void) (expected)), !!(expr))
+#  define HEDLEY_PREDICT_TRUE(expr, probability) (!!(expr))
+#  define HEDLEY_PREDICT_FALSE(expr, probability) (!!(expr))
+#  define HEDLEY_LIKELY(expr) (!!(expr))
+#  define HEDLEY_UNLIKELY(expr) (!!(expr))
+#endif
+#if !defined(HEDLEY_UNPREDICTABLE)
+#  define HEDLEY_UNPREDICTABLE(expr) HEDLEY_PREDICT(expr, 1, 0.5)
+#endif
+
+#if defined(HEDLEY_MALLOC)
+#  undef HEDLEY_MALLOC
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(malloc) || \
+  HEDLEY_GCC_VERSION_CHECK(3,1,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(12,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#  define HEDLEY_MALLOC __attribute__((__malloc__))
+#elif HEDLEY_MSVC_VERSION_CHECK(14, 0, 0)
+#  define HEDLEY_MALLOC __declspec(restrict)
+#else
+#  define HEDLEY_MALLOC
+#endif
+
+#if defined(HEDLEY_PURE)
+#  undef HEDLEY_PURE
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(pure) || \
+  HEDLEY_GCC_VERSION_CHECK(2,96,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__)) || \
+  HEDLEY_PGI_VERSION_CHECK(17,10,0)
+#  define HEDLEY_PURE __attribute__((__pure__))
+#elif HEDLEY_TI_VERSION_CHECK(6,0,0) && defined(__cplusplus)
+#  define HEDLEY_PURE _Pragma("FUNC_IS_PURE;")
+#else
+#  define HEDLEY_PURE
+#endif
+
+#if defined(HEDLEY_CONST)
+#  undef HEDLEY_CONST
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(const) || \
+  HEDLEY_GCC_VERSION_CHECK(2,5,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__)) || \
+  HEDLEY_PGI_VERSION_CHECK(17,10,0)
+#  define HEDLEY_CONST __attribute__((__const__))
+#else
+#  define HEDLEY_CONST HEDLEY_PURE
+#endif
+
+#if defined(HEDLEY_RESTRICT)
+#  undef HEDLEY_RESTRICT
+#endif
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) && !defined(__cplusplus)
+#  define HEDLEY_RESTRICT restrict
+#elif \
+  HEDLEY_GCC_VERSION_CHECK(3,1,0) || \
+  HEDLEY_MSVC_VERSION_CHECK(14,0,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_PGI_VERSION_CHECK(17,10,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_SUNPRO_VERSION_CHECK(5,14,0) && defined(__cplusplus)) || \
+  HEDLEY_IAR_VERSION_CHECK(8,0,0) || \
+  defined(__clang__)
+#  define HEDLEY_RESTRICT __restrict
+#elif HEDLEY_SUNPRO_VERSION_CHECK(5,3,0) && !defined(__cplusplus)
+#  define HEDLEY_RESTRICT _Restrict
+#else
+#  define HEDLEY_RESTRICT
+#endif
+
+#if defined(HEDLEY_INLINE)
+#  undef HEDLEY_INLINE
+#endif
+#if \
+  (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)) || \
+  (defined(__cplusplus) && (__cplusplus >= 199711L))
+#  define HEDLEY_INLINE inline
+#elif \
+  defined(HEDLEY_GCC_VERSION) || \
+  HEDLEY_ARM_VERSION_CHECK(6,2,0)
+#  define HEDLEY_INLINE __inline__
+#elif \
+  HEDLEY_MSVC_VERSION_CHECK(12,0,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0)
+#  define HEDLEY_INLINE __inline
+#else
+#  define HEDLEY_INLINE
+#endif
+
+#if defined(HEDLEY_ALWAYS_INLINE)
+#  undef HEDLEY_ALWAYS_INLINE
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(always_inline) || \
+  HEDLEY_GCC_VERSION_CHECK(4,0,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#  define HEDLEY_ALWAYS_INLINE __attribute__((__always_inline__)) HEDLEY_INLINE
+#elif HEDLEY_MSVC_VERSION_CHECK(12,0,0)
+#  define HEDLEY_ALWAYS_INLINE __forceinline
+#elif HEDLEY_TI_VERSION_CHECK(7,0,0) && defined(__cplusplus)
+#  define HEDLEY_ALWAYS_INLINE _Pragma("FUNC_ALWAYS_INLINE;")
+#elif HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_ALWAYS_INLINE _Pragma("inline=forced")
+#else
+#  define HEDLEY_ALWAYS_INLINE HEDLEY_INLINE
+#endif
+
+#if defined(HEDLEY_NEVER_INLINE)
+#  undef HEDLEY_NEVER_INLINE
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(noinline) || \
+  HEDLEY_GCC_VERSION_CHECK(4,0,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(10,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+  (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#  define HEDLEY_NEVER_INLINE __attribute__((__noinline__))
+#elif HEDLEY_MSVC_VERSION_CHECK(13,10,0)
+#  define HEDLEY_NEVER_INLINE __declspec(noinline)
+#elif HEDLEY_PGI_VERSION_CHECK(10,2,0)
+#  define HEDLEY_NEVER_INLINE _Pragma("noinline")
+#elif HEDLEY_TI_VERSION_CHECK(6,0,0) && defined(__cplusplus)
+#  define HEDLEY_NEVER_INLINE _Pragma("FUNC_CANNOT_INLINE;")
+#elif HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_NEVER_INLINE _Pragma("inline=never")
+#elif HEDLEY_COMPCERT_VERSION_CHECK(3,2,0)
+#  define HEDLEY_NEVER_INLINE __attribute((noinline))
+#elif HEDLEY_PELLES_VERSION_CHECK(9,0,0)
+#  define HEDLEY_NEVER_INLINE __declspec(noinline)
+#else
+#  define HEDLEY_NEVER_INLINE
+#endif
+
+#if defined(HEDLEY_PRIVATE)
+#  undef HEDLEY_PRIVATE
+#endif
+#if defined(HEDLEY_PUBLIC)
+#  undef HEDLEY_PUBLIC
+#endif
+#if defined(HEDLEY_IMPORT)
+#  undef HEDLEY_IMPORT
+#endif
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  define HEDLEY_PRIVATE
+#  define HEDLEY_PUBLIC   __declspec(dllexport)
+#  define HEDLEY_IMPORT   __declspec(dllimport)
+#else
+#  if \
+    HEDLEY_HAS_ATTRIBUTE(visibility) || \
+    HEDLEY_GCC_VERSION_CHECK(3,3,0) || \
+    HEDLEY_SUNPRO_VERSION_CHECK(5,11,0) || \
+    HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+    HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+    HEDLEY_IBM_VERSION_CHECK(13,1,0) || \
+    HEDLEY_TI_VERSION_CHECK(8,0,0) || \
+    (HEDLEY_TI_VERSION_CHECK(7,3,0) && defined(__TI_EABI__) && defined(__TI_GNU_ATTRIBUTE_SUPPORT__))
+#    define HEDLEY_PRIVATE __attribute__((__visibility__("hidden")))
+#    define HEDLEY_PUBLIC  __attribute__((__visibility__("default")))
+#  else
+#    define HEDLEY_PRIVATE
+#    define HEDLEY_PUBLIC
+#  endif
+#  define HEDLEY_IMPORT    extern
+#endif
+
+#if defined(HEDLEY_NO_THROW)
+#  undef HEDLEY_NO_THROW
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(nothrow) || \
+  HEDLEY_GCC_VERSION_CHECK(3,3,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_NO_THROW __attribute__((__nothrow__))
+#elif \
+  HEDLEY_MSVC_VERSION_CHECK(13,1,0) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0)
+#  define HEDLEY_NO_THROW __declspec(nothrow)
+#else
+#  define HEDLEY_NO_THROW
+#endif
+
+#if defined(HEDLEY_FALL_THROUGH)
+#  undef HEDLEY_FALL_THROUGH
+#endif
+#if \
+     defined(__cplusplus) && \
+     (!defined(HEDLEY_SUNPRO_VERSION) || HEDLEY_SUNPRO_VERSION_CHECK(5,15,0)) && \
+     !defined(HEDLEY_PGI_VERSION)
+#  if \
+     (__cplusplus >= 201703L) || \
+     ((__cplusplus >= 201103L) && HEDLEY_HAS_CPP_ATTRIBUTE(fallthrough))
+#    define HEDLEY_FALL_THROUGH [[fallthrough]]
+#  elif (__cplusplus >= 201103L) && HEDLEY_HAS_CPP_ATTRIBUTE(clang::fallthrough)
+#    define HEDLEY_FALL_THROUGH [[clang::fallthrough]]
+#  elif (__cplusplus >= 201103L) && HEDLEY_GCC_VERSION_CHECK(7,0,0)
+#    define HEDLEY_FALL_THROUGH [[gnu::fallthrough]]
+#  endif
+#endif
+#if !defined(HEDLEY_FALL_THROUGH)
+#  if HEDLEY_GNUC_HAS_ATTRIBUTE(fallthrough,7,0,0) && !defined(HEDLEY_PGI_VERSION)
+#    define HEDLEY_FALL_THROUGH __attribute__((__fallthrough__))
+#  elif defined(__fallthrough) /* SAL */
+#    define HEDLEY_FALL_THROUGH __fallthrough
+#  else
+#    define HEDLEY_FALL_THROUGH
+#  endif
+#endif
+
+#if defined(HEDLEY_RETURNS_NON_NULL)
+#  undef HEDLEY_RETURNS_NON_NULL
+#endif
+#if \
+  HEDLEY_HAS_ATTRIBUTE(returns_nonnull) || \
+  HEDLEY_GCC_VERSION_CHECK(4,9,0)
+#  define HEDLEY_RETURNS_NON_NULL __attribute__((__returns_nonnull__))
+#elif defined(_Ret_notnull_) /* SAL */
+#  define HEDLEY_RETURNS_NON_NULL _Ret_notnull_
+#else
+#  define HEDLEY_RETURNS_NON_NULL
+#endif
+
+#if defined(HEDLEY_ARRAY_PARAM)
+#  undef HEDLEY_ARRAY_PARAM
+#endif
+#if \
+  defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) && \
+  !defined(__STDC_NO_VLA__) && \
+  !defined(__cplusplus) && \
+  !defined(HEDLEY_PGI_VERSION) && \
+  !defined(HEDLEY_TINYC_VERSION)
+#  define HEDLEY_ARRAY_PARAM(name) (name)
+#else
+#  define HEDLEY_ARRAY_PARAM(name)
+#endif
+
+#if defined(HEDLEY_IS_CONSTANT)
+#  undef HEDLEY_IS_CONSTANT
+#endif
+#if defined(HEDLEY_REQUIRE_CONSTEXPR)
+#  undef HEDLEY_REQUIRE_CONSTEXPR
+#endif
+/* Note the double-underscore. For internal use only; no API
+ * guarantees! */
+#if defined(HEDLEY__IS_CONSTEXPR)
+#  undef HEDLEY__IS_CONSTEXPR
+#endif
+
+#if \
+  HEDLEY_HAS_BUILTIN(__builtin_constant_p) || \
+  HEDLEY_GCC_VERSION_CHECK(3,4,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+  HEDLEY_TINYC_VERSION_CHECK(0,9,19) || \
+  HEDLEY_ARM_VERSION_CHECK(4,1,0) || \
+  HEDLEY_IBM_VERSION_CHECK(13,1,0) || \
+  HEDLEY_TI_VERSION_CHECK(6,1,0) || \
+  HEDLEY_SUNPRO_VERSION_CHECK(5,10,0) || \
+  HEDLEY_CRAY_VERSION_CHECK(8,1,0)
+#  define HEDLEY_IS_CONSTANT(expr) __builtin_constant_p(expr)
+#endif
+#if !defined(__cplusplus)
+#  if \
+       HEDLEY_HAS_BUILTIN(__builtin_types_compatible_p) || \
+       HEDLEY_GCC_VERSION_CHECK(3,4,0) || \
+       HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+       HEDLEY_IBM_VERSION_CHECK(13,1,0) || \
+       HEDLEY_CRAY_VERSION_CHECK(8,1,0) || \
+       HEDLEY_ARM_VERSION_CHECK(5,4,0) || \
+       HEDLEY_TINYC_VERSION_CHECK(0,9,24)
+#    if defined(__INTPTR_TYPE__)
+#      define HEDLEY__IS_CONSTEXPR(expr) __builtin_types_compatible_p(__typeof__((1 ? (void*) ((__INTPTR_TYPE__) ((expr) * 0)) : (int*) 0)), int*)
+#    else
+#      include <stdint.h>
+#      define HEDLEY__IS_CONSTEXPR(expr) __builtin_types_compatible_p(__typeof__((1 ? (void*) ((intptr_t) ((expr) * 0)) : (int*) 0)), int*)
+#    endif
+#  elif \
+       (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(HEDLEY_SUNPRO_VERSION) && !defined(HEDLEY_PGI_VERSION)) || \
+       HEDLEY_HAS_EXTENSION(c_generic_selections) || \
+       HEDLEY_GCC_VERSION_CHECK(4,9,0) || \
+       HEDLEY_INTEL_VERSION_CHECK(17,0,0) || \
+       HEDLEY_IBM_VERSION_CHECK(12,1,0) || \
+       HEDLEY_ARM_VERSION_CHECK(5,3,0)
+#    if defined(__INTPTR_TYPE__)
+#      define HEDLEY__IS_CONSTEXPR(expr) _Generic((1 ? (void*) ((__INTPTR_TYPE__) ((expr) * 0)) : (int*) 0), int*: 1, void*: 0)
+#    else
+#      include <stdint.h>
+#      define HEDLEY__IS_CONSTEXPR(expr) _Generic((1 ? (void*) ((intptr_t) * 0) : (int*) 0), int*: 1, void*: 0)
+#    endif
+#  elif \
+       defined(HEDLEY_GCC_VERSION) || \
+       defined(HEDLEY_INTEL_VERSION) || \
+       defined(HEDLEY_TINYC_VERSION) || \
+       defined(HEDLEY_TI_VERSION) || \
+       defined(__clang__)
+#    define HEDLEY__IS_CONSTEXPR(expr) ( \
+         sizeof(void) != \
+         sizeof(*( \
+           1 ? \
+             ((void*) ((expr) * 0L) ) : \
+             ((struct { char v[sizeof(void) * 2]; } *) 1) \
+           ) \
+         ) \
+       )
+#  endif
+#endif
+#if defined(HEDLEY__IS_CONSTEXPR)
+#  if !defined(HEDLEY_IS_CONSTANT)
+#    define HEDLEY_IS_CONSTANT(expr) HEDLEY__IS_CONSTEXPR(expr)
+#  endif
+#  define HEDLEY_REQUIRE_CONSTEXPR(expr) (HEDLEY__IS_CONSTEXPR(expr) ? (expr) : (-1))
+#else
+#  if !defined(HEDLEY_IS_CONSTANT)
+#    define HEDLEY_IS_CONSTANT(expr) (0)
+#  endif
+#  define HEDLEY_REQUIRE_CONSTEXPR(expr) (expr)
+#endif
+
+#if defined(HEDLEY_BEGIN_C_DECLS)
+#  undef HEDLEY_BEGIN_C_DECLS
+#endif
+#if defined(HEDLEY_END_C_DECLS)
+#  undef HEDLEY_END_C_DECLS
+#endif
+#if defined(HEDLEY_C_DECL)
+#  undef HEDLEY_C_DECL
+#endif
+#if defined(__cplusplus)
+#  define HEDLEY_BEGIN_C_DECLS extern "C" {
+#  define HEDLEY_END_C_DECLS }
+#  define HEDLEY_C_DECL extern "C"
+#else
+#  define HEDLEY_BEGIN_C_DECLS
+#  define HEDLEY_END_C_DECLS
+#  define HEDLEY_C_DECL
+#endif
+
+#if defined(HEDLEY_STATIC_ASSERT)
+#  undef HEDLEY_STATIC_ASSERT
+#endif
+#if \
+  !defined(__cplusplus) && ( \
+      (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)) || \
+      HEDLEY_HAS_FEATURE(c_static_assert) || \
+      HEDLEY_GCC_VERSION_CHECK(6,0,0) || \
+      HEDLEY_INTEL_VERSION_CHECK(13,0,0) || \
+      defined(_Static_assert) \
+    )
+#  define HEDLEY_STATIC_ASSERT(expr, message) _Static_assert(expr, message)
+#elif \
+  (defined(__cplusplus) && (__cplusplus >= 201703L)) || \
+  HEDLEY_MSVC_VERSION_CHECK(16,0,0) || \
+  (defined(__cplusplus) && HEDLEY_TI_VERSION_CHECK(8,3,0))
+#  define HEDLEY_STATIC_ASSERT(expr, message) static_assert(expr, message)
+#elif defined(__cplusplus) && (__cplusplus >= 201103L)
+#  define HEDLEY_STATIC_ASSERT(expr, message) static_assert(expr)
+#else
+#  define HEDLEY_STATIC_ASSERT(expr, message)
+#endif
+
+#if defined(HEDLEY_CONST_CAST)
+#  undef HEDLEY_CONST_CAST
+#endif
+#if defined(__cplusplus)
+#  define HEDLEY_CONST_CAST(T, expr) (const_cast<T>(expr))
+#elif \
+  HEDLEY_HAS_WARNING("-Wcast-qual") || \
+  HEDLEY_GCC_VERSION_CHECK(4,6,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_CONST_CAST(T, expr) (__extension__ ({ \
+      HEDLEY_DIAGNOSTIC_PUSH \
+      HEDLEY_DIAGNOSTIC_DISABLE_CAST_QUAL \
+      ((T) (expr)); \
+      HEDLEY_DIAGNOSTIC_POP \
+    }))
+#else
+#  define HEDLEY_CONST_CAST(T, expr) ((T) (expr))
+#endif
+
+#if defined(HEDLEY_REINTERPRET_CAST)
+#  undef HEDLEY_REINTERPRET_CAST
+#endif
+#if defined(__cplusplus)
+#  define HEDLEY_REINTERPRET_CAST(T, expr) (reinterpret_cast<T>(expr))
+#else
+#  define HEDLEY_REINTERPRET_CAST(T, expr) (*((T*) &(expr)))
+#endif
+
+#if defined(HEDLEY_STATIC_CAST)
+#  undef HEDLEY_STATIC_CAST
+#endif
+#if defined(__cplusplus)
+#  define HEDLEY_STATIC_CAST(T, expr) (static_cast<T>(expr))
+#else
+#  define HEDLEY_STATIC_CAST(T, expr) ((T) (expr))
+#endif
+
+#if defined(HEDLEY_CPP_CAST)
+#  undef HEDLEY_CPP_CAST
+#endif
+#if defined(__cplusplus)
+#  define HEDLEY_CPP_CAST(T, expr) static_cast<T>(expr)
+#else
+#  define HEDLEY_CPP_CAST(T, expr) (expr)
+#endif
+
+#if defined(HEDLEY_MESSAGE)
+#  undef HEDLEY_MESSAGE
+#endif
+#if HEDLEY_HAS_WARNING("-Wunknown-pragmas")
+#  define HEDLEY_MESSAGE(msg) \
+  HEDLEY_DIAGNOSTIC_PUSH \
+  HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS \
+  HEDLEY_PRAGMA(message msg) \
+  HEDLEY_DIAGNOSTIC_POP
+#elif \
+  HEDLEY_GCC_VERSION_CHECK(4,4,0) || \
+  HEDLEY_INTEL_VERSION_CHECK(13,0,0)
+#  define HEDLEY_MESSAGE(msg) HEDLEY_PRAGMA(message msg)
+#elif HEDLEY_CRAY_VERSION_CHECK(5,0,0)
+#  define HEDLEY_MESSAGE(msg) HEDLEY_PRAGMA(_CRI message msg)
+#elif HEDLEY_IAR_VERSION_CHECK(8,0,0)
+#  define HEDLEY_MESSAGE(msg) HEDLEY_PRAGMA(message(msg))
+#elif HEDLEY_PELLES_VERSION_CHECK(2,0,0)
+#  define HEDLEY_MESSAGE(msg) HEDLEY_PRAGMA(message(msg))
+#else
+#  define HEDLEY_MESSAGE(msg)
+#endif
+
+#if defined(HEDLEY_WARNING)
+#  undef HEDLEY_WARNING
+#endif
+#if HEDLEY_HAS_WARNING("-Wunknown-pragmas")
+#  define HEDLEY_WARNING(msg) \
+  HEDLEY_DIAGNOSTIC_PUSH \
+  HEDLEY_DIAGNOSTIC_DISABLE_UNKNOWN_PRAGMAS \
+  HEDLEY_PRAGMA(clang warning msg) \
+  HEDLEY_DIAGNOSTIC_POP
+#elif \
+  HEDLEY_GCC_VERSION_CHECK(4,8,0) || \
+  HEDLEY_PGI_VERSION_CHECK(18,4,0)
+#  define HEDLEY_WARNING(msg) HEDLEY_PRAGMA(GCC warning msg)
+#elif HEDLEY_MSVC_VERSION_CHECK(15,0,0)
+#  define HEDLEY_WARNING(msg) HEDLEY_PRAGMA(message(msg))
+#else
+#  define HEDLEY_WARNING(msg) HEDLEY_MESSAGE(msg)
+#endif
+
+#if defined(HEDLEY_REQUIRE_MSG)
+#  undef HEDLEY_REQUIRE_MSG
+#endif
+#if HEDLEY_HAS_ATTRIBUTE(diagnose_if)
+#  if HEDLEY_HAS_WARNING("-Wgcc-compat")
+#    define HEDLEY_REQUIRE_MSG(expr, msg) \
+  HEDLEY_DIAGNOSTIC_PUSH \
+  _Pragma("clang diagnostic ignored \"-Wgcc-compat\"") \
+  __attribute__((__diagnose_if__(!(expr), msg, "error"))) \
+  HEDLEY_DIAGNOSTIC_POP
+#  else
+#    define HEDLEY_REQUIRE_MSG(expr, msg) __attribute__((__diagnose_if__(!(expr), msg, "error")))
+#  endif
+#else
+#  define HEDLEY_REQUIRE_MSG(expr, msg)
+#endif
+
+#if defined(HEDLEY_REQUIRE)
+#  undef HEDLEY_REQUIRE
+#endif
+#define HEDLEY_REQUIRE(expr) HEDLEY_REQUIRE_MSG(expr, #expr)
+
+#if defined(HEDLEY_FLAGS)
+#  undef HEDLEY_FLAGS
+#endif
+#if HEDLEY_HAS_ATTRIBUTE(flag_enum)
+#  define HEDLEY_FLAGS __attribute__((__flag_enum__))
+#endif
+
+#if defined(HEDLEY_FLAGS_CAST)
+#  undef HEDLEY_FLAGS_CAST
+#endif
+#if HEDLEY_INTEL_VERSION_CHECK(19,0,0)
+#  define HEDLEY_FLAGS_CAST(T, expr) (__extension__ ({ \
+  HEDLEY_DIAGNOSTIC_PUSH \
+      _Pragma("warning(disable:188)") \
+      ((T) (expr)); \
+      HEDLEY_DIAGNOSTIC_POP \
+    }))
+#else
+#  define HEDLEY_FLAGS_CAST(T, expr) HEDLEY_STATIC_CAST(T, expr)
+#endif
+
+/* Remaining macros are deprecated. */
+
+#if defined(HEDLEY_GCC_NOT_CLANG_VERSION_CHECK)
+#  undef HEDLEY_GCC_NOT_CLANG_VERSION_CHECK
+#endif
+#if defined(__clang__)
+#  define HEDLEY_GCC_NOT_CLANG_VERSION_CHECK(major,minor,patch) (0)
+#else
+#  define HEDLEY_GCC_NOT_CLANG_VERSION_CHECK(major,minor,patch) HEDLEY_GCC_VERSION_CHECK(major,minor,patch)
+#endif
+
+#if defined(HEDLEY_CLANG_HAS_ATTRIBUTE)
+#  undef HEDLEY_CLANG_HAS_ATTRIBUTE
+#endif
+#define HEDLEY_CLANG_HAS_ATTRIBUTE(attribute) HEDLEY_HAS_ATTRIBUTE(attribute)
+
+#if defined(HEDLEY_CLANG_HAS_CPP_ATTRIBUTE)
+#  undef HEDLEY_CLANG_HAS_CPP_ATTRIBUTE
+#endif
+#define HEDLEY_CLANG_HAS_CPP_ATTRIBUTE(attribute) HEDLEY_HAS_CPP_ATTRIBUTE(attribute)
+
+#if defined(HEDLEY_CLANG_HAS_BUILTIN)
+#  undef HEDLEY_CLANG_HAS_BUILTIN
+#endif
+#define HEDLEY_CLANG_HAS_BUILTIN(builtin) HEDLEY_HAS_BUILTIN(builtin)
+
+#if defined(HEDLEY_CLANG_HAS_FEATURE)
+#  undef HEDLEY_CLANG_HAS_FEATURE
+#endif
+#define HEDLEY_CLANG_HAS_FEATURE(feature) HEDLEY_HAS_FEATURE(feature)
+
+#if defined(HEDLEY_CLANG_HAS_EXTENSION)
+#  undef HEDLEY_CLANG_HAS_EXTENSION
+#endif
+#define HEDLEY_CLANG_HAS_EXTENSION(extension) HEDLEY_HAS_EXTENSION(extension)
+
+#if defined(HEDLEY_CLANG_HAS_DECLSPEC_DECLSPEC_ATTRIBUTE)
+#  undef HEDLEY_CLANG_HAS_DECLSPEC_DECLSPEC_ATTRIBUTE
+#endif
+#define HEDLEY_CLANG_HAS_DECLSPEC_ATTRIBUTE(attribute) HEDLEY_HAS_DECLSPEC_ATTRIBUTE(attribute)
+
+#if defined(HEDLEY_CLANG_HAS_WARNING)
+#  undef HEDLEY_CLANG_HAS_WARNING
+#endif
+#define HEDLEY_CLANG_HAS_WARNING(warning) HEDLEY_HAS_WARNING(warning)
+
+#endif /* !defined(HEDLEY_VERSION) || (HEDLEY_VERSION < X) */
+
+
+#ifndef HEDLEY_VERSION
+#endif
 
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
@@ -1370,6 +2879,14 @@ namespace csv {
          *  The string_view class used by this library.
          */
         using string_view = nonstd::string_view;
+    #endif
+
+    #ifdef CSV_HAS_CXX17
+        #define IF_CONSTEXPR if constexpr
+        #define CONSTEXPR_VALUE constexpr
+    #else
+        #define IF_CONSTEXPR if
+        #define CONSTEXPR_VALUE const
     #endif
 
     // Resolves g++ bug with regard to constexpr methods
@@ -1417,7 +2934,7 @@ namespace csv {
         CSVFormat& quote(char quote);
 
         /** Sets the column names */
-        CSVFormat& column_names(const std::vector<std::string>& col_names);
+        CSVFormat& column_names(const std::vector<std::string>& names);
 
         /** Sets the header row */
         CSVFormat& header_row(int row);
@@ -1490,12 +3007,15 @@ namespace csv {
     ///@{
     #ifndef DOXYGEN_SHOULD_SKIP_THIS
     template<char Delim = ',', char Quote = '"'>
-    inline std::string csv_escape(const std::string& in, const bool quote_minimal = true) {
+    inline std::string csv_escape(csv::string_view in, const bool quote_minimal = true) {
         /** Format a string to be RFC 4180-compliant
          *  @param[in]  in              String to be CSV-formatted
          *  @param[out] quote_minimal   Only quote fields if necessary.
          *                              If False, everything is quoted.
          */
+
+        // Sequence used for escaping quote characters that appear in text
+        constexpr char double_quote[3] = { Quote, Quote };
 
         std::string new_string;
         bool quote_escape = false;     // Do we need a quote escape
@@ -1504,12 +3024,12 @@ namespace csv {
         for (size_t i = 0; i < in.size(); i++) {
             switch (in[i]) {
             case Quote:
-                new_string += std::string(2, Quote);
+                new_string += double_quote;
                 quote_escape = true;
                 break;
             case Delim:
                 quote_escape = true;
-                // Do not break;
+                HEDLEY_FALL_THROUGH;
             default:
                 new_string += in[i];
             }
@@ -1519,14 +3039,13 @@ namespace csv {
             new_string += Quote; // Finish off quote escape
             return new_string;
         }
-        else {
-            return in;
-        }
+
+        return std::string(in);
     }
     #endif
 
     /** 
-     *  @brief Class for writing delimiter separated values files
+     *  Class for writing delimiter separated values files
      *
      *  To write formatted strings, one should
      *   -# Initialize a DelimWriter with respect to some output stream 
@@ -1543,23 +3062,28 @@ namespace csv {
         DelimWriter(OutputStream& _out) : out(_out) {};
         DelimWriter(const std::string& filename) : DelimWriter(std::ifstream(filename)) {};
 
-        void write_row(const std::vector<std::string>& record, bool quote_minimal = true) {
-            /** Format a sequence of strings and write to CSV according to RFC 4180
-            *
-            *  **Note**: This does not check to make sure row lengths are consistent
-            *  @param[in]  record          Vector of strings to be formatted
-            *  @param      quote_minimal   Only quote fields if necessary
-            */
-
-            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
-                out << csv_escape<Delim, Quote>(record[i], quote_minimal);
+        /** Format a sequence of strings and write to CSV according to RFC 4180
+         *
+         *  @warning This does not check to make sure row lengths are consistent
+         *
+         *  @param[in]  record          Sequence of strings to be formatted
+         *  @param      quote_minimal   Only quote fields if necessary
+         */
+        template<typename T, typename Alloc, template <typename, typename> class Container>
+        void write_row(const Container<T, Alloc>& record, bool quote_minimal = true) {
+            const size_t ilen = record.size();
+            size_t i = 0;
+            for (auto& field: record) {
+                out << csv_escape<Delim, Quote>(field, quote_minimal);
                 if (i + 1 != ilen) out << Delim;
+                i++;
             }
 
             out << std::endl;
         }
 
-        DelimWriter& operator<<(const std::vector<std::string>& record) {
+        template<typename T, typename Alloc, template <typename, typename> class Container>
+        DelimWriter& operator<<(const Container<T, Alloc>& record) {
             /** Calls write_row() on record */
             this->write_row(record);
             return *this;
@@ -1613,31 +3137,29 @@ namespace csv {
     /** Enumerates the different CSV field types that are
      *  recognized by this library
      *
-     *  - 0. CSV_NULL (empty string)
-     *  - 1. CSV_STRING
-     *  - 2. CSV_INT
-     *  - 3. CSV_LONG_INT
-     *  - 4. CSV_LONG_LONG_INT
-     *  - 5. CSV_DOUBLE
-     *
-     *  **Note**: Overflowing integers will be stored and classified as doubles.
-     *  Furthermore, the same number may either be a CSV_LONG_INT or CSV_INT depending on
-     *  compiler and platform.
+     *  @note Overflowing integers will be stored and classified as doubles.
+     *  @note Unlike previous releases, integer enums here are platform agnostic.
      */
     enum DataType {
         UNKNOWN = -1,
-        CSV_NULL,
-        CSV_STRING,
-        CSV_INT,
-        CSV_LONG_INT,
-        CSV_LONG_LONG_INT,
-        CSV_DOUBLE
+        CSV_NULL,   /**< Empty string */
+        CSV_STRING, /**< Non-numeric string */
+        CSV_INT8,   /**< 8-bit integer */
+        CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
+        CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
+        CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
+        CSV_DOUBLE  /**< Floating point value */
     };
+
+    static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
+    static_assert(CSV_INT8 < CSV_INT64, "Smaller integer types should come before larger integer types.");
+    static_assert(CSV_INT64 < CSV_DOUBLE, "Integer types should come before floating point value types.");
 
     namespace internals {
         /** Compute 10 to the power of n */
         template<typename T>
-        CONSTEXPR long double pow10(const T& n) {
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const T& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -1653,7 +3175,8 @@ namespace csv {
 
         /** Compute 10 to the power of n */
         template<>
-        CONSTEXPR long double pow10(const unsigned& n) {
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const unsigned& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -1665,12 +3188,26 @@ namespace csv {
         }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        template<typename T>
-        DataType type_num();
+        /** Private site-indexed array mapping byte sizes to an integer size enum */
+        constexpr DataType int_type_arr[8] = {
+            CSV_INT8,  // 1
+            CSV_INT16, // 2
+            UNKNOWN,
+            CSV_INT32, // 4
+            UNKNOWN,
+            UNKNOWN,
+            UNKNOWN,
+            CSV_INT64  // 8
+        };
 
-        template<> inline DataType type_num<int>() { return CSV_INT; }
-        template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
-        template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
+        template<typename T>
+        inline DataType type_num() {
+            static_assert(std::is_integral<T>::value, "T should be an integral type.");
+            static_assert(sizeof(T) <= 8, "Byte size must be no greater than 8.");
+            return int_type_arr[sizeof(T) - 1];
+        }
+
+        template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
@@ -1680,12 +3217,14 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
-            case CSV_INT:
-                return "int";
-            case CSV_LONG_INT:
-                return "long int";
-            case CSV_LONG_LONG_INT:
-                return "long long int";
+            case CSV_INT8:
+                return "int8";
+            case CSV_INT16:
+                return "int16";
+            case CSV_INT32:
+                return "int32";
+            case CSV_INT64:
+                return "int64";
             case CSV_DOUBLE:
                 return "double";
             default:
@@ -1696,27 +3235,59 @@ namespace csv {
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
-        /** Largest number that can be stored in an integer */
-        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+        /** Given a byte size, return the largest number than can be stored in
+         *  an integer of that size
+         */
+        template<size_t Bytes>
+        CONSTEXPR long double get_int_max() {
+            IF_CONSTEXPR (sizeof(signed char) == Bytes) {
+                return (long double)std::numeric_limits<signed char>::max();
+            }
 
-        /** Largest number that can be stored in a long int */
-        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+            IF_CONSTEXPR (sizeof(short) == Bytes) {
+                return (long double)std::numeric_limits<short>::max();
+            }
 
-        /** Largest number that can be stored in an long long int */
-        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+            IF_CONSTEXPR (sizeof(int) == Bytes) {
+                return (long double)std::numeric_limits<int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+                return (long double)std::numeric_limits<long int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+                return (long double)std::numeric_limits<long long int>::max();
+            }
+
+            HEDLEY_UNREACHABLE();
+        }
+
+        /** Largest number that can be stored in a 1-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
+
+        /** Largest number that can be stored in a 16-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
+
+        /** Largest number that can be stored in a 32-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
+
+        /** Largest number that can be stored in a 64-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        CONSTEXPR DataType _process_potential_exponential(
+        HEDLEY_PRIVATE CONSTEXPR
+        DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
             long double * const out) {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT && result <= CSV_DOUBLE) {
+            if (result >= CSV_INT8 && result <= CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -1727,16 +3298,19 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        CONSTEXPR DataType _determine_integral_type(const long double& number) {
+        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
+        DataType _determine_integral_type(const long double& number) noexcept {
             // We can assume number is always non-negative
             assert(number >= 0);
 
-            if (number < _INT_MAX)
-                return CSV_INT;
-            else if (number < _LONG_MAX)
-                return CSV_LONG_INT;
-            else if (number < _LONG_LONG_MAX)
-                return CSV_LONG_LONG_INT;
+            if (number < internals::CSV_INT8_MAX)
+                return CSV_INT8;
+            else if (number < internals::CSV_INT16_MAX)
+                return CSV_INT16;
+            else if (number < internals::CSV_INT32_MAX)
+                return CSV_INT32;
+            else if (number < internals::CSV_INT64_MAX)
+                return CSV_INT64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;
         }
@@ -1752,7 +3326,8 @@ namespace csv {
          *  @param[out] out Pointer to long double where results of numeric parsing
          *                  get stored
          */
-        CONSTEXPR DataType data_type(csv::string_view in, long double* const out) {
+        CONSTEXPR
+        DataType data_type(csv::string_view in, long double* const out) {
             // Empty string --> NULL
             if (in.size() == 0)
                 return CSV_NULL;
@@ -1899,7 +3474,7 @@ namespace csv {
              *  @param[in] _col_names Pointer to a vector of column names
              */
             RawRowBuffer(const std::string& _buffer, const std::vector<unsigned short>& _splits,
-                const std::shared_ptr<internals::ColNames>& _col_names) :
+                const std::shared_ptr<ColNames>& _col_names) :
                 buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
 
             csv::string_view get_row();      /**< Return a string_view over the current_row */
@@ -1933,6 +3508,89 @@ namespace csv {
         };
     }
 }
+#include <deque>
+
+
+namespace csv {
+    namespace internals {
+        // Get operating system specific details
+        #if defined(_WIN32)
+            #include <Windows.h>
+            #undef max
+            #undef min
+
+            inline int getpagesize() {
+                _SYSTEM_INFO sys_info = {};
+                GetSystemInfo(&sys_info);
+                return sys_info.dwPageSize;
+            }
+
+            /** Size of a memory page in bytes */
+            const int PAGE_SIZE = getpagesize();
+        #elif defined(__linux__) 
+            #include <unistd.h>
+            const int PAGE_SIZE = getpagesize();
+        #else
+            const int PAGE_SIZE = 4096;
+        #endif
+
+        /** @brief For functions that lazy load a large CSV, this determines how
+         *         many bytes are read at a time
+         */
+        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
+    }
+
+    /** @brief Used for counting number of rows */
+    using RowCount = long long int;
+
+    class CSVRow;
+    using CSVCollection = std::deque<CSVRow>;
+}
+
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+
+namespace csv {
+    /** Returned by get_file_info() */
+    struct CSVFileInfo {
+        std::string filename;               /**< Filename */
+        std::vector<std::string> col_names; /**< CSV column names */
+        char delim;                         /**< Delimiting character */
+        RowCount n_rows;                    /**< Number of rows in a file */
+        int n_cols;                         /**< Number of columns in a CSV */
+    };
+
+    /** @name Shorthand Parsing Functions
+     *  @brief Convienience functions for parsing small strings
+     */
+     ///@{
+    CSVCollection operator ""_csv(const char*, size_t);
+    CSVCollection parse(csv::string_view in, CSVFormat format = CSVFormat());
+    ///@}
+
+    /** @name Utility Functions */
+    ///@{
+    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
+    CSVFileInfo get_file_info(const std::string& filename);
+    CSVFormat guess_format(csv::string_view filename,
+        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
+    std::vector<std::string> get_col_names(
+        const std::string& filename,
+        const CSVFormat format = CSVFormat::GUESS_CSV);
+    int get_col_pos(const std::string filename, const std::string col_name,
+        const CSVFormat format = CSVFormat::GUESS_CSV);
+    ///@}
+
+    namespace internals {
+        template<typename T>
+        inline bool is_equal(T a, T b, T epsilon = 0.001) {
+            /** Returns true if two floating point values are about the same */
+            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
+            return std::abs(a - b) < epsilon;
+        }
+    }
+}
 /** @file
  *  Defines the data type used for storing information about a CSV row
  */
@@ -1947,6 +3605,13 @@ namespace csv {
 
 
 namespace csv {
+    namespace internals {
+        static const std::string ERROR_NAN = "Not a number.";
+        static const std::string ERROR_OVERFLOW = "Overflow error.";
+        static const std::string ERROR_FLOAT_TO_INT =
+            "Attempted to convert a floating point value to an integral type.";
+    }
+
     /**
     * @class CSVField
     * @brief Data type representing individual CSV values. 
@@ -1955,64 +3620,111 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) : sv(_sv) { };
+
+        operator std::string() const {
+            return std::string("<CSVField> ") + std::string(this->sv);
+        }
 
         /** Returns the value casted to the requested type, performing type checking before.
-        *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
-        *  of T = std::string, in which the original string representation is always returned.
-        *  Converting long ints to ints will be checked for overflow.
         *
         *  **Valid options for T**:
         *   - std::string or csv::string_view
-        *   - int
-        *   - long
-        *   - long long
-        *   - double
-        *   - long double
+        *   - signed integral types (signed char, short, int, long int, long long int)
+        *   - floating point types (float, double, long double)
+        *   - unsigned integers are not supported at this time, but may be in a later release
         *
-        @warning Any string_views returned are only guaranteed to be valid
-        *        if the parent CSVRow is still alive. If you are concerned
-        *        about object lifetimes, then grab a std::string or a
-        *        numeric value.
+        *  @note    The following are considered invalid conversions
+        *            - Converting non-numeric values to any numeric type
+        *            - Converting floating point values to integers
+        *            - Converting a large integer to a smaller type that will not hold it
+        *
+        *  @throws  std::runtime_error If an invalid conversion is performed.
+        *
+        *  @warning Currently, conversions to floating point types are not
+        *           checked for loss of precision
+        *
+        *  @warning Any string_views returned are only guaranteed to be valid
+        *           if the parent CSVRow is still alive. If you are concerned
+        *           about object lifetimes, then grab a std::string or a
+        *           numeric value.
         *
         */
         template<typename T=std::string> T get() {
-            auto dest_type = internals::type_num<T>();
-            if (dest_type >= CSV_INT && is_num()) {
-                if (internals::type_num<T>() < this->type())
-                    throw std::runtime_error("Overflow error.");
+            static_assert(!std::is_unsigned<T>::value, "Conversions to unsigned types are not supported.");
 
-                return static_cast<T>(this->value);
+            IF_CONSTEXPR (std::is_arithmetic<T>::value) {
+                if (this->type() <= CSV_STRING) {
+                    throw std::runtime_error(internals::ERROR_NAN);
+                }
             }
 
-            throw std::runtime_error("Attempted to convert a value of type " + 
-                internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                if (this->is_float()) {
+                    throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
+                }
+            }
+
+            // Allow fallthrough from previous if branch
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                if (internals::type_num<T>() < this->_type) {
+                    throw std::runtime_error(internals::ERROR_OVERFLOW);
+                }
+            }
+
+            return static_cast<T>(this->value);
         }
+   
+        /** Compares the contents of this field to a numeric value. If this
+         *  field does not contain a numeric value, then all comparisons return
+         *  false.
+         *
+         *  @warning Multiple numeric comparisons involving the same field can
+         *           be done more efficiently by calling the CSVField::get<>() method.
+         */
+        template<typename T>
+        bool operator==(T other) const
+        {
+            static_assert(std::is_arithmetic<T>::value,
+                "T should be a numeric value.");
 
-        bool operator==(csv::string_view other) const;
-        bool operator==(const long double& other);
+            if (this->_type != UNKNOWN) {
+                if (this->_type == CSV_STRING) {
+                    return false;
+                }
 
+                return internals::is_equal(value, static_cast<long double>(other), 0.000001L);
+            }
+
+            long double out = 0;
+            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+                return false;
+            }
+
+            return internals::is_equal(out, static_cast<long double>(other), 0.000001L);
+        }
+        
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
-        /** Returns true if field is a non-numeric string */
+        /** Returns true if field is a non-numeric, non-empty string */
         CONSTEXPR bool is_str() { return type() == CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT; }
+        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
+            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
         }
 
-        /** Returns true if field is a float*/
+        /** Returns true if field is a floating point value */
         CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
             this->get_value();
-            return (DataType)_type;
+            return _type;
         }
 
     private:
@@ -2164,48 +3876,28 @@ namespace csv {
     template<>
     CONSTEXPR long double CSVField::get<long double>() {
         if (!is_num())
-            throw std::runtime_error("Not a number.");
+            throw std::runtime_error(internals::ERROR_NAN);
 
         return this->value;
     }
 #pragma endregion CSVField::get Specializations
-}
-#include <deque>
 
-
-namespace csv {
-    namespace internals {
-        // Get operating system specific details
-        #if defined(_WIN32)
-            #include <Windows.h>
-            #undef max
-            #undef min
-
-            inline int getpagesize() {
-                _SYSTEM_INFO sys_info = {};
-                GetSystemInfo(&sys_info);
-                return sys_info.dwPageSize;
-            }
-
-            /** Size of a memory page in bytes */
-            const int PAGE_SIZE = getpagesize();
-        #elif defined(__linux__) 
-            #include <unistd.h>
-            const int PAGE_SIZE = getpagesize();
-        #else
-            const int PAGE_SIZE = 4096;
-        #endif
-
-        /** @brief For functions that lazy load a large CSV, this determines how
-         *         many bytes are read at a time
-         */
-        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
+    template<>
+    inline bool CSVField::operator==(const char * other) const
+    {
+        return this->sv == other;
     }
 
-    /** @brief Used for counting number of rows */
-    using RowCount = long long int;
+    template<>
+    inline bool CSVField::operator==(csv::string_view other) const
+    {
+        return this->sv == other;
+    }
+}
 
-    using CSVCollection = std::deque<CSVRow>;
+inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
+    os << std::string(value);
+    return os;
 }
 #include <array>
 #include <deque>
@@ -2230,7 +3922,7 @@ namespace csv {
      */
     namespace internals {
         std::string type_name(const DataType& dtype);
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
+        std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
     /** @class CSVReader
@@ -2285,7 +3977,7 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        CSVReader(const std::string& filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::GUESS_CSV);
         CSVReader(CSVFormat format = CSVFormat());
         ///@}
 
@@ -2311,14 +4003,14 @@ namespace csv {
         ///@{
         bool read_row(CSVRow &row);
         iterator begin();
-        iterator end();
+        HEDLEY_CONST iterator end() const;
         ///@}
 
         /** @name CSV Metadata */
         ///@{
         CSVFormat get_format() const;
         std::vector<std::string> get_col_names() const;
-        int index_of(const std::string& col_name) const;
+        int index_of(csv::string_view col_name) const;
         ///@}
         
         /** @name CSV Metadata: Attributes */
@@ -2333,7 +4025,7 @@ namespace csv {
         /** Close the open file handle. Automatically called by ~CSVReader(). */
         void close();
 
-        friend CSVCollection parse(const std::string&, CSVFormat);
+        friend CSVCollection parse(csv::string_view, CSVFormat);
     protected:
         /**
          * \defgroup csv_internal CSV Parser Internals
@@ -2360,10 +4052,11 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        CONSTEXPR std::array<CSVReader::ParseFlags, 256> make_flags() const;
+        HEDLEY_CONST CONSTEXPR
+            std::array<CSVReader::ParseFlags, 256> make_flags() const;
 
         /** Open a file for reading. Implementation is compiler specific. */
-        void fopen(const std::string& filename);
+        void fopen(csv::string_view filename);
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
@@ -2426,7 +4119,8 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* infile = nullptr;         /**< Current file handle.
+        std::FILE* HEDLEY_RESTRICT
+            infile = nullptr;                /**< Current file handle.
                                                   Destroyed by ~CSVReader(). */
         std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
         std::mutex feed_lock;                /**< Allow only one worker to write */
@@ -2452,7 +4146,7 @@ namespace csv {
             };
 
         public:
-            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) :
+            CSVGuesser(csv::string_view _filename, const std::vector<char>& _delims) :
                 filename(_filename), delims(_delims) {};
             CSVFormat guess_delim();
             bool first_guess();
@@ -2522,48 +4216,6 @@ namespace csv {
     };
 }
 
-#include <string>
-
-namespace csv {
-    /** Returned by get_file_info() */
-    struct CSVFileInfo {
-        std::string filename;               /**< Filename */
-        std::vector<std::string> col_names; /**< CSV column names */
-        char delim;                         /**< Delimiting character */
-        RowCount n_rows;                    /**< Number of rows in a file */
-        int n_cols;                         /**< Number of columns in a CSV */
-    };
-
-    /** @name Shorthand Parsing Functions
-     *  @brief Convienience functions for parsing small strings
-     */
-     ///@{
-    CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(const std::string& in, CSVFormat format = CSVFormat());
-    ///@}
-
-    /** @name Utility Functions */
-    ///@{
-    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
-    CSVFileInfo get_file_info(const std::string& filename);
-    CSVFormat guess_format(const std::string& filename,
-        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
-    std::vector<std::string> get_col_names(
-        const std::string& filename,
-        const CSVFormat format = CSVFormat::GUESS_CSV);
-    int get_col_pos(const std::string filename, const std::string col_name,
-        const CSVFormat format = CSVFormat::GUESS_CSV);
-    ///@}
-
-    namespace internals {
-        template<typename T>
-        inline bool is_equal(T a, T b, T epsilon = 0.001) {
-            /** Returns true if two doubles are about the same */
-            return std::abs(a - b) < epsilon;
-        }
-    }
-}
-
 
 namespace csv {
     CSVFormat create_default_csv_strict() {
@@ -2605,8 +4257,8 @@ namespace csv {
         return *this;
     }
 
-    CSVFormat& CSVFormat::column_names(const std::vector<std::string>& col_names) {
-        this->col_names = col_names;
+    CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
+        this->col_names = names;
         this->header = -1;
         return *this;
     }
@@ -2640,7 +4292,7 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim) {
+        std::string format_row(const std::vector<std::string>& row, csv::string_view delim) {
             /** Print a CSV row */
             std::stringstream ret;
             for (size_t i = 0; i < row.size(); i++) {
@@ -2781,13 +4433,14 @@ namespace csv {
         }
     }
 
-    /** @brief Guess the delimiter used by a delimiter-separated values file */
-    CSVFormat guess_format(const std::string& filename, const std::vector<char>& delims) {
+    /** Guess the delimiter used by a delimiter-separated values file */
+    CSVFormat guess_format(csv::string_view filename, const std::vector<char>& delims) {
         internals::CSVGuesser guesser(filename, delims);
         return guesser.guess_delim();
     }
 
-    CONSTEXPR std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
+    HEDLEY_CONST CONSTEXPR
+    std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
         std::array<ParseFlags, 256> ret = {};
         for (int i = -128; i < 128; i++) {
             const int arr_idx = i + 128;
@@ -2824,9 +4477,7 @@ namespace csv {
         }
     };
 
-    /**
-     *  @brief Allows parsing in-memory sources (by calling feed() and end_feed()).
-     */
+    /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.get_delim()), quote_char(format.quote_char),
         header_row(format.header), strict(format.strict),
@@ -2838,13 +4489,12 @@ namespace csv {
         parse_flags = this->make_flags();
     };
 
-    /**
-     *  @brief Allows reading a CSV file in chunks, using overlapped
-     *         threads for simulatenously reading from disk and parsing.
-     *         Rows should be retrieved with read_row() or by using
-     *         CSVReader::iterator.
+    /** Allows reading a CSV file in chunks, using overlapped
+     *  threads for simulatenously reading from disk and parsing.
+     *  Rows should be retrieved with read_row() or by using
+     *  CSVReader::iterator.
      *
-     * **Details:** Reads the first 500kB of a CSV file to infer file information
+     *  **Details:** Reads the first 500kB of a CSV file to infer file information
      *              such as column names and delimiting character.
      *
      *  @param[in] filename  Path to CSV file
@@ -2853,7 +4503,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSVReader::CSVReader(const std::string& filename, CSVFormat format) {
+    CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         if (format.guess_delim())
             format = guess_format(filename, format.possible_delimiters);
 
@@ -2874,7 +4524,7 @@ namespace csv {
         this->read_csv(500000);
     }
 
-    /** @brief Return the format of the original raw CSV */
+    /** Return the format of the original raw CSV */
     CSVFormat CSVReader::get_format() const {
         CSVFormat format;
         format.delimiter(this->delimiter)
@@ -2885,15 +4535,15 @@ namespace csv {
         return format;
     }
 
-    /** @brief Return the CSV's column names as a vector of strings. */
+    /** Return the CSV's column names as a vector of strings. */
     std::vector<std::string> CSVReader::get_col_names() const {
         return this->col_names->get_col_names();
     }
 
-    /** @brief Return the index of the column name if found or
+    /** Return the index of the column name if found or
      *         csv::CSV_NOT_FOUND otherwise.
      */
-    int CSVReader::index_of(const std::string& col_name) const {
+    int CSVReader::index_of(csv::string_view col_name) const {
         auto _col_names = this->get_col_names();
         for (size_t i = 0; i < _col_names.size(); i++)
             if (_col_names[i] == col_name) return (int)i;
@@ -2912,7 +4562,7 @@ namespace csv {
     }
 
     void CSVReader::feed(csv::string_view in) {
-        /** @brief Parse a CSV-formatted string.
+        /** Parse a CSV-formatted string.
          *
          *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
          *  **Note**: end_feed() should be called after the last string
@@ -2922,6 +4572,7 @@ namespace csv {
         bool quote_escape = false;  // Are we currently in a quote escaped field?
 
         // Optimizations
+        auto * HEDLEY_RESTRICT _parse_flags = this->parse_flags.data();
         auto& row_buffer = *(this->record_buffer.get());
         auto& text_buffer = row_buffer.buffer;
         auto& split_buffer = row_buffer.split_buffer;
@@ -2930,12 +4581,14 @@ namespace csv {
 
         const size_t in_size = in.size();
         for (size_t i = 0; i < in_size; i++) {
-            switch (parse_flags[in[i] + 128]) {
+            switch (_parse_flags[in[i] + 128]) {
                 case DELIMITER:
                     if (!quote_escape) {
                         split_buffer.push_back((unsigned short)row_buffer.size());
                         break;
                     }
+
+                    HEDLEY_FALL_THROUGH;
                 case NEWLINE:
                     if (!quote_escape) {
                         // End of record -> Write record
@@ -2969,7 +4622,7 @@ namespace csv {
                 default: // Quote
                     if (!quote_escape) {
                         // Don't deref past beginning
-                        if (i && parse_flags[in[i - 1] + 128] >= DELIMITER) {
+                        if (i && _parse_flags[in[i - 1] + 128] >= DELIMITER) {
                             // Case: Previous character was delimiter or newline
                             quote_escape = true;
                         }
@@ -2977,7 +4630,7 @@ namespace csv {
                         break;
                     }
 
-                    auto next_ch = parse_flags[in[i + 1] + 128];
+                    auto next_ch = _parse_flags[in[i + 1] + 128];
                     if (next_ch >= DELIMITER) {
                         // Case: Delim or newline => end of field
                         quote_escape = false;
@@ -2997,7 +4650,7 @@ namespace csv {
                     break;
             }
         }
-
+        
         this->record_buffer = row_buffer.reset();
     }
 
@@ -3049,7 +4702,7 @@ namespace csv {
     }
 
     void CSVReader::read_csv_worker() {
-        /** @brief Worker thread for read_csv() which parses CSV rows (while the main
+        /** Worker thread for read_csv() which parses CSV rows (while the main
          *         thread pulls data from disk)
          */
         while (true) {
@@ -3069,17 +4722,17 @@ namespace csv {
         }
     }
 
-    void CSVReader::fopen(const std::string& filename) {
+    void CSVReader::fopen(csv::string_view filename) {
         if (!this->infile) {
 #ifdef _MSC_BUILD
             // Silence compiler warnings in Microsoft Visual C++
-            size_t err = fopen_s(&(this->infile), filename.c_str(), "rb");
+            size_t err = fopen_s(&(this->infile), filename.data(), "rb");
             if (err)
-                throw std::runtime_error("Cannot open file " + filename);
+                throw std::runtime_error("Cannot open file " + std::string(filename));
 #else
-            this->infile = std::fopen(filename.c_str(), "rb");
+            this->infile = std::fopen(filename.data(), "rb");
             if (!this->infile)
-                throw std::runtime_error("Cannot open file " + filename);
+                throw std::runtime_error("Cannot open file " + std::string(filename));
 #endif
         }
     }
@@ -3106,13 +4759,13 @@ namespace csv {
     void CSVReader::read_csv(const size_t& bytes) {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
-        auto line_buffer = buffer.get();
+        auto * HEDLEY_RESTRICT line_buffer = buffer.get();
         line_buffer[0] = '\0';
 
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
-            char * result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
+            char * HEDLEY_RESTRICT result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
             if (result == NULL) break;
             line_buffer += std::strlen(line_buffer);
             size_t current_strlen = line_buffer - buffer.get();
@@ -3120,12 +4773,14 @@ namespace csv {
             if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
                 processed += (line_buffer - buffer.get());
                 std::unique_lock<std::mutex> lock{ this->feed_lock };
+
                 this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
-                this->feed_cond.notify_one();
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
                 line_buffer[0] = '\0';
+
+                this->feed_cond.notify_one();
             }
         }
 
@@ -3151,7 +4806,7 @@ namespace csv {
     }
 
     /**
-     * @brief Retrieve rows as CSVRow objects, returning true if more rows are available.
+     * Retrieve rows as CSVRow objects, returning true if more rows are available.
      *
      * **Performance Notes**:
      *  - The number of rows read in at a time is determined by csv::ITERATION_CHUNK_SIZE
@@ -3192,7 +4847,7 @@ namespace csv {
     /** A placeholder for the imaginary past the end row in a CSV.
      *  Attempting to deference this will lead to bad things.
      */
-    CSVReader::iterator CSVReader::end() {
+    HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
         return CSVReader::iterator();
     }
 
@@ -3330,17 +4985,6 @@ namespace csv {
         return ret;
     }
 
-#pragma region CSVField Methods
-    bool CSVField::operator==(csv::string_view other) const {
-        return other == this->sv;
-    }
-
-    bool CSVField::operator==(const long double& other) {
-        return other == this->get<long double>();
-    }
-
-#pragma endregion CSVField Methods
-
 #pragma region CSVRow Iterator
     /** @brief Return an iterator pointing to the first field. */
     CSVRow::iterator CSVRow::begin() const {
@@ -3368,6 +5012,7 @@ namespace csv {
         return this->buffer->split_buffer[this->start + n];
     }
 
+    HEDLEY_NON_NULL(1)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
         if (_i < (int)this->daddy->size())
@@ -3562,7 +5207,7 @@ namespace csv {
             this->dtype(current_field, i);
 
             // Numeric Stuff
-            if (current_field.type() >= CSV_INT) {
+            if (current_field.is_num()) {
                 long double x_n = current_field.get<long double>();
 
                 // This actually calculates mean AND variance
@@ -3670,12 +5315,14 @@ namespace csv {
 
             if (col[CSV_STRING])
                 csv_dtypes[col_name] = CSV_STRING;
-            else if (col[CSV_LONG_LONG_INT])
-                csv_dtypes[col_name] = CSV_LONG_LONG_INT;
-            else if (col[CSV_LONG_INT])
-                csv_dtypes[col_name] = CSV_LONG_INT;
-            else if (col[CSV_INT])
-                csv_dtypes[col_name] = CSV_INT;
+            else if (col[CSV_INT64])
+                csv_dtypes[col_name] = CSV_INT64;
+            else if (col[CSV_INT32])
+                csv_dtypes[col_name] = CSV_INT32;
+            else if (col[CSV_INT16])
+                csv_dtypes[col_name] = CSV_INT16;
+            else if (col[CSV_INT8])
+                csv_dtypes[col_name] = CSV_INT8;
             else
                 csv_dtypes[col_name] = CSV_DOUBLE;
         }
@@ -3687,25 +5334,22 @@ namespace csv {
 
 
 namespace csv {
-    /**
-     *  @brief Shorthand function for parsing an in-memory CSV string,
+    /** Shorthand function for parsing an in-memory CSV string,
      *  a collection of CSVRow objects
      *
      *  \snippet tests/test_read_csv.cpp Parse Example
-     *
      */
-    CSVCollection parse(const std::string& in, CSVFormat format) {
+    CSVCollection parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
         parser.feed(in);
         parser.end_feed();
         return parser.records;
     }
 
-    /**
-     * @brief Parse a RFC 4180 CSV string, returning a collection
-     *        of CSVRow objects
+    /** Parse a RFC 4180 CSV string, returning a collection
+     *  of CSVRow objects
      *
-     * **Example:**
+     *  **Example:**
      *  \snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
@@ -3714,8 +5358,7 @@ namespace csv {
         return parse(temp);
     }
 
-    /**
-     *  @brief Return a CSV's column names
+    /** Return a CSV's column names
      *
      *  @param[in] filename  Path to CSV file
      *  @param[in] format    Format of the CSV file
@@ -3802,7 +5445,7 @@ namespace csv {
                 new_split_idx = this->split_buffer.size();
          
             this->current_split_idx = new_split_idx;
-            return ColumnPositions(*this, head_idx, new_split_idx - head_idx + 1);
+            return ColumnPositions(*this, head_idx, (unsigned short)(new_split_idx - head_idx + 1));
         }
 
         size_t RawRowBuffer::size() const {
@@ -3813,6 +5456,7 @@ namespace csv {
             return this->split_buffer.size() - this->current_split_idx;
         }
         
+        HEDLEY_WARN_UNUSED_RESULT
         BufferPtr RawRowBuffer::reset() const {
             // Save current row in progress
             auto new_buff = BufferPtr(new RawRowBuffer());

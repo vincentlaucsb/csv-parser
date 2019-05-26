@@ -13,9 +13,17 @@
 
 #include "data_type.h"
 #include "compatibility.hpp"
+#include "csv_utility.hpp"
 #include "row_buffer.hpp"
 
 namespace csv {
+    namespace internals {
+        static const std::string ERROR_NAN = "Not a number.";
+        static const std::string ERROR_OVERFLOW = "Overflow error.";
+        static const std::string ERROR_FLOAT_TO_INT =
+            "Attempted to convert a floating point value to an integral type.";
+    }
+
     /**
     * @class CSVField
     * @brief Data type representing individual CSV values. 
@@ -24,64 +32,111 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) : sv(_sv) { };
+
+        operator std::string() const {
+            return std::string("<CSVField> ") + std::string(this->sv);
+        }
 
         /** Returns the value casted to the requested type, performing type checking before.
-        *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
-        *  of T = std::string, in which the original string representation is always returned.
-        *  Converting long ints to ints will be checked for overflow.
         *
         *  **Valid options for T**:
         *   - std::string or csv::string_view
-        *   - int
-        *   - long
-        *   - long long
-        *   - double
-        *   - long double
+        *   - signed integral types (signed char, short, int, long int, long long int)
+        *   - floating point types (float, double, long double)
+        *   - unsigned integers are not supported at this time, but may be in a later release
         *
-        @warning Any string_views returned are only guaranteed to be valid
-        *        if the parent CSVRow is still alive. If you are concerned
-        *        about object lifetimes, then grab a std::string or a
-        *        numeric value.
+        *  @note    The following are considered invalid conversions
+        *            - Converting non-numeric values to any numeric type
+        *            - Converting floating point values to integers
+        *            - Converting a large integer to a smaller type that will not hold it
+        *
+        *  @throws  std::runtime_error If an invalid conversion is performed.
+        *
+        *  @warning Currently, conversions to floating point types are not
+        *           checked for loss of precision
+        *
+        *  @warning Any string_views returned are only guaranteed to be valid
+        *           if the parent CSVRow is still alive. If you are concerned
+        *           about object lifetimes, then grab a std::string or a
+        *           numeric value.
         *
         */
         template<typename T=std::string> T get() {
-            auto dest_type = internals::type_num<T>();
-            if (dest_type >= CSV_INT && is_num()) {
-                if (internals::type_num<T>() < this->type())
-                    throw std::runtime_error("Overflow error.");
+            static_assert(!std::is_unsigned<T>::value, "Conversions to unsigned types are not supported.");
 
-                return static_cast<T>(this->value);
+            IF_CONSTEXPR (std::is_arithmetic<T>::value) {
+                if (this->type() <= CSV_STRING) {
+                    throw std::runtime_error(internals::ERROR_NAN);
+                }
             }
 
-            throw std::runtime_error("Attempted to convert a value of type " + 
-                internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                if (this->is_float()) {
+                    throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
+                }
+            }
+
+            // Allow fallthrough from previous if branch
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                if (internals::type_num<T>() < this->_type) {
+                    throw std::runtime_error(internals::ERROR_OVERFLOW);
+                }
+            }
+
+            return static_cast<T>(this->value);
         }
+   
+        /** Compares the contents of this field to a numeric value. If this
+         *  field does not contain a numeric value, then all comparisons return
+         *  false.
+         *
+         *  @warning Multiple numeric comparisons involving the same field can
+         *           be done more efficiently by calling the CSVField::get<>() method.
+         */
+        template<typename T>
+        bool operator==(T other) const
+        {
+            static_assert(std::is_arithmetic<T>::value,
+                "T should be a numeric value.");
 
-        bool operator==(csv::string_view other) const;
-        bool operator==(const long double& other);
+            if (this->_type != UNKNOWN) {
+                if (this->_type == CSV_STRING) {
+                    return false;
+                }
 
+                return internals::is_equal(value, static_cast<long double>(other), 0.000001L);
+            }
+
+            long double out = 0;
+            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+                return false;
+            }
+
+            return internals::is_equal(out, static_cast<long double>(other), 0.000001L);
+        }
+        
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
-        /** Returns true if field is a non-numeric string */
+        /** Returns true if field is a non-numeric, non-empty string */
         CONSTEXPR bool is_str() { return type() == CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT; }
+        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
+            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
         }
 
-        /** Returns true if field is a float*/
+        /** Returns true if field is a floating point value */
         CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
             this->get_value();
-            return (DataType)_type;
+            return _type;
         }
 
     private:
@@ -233,9 +288,26 @@ namespace csv {
     template<>
     CONSTEXPR long double CSVField::get<long double>() {
         if (!is_num())
-            throw std::runtime_error("Not a number.");
+            throw std::runtime_error(internals::ERROR_NAN);
 
         return this->value;
     }
 #pragma endregion CSVField::get Specializations
+
+    template<>
+    inline bool CSVField::operator==(const char * other) const
+    {
+        return this->sv == other;
+    }
+
+    template<>
+    inline bool CSVField::operator==(csv::string_view other) const
+    {
+        return this->sv == other;
+    }
+}
+
+inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
+    os << std::string(value);
+    return os;
 }

@@ -62,6 +62,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
     }
 }
 
+// Integration test for CSVRow/CSVField
 TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
     auto col_names = std::make_shared<internals::ColNames>(
         std::vector<std::string>({ "A", "B", "C", "D" })
