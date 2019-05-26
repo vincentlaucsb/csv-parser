@@ -32,6 +32,10 @@ namespace csv {
         CSV_DOUBLE
     };
 
+    static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
+    static_assert(CSV_INT8 < CSV_INT64, "Smaller integer types should come before larger integer types.");
+    static_assert(CSV_INT64 < CSV_DOUBLE, "Integer types should come before floating point value types.");
+
     namespace internals {
         /** Compute 10 to the power of n */
         template<typename T>

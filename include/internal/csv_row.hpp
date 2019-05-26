@@ -61,20 +61,20 @@ namespace csv {
         template<typename T=std::string> T get() {
             static_assert(!std::is_unsigned<T>::value, "Conversions to unsigned types are not supported.");
 
-            if constexpr (std::is_arithmetic<T>::value) {
+            IF_CONSTEXPR (std::is_arithmetic<T>::value) {
                 if (this->type() <= CSV_STRING) {
                     throw std::runtime_error(internals::ERROR_NAN);
                 }
             }
 
-            if constexpr (std::is_integral<T>::value) {
+            IF_CONSTEXPR(std::is_integral<T>::value) {
                 if (this->is_float()) {
                     throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
                 }
             }
 
             // Allow fallthrough from previous if branch
-            if constexpr (!std::is_floating_point<T>::value) {
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
                 if (internals::type_num<T>() < this->_type) {
                     throw std::runtime_error(internals::ERROR_OVERFLOW);
                 }
@@ -82,9 +82,35 @@ namespace csv {
 
             return static_cast<T>(this->value);
         }
-
+   
+        /** Compares the contents of this field to a numeric value. If this
+         *  field does not contain a numeric value, then all comparisons return
+         *  false.
+         *
+         *  @warning Multiple numeric comparisons involving the same field can
+         *           be done more efficiently by calling the CSVField::get<>() method.
+         */
         template<typename T>
-        bool operator==(T other) const;
+        bool operator==(T other) const
+        {
+            static_assert(std::is_arithmetic<T>::value,
+                "T should be a numeric value.");
+
+            if (this->_type != UNKNOWN) {
+                if (this->_type == CSV_STRING) {
+                    return false;
+                }
+
+                return internals::is_equal(value, static_cast<long double>(other));
+            }
+
+            long double out = 0;
+            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+                return false;
+            }
+
+            return internals::is_equal(out, static_cast<long double>(other));
+        }
         
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
@@ -263,37 +289,6 @@ namespace csv {
         return this->value;
     }
 #pragma endregion CSVField::get Specializations
-
-
-    /** Compares the contents of this field to a numeric value. If this
-     *  field does not contain a numeric value, then all comparisons return
-     *  false.
-     *
-     *  @warning Multiple numeric comparisons involving the same field can
-     *           be done more efficiently by calling the CSVField::get<>() method.
-     */
-    template<typename T>
-    inline bool CSVField::operator==(T other) const
-    {
-        static_assert(std::is_arithmetic<T>::value,
-            "T should be a numeric value. If this assertion fails, "
-            "it is an error on part of the library developers.");
-
-        if (this->_type != UNKNOWN) {
-            if (this->_type == CSV_STRING) {
-                return false;
-            }
-
-            return internals::is_equal(value, static_cast<long double>(other));
-        }
-
-        long double out = 0;
-        if (internals::data_type(this->sv, &out) == CSV_STRING) {
-            return false;
-        }
-
-        return internals::is_equal(out, static_cast<long double>(other));
-    }
 
     template<>
     inline bool CSVField::operator==(const char * other) const
