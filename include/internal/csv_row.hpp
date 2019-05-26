@@ -239,10 +239,20 @@ namespace csv {
     }
 #pragma endregion CSVField::get Specializations
 
+    /** Compares the contents of this field to a numeric value. If this
+     *  field does not contain a numeric value, then all comparisons return
+     *  false.
+     *
+     *  @warning Multiple numeric comparisons involving the same field can
+     *           be done more efficiently by calling the CSVField::get<>() method.
+     */
     template<typename T>
     inline bool CSVField::operator==(T other) const
     {
-        // This function gets called for numeric values
+        static_assert(std::is_arithmetic<T>::value,
+            "T should be a numeric value. If this assertion fails, "
+            "it is an error on part of the library developers.");
+
         if (this->_type != UNKNOWN) {
             if (this->_type == CSV_STRING) {
                 return false;

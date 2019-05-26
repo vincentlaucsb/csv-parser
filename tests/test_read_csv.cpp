@@ -318,28 +318,6 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             REQUIRE(row[power].get<int>() == 100);
             REQUIRE(row[date].get<>() == "12/31/2009"); // string_view
             REQUIRE(row[unit].get<std::string>() == "Beaver Valley 1");
-
-            // Assert misusing API throws the appropriate errors
-            try {
-                row[0].get<long long int>();
-            }
-            catch (std::runtime_error&) {
-                caught_error = true;
-            }
-
-            REQUIRE(caught_error);
-            caught_error = false;
-
-            try {
-                row[0].get<double>();
-            }
-            catch (std::runtime_error& err) {
-                REQUIRE(err.what() == std::string("Attempted to convert a "
-                    "value of type string to double."));
-                caught_error = true;
-            }
-
-            REQUIRE(caught_error);
         }
     }
 }
