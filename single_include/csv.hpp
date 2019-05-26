@@ -2881,6 +2881,14 @@ namespace csv {
         using string_view = nonstd::string_view;
     #endif
 
+    #ifdef CSV_HAS_CXX17
+        #define IF_CONSTEXPR if constexpr
+        #define CONSTEXPR_VALUE constexpr
+    #else
+        #define IF_CONSTEXPR if
+        #define CONSTEXPR_VALUE const
+    #endif
+
     // Resolves g++ bug with regard to constexpr methods
     #ifdef __GNUC__
         #if __GNUC__ >= 7
@@ -2999,12 +3007,15 @@ namespace csv {
     ///@{
     #ifndef DOXYGEN_SHOULD_SKIP_THIS
     template<char Delim = ',', char Quote = '"'>
-    inline std::string csv_escape(const std::string& in, const bool quote_minimal = true) {
+    inline std::string csv_escape(csv::string_view in, const bool quote_minimal = true) {
         /** Format a string to be RFC 4180-compliant
          *  @param[in]  in              String to be CSV-formatted
          *  @param[out] quote_minimal   Only quote fields if necessary.
          *                              If False, everything is quoted.
          */
+
+        // Sequence used for escaping quote characters that appear in text
+        constexpr char double_quote[3] = { Quote, Quote };
 
         std::string new_string;
         bool quote_escape = false;     // Do we need a quote escape
@@ -3013,12 +3024,12 @@ namespace csv {
         for (size_t i = 0; i < in.size(); i++) {
             switch (in[i]) {
             case Quote:
-                new_string += std::string(2, Quote);
+                new_string += double_quote;
                 quote_escape = true;
                 break;
             case Delim:
                 quote_escape = true;
-                // Do not break;
+                HEDLEY_FALL_THROUGH;
             default:
                 new_string += in[i];
             }
@@ -3028,14 +3039,13 @@ namespace csv {
             new_string += Quote; // Finish off quote escape
             return new_string;
         }
-        else {
-            return in;
-        }
+
+        return std::string(in);
     }
     #endif
 
     /** 
-     *  @brief Class for writing delimiter separated values files
+     *  Class for writing delimiter separated values files
      *
      *  To write formatted strings, one should
      *   -# Initialize a DelimWriter with respect to some output stream 
@@ -3052,23 +3062,28 @@ namespace csv {
         DelimWriter(OutputStream& _out) : out(_out) {};
         DelimWriter(const std::string& filename) : DelimWriter(std::ifstream(filename)) {};
 
-        void write_row(const std::vector<std::string>& record, bool quote_minimal = true) {
-            /** Format a sequence of strings and write to CSV according to RFC 4180
-            *
-            *  **Note**: This does not check to make sure row lengths are consistent
-            *  @param[in]  record          Vector of strings to be formatted
-            *  @param      quote_minimal   Only quote fields if necessary
-            */
-
-            for (size_t i = 0, ilen = record.size(); i < ilen; i++) {
-                out << csv_escape<Delim, Quote>(record[i], quote_minimal);
+        /** Format a sequence of strings and write to CSV according to RFC 4180
+         *
+         *  @warning This does not check to make sure row lengths are consistent
+         *
+         *  @param[in]  record          Sequence of strings to be formatted
+         *  @param      quote_minimal   Only quote fields if necessary
+         */
+        template<typename T, typename Alloc, template <typename, typename> class Container>
+        void write_row(const Container<T, Alloc>& record, bool quote_minimal = true) {
+            const size_t ilen = record.size();
+            size_t i = 0;
+            for (auto& field: record) {
+                out << csv_escape<Delim, Quote>(field, quote_minimal);
                 if (i + 1 != ilen) out << Delim;
+                i++;
             }
 
             out << std::endl;
         }
 
-        DelimWriter& operator<<(const std::vector<std::string>& record) {
+        template<typename T, typename Alloc, template <typename, typename> class Container>
+        DelimWriter& operator<<(const Container<T, Alloc>& record) {
             /** Calls write_row() on record */
             this->write_row(record);
             return *this;
@@ -3137,11 +3152,16 @@ namespace csv {
         UNKNOWN = -1,
         CSV_NULL,
         CSV_STRING,
-        CSV_INT,
-        CSV_LONG_INT,
-        CSV_LONG_LONG_INT,
+        CSV_INT8,
+        CSV_INT16,
+        CSV_INT32,
+        CSV_INT64,
         CSV_DOUBLE
     };
+
+    static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
+    static_assert(CSV_INT8 < CSV_INT64, "Smaller integer types should come before larger integer types.");
+    static_assert(CSV_INT64 < CSV_DOUBLE, "Integer types should come before floating point value types.");
 
     namespace internals {
         /** Compute 10 to the power of n */
@@ -3176,12 +3196,26 @@ namespace csv {
         }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        template<typename T>
-        DataType type_num();
+        /** Private site-indexed array mapping byte sizes to an integer size enum */
+        constexpr DataType int_type_arr[8] = {
+            CSV_INT8,  // 1
+            CSV_INT16, // 2
+            UNKNOWN,
+            CSV_INT32, // 4
+            UNKNOWN,
+            UNKNOWN,
+            UNKNOWN,
+            CSV_INT64  // 8
+        };
 
-        template<> inline DataType type_num<int>() { return CSV_INT; }
-        template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
-        template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
+        template<typename T>
+        inline DataType type_num() {
+            static_assert(std::is_integral<T>::value, "T should be an integral type.");
+            static_assert(sizeof(T) <= 8, "Byte size must be no greater than 8.");
+            return int_type_arr[sizeof(T) - 1];
+        }
+
+        template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
@@ -3191,12 +3225,14 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
-            case CSV_INT:
-                return "int";
-            case CSV_LONG_INT:
-                return "long int";
-            case CSV_LONG_LONG_INT:
-                return "long long int";
+            case CSV_INT8:
+                return "int8";
+            case CSV_INT16:
+                return "int16";
+            case CSV_INT32:
+                return "int32";
+            case CSV_INT64:
+                return "int64";
             case CSV_DOUBLE:
                 return "double";
             default:
@@ -3207,14 +3243,45 @@ namespace csv {
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
-        /** Largest number that can be stored in an integer */
-        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+        /** Given a byte size, return the largest number than can be stored in
+         *  an integer of that size
+         */
+        template<size_t Bytes>
+        CONSTEXPR long double get_int_max() {
+            IF_CONSTEXPR (sizeof(signed char) == Bytes) {
+                return (long double)std::numeric_limits<signed char>::max();
+            }
 
-        /** Largest number that can be stored in a long int */
-        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+            IF_CONSTEXPR (sizeof(short) == Bytes) {
+                return (long double)std::numeric_limits<short>::max();
+            }
 
-        /** Largest number that can be stored in an long long int */
-        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+            IF_CONSTEXPR (sizeof(int) == Bytes) {
+                return (long double)std::numeric_limits<int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+                return (long double)std::numeric_limits<long int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+                return (long double)std::numeric_limits<long long int>::max();
+            }
+
+            HEDLEY_UNREACHABLE_RETURN();
+        }
+
+        /** Largest number that can be stored in a 1-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
+
+        /** Largest number that can be stored in a 16-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
+
+        /** Largest number that can be stored in a 32-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
+
+        /** Largest number that can be stored in a 64-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
@@ -3228,7 +3295,7 @@ namespace csv {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT && result <= CSV_DOUBLE) {
+            if (result >= CSV_INT8 && result <= CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -3244,12 +3311,14 @@ namespace csv {
             // We can assume number is always non-negative
             assert(number >= 0);
 
-            if (number < _INT_MAX)
-                return CSV_INT;
-            else if (number < _LONG_MAX)
-                return CSV_LONG_INT;
-            else if (number < _LONG_LONG_MAX)
-                return CSV_LONG_LONG_INT;
+            if (number < internals::CSV_INT8_MAX)
+                return CSV_INT8;
+            else if (number < internals::CSV_INT16_MAX)
+                return CSV_INT16;
+            else if (number < internals::CSV_INT32_MAX)
+                return CSV_INT32;
+            else if (number < internals::CSV_INT64_MAX)
+                return CSV_INT64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;
         }
@@ -3413,7 +3482,7 @@ namespace csv {
              *  @param[in] _col_names Pointer to a vector of column names
              */
             RawRowBuffer(const std::string& _buffer, const std::vector<unsigned short>& _splits,
-                const std::shared_ptr<internals::ColNames>& _col_names) :
+                const std::shared_ptr<ColNames>& _col_names) :
                 buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
 
             csv::string_view get_row();      /**< Return a string_view over the current_row */
@@ -3447,6 +3516,89 @@ namespace csv {
         };
     }
 }
+#include <deque>
+
+
+namespace csv {
+    namespace internals {
+        // Get operating system specific details
+        #if defined(_WIN32)
+            #include <Windows.h>
+            #undef max
+            #undef min
+
+            inline int getpagesize() {
+                _SYSTEM_INFO sys_info = {};
+                GetSystemInfo(&sys_info);
+                return sys_info.dwPageSize;
+            }
+
+            /** Size of a memory page in bytes */
+            const int PAGE_SIZE = getpagesize();
+        #elif defined(__linux__) 
+            #include <unistd.h>
+            const int PAGE_SIZE = getpagesize();
+        #else
+            const int PAGE_SIZE = 4096;
+        #endif
+
+        /** @brief For functions that lazy load a large CSV, this determines how
+         *         many bytes are read at a time
+         */
+        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
+    }
+
+    /** @brief Used for counting number of rows */
+    using RowCount = long long int;
+
+    class CSVRow;
+    using CSVCollection = std::deque<CSVRow>;
+}
+
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+
+namespace csv {
+    /** Returned by get_file_info() */
+    struct CSVFileInfo {
+        std::string filename;               /**< Filename */
+        std::vector<std::string> col_names; /**< CSV column names */
+        char delim;                         /**< Delimiting character */
+        RowCount n_rows;                    /**< Number of rows in a file */
+        int n_cols;                         /**< Number of columns in a CSV */
+    };
+
+    /** @name Shorthand Parsing Functions
+     *  @brief Convienience functions for parsing small strings
+     */
+     ///@{
+    CSVCollection operator ""_csv(const char*, size_t);
+    CSVCollection parse(csv::string_view in, CSVFormat format = CSVFormat());
+    ///@}
+
+    /** @name Utility Functions */
+    ///@{
+    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
+    CSVFileInfo get_file_info(const std::string& filename);
+    CSVFormat guess_format(csv::string_view filename,
+        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
+    std::vector<std::string> get_col_names(
+        const std::string& filename,
+        const CSVFormat format = CSVFormat::GUESS_CSV);
+    int get_col_pos(const std::string filename, const std::string col_name,
+        const CSVFormat format = CSVFormat::GUESS_CSV);
+    ///@}
+
+    namespace internals {
+        template<typename T>
+        inline bool is_equal(T a, T b, T epsilon = 0.001) {
+            /** Returns true if two floating point values are about the same */
+            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
+            return std::abs(a - b) < epsilon;
+        }
+    }
+}
 /** @file
  *  Defines the data type used for storing information about a CSV row
  */
@@ -3461,6 +3613,13 @@ namespace csv {
 
 
 namespace csv {
+    namespace internals {
+        static const std::string ERROR_NAN = "Not a number.";
+        static const std::string ERROR_OVERFLOW = "Overflow error.";
+        static const std::string ERROR_FLOAT_TO_INT =
+            "Attempted to convert a floating point value to an integral type.";
+    }
+
     /**
     * @class CSVField
     * @brief Data type representing individual CSV values. 
@@ -3469,64 +3628,111 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr CSVField(csv::string_view _sv) : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) : sv(_sv) { };
+
+        operator std::string() const {
+            return std::string("<CSVField> ") + std::string(this->sv);
+        }
 
         /** Returns the value casted to the requested type, performing type checking before.
-        *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
-        *  of T = std::string, in which the original string representation is always returned.
-        *  Converting long ints to ints will be checked for overflow.
         *
         *  **Valid options for T**:
         *   - std::string or csv::string_view
-        *   - int
-        *   - long
-        *   - long long
-        *   - double
-        *   - long double
+        *   - signed integral types (signed char, short, int, long int, long long int)
+        *   - floating point types (float, double, long double)
+        *   - unsigned integers are not supported at this time, but may be in a later release
         *
-        @warning Any string_views returned are only guaranteed to be valid
-        *        if the parent CSVRow is still alive. If you are concerned
-        *        about object lifetimes, then grab a std::string or a
-        *        numeric value.
+        *  @note    The following are considered invalid conversions
+        *            - Converting non-numeric values to any numeric type
+        *            - Converting floating point values to integers
+        *            - Converting a large integer to a smaller type that will not hold it
+        *
+        *  @throws  std::runtime_error If an invalid conversion is performed.
+        *
+        *  @warning Currently, conversions to floating point types are not
+        *           checked for loss of precision
+        *
+        *  @warning Any string_views returned are only guaranteed to be valid
+        *           if the parent CSVRow is still alive. If you are concerned
+        *           about object lifetimes, then grab a std::string or a
+        *           numeric value.
         *
         */
         template<typename T=std::string> T get() {
-            auto dest_type = internals::type_num<T>();
-            if (dest_type >= CSV_INT && is_num()) {
-                if (internals::type_num<T>() < this->type())
-                    throw std::runtime_error("Overflow error.");
+            static_assert(!std::is_unsigned<T>::value, "Conversions to unsigned types are not supported.");
 
-                return static_cast<T>(this->value);
+            IF_CONSTEXPR (std::is_arithmetic<T>::value) {
+                if (this->type() <= CSV_STRING) {
+                    throw std::runtime_error(internals::ERROR_NAN);
+                }
             }
 
-            throw std::runtime_error("Attempted to convert a value of type " + 
-                internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                if (this->is_float()) {
+                    throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
+                }
+            }
+
+            // Allow fallthrough from previous if branch
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                if (internals::type_num<T>() < this->_type) {
+                    throw std::runtime_error(internals::ERROR_OVERFLOW);
+                }
+            }
+
+            return static_cast<T>(this->value);
         }
+   
+        /** Compares the contents of this field to a numeric value. If this
+         *  field does not contain a numeric value, then all comparisons return
+         *  false.
+         *
+         *  @warning Multiple numeric comparisons involving the same field can
+         *           be done more efficiently by calling the CSVField::get<>() method.
+         */
+        template<typename T>
+        bool operator==(T other) const
+        {
+            static_assert(std::is_arithmetic<T>::value,
+                "T should be a numeric value.");
 
-        bool operator==(csv::string_view other) const;
-        bool operator==(const long double& other);
+            if (this->_type != UNKNOWN) {
+                if (this->_type == CSV_STRING) {
+                    return false;
+                }
 
+                return internals::is_equal(value, static_cast<long double>(other), 0.000001L);
+            }
+
+            long double out = 0;
+            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+                return false;
+            }
+
+            return internals::is_equal(out, static_cast<long double>(other), 0.000001L);
+        }
+        
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
 
-        /** Returns true if field is a non-numeric string */
+        /** Returns true if field is a non-numeric, non-empty string */
         CONSTEXPR bool is_str() { return type() == CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT; }
+        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT) && (type() <= CSV_LONG_LONG_INT);
+            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
         }
 
-        /** Returns true if field is a float*/
+        /** Returns true if field is a floating point value */
         CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
             this->get_value();
-            return (DataType)_type;
+            return _type;
         }
 
     private:
@@ -3678,48 +3884,28 @@ namespace csv {
     template<>
     CONSTEXPR long double CSVField::get<long double>() {
         if (!is_num())
-            throw std::runtime_error("Not a number.");
+            throw std::runtime_error(internals::ERROR_NAN);
 
         return this->value;
     }
 #pragma endregion CSVField::get Specializations
-}
-#include <deque>
 
-
-namespace csv {
-    namespace internals {
-        // Get operating system specific details
-        #if defined(_WIN32)
-            #include <Windows.h>
-            #undef max
-            #undef min
-
-            inline int getpagesize() {
-                _SYSTEM_INFO sys_info = {};
-                GetSystemInfo(&sys_info);
-                return sys_info.dwPageSize;
-            }
-
-            /** Size of a memory page in bytes */
-            const int PAGE_SIZE = getpagesize();
-        #elif defined(__linux__) 
-            #include <unistd.h>
-            const int PAGE_SIZE = getpagesize();
-        #else
-            const int PAGE_SIZE = 4096;
-        #endif
-
-        /** @brief For functions that lazy load a large CSV, this determines how
-         *         many bytes are read at a time
-         */
-        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
+    template<>
+    inline bool CSVField::operator==(const char * other) const
+    {
+        return this->sv == other;
     }
 
-    /** @brief Used for counting number of rows */
-    using RowCount = long long int;
+    template<>
+    inline bool CSVField::operator==(csv::string_view other) const
+    {
+        return this->sv == other;
+    }
+}
 
-    using CSVCollection = std::deque<CSVRow>;
+inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
+    os << std::string(value);
+    return os;
 }
 #include <array>
 #include <deque>
@@ -3744,7 +3930,7 @@ namespace csv {
      */
     namespace internals {
         std::string type_name(const DataType& dtype);
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim = ", ");
+        std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
     /** @class CSVReader
@@ -3799,7 +3985,7 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        CSVReader(const std::string& filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::GUESS_CSV);
         CSVReader(CSVFormat format = CSVFormat());
         ///@}
 
@@ -3832,7 +4018,7 @@ namespace csv {
         ///@{
         CSVFormat get_format() const;
         std::vector<std::string> get_col_names() const;
-        int index_of(const std::string& col_name) const;
+        int index_of(csv::string_view col_name) const;
         ///@}
         
         /** @name CSV Metadata: Attributes */
@@ -3847,7 +4033,7 @@ namespace csv {
         /** Close the open file handle. Automatically called by ~CSVReader(). */
         void close();
 
-        friend CSVCollection parse(const std::string&, CSVFormat);
+        friend CSVCollection parse(csv::string_view, CSVFormat);
     protected:
         /**
          * \defgroup csv_internal CSV Parser Internals
@@ -3878,7 +4064,7 @@ namespace csv {
             std::array<CSVReader::ParseFlags, 256> make_flags() const;
 
         /** Open a file for reading. Implementation is compiler specific. */
-        void fopen(const std::string& filename);
+        void fopen(csv::string_view filename);
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
@@ -3968,7 +4154,7 @@ namespace csv {
             };
 
         public:
-            CSVGuesser(const std::string& _filename, const std::vector<char>& _delims) :
+            CSVGuesser(csv::string_view _filename, const std::vector<char>& _delims) :
                 filename(_filename), delims(_delims) {};
             CSVFormat guess_delim();
             bool first_guess();
@@ -4036,48 +4222,6 @@ namespace csv {
         void calc();
         void calc_worker(const size_t&);
     };
-}
-
-#include <string>
-
-namespace csv {
-    /** Returned by get_file_info() */
-    struct CSVFileInfo {
-        std::string filename;               /**< Filename */
-        std::vector<std::string> col_names; /**< CSV column names */
-        char delim;                         /**< Delimiting character */
-        RowCount n_rows;                    /**< Number of rows in a file */
-        int n_cols;                         /**< Number of columns in a CSV */
-    };
-
-    /** @name Shorthand Parsing Functions
-     *  @brief Convienience functions for parsing small strings
-     */
-     ///@{
-    CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(const std::string& in, CSVFormat format = CSVFormat());
-    ///@}
-
-    /** @name Utility Functions */
-    ///@{
-    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
-    CSVFileInfo get_file_info(const std::string& filename);
-    CSVFormat guess_format(const std::string& filename,
-        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
-    std::vector<std::string> get_col_names(
-        const std::string& filename,
-        const CSVFormat format = CSVFormat::GUESS_CSV);
-    int get_col_pos(const std::string filename, const std::string col_name,
-        const CSVFormat format = CSVFormat::GUESS_CSV);
-    ///@}
-
-    namespace internals {
-        template<typename T>
-        inline bool is_equal(T a, T b, T epsilon = 0.001) {
-            /** Returns true if two doubles are about the same */
-            return std::abs(a - b) < epsilon;
-        }
-    }
 }
 
 
@@ -4156,7 +4300,7 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        std::string format_row(const std::vector<std::string>& row, const std::string& delim) {
+        std::string format_row(const std::vector<std::string>& row, csv::string_view delim) {
             /** Print a CSV row */
             std::stringstream ret;
             for (size_t i = 0; i < row.size(); i++) {
@@ -4297,8 +4441,8 @@ namespace csv {
         }
     }
 
-    /** @brief Guess the delimiter used by a delimiter-separated values file */
-    CSVFormat guess_format(const std::string& filename, const std::vector<char>& delims) {
+    /** Guess the delimiter used by a delimiter-separated values file */
+    CSVFormat guess_format(csv::string_view filename, const std::vector<char>& delims) {
         internals::CSVGuesser guesser(filename, delims);
         return guesser.guess_delim();
     }
@@ -4341,9 +4485,7 @@ namespace csv {
         }
     };
 
-    /**
-     *  @brief Allows parsing in-memory sources (by calling feed() and end_feed()).
-     */
+    /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.get_delim()), quote_char(format.quote_char),
         header_row(format.header), strict(format.strict),
@@ -4355,13 +4497,12 @@ namespace csv {
         parse_flags = this->make_flags();
     };
 
-    /**
-     *  @brief Allows reading a CSV file in chunks, using overlapped
-     *         threads for simulatenously reading from disk and parsing.
-     *         Rows should be retrieved with read_row() or by using
-     *         CSVReader::iterator.
+    /** Allows reading a CSV file in chunks, using overlapped
+     *  threads for simulatenously reading from disk and parsing.
+     *  Rows should be retrieved with read_row() or by using
+     *  CSVReader::iterator.
      *
-     * **Details:** Reads the first 500kB of a CSV file to infer file information
+     *  **Details:** Reads the first 500kB of a CSV file to infer file information
      *              such as column names and delimiting character.
      *
      *  @param[in] filename  Path to CSV file
@@ -4370,7 +4511,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSVReader::CSVReader(const std::string& filename, CSVFormat format) {
+    CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         if (format.guess_delim())
             format = guess_format(filename, format.possible_delimiters);
 
@@ -4391,7 +4532,7 @@ namespace csv {
         this->read_csv(500000);
     }
 
-    /** @brief Return the format of the original raw CSV */
+    /** Return the format of the original raw CSV */
     CSVFormat CSVReader::get_format() const {
         CSVFormat format;
         format.delimiter(this->delimiter)
@@ -4402,15 +4543,15 @@ namespace csv {
         return format;
     }
 
-    /** @brief Return the CSV's column names as a vector of strings. */
+    /** Return the CSV's column names as a vector of strings. */
     std::vector<std::string> CSVReader::get_col_names() const {
         return this->col_names->get_col_names();
     }
 
-    /** @brief Return the index of the column name if found or
+    /** Return the index of the column name if found or
      *         csv::CSV_NOT_FOUND otherwise.
      */
-    int CSVReader::index_of(const std::string& col_name) const {
+    int CSVReader::index_of(csv::string_view col_name) const {
         auto _col_names = this->get_col_names();
         for (size_t i = 0; i < _col_names.size(); i++)
             if (_col_names[i] == col_name) return (int)i;
@@ -4429,7 +4570,7 @@ namespace csv {
     }
 
     void CSVReader::feed(csv::string_view in) {
-        /** @brief Parse a CSV-formatted string.
+        /** Parse a CSV-formatted string.
          *
          *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
          *  **Note**: end_feed() should be called after the last string
@@ -4569,7 +4710,7 @@ namespace csv {
     }
 
     void CSVReader::read_csv_worker() {
-        /** @brief Worker thread for read_csv() which parses CSV rows (while the main
+        /** Worker thread for read_csv() which parses CSV rows (while the main
          *         thread pulls data from disk)
          */
         while (true) {
@@ -4589,17 +4730,17 @@ namespace csv {
         }
     }
 
-    void CSVReader::fopen(const std::string& filename) {
+    void CSVReader::fopen(csv::string_view filename) {
         if (!this->infile) {
 #ifdef _MSC_BUILD
             // Silence compiler warnings in Microsoft Visual C++
-            size_t err = fopen_s(&(this->infile), filename.c_str(), "rb");
+            size_t err = fopen_s(&(this->infile), filename.data(), "rb");
             if (err)
-                throw std::runtime_error("Cannot open file " + filename);
+                throw std::runtime_error("Cannot open file " + std::string(filename));
 #else
-            this->infile = std::fopen(filename.c_str(), "rb");
+            this->infile = std::fopen(filename.data(), "rb");
             if (!this->infile)
-                throw std::runtime_error("Cannot open file " + filename);
+                throw std::runtime_error("Cannot open file " + std::string(filename));
 #endif
         }
     }
@@ -4673,7 +4814,7 @@ namespace csv {
     }
 
     /**
-     * @brief Retrieve rows as CSVRow objects, returning true if more rows are available.
+     * Retrieve rows as CSVRow objects, returning true if more rows are available.
      *
      * **Performance Notes**:
      *  - The number of rows read in at a time is determined by csv::ITERATION_CHUNK_SIZE
@@ -4851,17 +4992,6 @@ namespace csv {
 
         return ret;
     }
-
-#pragma region CSVField Methods
-    bool CSVField::operator==(csv::string_view other) const {
-        return other == this->sv;
-    }
-
-    bool CSVField::operator==(const long double& other) {
-        return other == this->get<long double>();
-    }
-
-#pragma endregion CSVField Methods
 
 #pragma region CSVRow Iterator
     /** @brief Return an iterator pointing to the first field. */
@@ -5085,7 +5215,7 @@ namespace csv {
             this->dtype(current_field, i);
 
             // Numeric Stuff
-            if (current_field.type() >= CSV_INT) {
+            if (current_field.is_num()) {
                 long double x_n = current_field.get<long double>();
 
                 // This actually calculates mean AND variance
@@ -5193,12 +5323,14 @@ namespace csv {
 
             if (col[CSV_STRING])
                 csv_dtypes[col_name] = CSV_STRING;
-            else if (col[CSV_LONG_LONG_INT])
-                csv_dtypes[col_name] = CSV_LONG_LONG_INT;
-            else if (col[CSV_LONG_INT])
-                csv_dtypes[col_name] = CSV_LONG_INT;
-            else if (col[CSV_INT])
-                csv_dtypes[col_name] = CSV_INT;
+            else if (col[CSV_INT64])
+                csv_dtypes[col_name] = CSV_INT64;
+            else if (col[CSV_INT32])
+                csv_dtypes[col_name] = CSV_INT32;
+            else if (col[CSV_INT16])
+                csv_dtypes[col_name] = CSV_INT16;
+            else if (col[CSV_INT8])
+                csv_dtypes[col_name] = CSV_INT8;
             else
                 csv_dtypes[col_name] = CSV_DOUBLE;
         }
@@ -5210,25 +5342,22 @@ namespace csv {
 
 
 namespace csv {
-    /**
-     *  @brief Shorthand function for parsing an in-memory CSV string,
+    /** Shorthand function for parsing an in-memory CSV string,
      *  a collection of CSVRow objects
      *
      *  \snippet tests/test_read_csv.cpp Parse Example
-     *
      */
-    CSVCollection parse(const std::string& in, CSVFormat format) {
+    CSVCollection parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
         parser.feed(in);
         parser.end_feed();
         return parser.records;
     }
 
-    /**
-     * @brief Parse a RFC 4180 CSV string, returning a collection
-     *        of CSVRow objects
+    /** Parse a RFC 4180 CSV string, returning a collection
+     *  of CSVRow objects
      *
-     * **Example:**
+     *  **Example:**
      *  \snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
@@ -5237,8 +5366,7 @@ namespace csv {
         return parse(temp);
     }
 
-    /**
-     *  @brief Return a CSV's column names
+    /** Return a CSV's column names
      *
      *  @param[in] filename  Path to CSV file
      *  @param[in] format    Format of the CSV file

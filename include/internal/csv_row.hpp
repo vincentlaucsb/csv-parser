@@ -39,23 +39,27 @@ namespace csv {
         }
 
         /** Returns the value casted to the requested type, performing type checking before.
-        *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
-        *  of T = std::string, in which the original string representation is always returned.
-        *  Converting long ints to ints will be checked for overflow.
         *
         *  **Valid options for T**:
         *   - std::string or csv::string_view
-        *   - int
-        *   - long
-        *   - long long
-        *   - float
-        *   - double
-        *   - long double
+        *   - signed integral types (signed char, short, int, long int, long long int)
+        *   - floating point types (float, double, long double)
+        *   - unsigned integers are not supported at this time, but may be in a later release
         *
-        @warning Any string_views returned are only guaranteed to be valid
-        *        if the parent CSVRow is still alive. If you are concerned
-        *        about object lifetimes, then grab a std::string or a
-        *        numeric value.
+        *  @note    The following are considered invalid conversions
+        *            - Converting non-numeric values to any numeric type
+        *            - Converting floating point values to integers
+        *            - Converting a large integer to a smaller type that will not hold it
+        *
+        *  @throws  std::runtime_error If an invalid conversion is performed.
+        *
+        *  @warning Currently, conversions to floating point types are not
+        *           checked for loss of precision
+        *
+        *  @warning Any string_views returned are only guaranteed to be valid
+        *           if the parent CSVRow is still alive. If you are concerned
+        *           about object lifetimes, then grab a std::string or a
+        *           numeric value.
         *
         */
         template<typename T=std::string> T get() {

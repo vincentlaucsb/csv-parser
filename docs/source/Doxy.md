@@ -19,8 +19,8 @@ CSVReader reader("very_big_file.csv");
 for (CSVRow& row: reader) { // Input iterator
     for (CSVField& field: row) {
         // By default, get<>() produces a std::string.
-		// A more efficient get<string_view>() is also available, where the resulting
-		// string_view is valid as long as the parent CSVRow is alive
+        // A more efficient get<string_view>() is also available, where the resulting
+        // string_view is valid as long as the parent CSVRow is alive
         std::cout << field.get<>() << ...
     }
 }
@@ -68,6 +68,8 @@ If your CSV has lots of numeric values, you can also have this parser (lazily)
 convert them to the proper data type. Type checking is performed on conversions
 to prevent undefined behavior.
 
+**Note:** Conversions to floating point types are not currently checked for loss of precision.
+
 ```cpp
 # include "csv.hpp"
 
@@ -79,6 +81,7 @@ CSVReader reader("very_big_file.csv");
 
 for (auto& row: reader) {
     if (row["timestamp"].is_int()) {
+		// Can use get<>() with any signed integer type
         row["timestamp"].get<int>();
         
         // ..
@@ -98,8 +101,8 @@ using namespace csv;
 
 CSVFormat format;
 format.delimiter('\t')
-	  .quote('~')
-	  .header_row(2);  // Header is on 3rd row (zero-indexed)
+      .quote('~')
+      .header_row(2);  // Header is on 3rd row (zero-indexed)
 
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out
@@ -151,16 +154,15 @@ for (auto& r: rows) {
 # include ...
 
 using namespace csv;
-using vector;
-using string;
+using namespace std;
 
 ...
 
-std::stringstream ss; // Can also use ifstream, etc.
+stringstream ss; // Can also use ifstream, etc.
 auto writer = make_csv_writer(ss);
 writer << vector<string>({ "A", "B", "C" })
-    << vector<string>({ "I'm", "too", "tired" })
-    << vector<string>({ "to", "write", "documentation" });
+    << deque<string>({ "I'm", "too", "tired" })
+    << list<string>({ "to", "write", "documentation" });
     
 ...
 
