@@ -5,7 +5,7 @@
 using namespace csv;
 
 TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]",
-    int, long long int, double, long double) {
+    signed char, short int, int, long long int, double, long double) {
     CSVField field("applesauce");
     REQUIRE(field.get<>() == "applesauce");
 
@@ -37,6 +37,28 @@ TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
     REQUIRE(ex_caught);
 }
 
+TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
+    CSVField this_year("2019");
+    REQUIRE(this_year.get<>() == "2019");
+    REQUIRE(this_year.get<csv::string_view>() == "2019");
+    REQUIRE(this_year.get<int>() == 2019);
+    REQUIRE(this_year.get<long long int>() == 2019);
+    REQUIRE(this_year.get<float>() == 2019.0f);
+    REQUIRE(this_year.get<double>() == 2019.0);
+    REQUIRE(this_year.get<long double>() == 2019l);
+
+    bool ex_caught = false;
+    try {
+        this_year.get<signed char>();
+    }
+    catch (std::runtime_error& err) {
+        REQUIRE(err.what() == std::string("Overflow error."));
+        ex_caught = true;
+    }
+
+    REQUIRE(ex_caught);
+}
+
 TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]") {
     CSVField euler("2.718");
     REQUIRE(euler.get<>() == "2.718");
@@ -47,7 +69,7 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
 }
 
 TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",
-    int, long long int) {
+    signed char, short, int, long long int) {
     CSVField euler("2.718");
     bool ex_caught = false;
 

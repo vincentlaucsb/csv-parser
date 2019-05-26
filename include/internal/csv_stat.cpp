@@ -236,6 +236,8 @@ namespace csv {
                 csv_dtypes[col_name] = CSV_INT32;
             else if (col[CSV_INT16])
                 csv_dtypes[col_name] = CSV_INT16;
+            else if (col[CSV_INT8])
+                csv_dtypes[col_name] = CSV_INT8;
             else
                 csv_dtypes[col_name] = CSV_DOUBLE;
         }

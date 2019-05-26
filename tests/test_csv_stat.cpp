@@ -34,7 +34,7 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
         REQUIRE( reader.get_counts()[0][std::to_string(i)] == 1 );
     
     // Confirm column at pos 0 has 100 integers (type 2)
-    REQUIRE( reader.get_dtypes()[0][CSV_INT16] == 100 );
+    REQUIRE( reader.get_dtypes()[0][CSV_INT8] == 100 );
 }
 
 TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
@@ -69,7 +69,7 @@ TEST_CASE("Data Types - persons.csv", "test_dtypes_person]") {
     auto dtypes = csv_data_types(PERSONS_CSV);
 
     REQUIRE(dtypes["Full Name"] == CSV_STRING);
-    REQUIRE(dtypes["Age"] == CSV_INT16);
+    REQUIRE(dtypes["Age"] == CSV_INT8);
     REQUIRE(dtypes["Occupation"] == CSV_STRING);
     REQUIRE(dtypes["Email"] == CSV_STRING);
     REQUIRE(dtypes["Telephone"] == CSV_STRING);

@@ -91,11 +91,11 @@ namespace csv {
         CONSTEXPR bool is_str() { return type() == CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT16; }
+        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT16) && (type() <= CSV_INT64);
+            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */

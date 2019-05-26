@@ -11,13 +11,13 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string a("1"), b(" 2018   "), c(" -69 ");
     long double out;
 
-    REQUIRE(data_type(a, &out) ==  CSV_INT16);
+    REQUIRE(data_type(a, &out) ==  CSV_INT8);
     REQUIRE(out == 1);
 
     REQUIRE(data_type(b, &out) == CSV_INT16);
     REQUIRE(out == 2018);
 
-    REQUIRE(data_type(c, &out) == CSV_INT16);
+    REQUIRE(data_type(c, &out) == CSV_INT8);
     REQUIRE(out == -69);
 }
 

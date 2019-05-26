@@ -25,6 +25,7 @@ namespace csv {
         UNKNOWN = -1,
         CSV_NULL,
         CSV_STRING,
+        CSV_INT8,
         CSV_INT16,
         CSV_INT32,
         CSV_INT64,
@@ -68,6 +69,14 @@ namespace csv {
         inline DataType type_num() {
             static_assert(std::is_integral<T>::value, "T should be an integral type.");
 
+            if constexpr (sizeof(T) == 1) {
+                return CSV_INT8;
+            }
+
+            if constexpr (sizeof(T) == 2) {
+                return CSV_INT16;
+            }
+
             if constexpr (sizeof(T) == 4) {
                 return CSV_INT32;
             }
@@ -89,6 +98,8 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
+            case CSV_INT8:
+                return "int8";
             case CSV_INT16:
                 return "int16";
             case CSV_INT32:
@@ -104,17 +115,40 @@ namespace csv {
 
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
-        /** Largest number that can be stored in an integer */
-        constexpr long double _SHORT_MAX = (long double)std::numeric_limits<short>::max();
+        template<size_t Bytes>
+        constexpr long double get_int_max() {
+            if constexpr (sizeof(signed char) == Bytes) {
+                return (long double)std::numeric_limits<signed char>::max();
+            }
 
-        /** Largest number that can be stored in an integer */
-        constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
+            if constexpr (sizeof(short) == Bytes) {
+                return (long double)std::numeric_limits<short>::max();
+            }
+            
+            if constexpr (sizeof(int) == Bytes) {
+                return (long double)std::numeric_limits<int>::max();
+            }
 
-        /** Largest number that can be stored in a long int */
-        constexpr long double _LONG_MAX = (long double)std::numeric_limits<long int>::max();
+            if constexpr (sizeof(long int) == Bytes) {
+                return (long double)std::numeric_limits<long int>::max();
+            }
 
-        /** Largest number that can be stored in an long long int */
-        constexpr long double _LONG_LONG_MAX = (long double)std::numeric_limits<long long int>::max();
+            if constexpr (sizeof(long long int) == Bytes) {
+                return (long double)std::numeric_limits<long long int>::max();
+            }
+        }
+
+        /** Largest number that can be stored in a 1-bit integer */
+        constexpr long double _INT8_MAX = get_int_max<1>();
+
+        /** Largest number that can be stored in a 16-bit integer */
+        constexpr long double _INT16_MAX = get_int_max<2>();
+
+        /** Largest number that can be stored in a 32-bit integer */
+        constexpr long double _INT32_MAX = get_int_max<4>();
+
+        /** Largest number that can be stored in a 64-bit integer */
+        constexpr long double _INT64_MAX = get_int_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
@@ -128,7 +162,7 @@ namespace csv {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT16 && result <= CSV_DOUBLE) {
+            if (result >= CSV_INT8 && result <= CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -144,12 +178,13 @@ namespace csv {
             // We can assume number is always non-negative
             assert(number >= 0);
 
-            // TODO: Refactor
-            if (number < _SHORT_MAX)
+            if (number < _INT8_MAX)
+                return CSV_INT8;
+            else if (number < _INT16_MAX)
                 return CSV_INT16;
-            else if (number < _INT_MAX)
+            else if (number < _INT32_MAX)
                 return CSV_INT32;
-            else if (number < _LONG_LONG_MAX)
+            else if (number < _INT64_MAX)
                 return CSV_INT64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;
