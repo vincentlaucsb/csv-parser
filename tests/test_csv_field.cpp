@@ -52,7 +52,7 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
         this_year.get<signed char>();
     }
     catch (std::runtime_error& err) {
-        REQUIRE(err.what() == std::string("Overflow error."));
+        REQUIRE(err.what() == csv::internals::ERROR_OVERFLOW);
         ex_caught = true;
     }
 
@@ -77,7 +77,7 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_
         euler.get<TestType>();
     }
     catch (std::runtime_error& err) {
-        REQUIRE(err.what() == std::string("Attempted to convert a floating point value to an integral type."));
+        REQUIRE(err.what() == csv::internals::ERROR_FLOAT_TO_INT);
         ex_caught = true;
     }
 

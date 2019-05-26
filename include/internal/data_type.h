@@ -115,6 +115,7 @@ namespace csv {
 
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
+
         template<size_t Bytes>
         constexpr long double get_int_max() {
             if constexpr (sizeof(signed char) == Bytes) {
@@ -124,7 +125,7 @@ namespace csv {
             if constexpr (sizeof(short) == Bytes) {
                 return (long double)std::numeric_limits<short>::max();
             }
-            
+
             if constexpr (sizeof(int) == Bytes) {
                 return (long double)std::numeric_limits<int>::max();
             }
@@ -139,16 +140,16 @@ namespace csv {
         }
 
         /** Largest number that can be stored in a 1-bit integer */
-        constexpr long double _INT8_MAX = get_int_max<1>();
+        constexpr long double CSV_INT8_MAX = get_int_max<1>();
 
         /** Largest number that can be stored in a 16-bit integer */
-        constexpr long double _INT16_MAX = get_int_max<2>();
+        constexpr long double CSV_INT16_MAX = get_int_max<2>();
 
         /** Largest number that can be stored in a 32-bit integer */
-        constexpr long double _INT32_MAX = get_int_max<4>();
+        constexpr long double CSV_INT32_MAX = get_int_max<4>();
 
         /** Largest number that can be stored in a 64-bit integer */
-        constexpr long double _INT64_MAX = get_int_max<8>();
+        constexpr long double CSV_INT64_MAX = get_int_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
@@ -178,13 +179,13 @@ namespace csv {
             // We can assume number is always non-negative
             assert(number >= 0);
 
-            if (number < _INT8_MAX)
+            if (number < internals::CSV_INT8_MAX)
                 return CSV_INT8;
-            else if (number < _INT16_MAX)
+            else if (number < internals::CSV_INT16_MAX)
                 return CSV_INT16;
-            else if (number < _INT32_MAX)
+            else if (number < internals::CSV_INT32_MAX)
                 return CSV_INT32;
-            else if (number < _INT64_MAX)
+            else if (number < internals::CSV_INT64_MAX)
                 return CSV_INT64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;

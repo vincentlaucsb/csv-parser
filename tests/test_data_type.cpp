@@ -2,8 +2,6 @@
 #include "csv.hpp"
 #include <string>
 
-#define INT_IS_LONG_INT
-
 using namespace csv;
 using namespace csv::internals;
 

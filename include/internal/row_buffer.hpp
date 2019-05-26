@@ -41,7 +41,7 @@ namespace csv {
              *  @param[in] _col_names Pointer to a vector of column names
              */
             RawRowBuffer(const std::string& _buffer, const std::vector<unsigned short>& _splits,
-                const std::shared_ptr<internals::ColNames>& _col_names) :
+                const std::shared_ptr<ColNames>& _col_names) :
                 buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
 
             csv::string_view get_row();      /**< Return a string_view over the current_row */

@@ -19,6 +19,9 @@
 namespace csv {
     namespace internals {
         static const std::string ERROR_NAN = "Not a number.";
+        static const std::string ERROR_OVERFLOW = "Overflow error.";
+        static const std::string ERROR_FLOAT_TO_INT =
+            "Attempted to convert a floating point value to an integral type.";
     }
 
     /**
@@ -66,15 +69,14 @@ namespace csv {
             
             if constexpr (std::is_integral<T>::value) {
                 if (this->is_float()) {
-                    throw std::runtime_error("Attempted to convert a floating point value "
-                        "to an integral type.");
+                    throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
                 }
             }
 
             // Allow fallthrough from previous if branch
             if constexpr (!std::is_floating_point<T>::value) {
                 if (internals::type_num<T>() < this->_type) {
-                    throw std::runtime_error("Overflow error.");
+                    throw std::runtime_error(internals::ERROR_OVERFLOW);
                 }
             }
 
