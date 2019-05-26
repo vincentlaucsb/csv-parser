@@ -1,5 +1,7 @@
 #include "csv.hpp"
 #include "catch.hpp"
+#include <cmath>
+#include <iostream>
 using namespace csv;
 
 TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]",
@@ -45,7 +47,7 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
 }
 
 TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",
-    short, int, long long int) {
+    int, long long int) {
     CSVField euler("2.718");
     bool ex_caught = false;
 

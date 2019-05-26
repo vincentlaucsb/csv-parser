@@ -25,10 +25,8 @@ namespace csv {
         UNKNOWN = -1,
         CSV_NULL,
         CSV_STRING,
-        CSV_SHORT,
-        CSV_INT,
-        CSV_LONG_INT,
-        CSV_LONG_LONG_INT,
+        CSV_INT_32,
+        CSV_INT_64,
         CSV_DOUBLE
     };
 
@@ -66,11 +64,20 @@ namespace csv {
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
         template<typename T>
-        DataType type_num();
+        inline DataType type_num() {
+            static_assert(std::is_integral<T>::value, "T should be an integral type.");
 
-        template<> inline DataType type_num<int>() { return CSV_INT; }
-        template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
-        template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
+            if constexpr (sizeof(T) == 4) {
+                return CSV_INT_32;
+            }
+            
+            if constexpr (sizeof(T) == 8) {
+                return CSV_INT_64;
+            }
+
+            HEDLEY_UNREACHABLE_RETURN(UNKNOWN);
+        }
+
         template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
         template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
@@ -81,14 +88,10 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
-            case CSV_SHORT:
-                return "short";
-            case CSV_INT:
-                return "int";
-            case CSV_LONG_INT:
-                return "long int";
-            case CSV_LONG_LONG_INT:
-                return "long long int";
+            case CSV_INT_32:
+                return "int32";
+            case CSV_INT_64:
+                return "int64";
             case CSV_DOUBLE:
                 return "double";
             default:
@@ -119,7 +122,7 @@ namespace csv {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT && result <= CSV_DOUBLE) {
+            if (result >= CSV_INT_32 && result <= CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -135,12 +138,11 @@ namespace csv {
             // We can assume number is always non-negative
             assert(number >= 0);
 
+            // TODO: Refactor
             if (number < _INT_MAX)
-                return CSV_INT;
-            else if (number < _LONG_MAX)
-                return CSV_LONG_INT;
+                return CSV_INT_32;
             else if (number < _LONG_LONG_MAX)
-                return CSV_LONG_LONG_INT;
+                return CSV_INT_64;
             else // Conversion to long long will cause an overflow
                 return CSV_DOUBLE;
         }
