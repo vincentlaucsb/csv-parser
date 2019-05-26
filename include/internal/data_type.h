@@ -25,6 +25,7 @@ namespace csv {
         UNKNOWN = -1,
         CSV_NULL,
         CSV_STRING,
+        CSV_SHORT,
         CSV_INT,
         CSV_LONG_INT,
         CSV_LONG_LONG_INT,
@@ -67,6 +68,7 @@ namespace csv {
         template<typename T>
         DataType type_num();
 
+        template<> inline DataType type_num<short int>() { return CSV_SHORT; }
         template<> inline DataType type_num<int>() { return CSV_INT; }
         template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
         template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
@@ -79,6 +81,8 @@ namespace csv {
             switch (dtype) {
             case CSV_STRING:
                 return "string";
+            case CSV_SHORT:
+                return "short";
             case CSV_INT:
                 return "int";
             case CSV_LONG_INT:

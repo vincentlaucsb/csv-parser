@@ -1,8 +1,11 @@
 #pragma once
 #include "compatibility.hpp"
 #include "constants.hpp"
+#include "data_type.h"
 
 #include <string>
+#include <type_traits>
+#include <unordered_map>
 
 namespace csv {
     /** Returned by get_file_info() */
@@ -38,7 +41,8 @@ namespace csv {
     namespace internals {
         template<typename T>
         inline bool is_equal(T a, T b, T epsilon = 0.001) {
-            /** Returns true if two doubles are about the same */
+            /** Returns true if two floating point values are about the same */
+            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
             return std::abs(a - b) < epsilon;
         }
     }

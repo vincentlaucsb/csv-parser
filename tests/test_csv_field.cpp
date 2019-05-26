@@ -1,5 +1,5 @@
-#include "catch.hpp"
 #include "csv.hpp"
+#include "catch.hpp"
 using namespace csv;
 
 TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]",
@@ -27,8 +27,7 @@ TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
         field.get<double>();
     }
     catch (std::runtime_error& err) {
-        REQUIRE(err.what() == std::string("Attempted to convert a "
-            "value of type string to double."));
+        REQUIRE(err.what() == std::string("String is not a numeric value."));
         ex_caught = true;
     }
 
@@ -47,5 +46,6 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
 TEST_CASE("CSVField Equality Operator", "[test_csv_field_operator==]") {
     CSVField field("3.14");
     REQUIRE(field == "3.14");
+    REQUIRE(field == 3.14f);
     REQUIRE(field == 3.14);
 }

@@ -13,6 +13,7 @@
 
 #include "data_type.h"
 #include "compatibility.hpp"
+#include "csv_utility.hpp"
 #include "row_buffer.hpp"
 
 namespace csv {
@@ -25,6 +26,10 @@ namespace csv {
     public:
         /** Constructs a CSVField from a string_view */
         constexpr explicit CSVField(csv::string_view _sv) : sv(_sv) { };
+
+        operator std::string() const {
+            return std::string("<CSVField> ") + std::string(this->sv);
+        }
 
         /** Returns the value casted to the requested type, performing type checking before.
         *  An std::runtime_error will be thrown if a type mismatch occurs, with the exception
@@ -46,16 +51,26 @@ namespace csv {
         *
         */
         template<typename T=std::string> T get() {
-            auto dest_type = internals::type_num<T>();
-            if (dest_type >= CSV_INT && is_num()) {
-                if (internals::type_num<T>() < this->type())
-                    throw std::runtime_error("Overflow error.");
+            static_assert(!std::is_unsigned<T>::value, "Conversions to unsigned types are not supported.");
 
-                return static_cast<T>(this->value);
+            if constexpr (std::is_arithmetic<T>::value) {
+                if (this->type() <= CSV_STRING) {
+                    throw std::runtime_error("String is not a numeric value.");
+                }
+            }
+            else if constexpr (std::is_integral<T>::value) {
+                if (this->is_float()) {
+                    throw std::runtime_error("Attempted to convert a floating point value"
+                        "to an integral type.");
+                }
             }
 
-            throw std::runtime_error("Attempted to convert a value of type " + 
-                internals::type_name(type()) + " to " + internals::type_name(dest_type) + ".");
+            // Allow fallthrough from previous if branch
+            if (internals::type_num<T>() < this->_type) {
+                throw std::runtime_error("Overflow error.");
+            }
+
+            return static_cast<T>(this->value);
         }
 
         template<typename T>
@@ -239,6 +254,7 @@ namespace csv {
     }
 #pragma endregion CSVField::get Specializations
 
+
     /** Compares the contents of this field to a numeric value. If this
      *  field does not contain a numeric value, then all comparisons return
      *  false.
@@ -258,7 +274,7 @@ namespace csv {
                 return false;
             }
 
-            return value == other;
+            return internals::is_equal(value, static_cast<long double>(other));
         }
 
         long double out = 0;
@@ -266,7 +282,7 @@ namespace csv {
             return false;
         }
 
-        return out == other;
+        return internals::is_equal(out, static_cast<long double>(other));
     }
 
     template<>
@@ -280,4 +296,9 @@ namespace csv {
     {
         return this->sv == other;
     }
+}
+
+inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
+    os << std::string(value);
+    return os;
 }
