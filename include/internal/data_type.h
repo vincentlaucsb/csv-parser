@@ -133,7 +133,7 @@ namespace csv {
                 return (long double)std::numeric_limits<long long int>::max();
             }
 
-            HEDLEY_UNREACHABLE_RETURN();
+            HEDLEY_UNREACHABLE();
         }
 
         /** Largest number that can be stored in a 1-bit integer */
