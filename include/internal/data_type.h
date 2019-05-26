@@ -68,7 +68,6 @@ namespace csv {
         template<typename T>
         DataType type_num();
 
-        template<> inline DataType type_num<short int>() { return CSV_SHORT; }
         template<> inline DataType type_num<int>() { return CSV_INT; }
         template<> inline DataType type_num<long int>() { return CSV_LONG_INT; }
         template<> inline DataType type_num<long long int>() { return CSV_LONG_LONG_INT; }
@@ -99,7 +98,6 @@ namespace csv {
 
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
-
         /** Largest number that can be stored in an integer */
         constexpr long double _INT_MAX = (long double)std::numeric_limits<int>::max();
 

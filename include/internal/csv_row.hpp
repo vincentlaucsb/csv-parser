@@ -17,6 +17,10 @@
 #include "row_buffer.hpp"
 
 namespace csv {
+    namespace internals {
+        static const std::string ERROR_NAN = "Not a number.";
+    }
+
     /**
     * @class CSVField
     * @brief Data type representing individual CSV values. 
@@ -41,6 +45,7 @@ namespace csv {
         *   - int
         *   - long
         *   - long long
+        *   - float
         *   - double
         *   - long double
         *
@@ -55,7 +60,7 @@ namespace csv {
 
             if constexpr (std::is_arithmetic<T>::value) {
                 if (this->type() <= CSV_STRING) {
-                    throw std::runtime_error("String is not a numeric value.");
+                    throw std::runtime_error(internals::ERROR_NAN);
                 }
             }
             
@@ -67,8 +72,10 @@ namespace csv {
             }
 
             // Allow fallthrough from previous if branch
-            if (internals::type_num<T>() < this->_type) {
-                throw std::runtime_error("Overflow error.");
+            if constexpr (!std::is_floating_point<T>::value) {
+                if (internals::type_num<T>() < this->_type) {
+                    throw std::runtime_error("Overflow error.");
+                }
             }
 
             return static_cast<T>(this->value);
@@ -249,7 +256,7 @@ namespace csv {
     template<>
     CONSTEXPR long double CSVField::get<long double>() {
         if (!is_num())
-            throw std::runtime_error("Not a number.");
+            throw std::runtime_error(internals::ERROR_NAN);
 
         return this->value;
     }

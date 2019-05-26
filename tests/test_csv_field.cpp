@@ -13,6 +13,7 @@ TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]
         field.get<TestType>();
     }
     catch (std::runtime_error& err) {
+        REQUIRE(err.what() == csv::internals::ERROR_NAN);
         ex_caught = true;
     }
 
@@ -27,7 +28,7 @@ TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
         field.get<double>();
     }
     catch (std::runtime_error& err) {
-        REQUIRE(err.what() == std::string("String is not a numeric value."));
+        REQUIRE(err.what() == csv::internals::ERROR_NAN);
         ex_caught = true;
     }
 
