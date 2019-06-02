@@ -7,8 +7,13 @@
 #include "csv_row.hpp"
 
 namespace csv {
-    /** @brief      Return a string view of the nth field
-     *  @complexity Constant
+    /** Return a string view of the nth field
+     *
+     *  @complexity
+     *  Constant
+     *
+     *  @throws
+     *  std::runtime_error If n is out of bounds
      */
     csv::string_view CSVRow::get_string_view(size_t n) const {
         csv::string_view ret(this->row_str);
@@ -43,23 +48,25 @@ namespace csv {
         );
     }
 
-    /** @brief Return a CSVField object corrsponding to the nth value in the row.
+    /** Return a CSVField object corrsponding to the nth value in the row.
      *
-     *  This method performs boounds checking, and will throw an std::runtime_error
-     *  if n is invalid.
+     *  @note This method performs bounds checking, and will throw an
+     *        `std::runtime_error` if n is invalid.
      *
-     *  @complexity Constant, by calling CSVRow::get_csv::string_view()
+     *  @complexity
+     *  Constant, by calling csv::CSVRow::get_csv::string_view()
      *
      */
     CSVField CSVRow::operator[](size_t n) const {
         return CSVField(this->get_string_view(n));
     }
 
-    /** @brief Retrieve a value by its associated column name. If the column
-     *         specified can't be round, a runtime error is thrown.
+    /** Retrieve a value by its associated column name. If the column
+     *  specified can't be round, a runtime error is thrown.
      *
-     *  @complexity Constant. This calls the other CSVRow::operator[]() after
-                    converting column names into indices using a hash table.
+     *  @complexity
+     *  Constant. This calls the other CSVRow::operator[]() after
+     *  converting column names into indices using a hash table.
      *
      *  @param[in] col_name The column to look for
      */
@@ -72,10 +79,6 @@ namespace csv {
         throw std::runtime_error("Can't find a column named " + col_name);
     }
 
-    /** Convert this CSVRow into a vector of strings.
-     *  **Note**: This is a less efficient method of
-     *  accessing data than using the [] operator.
-     */
     CSVRow::operator std::vector<std::string>() const {
 
         std::vector<std::string> ret;
@@ -86,14 +89,15 @@ namespace csv {
     }
 
 #pragma region CSVRow Iterator
-    /** @brief Return an iterator pointing to the first field. */
+    /** Return an iterator pointing to the first field. */
     CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
     }
 
-    /** @brief Return an iterator pointing to just after the end of the CSVRow.
+    /** Return an iterator pointing to just after the end of the CSVRow.
      *
-     *  Attempting to dereference the end iterator results in undefined behavior.
+     *  @warning Attempting to dereference the end iterator results
+     *           in dereferencing a null pointer.
      */
     CSVRow::iterator CSVRow::end() const {
         return CSVRow::iterator(this, (int)this->size());
@@ -178,7 +182,7 @@ namespace csv {
         return CSVRow::iterator::operator+(-n);
     }
 
-    /** @brief Two iterators are equal if they point to the same field */
+    /** Two iterators are equal if they point to the same field */
     bool CSVRow::iterator::operator==(const iterator& other) const {
         return this->i == other.i;
     }

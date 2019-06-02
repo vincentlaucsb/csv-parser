@@ -1,3 +1,8 @@
+/** @file
+ *  Defines an object which can store CSV data in
+ *  continuous regions of memory
+ */
+
 #pragma once
 #include <memory>
 #include <vector>
@@ -30,7 +35,26 @@ namespace csv {
             size_t size() const;
         };
 
-        /** Class for reducing number of new string malloc() calls */
+        /** Class for reducing number of new string and new vector
+         *  and malloc calls
+         *
+         *  @par Motivation
+         *  By storing CSV strings in a giant string (as opposed to an
+         *  `std::vector` of smaller strings), we vastly reduce the number
+         *  of calls to `malloc()`, thus speeding up the program.
+         *  However, by doing so we will need a way to tell where different
+         *  fields are located within this giant string.
+         *  Hence, an array of indices is also maintained.
+         *
+         *  @warning
+         *  `reset()` should be called somewhat often in the code. Since each
+         *  `csv::CSVRow` contains an `std::shared_ptr` to a RawRowBuffer,
+         *  the buffers do not get deleted until every CSVRow referencing it gets
+         *  deleted. If RawRowBuffers get very large, then so will memory consumption.
+         *  Currently, `reset()` is called by `csv::CSVReader::feed()` at the end of 
+         *  every sequence of bytes parsed.
+         *  
+         */
         class RawRowBuffer {
         public:
             RawRowBuffer() = default;
@@ -53,7 +77,7 @@ namespace csv {
 
             std::string buffer;              /**< Buffer for storing text */
             SplitArray split_buffer = {};    /**< Array for storing indices (in buffer)
-                                                 of where CSV fields start */
+                                                  of where CSV fields start */
             ColNamesPtr col_names = nullptr; /**< Pointer to column names */
 
         private:

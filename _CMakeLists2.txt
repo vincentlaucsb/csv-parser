@@ -7,6 +7,13 @@ set(CSV_DEVELOPER TRUE)
 
 # Generate a single header library
 add_custom_target(generate_single_header
-	COMMAND python single_header.py > single_include/csv.hpp
-	WORKING_DIRECTORY ${CSV_ROOT_DIR}
+    COMMAND python single_header.py > single_include/csv.hpp
+    WORKING_DIRECTORY ${CSV_ROOT_DIR}
+)
+
+# Documentation
+find_package(Doxygen QUIET)
+add_custom_target(doxygen
+    COMMAND Doxygen ${CSV_ROOT_DIR}/Doxyfile
+    WORKING_DIRECTORY ${CSV_ROOT_DIR}
 )

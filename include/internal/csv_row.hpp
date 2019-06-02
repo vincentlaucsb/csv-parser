@@ -40,18 +40,22 @@ namespace csv {
 
         /** Returns the value casted to the requested type, performing type checking before.
         *
-        *  **Valid options for T**:
+        *  \par Valid options for T
         *   - std::string or csv::string_view
         *   - signed integral types (signed char, short, int, long int, long long int)
         *   - floating point types (float, double, long double)
         *   - unsigned integers are not supported at this time, but may be in a later release
         *
-        *  @note    The following are considered invalid conversions
-        *            - Converting non-numeric values to any numeric type
-        *            - Converting floating point values to integers
-        *            - Converting a large integer to a smaller type that will not hold it
+        *  \par Invalid conversions
+        *   - Converting non-numeric values to any numeric type
+        *   - Converting floating point values to integers
+        *   - Converting a large integer to a smaller type that will not hold it
         *
-        *  @throws  std::runtime_error If an invalid conversion is performed.
+        *  @note    This method is capable of parsing scientific E-notation.
+        *           See [this page](md_docs_source_scientific_notation.html)
+        *           for more details.
+        *
+        *  @throws  std::runtime_error Thrown if an invalid conversion is performed.
         *
         *  @warning Currently, conversions to floating point types are not
         *           checked for loss of precision
@@ -91,8 +95,14 @@ namespace csv {
          *  field does not contain a numeric value, then all comparisons return
          *  false.
          *
+         *  @note    Floating point values are considered equal if they are within
+         *           `0.000001` of each other.
+         *
          *  @warning Multiple numeric comparisons involving the same field can
          *           be done more efficiently by calling the CSVField::get<>() method.
+         *
+         *  @sa      csv::CSVField::operator==(const char * other)
+         *  @sa      csv::CSVField::operator==(csv::string_view other)
          */
         template<typename T>
         bool operator==(T other) const
@@ -153,18 +163,7 @@ namespace csv {
         }
     };
 
-    /**
-     * @class CSVRow 
-     * @brief Data structure for representing CSV rows
-     *
-     * Internally, a CSVRow consists of:
-     *  - A pointer to the original column names
-     *  - A string containing the entire CSV row (row_str)
-     *  - An array of positions in that string where individual fields begin (splits)
-     *
-     * CSVRow::operator[] uses splits to compute a string_view over row_str.
-     *
-     */
+    /** Data structure for representing CSV rows */
     class CSVRow {
     public:
         CSVRow() = default;
@@ -187,7 +186,7 @@ namespace csv {
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const { return this->row_str.empty(); }
 
-        /** @brief Return the number of fields in this row */
+        /** Return the number of fields in this row */
         CONSTEXPR size_t size() const { return this->n_cols; }
 
         /** @name Value Retrieval */
@@ -195,11 +194,16 @@ namespace csv {
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
         csv::string_view get_string_view(size_t n) const;
+
+        /** Convert this CSVRow into a vector of strings.
+         *  **Note**: This is a less efficient method of
+         *  accessing data than using the [] operator.
+         */
         operator std::vector<std::string>() const;
         ///@}
 
-        /** @brief A random access iterator over the contents of a CSV row.
-         *         Each iterator points to a CSVField.
+        /** A random access iterator over the contents of a CSV row.
+         *  Each iterator points to a CSVField.
          */
         class iterator {
         public:
@@ -294,12 +298,14 @@ namespace csv {
     }
 #pragma endregion CSVField::get Specializations
 
+    /** Compares the contents of this field to a string */
     template<>
     inline bool CSVField::operator==(const char * other) const
     {
         return this->sv == other;
     }
 
+    /** Compares the contents of this field to a string */
     template<>
     inline bool CSVField::operator==(csv::string_view other) const
     {

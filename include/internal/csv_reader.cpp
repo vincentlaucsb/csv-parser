@@ -1,3 +1,7 @@
+/** @file
+ *  @brief Defines functionality needed for basic CSV parsing
+ */
+
 #include "csv_reader.hpp"
 #include "csv_reader.hpp"
 #include "csv_reader.hpp"
@@ -9,10 +13,6 @@
 
 #include "constants.hpp"
 #include "csv_reader.hpp"
-
-/** @file
- *  @brief Defines all functionality needed for basic CSV parsing
- */
 
 namespace csv {
     namespace internals {
@@ -288,8 +288,11 @@ namespace csv {
     void CSVReader::feed(csv::string_view in) {
         /** Parse a CSV-formatted string.
          *
+         *  @par Usage
          *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
-         *  **Note**: end_feed() should be called after the last string
+         *  
+         *  @note
+         *  `end_feed()` should be called after the last string.
          */
 
         this->handle_unicode_bom(in);
@@ -522,6 +525,10 @@ namespace csv {
         }
     }
 
+    /** Close the open file handle.
+     *
+     *  @note Automatically called by ~CSVReader().
+     */
     void CSVReader::close() {
         if (this->infile) {
             std::fclose(this->infile);

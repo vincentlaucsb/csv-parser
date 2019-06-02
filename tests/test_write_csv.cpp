@@ -52,6 +52,7 @@ TEST_CASE("CSV to Stringstream", "[test_csv_sstream1]") {
     REQUIRE(out.str() == correct.str());
 }
 
+//! [CSV Writer Example]
 TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
     std::vector<std::string>, std::deque<std::string>, std::list<std::string>) {
     std::stringstream output, correct_comma, correct_tab;
@@ -78,6 +79,7 @@ TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
         REQUIRE(output.str() == correct_tab.str());
     }
 }
+//! [CSV Writer Example]
 
 /*
 TEST_CASE("CSV Round Trip", "[test_csv_roundtrip]") {

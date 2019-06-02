@@ -47,7 +47,7 @@ do not hesitate to report it.
 
 ## Documentation
 
-In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](http://vincela.com/csv) contains more tips and tricks, interesting features, and instructions for less common use cases.
+In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](http://vincela.com/csv) contains more examples, details, interesting features, and instructions for less common use cases.
 
 ## Integration
 

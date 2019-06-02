@@ -1,3 +1,7 @@
+/** @file
+ *  @brief Implements data type parsing functionality
+ */
+
 #pragma once
 #include <math.h>
 #include <cctype>
@@ -113,6 +117,9 @@ namespace csv {
          */
         template<size_t Bytes>
         CONSTEXPR long double get_int_max() {
+            static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
+                "Bytes must be a power of 2 below 8.");
+
             IF_CONSTEXPR (sizeof(signed char) == Bytes) {
                 return (long double)std::numeric_limits<signed char>::max();
             }

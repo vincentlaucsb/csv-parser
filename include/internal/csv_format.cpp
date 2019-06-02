@@ -1,3 +1,7 @@
+/** @file
+ *  Defines an object used to store CSV format settings
+ */
+
 #include "csv_format.hpp"
 
 namespace csv {
