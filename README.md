@@ -16,6 +16,7 @@
       * [Setting Column Names](#setting-column-names)
    * [Parsing an In-Memory String](#parsing-an-in-memory-string)
    * [Writing CSV Files](#writing-csv-files)
+ * [Contributing](#contributing)
 
 ## Motivation
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
@@ -55,11 +56,11 @@ This library was developed with Microsoft Visual Studio and is compatible with g
 All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
 ### C++ Version
-While C++17 is recommended, C++11 is the minimum version quired. This library makes extensive use of string views, using
+While C++17 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
 ### Single Header
-This library is available as a single `.hpp` file under `single_include/csv.hpp`.
+This library is available as a single `.hpp` file under [`single_include/csv.hpp`](single_include/csv.hpp).
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
