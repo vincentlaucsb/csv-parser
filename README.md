@@ -21,11 +21,7 @@
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
 
 ### Performance
-This CSV library contains many performance enhancements, such as:
- * Using threads to simulatenously read from disk and parse
- * Storing CSV data in continuous memory regions
- * Reading CSVs in chunks (as opposed to reading an entire file at once)
- * Quick numeric parsing
+This CSV parser uses multiple threads to simulatenously pull data from disk and parse it. Furthermore, it is capable of incremental streaming (parsing larger than RAM files), and quickly parsing data types.
 
 #### Show me the numbers
 *(To be expanded)*
