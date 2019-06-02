@@ -5,19 +5,27 @@
  * [Motivation](#motivation)
  * [Documentation](#documentation)
  * [Integration](#integration)
-   * [C++ Version](#c---version)
+   * [C++ Version](#c-version)
    * [Single Header](#single-header)
    * [CMake Instructions](#cmake-instructions)
  * [Features & Examples](#features--examples)
+   * [Reading a Large File (with Iterators)](#reading-a-large-file-with-iterators)
+   * [Indexing by Column Names](#indexing-by-column-names)
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
+      * [Setting Column Names](#setting-column-names)
+   * [Parsing an In-Memory String](#parsing-an-in-memory-string)
    * [Writing CSV Files](#writing-csv-files)
 
 ## Motivation
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
 
 ### Performance
-This CSV parser uses multiple threads to simulatenously pull data from disk and parse it. Furthermore, it is capable of incremental streaming (parsing larger than RAM files), and quickly parsing data types.
+This CSV library contains many performance enhancements, such as:
+ * Using threads to simulatenously read from disk and parse
+ * Storing CSV data in continuous memory regions
+ * Reading CSVs in chunks (as opposed to reading an entire file at once)
+ * Quick numeric parsing
 
 #### Show me the numbers
 *(To be expanded)*
@@ -162,7 +170,7 @@ for (auto& row: reader) {
 
 ```
 
-### Specfiying the CSV Format
+### Specifying the CSV Format
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
 ```cpp
