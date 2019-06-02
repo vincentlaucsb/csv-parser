@@ -1,3 +1,7 @@
+/** @file
+  *  A standalone header file for writing delimiter-separated files
+  */
+
 #pragma once
 #include <iostream>
 #include <vector>
@@ -6,10 +10,6 @@
 #include "compatibility.hpp"
 
 namespace csv {
-    /** @file
-     *  A standalone header file for writing delimiter-separated files
-     */
-
     /** @name CSV Writing */
     ///@{
     #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -56,17 +56,30 @@ namespace csv {
      *
      *  To write formatted strings, one should
      *   -# Initialize a DelimWriter with respect to some output stream 
-     *      (e.g. std::ifstream or std::stringstream)
      *   -# Call write_row() on std::vector<std::string>s of unformatted text
      *
-     *  **Hint**: Use the aliases CSVWriter<OutputStream> to write CSV
-     *  formatted strings and TSVWriter<OutputStream>
+     *  @tparam OutputStream The output stream, e.g. `std::ofstream`, `std::stringstream`
+     *  @tparam Delim        The delimiter character
+     *  @tparam Quote        The quote character
+     *
+     *  @par Hint
+     *  Use the aliases csv::CSVWriter<OutputStream> to write CSV
+     *  formatted strings and csv::TSVWriter<OutputStream>
      *  to write tab separated strings
+     *
+     *  @par Example
+     *  @snippet test_write_csv.cpp CSV Writer Example
      */
     template<class OutputStream, char Delim, char Quote>
     class DelimWriter {
     public:
+        /** Construct a DelimWriter over the specified output stream */
         DelimWriter(OutputStream& _out) : out(_out) {};
+
+        /** Construct a DelimWriter over the file
+         *
+         *  @param[out] filename  File to write to
+         */
         DelimWriter(const std::string& filename) : DelimWriter(std::ifstream(filename)) {};
 
         /** Format a sequence of strings and write to CSV according to RFC 4180
@@ -89,9 +102,11 @@ namespace csv {
             out << std::endl;
         }
 
+        /** @copydoc write_row
+         *  @return  The current DelimWriter instance (allowing for operator chaining)
+         */
         template<typename T, typename Alloc, template <typename, typename> class Container>
         DelimWriter& operator<<(const Container<T, Alloc>& record) {
-            /** Calls write_row() on record */
             this->write_row(record);
             return *this;
         }
@@ -105,14 +120,24 @@ namespace csv {
     DelimWriter(OutputStream&) -> DelimWriter<OutputStream>;
     */
 
-    /** @typedef CSVWriter
-     *  @brief   Class for writing CSV files
+    /** Class for writing CSV files
+     *
+     *  @sa csv::DelimWriter::write_row()
+     *  @sa csv::DelimWriter::operator<<()
+     *
+     *  @note Use `csv::make_csv_writer()` to in instatiate this class over
+     *        an actual output stream.
      */
     template<class OutputStream>
     using CSVWriter = DelimWriter<OutputStream, ',', '"'>;
 
-    /** @typedef TSVWriter
-     *  @brief    Class for writing tab-separated values files
+    /** Class for writing tab-separated values files
+*
+     *  @sa csv::DelimWriter::write_row()
+     *  @sa csv::DelimWriter::operator<<()
+     *
+     *  @note Use `csv::make_tsv_writer()` to in instatiate this class over
+     *        an actual output stream.
      */
     template<class OutputStream>
     using TSVWriter = DelimWriter<OutputStream, '\t', '"'>;

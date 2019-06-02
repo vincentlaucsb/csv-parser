@@ -7,7 +7,7 @@ namespace csv {
     /** Shorthand function for parsing an in-memory CSV string,
      *  a collection of CSVRow objects
      *
-     *  \snippet tests/test_read_csv.cpp Parse Example
+     *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSVCollection parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
@@ -19,8 +19,8 @@ namespace csv {
     /** Parse a RFC 4180 CSV string, returning a collection
      *  of CSVRow objects
      *
-     *  **Example:**
-     *  \snippet tests/test_read_csv.cpp Escaped Comma
+     *  @par Example
+     *  @snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
     CSVCollection operator ""_csv(const char* in, size_t n) {
@@ -55,7 +55,7 @@ namespace csv {
     }
 
     /** @brief Get basic information about a CSV file
-     *  \include programs/csv_info.cpp
+     *  @include programs/csv_info.cpp
      */
     CSVFileInfo get_file_info(const std::string& filename) {
         CSVReader reader(filename);

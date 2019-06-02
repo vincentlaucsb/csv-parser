@@ -1,3 +1,7 @@
+/** @file
+ *  @brief Defines an input iterator for csv::CSVReader
+ */
+
 #include "csv_reader.hpp"
 
 namespace csv {

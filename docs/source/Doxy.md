@@ -1,169 +1,67 @@
-# Introduction
+# Vince's CSV Library
 
-https://github.com/vincentlaucsb/csv-parser
+This is the detailed documentation for Vince's CSV library. 
+For quick examples, go to this project's [GitHub page](https://github.com/vincentlaucsb/csv-parser).
 
-## Main Features
-### Reading a Large File (with Iterators)
-With this library, you can easily stream over a large file without reading its entirety into memory.
+## Outline
 
-**C++ Style**
-```cpp
-# include "csv.hpp"
+### CSV Reading
+ * csv::CSVFormat: \copybrief csv::CSVFormat
+ * csv::CSVReader
+  * csv::CSVReader::correct_rows: \copybrief csv::CSVReader::correct_rows
+  * csv::CSVReader::utf8_bom: \copybrief csv::CSVReader::utf8_bom
+  * csv::CSVReader::get_format(): \copybrief csv::CSVReader::get_format()
+  * Manually parsing string fragments
+      * csv::CSVReader::feed()
+  * Retrieving data
+      * csv::CSVReader::read_row()
+      * csv::CSVReader::iterator
+        * csv::CSVReader::begin()
+        * csv::CSVReader::end()
+ * csv::parse()
+ * csv::operator ""_csv()
 
-using namespace csv;
+ ### See also
+ [Dealing with Variable Length CSV Rows](md_docs_source_variable_row_lengths.html)
 
-...
+ ### Working with parsed data
+ * csv::CSVRow: \copybrief csv::CSVRow
+  * csv::CSVRow::operator std::vector<std::string>()
+  * csv::CSVRow::iterator
+    * csv::CSVRow::begin()
+    * csv::CSVRow::end()
+ * csv::CSVField
+  * csv::CSVField::get(): \copybrief csv::CSVField::get()
+  * csv::CSVField::operator==()
 
-CSVReader reader("very_big_file.csv");
+### Statistics
+ * csv::CSVStat
 
-for (CSVRow& row: reader) { // Input iterator
-    for (CSVField& field: row) {
-        // By default, get<>() produces a std::string.
-        // A more efficient get<string_view>() is also available, where the resulting
-        // string_view is valid as long as the parent CSVRow is alive
-        std::cout << field.get<>() << ...
-    }
-}
+### Writing
+ * csv::DelimWriter
+   * csv::CSVWriter
+   * csv::TSVWriter
 
-...
-```
+## Frequently Asked Questions
 
-**Old-Fashioned C Style Loop**
-```cpp
-...
+### How does automatic starting row detection work?
+See "How does automatic delimiter detection work?"
 
-CSVReader reader("very_big_file.csv");
-CSVRow row;
- 
-while (reader.read_row(row)) {
-    // Do stuff with row here
-}
+### How does automatic delimiter detection work?
+First, the CSV reader attempts to parse the first 100 lines of a CSV file as if the delimiter were a pipe, tab, comma, etc.
+Out of all the possible delimiter choices, the delimiter which produces the highest number of `rows * columns` (where all rows
+are of a consistent length) is chosen as the winner.
 
-...
-```
+However, if the CSV file has leading comments, or has less than 100 lines, a second heuristic will be used. The CSV reader again
+parses the first 100 lines using each candidate delimiter, but tallies up the length of each row parsed. Then, the delimiter with
+the largest most common row length `n` is chosen as the winner, and the line number where the first row of length `n` occurs
+is chosen as the starting row.
 
-### Indexing by Column Names
-Retrieving values using a column name string is a cheap, constant time operation.
+Because you can subclass csv::CSVReader, you can implement your own guessing hueristic. csv::internals::CSVGuesser may be used as a helpful guide in doing so.
 
-```cpp
-# include "csv.hpp"
-
-using namespace csv;
-
-...
-
-CSVReader reader("very_big_file.csv");
-double sum = 0;
-
-for (auto& row: reader) {
-    // Note: Can also use index of column with [] operator
-    sum += row["Total Salary"].get<double>();
-}
-
-...
-```
-
-### Type Conversions
-If your CSV has lots of numeric values, you can also have this parser (lazily)
-convert them to the proper data type. Type checking is performed on conversions
-to prevent undefined behavior.
-
-**Note:** Conversions to floating point types are not currently checked for loss of precision.
-
-```cpp
-# include "csv.hpp"
-
-using namespace csv;
-
-...
-
-CSVReader reader("very_big_file.csv");
-
-for (auto& row: reader) {
-    if (row["timestamp"].is_int()) {
-		// Can use get<>() with any signed integer type
-        row["timestamp"].get<int>();
-        
-        // ..
-    }
-}
-
-```
-
-### Specifying a Specific Delimiter, Quoting Character, etc.
-Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
-
-```cpp
-# include "csv.hpp"
-# include ...
-
-using namespace csv;
-
-CSVFormat format;
-format.delimiter('\t')
-      .quote('~')
-      .header_row(2);  // Header is on 3rd row (zero-indexed)
-
-// Alternatively, we can use format.delimiter({ '\t', ',', ... })
-// to tell the CSV guesser which delimiters to try out
-
-CSVReader reader("wierd_csv_dialect.csv", format);
-
-for (auto& row: reader) {
-    // Do stuff with rows here
-}
-
-```
-
-### Parsing an In-Memory String
-
-```cpp
-# include "csv.hpp"
-
-using namespace csv;
-
-...
-
-// Method 1: Using parse()
-std::string csv_string = "Actor,Character\r\n"
-    "Will Ferrell,Ricky Bobby\r\n"
-    "John C. Reilly,Cal Naughton Jr.\r\n"
-    "Sacha Baron Cohen,Jean Giard\r\n";
-
-auto rows = parse(csv_string);
-for (auto& r: rows) {
-    // Do stuff with row here
-}
-    
-// Method 2: Using _csv operator
-auto rows = "Actor,Character\r\n"
-    "Will Ferrell,Ricky Bobby\r\n"
-    "John C. Reilly,Cal Naughton Jr.\r\n"
-    "Sacha Baron Cohen,Jean Giard\r\n"_csv;
-
-for (auto& r: rows) {
-    // Do stuff with row here
-}
-
-```
-
-### Writing CSV Files
-
-```cpp
-# include "csv.hpp"
-# include ...
-
-using namespace csv;
-using namespace std;
-
-...
-
-stringstream ss; // Can also use ifstream, etc.
-auto writer = make_csv_writer(ss);
-writer << vector<string>({ "A", "B", "C" })
-    << deque<string>({ "I'm", "too", "tired" })
-    << list<string>({ "to", "write", "documentation" });
-    
-...
-
-```
+### Is the CSV parser thread-safe?
+The csv::CSVReader iterators are intended to be used from one thread at a time. However, csv::CSVRow and csv::CSVField objects should be 
+thread-safe (since they mainly involve reading data). If you want to perform computations on multiple columns in parallel,
+you may want to avoid using the iterators and
+use csv::CSVReader::read_row() to manually chunk your data. csv::CSVStat provides an example of how parallel computations
+may be performed. (Specifically, look at csv::CSVStat::calc() and csv::CSVStat::calc_worker() in csv_stat.cpp).

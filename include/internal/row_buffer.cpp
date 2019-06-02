@@ -1,3 +1,8 @@
+/** @file
+ *  Defines an object which can store CSV data in
+ *  continuous regions of memory
+ */
+
 #include "row_buffer.hpp"
 
 namespace csv {

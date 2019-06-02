@@ -1,13 +1,32 @@
+/** @file
+ *  Defines various compatibility macros
+ */
+
 #pragma once
 #include "../external/string_view.hpp"
 
-#ifndef HEDLEY_VERSION
+// If there is another version of Hedley, then the newer one 
+// takes precedence.
+// See: https://github.com/nemequ/hedley
 #include "../external/hedley.h"
-#endif
 
+/** Used to supress unused variable warning in g++ */
 #define SUPPRESS_UNUSED_WARNING(x) (void)x
 
 namespace csv {
+    /**
+     *  @def IF_CONSTEXPR
+     *  Expands to `if constexpr` in C++17 and `if` otherwise
+     *
+     *  @def CONSTEXPR_VALUE
+     *  Expands to `constexpr` in C++17 and `const` otherwise.
+     *  Mainly used for global variables.
+     *
+     *  @def CONSTEXPR
+     *  Expands to `constexpr` in C++17 and `inline` otherwise.
+     *  Intended for functions and methods.
+     */
+
     #if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
         #define CSV_HAS_CXX17
     #endif

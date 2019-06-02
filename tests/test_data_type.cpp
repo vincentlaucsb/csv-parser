@@ -60,6 +60,11 @@ TEST_CASE("Integer Overflow", "[int_overflow]") {
     s = std::to_string((long long)csv::internals::CSV_INT32_MAX + 1);
     REQUIRE(data_type(s, &out) == CSV_INT64);
     REQUIRE(out == (long long)CSV_INT32_MAX + 1);
+
+    // Case: Integer too large to fit in int64 --> store in long double
+    s = std::to_string((long long)csv::internals::CSV_INT64_MAX);
+    s.append("1");
+    REQUIRE(data_type(s, &out) == CSV_DOUBLE);
 }
 
 TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
@@ -81,6 +86,7 @@ TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
     }
 }
 
+//! [Parse Scientific Notation]
 TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     // Test parsing e notation
     long double out;
@@ -103,7 +109,9 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     REQUIRE(data_type("4.55E-000000000005", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 0.0000455L));
 }
+//! [Parse Scientific Notation]
 
+//! [Scientific Notation Flavors]
 TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diversity]") {
     auto number = GENERATE(as<std::string> {},
         "4.55e5", "4.55E5",
@@ -118,6 +126,7 @@ TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diver
         REQUIRE(is_equal(out, 455000.0L));
     }
 }
+//! [Scientific Notation Flavors]
 
 TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
     // Assert parsing butchered scientific notation won't cause a 
@@ -129,6 +138,6 @@ TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
         "4.55000E40E40");
 
     SECTION("Butchered Parsing Attempt") {
-        REQUIRE(data_type(butchered, &out) == CSV_STRING);
+        REQUIRE(data_type(butchered) == CSV_STRING);
     }
 }

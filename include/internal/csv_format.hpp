@@ -1,3 +1,7 @@
+/** @file
+ *  Defines an object used to store CSV format settings
+ */
+
 #pragma once
 #include <stdexcept>
 #include <string>
@@ -17,7 +21,7 @@ namespace csv {
         /** Sets the delimiter of the CSV file */
         CSVFormat& delimiter(char delim);
 
-        /** Sets a list of pootential delimiters
+        /** Sets a list of potential delimiters
          *  
          *  @param[in] delim An array of possible delimiters to try parsing the CSV with
          */
@@ -26,10 +30,16 @@ namespace csv {
         /** Sets the quote character */
         CSVFormat& quote(char quote);
 
-        /** Sets the column names */
+        /** Sets the column names.
+         *
+         *  @note Unsets any values set by header_row()
+         */
         CSVFormat& column_names(const std::vector<std::string>& names);
 
-        /** Sets the header row */
+        /** Sets the header row
+         *
+         *  @note Unsets any values set by column_names()
+         */
         CSVFormat& header_row(int row);
 
         /** Tells the parser to throw an std::runtime_error if an

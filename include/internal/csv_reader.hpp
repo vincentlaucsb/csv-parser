@@ -1,3 +1,7 @@
+/** @file
+ *  @brief Defines functionality needed for basic CSV parsing
+ */
+
 #pragma once
 #include <array>
 #include <deque>
@@ -16,16 +20,12 @@
 #include "compatibility.hpp"
 #include "row_buffer.hpp"
 
-/** @namespace csv
- *  @brief The all encompassing namespace
- */
+/** The all encompassing namespace */
 namespace csv {
-    /** @brief Integer indicating a requested column wasn't found. */
+    /** Integer indicating a requested column wasn't found. */
     constexpr int CSV_NOT_FOUND = -1;
 
-    /** @namespace csv::internals
-     *  @brief Stuff that is generally not of interest to end-users
-     */
+    /** Stuff that is generally not of interest to end-users */
     namespace internals {
         std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
@@ -41,14 +41,14 @@ namespace csv {
     class CSVReader {
     public:
         /**
-         * @brief An input iterator capable of handling large files.
-         * Created by CSVReader::begin() and CSVReader::end().
+         * An input iterator capable of handling large files.
+         * @note Created by CSVReader::begin() and CSVReader::end().
          *
-         * **Iterating over a file:**
-         * \snippet tests/test_csv_iterator.cpp CSVReader Iterator 1
+         * @par Iterating over a file
+         * @snippet tests/test_csv_iterator.cpp CSVReader Iterator 1
          *
-         * **Using with <algorithm> library:**
-         * \snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
+         * @par Using with `<algorithm>` library
+         * @snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
          */
         class iterator {
         public:
@@ -128,7 +128,6 @@ namespace csv {
         bool utf8_bom = false;       /**< Set to true if UTF-8 BOM was detected */
         ///@}
 
-        /** Close the open file handle. Automatically called by ~CSVReader(). */
         void close();
 
         friend CSVCollection parse(csv::string_view, CSVFormat);
@@ -239,6 +238,10 @@ namespace csv {
     namespace internals {
         /** Class for guessing the delimiter & header row number of CSV files */
         class CSVGuesser {
+
+            /** Private subclass of csv::CSVReader which performs statistics 
+             *  on row lengths
+             */
             struct Guesser : public CSVReader {
                 using CSVReader::CSVReader;
                 void bad_row_handler(std::vector<std::string> record) override;

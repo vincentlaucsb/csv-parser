@@ -2,43 +2,65 @@
 [![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
 [![codecov](https://codecov.io/gh/vincentlaucsb/csv-parser/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentlaucsb/csv-parser)
 
+ * [Motivation](#motivation)
+ * [Documentation](#documentation)
+ * [Integration](#integration)
+   * [C++ Version](#c-version)
+   * [Single Header](#single-header)
+   * [CMake Instructions](#cmake-instructions)
+ * [Features & Examples](#features--examples)
+   * [Reading a Large File (with Iterators)](#reading-a-large-file-with-iterators)
+   * [Indexing by Column Names](#indexing-by-column-names)
+   * [Numeric Conversions](#numeric-conversions)
+   * [Specifying the CSV Format](#specifying-the-csv-format)
+      * [Setting Column Names](#setting-column-names)
+   * [Parsing an In-Memory String](#parsing-an-in-memory-string)
+   * [Writing CSV Files](#writing-csv-files)
+ * [Contributing](#contributing)
+
 ## Motivation
-There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Specifically, I wanted something which had an interface similar to Python's `csv` module. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind:
+There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
 
 ### Performance
 This CSV parser uses multiple threads to simulatenously pull data from disk and parse it. Furthermore, it is capable of incremental streaming (parsing larger than RAM files), and quickly parsing data types.
 
-### RFC 4180 Compliance
-This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt). On the other hand, it is also robust and capable of handling deviances from the standard. An optional strict parsing mode can be enabled to sniff out errors in files.
+#### Show me the numbers
+*(To be expanded)*
+
+On my computer (Intel Core i7-8550U @ 1.80GHz/Toshiba XG5 SSD), it is capable of parsing the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.33 seconds.
+
+### Robust
+#### RFC 4180 Compliance
+This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt). An optional strict parsing mode can be enabled to sniff out errors in files.
+
+#### Non-RFC 4180 Deviations
+We know that actual CSV files come with many different quirks. In addition, there are many CSV-inspired formats like tab-separated values. Thus, this CSV library has many features for dealing with this reality:
+ * Automatic delimiter guessing
+ * Ability to ignore comments in leading rows and elsewhere
+ * Ability to handle rows of different lengths
 
 #### Encoding
 This CSV parser will handle ANSI and UTF-8 encoded files. It does not try to decode UTF-8, except for detecting and stripping byte order marks.
-
-### Easy to Use and [Well-Documented](http://vincela.com/csv)
-
-In additon to being easy on your computer's hardware, this library is also easy on you--the developer. Some helpful features include:
- * Decent ability to guess the dialect of a file (CSV, tab-delimited, etc.)
- * Ability to handle common deviations from the CSV standard, such as inconsistent row lengths, and leading comments
- * Ability to manually set the delimiter and quoting character of the parser
 
 ### Well Tested
 This CSV parser has an extensive test suite and is checked for memory safety with Valgrind. If you still manage to find a bug,
 do not hesitate to report it.
 
-## Building and Compatibility [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
+## Documentation
+
+In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](http://vincela.com/csv) contains more examples, details, interesting features, and instructions for less common use cases.
+
+## Integration
 
 This library was developed with Microsoft Visual Studio and is compatible with g++ and clang.
 All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
 ### C++ Version
-C++11 is the minimal version required. This library makes extensive use of string views, either through
-[Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) or 
-`std:string_view` when compiling with C++17. Please be aware of this if you use parts of the public API that
-return string views.
+While C++17 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
+[Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
 ### Single Header
-This library is available as a single `.hpp` file under `single_include/csv.hpp`. This header includes all necessary 
-internal and external dependencies.
+This library is available as a single `.hpp` file under [`single_include/csv.hpp`](single_include/csv.hpp).
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -47,7 +69,7 @@ and add the following to your CMakeLists.txt:
 ```
 # Optional: Defaults to C++ 17
 # set(CSV_CXX_STANDARD 11)
-add_subdirectory(../csv-parser)
+add_subdirectory(csv-parser)
 
 # ...
 
@@ -117,12 +139,13 @@ for (auto& row: reader) {
 ...
 ```
 
-### Type Conversions
+### Numeric Conversions
 If your CSV has lots of numeric values, you can also have this parser (lazily)
-convert them to the proper data type. Type checking is performed on conversions
-to prevent undefined behavior.
+convert them to the proper data type.
 
-**Note:** Conversions to floating point types are not currently checked for loss of precision.
+ * Type checking is performed on conversions to prevent undefined behavior and integer overflow.
+ * `get<float>()`, `get<double>()`, and `get<long double>()` are capable of parsing numbers written in scientific notation.
+ * **Note:** Conversions to floating point types are not currently checked for loss of precision.
 
 ```cpp
 # include "csv.hpp"
@@ -144,7 +167,7 @@ for (auto& row: reader) {
 
 ```
 
-### Specifying a Specific Delimiter, Quoting Character, etc.
+### Specifying the CSV Format
 Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
 
 ```cpp
@@ -168,6 +191,16 @@ for (auto& row: reader) {
 }
 
 ```
+
+#### Setting Column Names
+If a CSV file does not have column names, you can specify your own:
+
+```cpp
+std::vector<std::string> col_names = { ... };
+CSVFormat format;
+format.set_column_names(col_names);
+```
+
 
 ### Parsing an In-Memory String
 
