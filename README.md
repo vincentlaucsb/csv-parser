@@ -2,6 +2,13 @@
 [![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
 [![codecov](https://codecov.io/gh/vincentlaucsb/csv-parser/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentlaucsb/csv-parser)
 
+ * Motivation
+ * Integration
+   * C++ Version
+   * [Single Header](#single-header)
+   * [CMake Instructions](#cmake-instructions)
+ * [Features & Examples](#features-examples)
+
 ## Motivation
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Specifically, I wanted something which had an interface similar to Python's `csv` module. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind:
 
@@ -25,20 +32,17 @@ In additon to being easy on your computer's hardware, this library is also easy 
 This CSV parser has an extensive test suite and is checked for memory safety with Valgrind. If you still manage to find a bug,
 do not hesitate to report it.
 
-## Building and Compatibility [(latest stable version)](https://github.com/vincentlaucsb/csv-parser/releases)
+## Integration
 
 This library was developed with Microsoft Visual Studio and is compatible with g++ and clang.
 All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
 ### C++ Version
-C++11 is the minimal version required. This library makes extensive use of string views, either through
-[Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) or 
-`std:string_view` when compiling with C++17. Please be aware of this if you use parts of the public API that
-return string views.
+While C++17 is recommended, C++11 is the minimum version quired. This library makes extensive use of string views, using
+[Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
 ### Single Header
-This library is available as a single `.hpp` file under `single_include/csv.hpp`. This header includes all necessary 
-internal and external dependencies.
+This library is available as a single `.hpp` file under `single_include/csv.hpp`.
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -47,7 +51,7 @@ and add the following to your CMakeLists.txt:
 ```
 # Optional: Defaults to C++ 17
 # set(CSV_CXX_STANDARD 11)
-add_subdirectory(../csv-parser)
+add_subdirectory(csv-parser)
 
 # ...
 
