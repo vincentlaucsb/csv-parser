@@ -200,7 +200,7 @@ to trim.
 
 ```cpp
 CSVFormat format;
-format.trim({ '\t', '\n' });
+format.trim({ ' ', '\t', '\n' });
 ```
 
 #### Setting Column Names
