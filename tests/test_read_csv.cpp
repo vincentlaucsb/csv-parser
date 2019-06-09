@@ -149,6 +149,51 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     REQUIRE(error_message.substr(0, 29) == "Unescaped single quote around");
 }
 
+TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
+    auto row_str = GENERATE(as<std::string> {},
+        "A,B,C\r\n" // Header row
+        "123,\"234\n,345\",456\r\n",
+
+        // Random spaces
+        "A,B,C\r\n"
+        "   123,\"234\n,345\",    456\r\n",
+
+        // Random spaces + tabs
+        "A,B,C\r\n"
+        "\t\t   123,\"234\n,345\",    456\r\n",
+
+        // Spaces in quote escaped field
+        "A,B,C\r\n"
+        "\t\t   123,\"   234\n,345  \t\",    456\r\n",
+
+        // Spaces in one header column
+        "A,B,        C\r\n"
+        "123,\"234\n,345\",456\r\n",
+
+        // Random spaces + tabs in header
+        "\t A,  B\t,     C\r\n"
+        "123,\"234\n,345\",456\r\n",
+
+        // Random spaces in header + data
+        "A,B,        C\r\n"
+        "123,\"234\n,345\",  456\r\n"
+    );
+
+    SECTION("Parse Test") {
+        CSVFormat format;
+        format.header_row(0)
+            .trim({ '\t', ' ' })
+            .delimiter(',');
+
+        auto row = parse(row_str, format);
+        REQUIRE(vector<string>(row.front()) ==
+            vector<string>({ "123", "234\n,345", "456" }));
+        REQUIRE(row.front()["A"] == "123");
+        REQUIRE(row.front()["B"] == "234\n,345");
+        REQUIRE(row.front()["C"] == "456");
+    }
+}
+
 TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     string csv_string("A,B,C\r\n" // Header row
         "123,234,345\r\n"
@@ -245,8 +290,6 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     format.column_names({ "A", "B" });
 
     std::stringstream csv_string;
-    double big_num = ((double)std::numeric_limits<long long>::max() * 2.0);
-
     csv_string << "3.14,9999" << std::endl
         << "60,70" << std::endl
         << "," << std::endl;

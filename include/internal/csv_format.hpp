@@ -27,6 +27,12 @@ namespace csv {
          */
         CSVFormat& delimiter(const std::vector<char> & delim);
 
+        /** Sets the whitespace characters to be trimmed
+         *
+         *  @param[in] ws An array of whitespace characters that should be trimmed
+         */
+        CSVFormat& trim(const std::vector<char> & ws);
+
         /** Sets the quote character */
         CSVFormat& quote(char quote);
 
@@ -79,6 +85,9 @@ namespace csv {
 
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
+
+        /**< Set of whitespace characters to trim */
+        std::vector<char> trim_chars = {};
 
         /**< Quote character */
         char quote_char = '"';

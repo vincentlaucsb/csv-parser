@@ -158,7 +158,14 @@ namespace csv {
          *  the CSVReader::ParseFlags enum
          */
         HEDLEY_CONST CONSTEXPR
-            std::array<CSVReader::ParseFlags, 256> make_flags() const;
+            std::array<CSVReader::ParseFlags, 256> make_parse_flags() const;
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character c and, v[i + 128] is true if 
+         *  c is a whitespace character
+         */
+        HEDLEY_CONST CONSTEXPR
+            std::array<bool, 256> make_ws_flags(const char * delims, size_t n_chars) const;
 
         /** Open a file for reading. Implementation is compiler specific. */
         void fopen(csv::string_view filename);
@@ -196,6 +203,11 @@ namespace csv {
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
         std::array<ParseFlags, 256> parse_flags;
+
+        /** An array where the (i + 128)th slot determines whether ASCII character i should
+         *  be trimmed
+         */
+        std::array<bool, 256> ws_flags;
         ///@}
 
         /** @name Parser State */
@@ -217,7 +229,6 @@ namespace csv {
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
-        CONSTEXPR void move_to_end_of_field(csv::string_view in, size_t & i, const size_t& in_size);
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
         void read_csv_worker();
         ///@}

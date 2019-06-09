@@ -131,7 +131,6 @@ TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diver
 TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
     // Assert parsing butchered scientific notation won't cause a 
     // crash or any other weird side effects
-    long double out;
     auto butchered = GENERATE(as<std::string>{},
         "4.55E000a",
         "4.55000x40",
