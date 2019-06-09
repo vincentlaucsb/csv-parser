@@ -195,12 +195,12 @@ for (auto& row: reader) {
 
 #### Trimming Whitespace
 This parser can efficiently trim off leading and trailing whitespace. Of course,
-make sure you don't include your intended delimiter in the list of characters
+make sure you don't include your intended delimiter or newlines in the list of characters
 to trim.
 
 ```cpp
 CSVFormat format;
-format.trim({ ' ', '\t', '\n' });
+format.trim({ ' ', '\t'  });
 ```
 
 #### Setting Column Names
