@@ -164,7 +164,7 @@ namespace csv {
     }
 
     HEDLEY_CONST CONSTEXPR
-    std::array<CSVReader::ParseFlags, 256> CSVReader::make_flags() const {
+    std::array<CSVReader::ParseFlags, 256> CSVReader::make_parse_flags() const {
         std::array<ParseFlags, 256> ret = {};
         for (int i = -128; i < 128; i++) {
             const int arr_idx = i + 128;
@@ -178,6 +178,24 @@ namespace csv {
                 ret[arr_idx] = NEWLINE;
             else
                 ret[arr_idx] = NOT_SPECIAL;
+        }
+
+        return ret;
+    }
+
+    HEDLEY_CONST CONSTEXPR
+    std::array<bool, 256> CSVReader::make_ws_flags(const char * delims, size_t n_chars) const {
+        std::array<bool, 256> ret = {};
+        for (int i = -128; i < 128; i++) {
+            const int arr_idx = i + 128;
+            char ch = char(i);
+            ret[arr_idx] = false;
+
+            for (size_t j = 0; j < n_chars; j++) {
+                if (delims[j] == ch) {
+                    ret[arr_idx] = true;
+                }
+            }
         }
 
         return ret;
@@ -209,8 +227,9 @@ namespace csv {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
-
-        parse_flags = this->make_flags();
+        
+        parse_flags = this->make_parse_flags();
+        ws_flags = this->make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     };
 
     /** Allows reading a CSV file in chunks, using overlapped
@@ -241,7 +260,8 @@ namespace csv {
         delimiter = format.get_delim();
         quote_char = format.quote_char;
         strict = format.strict;
-        parse_flags = this->make_flags();
+        parse_flags = this->make_parse_flags();
+        ws_flags = this->make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
         // Read first 500KB of CSV
         this->fopen(filename);
@@ -279,12 +299,6 @@ namespace csv {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
-    CONSTEXPR void CSVReader::move_to_end_of_field(csv::string_view in, size_t& i, const size_t& in_size) {
-        while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
-            i++;
-        }
-    }
-
     void CSVReader::feed(csv::string_view in) {
         /** Parse a CSV-formatted string.
          *
@@ -300,6 +314,7 @@ namespace csv {
 
         // Optimizations
         auto * HEDLEY_RESTRICT _parse_flags = this->parse_flags.data();
+        auto * HEDLEY_RESTRICT _ws_flags = this->ws_flags.data();
         auto& row_buffer = *(this->record_buffer.get());
         auto& text_buffer = row_buffer.buffer;
         auto& split_buffer = row_buffer.split_buffer;
@@ -329,20 +344,36 @@ namespace csv {
                     text_buffer += in[i];
                     break;
                 case NOT_SPECIAL: {
+                    size_t start, end;
+
+                    // Trim off leading whitespace
+                    while (i < in_size && _ws_flags[in[i] + 128]) {
+                        i++;
+                    }
+
+                    start = i;
+
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
-                    #ifdef CSV_HAS_CXX17
-                    size_t start = i;
-                    this->move_to_end_of_field(in, i, in_size);
-                    text_buffer += in.substr(start, i - start + 1);
-                    #else
-                    text_buffer += in[i];
-
-                    while (i + 1 < in_size && parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
-                        text_buffer += in[++i];
+                    while (i + 1 < in_size && _parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
+                        i++;
                     }
-                    #endif
+
+                    // Trim off trailing whitespace
+                    end = i;
+                    while (_ws_flags[in[end] + 128]) {
+                        end--;
+                    }
+
+                    // Finally append text
+#ifdef CSV_HAS_CXX17
+                    text_buffer += in.substr(start, end - start + 1);
+#else
+                    for (; start < end + 1; start++) {
+                        text_buffer += in[start];
+                    }
+#endif
 
                     break;
                 }

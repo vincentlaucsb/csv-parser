@@ -44,6 +44,11 @@ namespace csv {
         return *this;
     }
 
+    CSVFormat& CSVFormat::trim(const std::vector<char> & chars) {
+        this->trim_chars = chars;
+        return *this;
+    }
+
     CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
         this->col_names = names;
         this->header = -1;

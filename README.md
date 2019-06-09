@@ -13,6 +13,7 @@
    * [Indexing by Column Names](#indexing-by-column-names)
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
+      * [Trimming Whitespace](#trimming-whitespace)
       * [Setting Column Names](#setting-column-names)
    * [Parsing an In-Memory String](#parsing-an-in-memory-string)
    * [Writing CSV Files](#writing-csv-files)
@@ -190,6 +191,16 @@ for (auto& row: reader) {
     // Do stuff with rows here
 }
 
+```
+
+#### Trimming Whitespace
+This parser can efficiently trim off leading and trailing whitespace. Of course,
+make sure you don't include your intended delimiter in the list of characters
+to trim.
+
+```cpp
+CSVFormat format;
+format.trim({ '\t', '\n' });
 ```
 
 #### Setting Column Names
