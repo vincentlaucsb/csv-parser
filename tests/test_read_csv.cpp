@@ -290,8 +290,6 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     format.column_names({ "A", "B" });
 
     std::stringstream csv_string;
-    double big_num = ((double)std::numeric_limits<long long>::max() * 2.0);
-
     csv_string << "3.14,9999" << std::endl
         << "60,70" << std::endl
         << "," << std::endl;
