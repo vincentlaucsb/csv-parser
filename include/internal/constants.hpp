@@ -7,14 +7,18 @@
 
 #include "csv_format.hpp"
 
+#if defined(_WIN32)
+#include <Windows.h>
+#undef max
+#undef min
+#elif defined(__linux__)
+#include <unistd.h>
+#endif
+
 namespace csv {
     namespace internals {
         // Get operating system specific details
         #if defined(_WIN32)
-            #include <Windows.h>
-            #undef max
-            #undef min
-
             inline int getpagesize() {
                 _SYSTEM_INFO sys_info = {};
                 GetSystemInfo(&sys_info);
@@ -24,7 +28,6 @@ namespace csv {
             /** Size of a memory page in bytes */
             const int PAGE_SIZE = getpagesize();
         #elif defined(__linux__) 
-            #include <unistd.h>
             const int PAGE_SIZE = getpagesize();
         #else
             const int PAGE_SIZE = 4096;
