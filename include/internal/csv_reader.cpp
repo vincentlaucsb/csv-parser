@@ -40,7 +40,7 @@ namespace csv {
             }
         }
 
-        CSVFormat CSVGuesser::guess_delim() {
+        CSVGuessResult CSVGuesser::guess_delim() {
             /** Guess the delimiter of a CSV by scanning the first 100 lines by
             *  First assuming that the header is on the first row
             *  If the first guess returns too few rows, then we move to the second
@@ -49,7 +49,7 @@ namespace csv {
             CSVFormat format;
             if (!first_guess()) second_guess();
 
-            return format.delimiter(this->delim).header_row(this->header_row);
+            return { delim, header_row };
         }
 
         bool CSVGuesser::first_guess() {
@@ -158,7 +158,7 @@ namespace csv {
     }
 
     /** Guess the delimiter used by a delimiter-separated values file */
-    CSVFormat guess_format(csv::string_view filename, const std::vector<char>& delims) {
+    CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
         internals::CSVGuesser guesser(filename, delims);
         return guesser.guess_delim();
     }
@@ -247,8 +247,11 @@ namespace csv {
      *
      */
     CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
-        if (format.guess_delim())
-            format = guess_format(filename, format.possible_delimiters);
+        /** Guess delimiter and header row */
+        if (format.guess_delim()) {
+            auto guess_result = guess_format(filename, format.possible_delimiters);
+            format.delimiter(guess_result.delim).header_row(guess_result.header_row);
+        }
 
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);

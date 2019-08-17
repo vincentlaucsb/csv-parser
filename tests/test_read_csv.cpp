@@ -22,24 +22,24 @@ TEST_CASE("col_pos() Test", "[test_col_pos]") {
 }
 
 TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
-    CSVFormat format = guess_format(
+    CSVGuessResult format = guess_format(
         "./tests/data/real_data/2009PowerStatus.txt");
-    REQUIRE(format.get_delim() == '|');
-    REQUIRE(format.get_header() == 0);
+    REQUIRE(format.delim == '|');
+    REQUIRE(format.header_row == 0);
 }
 
 TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
-    CSVFormat format = guess_format(
+    CSVGuessResult format = guess_format(
         "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
-    REQUIRE(format.get_delim() == ';');
-    REQUIRE(format.get_header() == 0);
+    REQUIRE(format.delim == ';');
+    REQUIRE(format.header_row == 0);
 }
 
 TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
-    CSVFormat format = guess_format(
+    CSVGuessResult format = guess_format(
         "./tests/data/fake_data/ints_comments.csv");
-    REQUIRE(format.get_delim() == ',');
-    REQUIRE(format.get_header() == 5);
+    REQUIRE(format.delim == ',');
+    REQUIRE(format.header_row == 5);
 }
 
 // get_file_info()
