@@ -10,6 +10,12 @@
 namespace csv {
     class CSVReader;
 
+    /** Stores the inferred format of a CSV file. */
+    struct CSVGuessResult {
+        char delim;
+        int header_row;
+    };
+
     /** Stores information about how to parse a CSV file.
      *  Can be used to construct a csv::CSVReader. 
      */
