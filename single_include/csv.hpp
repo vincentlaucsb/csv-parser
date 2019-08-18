@@ -2936,6 +2936,12 @@ namespace csv {
 namespace csv {
     class CSVReader;
 
+    /** Stores the inferred format of a CSV file. */
+    struct CSVGuessResult {
+        char delim;
+        int header_row;
+    };
+
     /** Stores information about how to parse a CSV file.
      *  Can be used to construct a csv::CSVReader. 
      */
@@ -3609,14 +3615,18 @@ namespace csv {
 #include <deque>
 
 
+#if defined(_WIN32)
+#include <Windows.h>
+#undef max
+#undef min
+#elif defined(__linux__)
+#include <unistd.h>
+#endif
+
 namespace csv {
     namespace internals {
         // Get operating system specific details
         #if defined(_WIN32)
-            #include <Windows.h>
-            #undef max
-            #undef min
-
             inline int getpagesize() {
                 _SYSTEM_INFO sys_info = {};
                 GetSystemInfo(&sys_info);
@@ -3626,7 +3636,6 @@ namespace csv {
             /** Size of a memory page in bytes */
             const int PAGE_SIZE = getpagesize();
         #elif defined(__linux__) 
-            #include <unistd.h>
             const int PAGE_SIZE = getpagesize();
         #else
             const int PAGE_SIZE = 4096;
@@ -3671,7 +3680,7 @@ namespace csv {
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
-    CSVFormat guess_format(csv::string_view filename,
+    CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     std::vector<std::string> get_col_names(
         const std::string& filename,
@@ -4266,7 +4275,7 @@ namespace csv {
         public:
             CSVGuesser(csv::string_view _filename, const std::vector<char>& _delims) :
                 filename(_filename), delims(_delims) {};
-            CSVFormat guess_delim();
+            CSVGuessResult guess_delim();
             bool first_guess();
             void second_guess();
 
@@ -4443,7 +4452,7 @@ namespace csv {
             }
         }
 
-        CSVFormat CSVGuesser::guess_delim() {
+        CSVGuessResult CSVGuesser::guess_delim() {
             /** Guess the delimiter of a CSV by scanning the first 100 lines by
             *  First assuming that the header is on the first row
             *  If the first guess returns too few rows, then we move to the second
@@ -4452,7 +4461,7 @@ namespace csv {
             CSVFormat format;
             if (!first_guess()) second_guess();
 
-            return format.delimiter(this->delim).header_row(this->header_row);
+            return { delim, header_row };
         }
 
         bool CSVGuesser::first_guess() {
@@ -4561,7 +4570,7 @@ namespace csv {
     }
 
     /** Guess the delimiter used by a delimiter-separated values file */
-    CSVFormat guess_format(csv::string_view filename, const std::vector<char>& delims) {
+    CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
         internals::CSVGuesser guesser(filename, delims);
         return guesser.guess_delim();
     }
@@ -4650,16 +4659,18 @@ namespace csv {
      *
      */
     CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
-        if (format.guess_delim())
-            format = guess_format(filename, format.possible_delimiters);
+        /** Guess delimiter and header row */
+        if (format.guess_delim()) {
+            auto guess_result = guess_format(filename, format.possible_delimiters);
+            format.delimiter(guess_result.delim);
+            format.header = guess_result.header_row;
+        }
 
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
-        else {
-            header_row = format.header;
-        }
 
+        header_row = format.header;
         delimiter = format.get_delim();
         quote_char = format.quote_char;
         strict = format.strict;
@@ -4675,9 +4686,13 @@ namespace csv {
     CSVFormat CSVReader::get_format() const {
         CSVFormat format;
         format.delimiter(this->delimiter)
-            .quote(this->quote_char)
-            .header_row(this->header_row)
-            .column_names(this->col_names->col_names);
+            .quote(this->quote_char);
+
+        // Since users are normally not allowed to set 
+        // column names and header row simulatenously,
+        // we will set the backing variables directly here
+        format.col_names = this->col_names->col_names;
+        format.header = this->header_row;
 
         return format;
     }
