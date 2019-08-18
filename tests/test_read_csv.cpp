@@ -43,18 +43,27 @@ TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
 }
 
 TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwrite]") {
-    std::vector<std::string> column_names = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J" };
+    std::vector<std::string> column_names = { "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10" };
     
-    // Set up the CSVReader
-    CSVFormat format_in = CSVFormat::GUESS_CSV;
-    format_in.column_names(column_names);
-    CSVReader reader("./tests/data/fake_data/ints_comments.csv", format_in);
+    // Test against a variety of different CSVFormat objects
+    std::vector<CSVFormat> formats = {};
+    formats.push_back(CSVFormat::GUESS_CSV);
+    formats.push_back(CSVFormat());
+    formats.back().delimiter(std::vector<char>({ ',', '\t', '|'}));
+    formats.push_back(CSVFormat());
+    formats.back().delimiter(std::vector<char>({ ',', '~'}));
 
-    // Assert that column names weren't overwritten
-    CSVFormat format_out = reader.get_format();
-    REQUIRE(reader.get_col_names() == column_names);
-    REQUIRE(format_out.get_delim() == ',');
-    REQUIRE(format_out.get_header() == 5);
+    for (auto& format_in : formats) {
+        // Set up the CSVReader
+        format_in.column_names(column_names);
+        CSVReader reader("./tests/data/fake_data/ints_comments.csv", format_in);
+
+        // Assert that column names weren't overwritten
+        CSVFormat format_out = reader.get_format();
+        REQUIRE(reader.get_col_names() == column_names);
+        REQUIRE(format_out.get_delim() == ',');
+        REQUIRE(format_out.get_header() == 5);
+    }
 }
 
 // get_file_info()
