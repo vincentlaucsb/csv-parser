@@ -42,6 +42,20 @@ TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
     REQUIRE(format.header_row == 5);
 }
 
+TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwrite]") {
+    std::vector<std::string> column_names = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J" };
+    
+    CSVFormat format_in = CSVFormat::GUESS_CSV;
+    format_in.column_names(column_names);
+
+    CSVReader reader("./tests/data/fake_data/ints_comments.csv", format_in);
+
+    CSVFormat format_out = reader.get_format();
+    REQUIRE(reader.get_col_names() == column_names);
+    REQUIRE(format_out.get_delim() == ',');
+    REQUIRE(format_out.get_header() == 5);
+}
+
 // get_file_info()
 TEST_CASE("get_file_info() Test", "[test_file_info]") {
     CSVFileInfo info = get_file_info(

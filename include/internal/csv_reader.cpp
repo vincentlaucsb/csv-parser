@@ -250,16 +250,15 @@ namespace csv {
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = guess_format(filename, format.possible_delimiters);
-            format.delimiter(guess_result.delim).header_row(guess_result.header_row);
+            format.delimiter(guess_result.delim);
+            format.header = guess_result.header_row;
         }
 
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
-        else {
-            header_row = format.header;
-        }
 
+        header_row = format.header;
         delimiter = format.get_delim();
         quote_char = format.quote_char;
         strict = format.strict;
@@ -275,9 +274,13 @@ namespace csv {
     CSVFormat CSVReader::get_format() const {
         CSVFormat format;
         format.delimiter(this->delimiter)
-            .quote(this->quote_char)
-            .header_row(this->header_row)
-            .column_names(this->col_names->col_names);
+            .quote(this->quote_char);
+
+        // Since users are normally not allowed to set 
+        // column names and header row simulatenously,
+        // we will set the backing variables directly here
+        format.col_names = this->col_names->col_names;
+        format.header = this->header_row;
 
         return format;
     }
