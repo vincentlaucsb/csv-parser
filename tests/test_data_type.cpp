@@ -76,7 +76,7 @@ TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
 
 TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
     // Test converting double values back and forth
-    long double out;
+    long double out = -1.0;
     std::string s;
 
     for (long double i = 0; i <= 2.0; i += 0.01) {
