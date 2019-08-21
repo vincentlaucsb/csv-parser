@@ -59,6 +59,14 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
     REQUIRE(ex_caught);
 }
 
+// Test converting a small integer to unsigned and signed integer types
+TEMPLATE_TEST_CASE("CSVField get<>() - Integral Value to Int", "[test_csv_field_get_int]",
+    unsigned char, unsigned short, unsigned int, unsigned long long,
+    char, short, int, long long int) {
+    CSVField savage("21");
+    REQUIRE(savage.get<TestType>() == 21);
+}
+
 TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]") {
     CSVField euler("2.718");
     REQUIRE(euler.get<>() == "2.718");
@@ -69,6 +77,7 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
 }
 
 TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",
+    unsigned char, unsigned short, unsigned int, unsigned long long int,
     signed char, short, int, long long int) {
     CSVField euler("2.718");
     bool ex_caught = false;
@@ -78,6 +87,22 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_
     }
     catch (std::runtime_error& err) {
         REQUIRE(err.what() == csv::internals::ERROR_FLOAT_TO_INT);
+        ex_caught = true;
+    }
+
+    REQUIRE(ex_caught);
+}
+
+TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Negative to Unsigned", "[test_csv_field_no_unsigned_neg]",
+    unsigned char, unsigned short, unsigned int, unsigned long long int) {
+    CSVField neg("-1337");
+    bool ex_caught = false;
+
+    try {
+        neg.get<TestType>();
+    }
+    catch (std::runtime_error& err) {
+        REQUIRE(err.what() == csv::internals::ERROR_NEG_TO_UNSIGNED);
         ex_caught = true;
     }
 
