@@ -2,7 +2,7 @@
 
 namespace csv {
     /*
-    extra_space() and escape_string() from JSON for Modern C++
+    json_extra_space() and json_escape_string() from JSON for Modern C++
     
         __ _____ _____ _____
      __|  |   __|     |   | |  JSON for Modern C++
@@ -41,7 +41,7 @@ namespace csv {
 
          @complexity Linear in the length of string @a s.
         */
-        static std::size_t extra_space(const std::string& s) noexcept
+        static std::size_t json_extra_space(csv::string_view& s) noexcept
         {
             std::size_t result = 0;
 
@@ -80,12 +80,12 @@ namespace csv {
             return result;
         }
 
-        static std::string escape_string(const std::string& s) noexcept
+        static std::string json_escape_string(csv::string_view s) noexcept
         {
-            const auto space = extra_space(s);
+            const auto space = json_extra_space(s);
             if (space == 0)
             {
-                return s;
+                return std::string(s);
             }
 
             // create a result string of necessary size
@@ -187,32 +187,62 @@ namespace csv {
      @brief Convert a CSV row to a JSON object
      */
     std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
-        std::string ret = "{";
-        auto col_names = this->buffer->col_names->get_col_names();
+        std::vector<std::string> col_names = subset;
+        if (subset.empty()) {
+            col_names = this->buffer->col_names->get_col_names();
+        }
 
-        // TODO: Make subset do something
-        for (size_t i = 0; i < this->n_cols; i++) {
-            auto& col_name = col_names[i];
+        const size_t n_cols = col_names.size();
+        std::string ret = "{";
+        
+        for (size_t i = 0; i < n_cols; i++) {
+            auto& col = col_names[i];
+            auto field = this->operator[](col);
 
             // TODO: Possible performance enhancements by caching escaped column names
-            auto field = this->operator[](i);
-            ret += '"' + internals::escape_string(col_name) + "\":";
+            ret += '"' + internals::json_escape_string(col) + "\":";
 
-            if (field.is_num()) {
-                // TODO: Make escape_string() use string_view
-                 ret += internals::escape_string(field.get<>());
-            }
-            else {
-                // Add quotes around strings
-                ret += '"' + internals::escape_string(field.get<>()) + '"';
-            }
+            // Add quotes around strings but not numbers
+            if (field.is_num())
+                 ret += internals::json_escape_string(field.get<csv::string_view>());
+            else
+                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
 
-            if (i + 1 < this->n_cols) {
+            // Do not add comma after last string
+            if (i + 1 < n_cols)
                 ret += ',';
-            }
         }
 
         ret += '}';
+        return ret;
+    }
+
+    /**
+     @brief Convert a CSV row to a JSON array
+     */
+    std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
+        std::vector<std::string> col_names = subset;
+        if (subset.empty())
+            col_names = this->buffer->col_names->get_col_names();
+
+        const size_t n_cols = col_names.size();
+        std::string ret = "[";
+
+        for (size_t i = 0; i < n_cols; i++) {
+            auto field = this->operator[](col_names[i]);
+
+            // Add quotes around strings but not numbers
+            if (field.is_num())
+                ret += internals::json_escape_string(field.get<csv::string_view>());
+            else
+                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
+
+            // Do not add comma after last string
+            if (i + 1 < n_cols)
+                ret += ',';
+        }
+
+        ret += ']';
         return ret;
     }
 }

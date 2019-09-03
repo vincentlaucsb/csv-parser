@@ -2,6 +2,8 @@
  *  Defines an object used to store CSV format settings
  */
 
+// TODO: THROW AN ERROR if delimiters & trimming characters overlap
+
 #pragma once
 #include <stdexcept>
 #include <string>
