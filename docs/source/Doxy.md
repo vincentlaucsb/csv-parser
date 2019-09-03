@@ -30,6 +30,8 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
   * csv::CSVRow::iterator
     * csv::CSVRow::begin()
     * csv::CSVRow::end()
+  * csv::CSVRow::to_json()
+  * csv::CSVRow::to_json_array()
  * csv::CSVField
   * csv::CSVField::get(): \copybrief csv::CSVField::get()
   * csv::CSVField::operator==()

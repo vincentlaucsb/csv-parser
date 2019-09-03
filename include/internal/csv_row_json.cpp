@@ -184,8 +184,12 @@ namespace csv {
         }
     }
 
-    /**
-     @brief Convert a CSV row to a JSON object
+    /** Convert a CSV row to a JSON object, i.e.
+     *  `{"col1":"value1","col2":"value2"}`
+     *
+     *  @note All strings are properly escaped. Numeric values are not quoted.
+     *  @param[in] subset A subset of columns to contain in the JSON.
+     *                    Leave empty for original columns.
      */
     std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
@@ -218,8 +222,12 @@ namespace csv {
         return ret;
     }
 
-    /**
-     @brief Convert a CSV row to a JSON array
+    /** Convert a CSV row to a JSON array, i.e.
+     *  `["value1","value2",...]`
+     *
+     *  @note All strings are properly escaped. Numeric values are not quoted.
+     *  @param[in] subset A subset of columns to contain in the JSON.
+     *                    Leave empty for all columns.
      */
     std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
