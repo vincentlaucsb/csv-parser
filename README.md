@@ -173,7 +173,9 @@ for (auto& row: reader) {
 
 ### Converting to JSON
 You can serialize individual rows as JSON objects, where the keys are column names, or as 
-JSON arrays (which don't contain column names).
+JSON arrays (which don't contain column names). The outputted JSON contains properly escaped
+strings with minimal whitespace and no quoting for numeric values. How these JSON fragments are 
+assembled into a larger JSON document is an exercise left for the user.
 
 ```cpp
 # include <sstream>
@@ -188,7 +190,7 @@ std::stringstream my_json;
 
 for (auto& row: reader) {
     my_json << row.to_json() << std::endl;
-    my_json << row.to_json_array() < std::endl;
+    my_json << row.to_json_array() << std::endl;
 
     // You can pass in a vector of column names to
     // slice or rearrange the outputted JSON
