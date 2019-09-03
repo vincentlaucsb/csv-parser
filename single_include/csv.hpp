@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.2.1
+CSV for C++, version 1.2.2
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
