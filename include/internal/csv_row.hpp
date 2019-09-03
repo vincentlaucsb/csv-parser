@@ -201,6 +201,7 @@ namespace csv {
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
         csv::string_view get_string_view(size_t n) const;
+        std::string to_json(const std::vector<std::string>& subset = {}) const;
 
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
