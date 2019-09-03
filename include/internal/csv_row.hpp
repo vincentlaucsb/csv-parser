@@ -23,6 +23,8 @@ namespace csv {
         static const std::string ERROR_FLOAT_TO_INT =
             "Attempted to convert a floating point value to an integral type.";
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
+    
+        std::string json_escape_string(csv::string_view s) noexcept;
     }
 
     /**
