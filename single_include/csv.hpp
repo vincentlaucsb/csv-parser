@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.2.1
+CSV for C++, version 1.2.2
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -2950,22 +2950,30 @@ namespace csv {
         /** Settings for parsing a RFC 4180 CSV file */
         CSVFormat() = default;
 
-        /** Sets the delimiter of the CSV file */
+        /** Sets the delimiter of the CSV file
+         *
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
+         */
         CSVFormat& delimiter(char delim);
 
         /** Sets a list of potential delimiters
          *  
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          *  @param[in] delim An array of possible delimiters to try parsing the CSV with
          */
         CSVFormat& delimiter(const std::vector<char> & delim);
 
         /** Sets the whitespace characters to be trimmed
          *
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          *  @param[in] ws An array of whitespace characters that should be trimmed
          */
         CSVFormat& trim(const std::vector<char> & ws);
 
-        /** Sets the quote character */
+        /** Sets the quote character
+         *
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
+         */
         CSVFormat& quote(char quote);
 
         /** Sets the column names.
@@ -3014,6 +3022,9 @@ namespace csv {
         bool guess_delim() {
             return this->possible_delimiters.size() > 1;
         }
+
+        /**< Throws an error if delimiters and trim characters overlap */
+        void assert_no_char_overlap();
 
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
@@ -3718,6 +3729,8 @@ namespace csv {
         static const std::string ERROR_FLOAT_TO_INT =
             "Attempted to convert a floating point value to an integral type.";
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
+    
+        std::string json_escape_string(csv::string_view s) noexcept;
     }
 
     /**
@@ -3896,6 +3909,8 @@ namespace csv {
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
         csv::string_view get_string_view(size_t n) const;
+        std::string to_json(const std::vector<std::string>& subset = {}) const;
+        std::string to_json_array(const std::vector<std::string>& subset = {}) const;
 
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
@@ -4354,6 +4369,9 @@ namespace csv {
  *  Defines an object used to store CSV format settings
  */
 
+#include <algorithm>
+#include <set>
+
 
 namespace csv {
     CSVFormat create_default_csv_strict() {
@@ -4382,21 +4400,25 @@ namespace csv {
 
     CSVFormat& CSVFormat::delimiter(char delim) {
         this->possible_delimiters = { delim };
+        this->assert_no_char_overlap();
         return *this;
     }
 
     CSVFormat& CSVFormat::delimiter(const std::vector<char> & delim) {
         this->possible_delimiters = delim;
+        this->assert_no_char_overlap();
         return *this;
     }
 
     CSVFormat& CSVFormat::quote(char quote) {
         this->quote_char = quote;
+        this->assert_no_char_overlap();
         return *this;
     }
 
     CSVFormat& CSVFormat::trim(const std::vector<char> & chars) {
         this->trim_chars = chars;
+        this->assert_no_char_overlap();
         return *this;
     }
 
@@ -4420,6 +4442,49 @@ namespace csv {
     CSVFormat& CSVFormat::detect_bom(bool detect) {
         this->unicode_detect = detect;
         return *this;
+    }
+
+    void CSVFormat::assert_no_char_overlap()
+    {
+        auto delims = std::set<char>(
+            this->possible_delimiters.begin(), this->possible_delimiters.end()),
+            trims = std::set<char>(
+                this->trim_chars.begin(), this->trim_chars.end());
+
+        // Stores intersection of possible delimiters and trim characters
+        std::vector<char> intersection = {};
+
+        // Find which characters overlap, if any
+        std::set_intersection(
+            delims.begin(), delims.end(),
+            trims.begin(), trims.end(),
+            std::back_inserter(intersection));
+
+        // Make sure quote character is not contained in possible delimiters
+        // or whitespace characters
+        if (delims.find(this->quote_char) != delims.end() ||
+            trims.find(this->quote_char) != trims.end()) {
+            intersection.push_back(this->quote_char);
+        }
+
+        if (!intersection.empty()) {
+            std::string err_msg = "There should be no overlap between the quote character, "
+                "the set of possible delimiters "
+                "and the set of whitespace characters. Offending characters: ";
+
+            // Create a pretty error message with the list of overlapping
+            // characters
+            for (size_t i = 0; i < intersection.size(); i++) {
+                err_msg += "'";
+                err_msg += intersection[i];
+                err_msg += "'";
+
+                if (i + 1 < intersection.size())
+                    err_msg += ", ";
+            }
+
+            throw std::runtime_error(err_msg + '.');
+        }
     }
 }
 /** @file
@@ -5278,6 +5343,262 @@ namespace csv {
         return this->i == other.i;
     }
 #pragma endregion CSVRow Iterator
+}
+
+namespace csv {
+    /*
+    The implementations for json_extra_space() and json_escape_string()
+    were modified from source code for JSON for Modern C++.
+
+    The respective license is below:
+
+    The code is licensed under the [MIT
+    License](http://opensource.org/licenses/MIT):
+    
+    Copyright &copy; 2013-2015 Niels Lohmann.
+    
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation files
+    (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of the Software,
+    and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
+    
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+    
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+    BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+    */
+
+    namespace internals {
+        /*!
+         @brief calculates the extra space to escape a JSON string
+
+         @param[in] s  the string to escape
+         @return the number of characters required to escape string @a s
+
+         @complexity Linear in the length of string @a s.
+        */
+        static std::size_t json_extra_space(csv::string_view& s) noexcept
+        {
+            std::size_t result = 0;
+
+
+            for (const auto& c : s)
+            {
+                switch (c)
+                {
+                case '"':
+                case '\\':
+                case '\b':
+                case '\f':
+                case '\n':
+                case '\r':
+                case '\t':
+                {
+                    // from c (1 byte) to \x (2 bytes)
+                    result += 1;
+                    break;
+                }
+
+
+                default:
+                {
+                    if (c >= 0x00 && c <= 0x1f)
+                    {
+                        // from c (1 byte) to \uxxxx (6 bytes)
+                        result += 5;
+                    }
+                    break;
+                }
+                }
+            }
+
+
+            return result;
+        }
+
+        std::string json_escape_string(csv::string_view s) noexcept
+        {
+            const auto space = json_extra_space(s);
+            if (space == 0)
+            {
+                return std::string(s);
+            }
+
+            // create a result string of necessary size
+            std::string result(s.size() + space, '\\');
+            std::size_t pos = 0;
+
+            for (const auto& c : s)
+            {
+                switch (c)
+                {
+                    // quotation mark (0x22)
+                case '"':
+                {
+                    result[pos + 1] = '"';
+                    pos += 2;
+                    break;
+                }
+
+
+                // reverse solidus (0x5c)
+                case '\\':
+                {
+                    // nothing to change
+                    pos += 2;
+                    break;
+                }
+
+
+                // backspace (0x08)
+                case '\b':
+                {
+                    result[pos + 1] = 'b';
+                    pos += 2;
+                    break;
+                }
+
+
+                // formfeed (0x0c)
+                case '\f':
+                {
+                    result[pos + 1] = 'f';
+                    pos += 2;
+                    break;
+                }
+
+
+                // newline (0x0a)
+                case '\n':
+                {
+                    result[pos + 1] = 'n';
+                    pos += 2;
+                    break;
+                }
+
+
+                // carriage return (0x0d)
+                case '\r':
+                {
+                    result[pos + 1] = 'r';
+                    pos += 2;
+                    break;
+                }
+
+
+                // horizontal tab (0x09)
+                case '\t':
+                {
+                    result[pos + 1] = 't';
+                    pos += 2;
+                    break;
+                }
+
+
+                default:
+                {
+                    if (c >= 0x00 && c <= 0x1f)
+                    {
+                        // print character c as \uxxxx
+                        sprintf(&result[pos + 1], "u%04x", int(c));
+                        pos += 6;
+                        // overwrite trailing null character
+                        result[pos] = '\\';
+                    }
+                    else
+                    {
+                        // all other characters are added as-is
+                        result[pos++] = c;
+                    }
+                    break;
+                }
+                }
+            }
+
+            return result;
+        }
+    }
+
+    /** Convert a CSV row to a JSON object, i.e.
+     *  `{"col1":"value1","col2":"value2"}`
+     *
+     *  @note All strings are properly escaped. Numeric values are not quoted.
+     *  @param[in] subset A subset of columns to contain in the JSON.
+     *                    Leave empty for original columns.
+     */
+    std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
+        std::vector<std::string> col_names = subset;
+        if (subset.empty()) {
+            col_names = this->buffer->col_names->get_col_names();
+        }
+
+        const size_t n_cols = col_names.size();
+        std::string ret = "{";
+        
+        for (size_t i = 0; i < n_cols; i++) {
+            auto& col = col_names[i];
+            auto field = this->operator[](col);
+
+            // TODO: Possible performance enhancements by caching escaped column names
+            ret += '"' + internals::json_escape_string(col) + "\":";
+
+            // Add quotes around strings but not numbers
+            if (field.is_num())
+                 ret += internals::json_escape_string(field.get<csv::string_view>());
+            else
+                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
+
+            // Do not add comma after last string
+            if (i + 1 < n_cols)
+                ret += ',';
+        }
+
+        ret += '}';
+        return ret;
+    }
+
+    /** Convert a CSV row to a JSON array, i.e.
+     *  `["value1","value2",...]`
+     *
+     *  @note All strings are properly escaped. Numeric values are not quoted.
+     *  @param[in] subset A subset of columns to contain in the JSON.
+     *                    Leave empty for all columns.
+     */
+    std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
+        std::vector<std::string> col_names = subset;
+        if (subset.empty())
+            col_names = this->buffer->col_names->get_col_names();
+
+        const size_t n_cols = col_names.size();
+        std::string ret = "[";
+
+        for (size_t i = 0; i < n_cols; i++) {
+            auto field = this->operator[](col_names[i]);
+
+            // Add quotes around strings but not numbers
+            if (field.is_num())
+                ret += internals::json_escape_string(field.get<csv::string_view>());
+            else
+                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
+
+            // Do not add comma after last string
+            if (i + 1 < n_cols)
+                ret += ',';
+        }
+
+        ret += ']';
+        return ret;
+    }
 }
 /** @file
  *  Calculates statistics from CSV files

@@ -15,6 +15,7 @@
    * [Specifying the CSV Format](#specifying-the-csv-format)
       * [Trimming Whitespace](#trimming-whitespace)
       * [Setting Column Names](#setting-column-names)
+   * [Converting to JSON](#converting-to-json)
    * [Parsing an In-Memory String](#parsing-an-in-memory-string)
    * [Writing CSV Files](#writing-csv-files)
  * [Contributing](#contributing)
@@ -160,12 +161,41 @@ CSVReader reader("very_big_file.csv");
 
 for (auto& row: reader) {
     if (row["timestamp"].is_int()) {
-		// Can use get<>() with any integer type, but negative
+        // Can use get<>() with any integer type, but negative
         // numbers cannot be converted to unsigned types
         row["timestamp"].get<int>();
         
         // ..
     }
+}
+
+```
+
+### Converting to JSON
+You can serialize individual rows as JSON objects, where the keys are column names, or as 
+JSON arrays (which don't contain column names). The outputted JSON contains properly escaped
+strings with minimal whitespace and no quoting for numeric values. How these JSON fragments are 
+assembled into a larger JSON document is an exercise left for the user.
+
+```cpp
+# include <sstream>
+# include "csv.hpp"
+
+using namespace csv;
+
+...
+
+CSVReader reader("very_big_file.csv");
+std::stringstream my_json;
+
+for (auto& row: reader) {
+    my_json << row.to_json() << std::endl;
+    my_json << row.to_json_array() << std::endl;
+
+    // You can pass in a vector of column names to
+    // slice or rearrange the outputted JSON
+    my_json << row.to_json({ "A", "B", "C" }) << std::endl;
+    my_json << row.to_json_array({ "C", "B", "A" }) << std::endl;
 }
 
 ```
@@ -213,7 +243,6 @@ std::vector<std::string> col_names = { ... };
 CSVFormat format;
 format.set_column_names(col_names);
 ```
-
 
 ### Parsing an In-Memory String
 

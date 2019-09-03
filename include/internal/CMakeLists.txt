@@ -11,6 +11,7 @@ target_sources(csv
 		csv_reader_iterator.cpp
 		csv_row.hpp
 		csv_row.cpp
+		csv_row_json.cpp
 		csv_stat.cpp
 		csv_stat.hpp
 		csv_utility.cpp

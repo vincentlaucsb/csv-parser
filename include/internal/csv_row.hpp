@@ -23,6 +23,8 @@ namespace csv {
         static const std::string ERROR_FLOAT_TO_INT =
             "Attempted to convert a floating point value to an integral type.";
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
+    
+        std::string json_escape_string(csv::string_view s) noexcept;
     }
 
     /**
@@ -201,6 +203,8 @@ namespace csv {
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
         csv::string_view get_string_view(size_t n) const;
+        std::string to_json(const std::vector<std::string>& subset = {}) const;
+        std::string to_json_array(const std::vector<std::string>& subset = {}) const;
 
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of

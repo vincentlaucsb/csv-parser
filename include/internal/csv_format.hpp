@@ -24,22 +24,30 @@ namespace csv {
         /** Settings for parsing a RFC 4180 CSV file */
         CSVFormat() = default;
 
-        /** Sets the delimiter of the CSV file */
+        /** Sets the delimiter of the CSV file
+         *
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
+         */
         CSVFormat& delimiter(char delim);
 
         /** Sets a list of potential delimiters
          *  
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          *  @param[in] delim An array of possible delimiters to try parsing the CSV with
          */
         CSVFormat& delimiter(const std::vector<char> & delim);
 
         /** Sets the whitespace characters to be trimmed
          *
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          *  @param[in] ws An array of whitespace characters that should be trimmed
          */
         CSVFormat& trim(const std::vector<char> & ws);
 
-        /** Sets the quote character */
+        /** Sets the quote character
+         *
+         *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
+         */
         CSVFormat& quote(char quote);
 
         /** Sets the column names.
@@ -88,6 +96,9 @@ namespace csv {
         bool guess_delim() {
             return this->possible_delimiters.size() > 1;
         }
+
+        /**< Throws an error if delimiters and trim characters overlap */
+        void assert_no_char_overlap();
 
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
