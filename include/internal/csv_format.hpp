@@ -91,6 +91,9 @@ namespace csv {
             return this->possible_delimiters.size() > 1;
         }
 
+        /**< Throws an error if delimiters and trim characters overlap */
+        void assert_no_char_overlap();
+
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
 

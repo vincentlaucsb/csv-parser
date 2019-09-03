@@ -6,6 +6,7 @@ target_sources(csv_test
         main.cpp
         test_csv_buffer.cpp
         test_csv_field.cpp
+        test_csv_format.cpp
         test_csv_iterator.cpp
         test_csv_row.cpp
         test_csv_row_json.cpp

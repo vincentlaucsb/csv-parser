@@ -21,8 +21,8 @@ TEST_CASE("json_escape_string() Test", "[json_escape_string]") {
 
     // Assert that special characters are escaped properly
     REQUIRE(json_escape_string("Quote\"Quote") == "Quote\\\"Quote");
-    REQUIRE(json_escape_string("RSolidus\rRSolidus")
-        == "RSolidus\\rRSolidus");
+    REQUIRE(json_escape_string("RSolidus\\RSolidus")
+        == "RSolidus\\\\RSolidus");
     REQUIRE(json_escape_string("Backspace\bBackspace")
         == "Backspace\\bBackspace");
     REQUIRE(json_escape_string("Formfeed\fFormfeed")
