@@ -427,7 +427,7 @@ namespace csv {
 
     CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {
         if (!this->unicode_bom_scan) {
-            if (in[0] == 0xEF && in[1] == 0xBB && in[2] == 0xEF) {
+            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {            
                 in.remove_prefix(3); // Remove BOM from input string
                 this->utf8_bom = true;
             }
