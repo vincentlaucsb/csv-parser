@@ -2909,7 +2909,7 @@ namespace csv {
     #endif
 
     // Resolves g++ bug with regard to constexpr methods
-    #ifdef __GNUC__
+    #if defined __GNUC__ && !defined __clang__
         #if __GNUC__ >= 7
             #if defined(CSV_HAS_CXX17) && (__GNUC_MINOR__ >= 2 || __GNUC__ >= 8)
                 #define CONSTEXPR constexpr
@@ -2925,6 +2925,7 @@ namespace csv {
         #define CONSTEXPR inline
     #endif
 }
+
 /** @file
  *  Defines an object used to store CSV format settings
  */
@@ -3528,6 +3529,7 @@ namespace csv {
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <string>
 
 
 namespace csv {
@@ -3619,6 +3621,7 @@ namespace csv {
         };
     }
 }
+
 /** @file
  *  Defines CSV global constants
  */
@@ -4911,7 +4914,7 @@ namespace csv {
 
     CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {
         if (!this->unicode_bom_scan) {
-            if (in[0] == 0xEF && in[1] == 0xBB && in[2] == 0xEF) {
+            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {            
                 in.remove_prefix(3); // Remove BOM from input string
                 this->utf8_bom = true;
             }
@@ -5087,6 +5090,7 @@ namespace csv {
         return true;
     }
 }
+
 /** @file
  *  @brief Defines an input iterator for csv::CSVReader
  */
@@ -5272,7 +5276,7 @@ namespace csv {
         return this->buffer->split_buffer[this->start + n];
     }
 
-    HEDLEY_NON_NULL(1)
+    HEDLEY_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
         if (_i < (int)this->daddy->size())
@@ -5344,6 +5348,7 @@ namespace csv {
     }
 #pragma endregion CSVRow Iterator
 }
+
 
 namespace csv {
     /*
