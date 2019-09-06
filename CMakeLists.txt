@@ -53,17 +53,26 @@ add_subdirectory("programs")
 ## Developer settings
 if (CSV_DEVELOPER)
     # Generate a single header library
-    add_custom_target(generate_single_header
-        COMMAND python single_header.py > single_include/csv.hpp
-        WORKING_DIRECTORY ${CSV_ROOT_DIR}
-    )
+    find_package(Python3 QUIET)
+    if(Python3_Interpreter_FOUND)
+      add_custom_target(generate_single_header
+          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include/csv.hpp
+          WORKING_DIRECTORY ${CSV_ROOT_DIR}
+      )
+    else()
+      message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
+    endif()
 
     # Documentation
     find_package(Doxygen QUIET)
-    add_custom_target(doxygen
-        COMMAND Doxygen ${CSV_ROOT_DIR}/Doxyfile
-        WORKING_DIRECTORY ${CSV_ROOT_DIR}
-    )
+    if(DOXYGEN_FOUND)
+      add_custom_target(doxygen
+          COMMAND ${DOXYGEN_EXECUTABLE} ${CSV_ROOT_DIR}/Doxyfile
+          WORKING_DIRECTORY ${CSV_ROOT_DIR}
+      )
+    else()
+      message(WARNING "Doxygen not found, skipping target 'doxygen'.")
+    endif()
 
     ## Tests
     enable_testing()
