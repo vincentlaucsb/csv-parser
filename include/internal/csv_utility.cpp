@@ -24,7 +24,7 @@ namespace csv {
      *
      */
     CSV_INLINE CSVCollection operator ""_csv(const char* in, size_t n) {
-        return parse(std::string_view(in, n));
+        return parse(csv::string_view(in, n));
     }
 
     /** Return a CSV's column names
