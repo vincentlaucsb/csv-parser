@@ -23,3 +23,4 @@ target_sources(csv
 )
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(csv PRIVATE Threads::Threads)

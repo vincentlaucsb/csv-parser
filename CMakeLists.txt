@@ -12,6 +12,9 @@ message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 # Defines CSV_HAS_CXX17 in compatibility.hpp
 add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
 
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads QUIET REQUIRED)
+
 if(MSVC)
 	# Make Visual Studio report accurate C++ version
 	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
@@ -23,7 +26,7 @@ if(MSVC)
 	endif()
 else()
 	# Ignore Visual Studio pragma regions
-	set(CMAKE_CXX_FLAGS "-pthread -Wno-unknown-pragmas")
+	set(CMAKE_CXX_FLAGS "-Wno-unknown-pragmas")
 	if(CMAKE_BUILD_TYPE MATCHES Debug)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 	else()
