@@ -2998,10 +2998,16 @@ namespace csv {
         /** Tells the parser to throw an std::runtime_error if an
          *  invalid CSV sequence is found
          */
-        CONSTEXPR CSVFormat& strict_parsing(bool strict = true);
+        CONSTEXPR CSVFormat& strict_parsing(bool strict = true) {
+            this->strict = strict;
+            return *this;
+        }
 
         /** Tells the parser to detect and remove UTF-8 byte order marks */
-        CONSTEXPR CSVFormat& detect_bom(bool detect = true);
+        CONSTEXPR CSVFormat& detect_bom(bool detect = true) {
+            this->unicode_detect = detect;
+            return *this;
+        }
 
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() {
@@ -4455,16 +4461,6 @@ namespace csv {
         return *this;
     }
 
-    CONSTEXPR CSVFormat& CSVFormat::strict_parsing(bool throw_error) {
-        this->strict = throw_error;
-        return *this;
-    }
-
-    CONSTEXPR CSVFormat& CSVFormat::detect_bom(bool detect) {
-        this->unicode_detect = detect;
-        return *this;
-    }
-
     CSV_INLINE void CSVFormat::assert_no_char_overlap()
     {
         auto delims = std::set<char>(
@@ -5871,7 +5867,7 @@ namespace csv {
      *
      */
     CSV_INLINE CSVCollection operator ""_csv(const char* in, size_t n) {
-        return parse(std::string_view(in, n));
+        return parse(csv::string_view(in, n));
     }
 
     /** Return a CSV's column names
