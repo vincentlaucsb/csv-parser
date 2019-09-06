@@ -81,7 +81,7 @@ namespace csv {
             return result;
         }
 
-        std::string json_escape_string(csv::string_view s) noexcept
+        CSV_INLINE std::string json_escape_string(csv::string_view s) noexcept
         {
             const auto space = json_extra_space(s);
             if (space == 0)
@@ -191,7 +191,7 @@ namespace csv {
      *  @param[in] subset A subset of columns to contain in the JSON.
      *                    Leave empty for original columns.
      */
-    std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
+    CSV_INLINE std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
         if (subset.empty()) {
             col_names = this->buffer->col_names->get_col_names();
@@ -229,7 +229,7 @@ namespace csv {
      *  @param[in] subset A subset of columns to contain in the JSON.
      *                    Leave empty for all columns.
      */
-    std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
+    CSV_INLINE std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
         if (subset.empty())
             col_names = this->buffer->col_names->get_col_names();

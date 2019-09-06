@@ -33,9 +33,9 @@ namespace csv {
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     std::vector<std::string> get_col_names(
         const std::string& filename,
-        const CSVFormat format = CSVFormat::GUESS_CSV);
+        const CSVFormat format = CSVFormat::guess_csv());
     int get_col_pos(const std::string filename, const std::string col_name,
-        const CSVFormat format = CSVFormat::GUESS_CSV);
+        const CSVFormat format = CSVFormat::guess_csv());
     ///@}
 
     namespace internals {

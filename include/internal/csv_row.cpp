@@ -15,7 +15,7 @@ namespace csv {
      *  @throws
      *  std::runtime_error If n is out of bounds
      */
-    csv::string_view CSVRow::get_string_view(size_t n) const {
+    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
         csv::string_view ret(this->row_str);
         size_t beg = 0,
             end = 0,
@@ -57,7 +57,7 @@ namespace csv {
      *  Constant, by calling csv::CSVRow::get_csv::string_view()
      *
      */
-    CSVField CSVRow::operator[](size_t n) const {
+    CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
         return CSVField(this->get_string_view(n));
     }
 
@@ -70,7 +70,7 @@ namespace csv {
      *
      *  @param[in] col_name The column to look for
      */
-    CSVField CSVRow::operator[](const std::string& col_name) const {
+    CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
         auto & col_names = this->buffer->col_names;
         auto col_pos = col_names->col_pos.find(col_name);
         if (col_pos != col_names->col_pos.end())
@@ -79,7 +79,7 @@ namespace csv {
         throw std::runtime_error("Can't find a column named " + col_name);
     }
 
-    CSVRow::operator std::vector<std::string>() const {
+    CSV_INLINE CSVRow::operator std::vector<std::string>() const {
 
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
@@ -90,7 +90,7 @@ namespace csv {
 
 #pragma region CSVRow Iterator
     /** Return an iterator pointing to the first field. */
-    CSVRow::iterator CSVRow::begin() const {
+    CSV_INLINE CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
     }
 
@@ -99,24 +99,24 @@ namespace csv {
      *  @warning Attempting to dereference the end iterator results
      *           in dereferencing a null pointer.
      */
-    CSVRow::iterator CSVRow::end() const {
+    CSV_INLINE CSVRow::iterator CSVRow::end() const {
         return CSVRow::iterator(this, (int)this->size());
     }
 
-    CSVRow::reverse_iterator CSVRow::rbegin() const {
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const {
         return std::reverse_iterator<CSVRow::iterator>(this->end());
     }
 
-    CSVRow::reverse_iterator CSVRow::rend() const {
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    unsigned short CSVRow::split_at(size_t n) const
+    CSV_INLINE unsigned short CSVRow::split_at(size_t n) const
     {
         return this->buffer->split_buffer[this->start + n];
     }
 
-    HEDLEY_NON_NULL(2)
+    CSV_INLINE HEDLEY_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), i(_i) {
         if (_i < (int)this->daddy->size())
@@ -126,11 +126,11 @@ namespace csv {
             this->field = nullptr;
     }
 
-    CSVRow::iterator::reference CSVRow::iterator::operator*() const {
+    CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
         return *(this->field.get());
     }
 
-    CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
+    CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
         // Using CSVField * as pointer type causes segfaults in MSVC debug builds
         #ifdef _MSC_BUILD
         return this->field;
@@ -139,7 +139,7 @@ namespace csv {
         #endif
     }
 
-    CSVRow::iterator& CSVRow::iterator::operator++() {
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
         // Pre-increment operator
         this->i++;
         if (this->i < (int)this->daddy->size())
@@ -150,14 +150,14 @@ namespace csv {
         return *this;
     }
 
-    CSVRow::iterator CSVRow::iterator::operator++(int) {
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator++(int) {
         // Post-increment operator
         auto temp = *this;
         this->operator++();
         return temp;
     }
 
-    CSVRow::iterator& CSVRow::iterator::operator--() {
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
         // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
@@ -165,26 +165,21 @@ namespace csv {
         return *this;
     }
 
-    CSVRow::iterator CSVRow::iterator::operator--(int) {
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator--(int) {
         // Post-decrement operator
         auto temp = *this;
         this->operator--();
         return temp;
     }
     
-    CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
         // Allows for iterator arithmetic
         return CSVRow::iterator(this->daddy, i + (int)n);
     }
 
-    CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
         // Allows for iterator arithmetic
         return CSVRow::iterator::operator+(-n);
-    }
-
-    /** Two iterators are equal if they point to the same field */
-    bool CSVRow::iterator::operator==(const iterator& other) const {
-        return this->i == other.i;
     }
 #pragma endregion CSVRow Iterator
 }

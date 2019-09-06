@@ -47,7 +47,7 @@ TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwri
     
     // Test against a variety of different CSVFormat objects
     std::vector<CSVFormat> formats = {};
-    formats.push_back(CSVFormat::GUESS_CSV);
+    formats.push_back(CSVFormat::guess_csv());
     formats.push_back(CSVFormat());
     formats.back().delimiter(std::vector<char>({ ',', '\t', '|'}));
     formats.push_back(CSVFormat());
@@ -162,7 +162,7 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     std::string error_message("");
 
     try {
-        auto should_fail = parse(csv_string, CSVFormat::RFC4180_STRICT);
+        auto should_fail = parse(csv_string, CSVFormat::rfc4180_strict());
     }
     catch (std::runtime_error& err) {
         caught_single_quote = true;
@@ -228,7 +228,7 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     bool error_caught = false;
 
     try {
-        parse(csv_string, CSVFormat::RFC4180_STRICT);
+        parse(csv_string, CSVFormat::rfc4180_strict());
     }
     catch (std::runtime_error& err) {
         error_caught = true;

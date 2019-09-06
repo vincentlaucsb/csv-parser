@@ -16,7 +16,7 @@
 
 namespace csv {
     namespace internals {
-        std::string format_row(const std::vector<std::string>& row, csv::string_view delim) {
+        CSV_INLINE std::string format_row(const std::vector<std::string>& row, csv::string_view delim) {
             /** Print a CSV row */
             std::stringstream ret;
             for (size_t i = 0; i < row.size(); i++) {
@@ -31,7 +31,7 @@ namespace csv {
         //
         // CSVGuesser
         //
-        void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
+        CSV_INLINE void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
             /** Helps CSVGuesser tally up the size of rows encountered while parsing */
             if (row_tally.find(record.size()) != row_tally.end()) row_tally[record.size()]++;
             else {
@@ -40,7 +40,7 @@ namespace csv {
             }
         }
 
-        CSVGuessResult CSVGuesser::guess_delim() {
+        CSV_INLINE CSVGuessResult CSVGuesser::guess_delim() {
             /** Guess the delimiter of a CSV by scanning the first 100 lines by
             *  First assuming that the header is on the first row
             *  If the first guess returns too few rows, then we move to the second
@@ -52,7 +52,7 @@ namespace csv {
             return { delim, header_row };
         }
 
-        bool CSVGuesser::first_guess() {
+        CSV_INLINE bool CSVGuesser::first_guess() {
             /** Guess the delimiter of a delimiter separated values file
              *  by scanning the first 100 lines
              *
@@ -97,7 +97,7 @@ namespace csv {
             return (max_rows > 10 && max_cols > 2);
         }
 
-        void CSVGuesser::second_guess() {
+        CSV_INLINE void CSVGuesser::second_guess() {
             /** For each delimiter, find out which row length was most common.
              *  The delimiter with the longest mode row length wins.
              *  Then, the line number of the header row is the first row with
@@ -138,7 +138,7 @@ namespace csv {
         }
 
         /** Read the first 500KB of a CSV file */
-        void CSVGuesser::get_csv_head() {
+        CSV_INLINE void CSVGuesser::get_csv_head() {
             const size_t bytes = 500000;
             std::ifstream infile(this->filename);
             if (!infile.is_open()) {
@@ -158,7 +158,7 @@ namespace csv {
     }
 
     /** Guess the delimiter used by a delimiter-separated values file */
-    CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
+    CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
         internals::CSVGuesser guesser(filename, delims);
         return guesser.guess_delim();
     }
@@ -201,7 +201,7 @@ namespace csv {
         return ret;
     }
 
-    void CSVReader::bad_row_handler(std::vector<std::string> record) {
+    CSV_INLINE void CSVReader::bad_row_handler(std::vector<std::string> record) {
         /** Handler for rejected rows (too short or too long). This does nothing
          *  unless strict parsing was set, in which case it throws an eror.
          *  Subclasses of CSVReader may easily override this to provide
@@ -220,7 +220,7 @@ namespace csv {
     };
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
-    CSVReader::CSVReader(CSVFormat format) :
+    CSV_INLINE CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.get_delim()), quote_char(format.quote_char),
         header_row(format.header), strict(format.strict),
         unicode_bom_scan(!format.unicode_detect) {
@@ -246,7 +246,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
+    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = guess_format(filename, format.possible_delimiters);
@@ -271,7 +271,7 @@ namespace csv {
     }
 
     /** Return the format of the original raw CSV */
-    CSVFormat CSVReader::get_format() const {
+    CSV_INLINE CSVFormat CSVReader::get_format() const {
         CSVFormat format;
         format.delimiter(this->delimiter)
             .quote(this->quote_char);
@@ -286,14 +286,14 @@ namespace csv {
     }
 
     /** Return the CSV's column names as a vector of strings. */
-    std::vector<std::string> CSVReader::get_col_names() const {
+    CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
         return this->col_names->get_col_names();
     }
 
     /** Return the index of the column name if found or
      *         csv::CSV_NOT_FOUND otherwise.
      */
-    int CSVReader::index_of(csv::string_view col_name) const {
+    CSV_INLINE int CSVReader::index_of(csv::string_view col_name) const {
         auto _col_names = this->get_col_names();
         for (size_t i = 0; i < _col_names.size(); i++)
             if (_col_names[i] == col_name) return (int)i;
@@ -301,11 +301,11 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    void CSVReader::feed(WorkItem&& buff) {
+    CSV_INLINE void CSVReader::feed(WorkItem&& buff) {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
-    void CSVReader::feed(csv::string_view in) {
+    CSV_INLINE void CSVReader::feed(csv::string_view in) {
         /** Parse a CSV-formatted string.
          *
          *  @par Usage
@@ -418,7 +418,7 @@ namespace csv {
         this->record_buffer = row_buffer.reset();
     }
 
-    void CSVReader::end_feed() {
+    CSV_INLINE void CSVReader::end_feed() {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
@@ -436,7 +436,7 @@ namespace csv {
         }
     }
 
-    void CSVReader::write_record() {
+    CSV_INLINE void CSVReader::write_record() {
         /** Push the current row into a queue if it is the right length.
          *  Drop it otherwise.
          */
@@ -465,7 +465,7 @@ namespace csv {
         this->row_num++;
     }
 
-    void CSVReader::read_csv_worker() {
+    CSV_INLINE void CSVReader::read_csv_worker() {
         /** Worker thread for read_csv() which parses CSV rows (while the main
          *         thread pulls data from disk)
          */
@@ -486,7 +486,7 @@ namespace csv {
         }
     }
 
-    void CSVReader::fopen(csv::string_view filename) {
+    CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
         if (!this->infile) {
 #ifdef _MSC_BUILD
             // Silence compiler warnings in Microsoft Visual C++
@@ -504,7 +504,7 @@ namespace csv {
     /**
      *  @param[in] names Column names
      */
-    void CSVReader::set_col_names(const std::vector<std::string>& names)
+    CSV_INLINE void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
         this->col_names = std::make_shared<internals::ColNames>(names);
         this->record_buffer->col_names = this->col_names;
@@ -520,7 +520,7 @@ namespace csv {
      * @param[in] bytes Number of bytes to read.
      * @see CSVReader::read_row()
      */
-    void CSVReader::read_csv(const size_t& bytes) {
+    CSV_INLINE void CSVReader::read_csv(const size_t& bytes) {
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto * HEDLEY_RESTRICT line_buffer = buffer.get();
@@ -566,7 +566,7 @@ namespace csv {
      *
      *  @note Automatically called by ~CSVReader().
      */
-    void CSVReader::close() {
+    CSV_INLINE void CSVReader::close() {
         if (this->infile) {
             std::fclose(this->infile);
             this->infile = nullptr;
@@ -587,7 +587,7 @@ namespace csv {
      * \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    bool CSVReader::read_row(CSVRow &row) {
+    CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
                 // TODO/Suggestion: Make this call non-blocking, 

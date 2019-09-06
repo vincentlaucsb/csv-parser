@@ -176,7 +176,7 @@ namespace csv {
     class CSVRow {
     public:
         CSVRow() = default;
-
+        
         /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
         CSVRow(const internals::BufferPtr& _str) : buffer(_str)
         {
@@ -233,7 +233,6 @@ namespace csv {
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
 #endif
-
             iterator(const CSVRow*, int i);
 
             reference operator*() const;
@@ -246,8 +245,12 @@ namespace csv {
             iterator operator+(difference_type n) const;
             iterator operator-(difference_type n) const;
 
-            bool operator==(const iterator&) const;
-            bool operator!=(const iterator& other) const { return !operator==(other); }
+            CONSTEXPR bool operator==(const iterator& other) const {
+                /** Two iterators are equal if they point to the same field */
+                return this->i == other.i;
+            };
+
+            CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;
@@ -267,6 +270,12 @@ namespace csv {
          */
          ///@{
         iterator begin() const;
+
+        /** Return an iterator pointing to just after the end of the CSVRow.
+         *
+         *  @warning Attempting to dereference the end iterator results
+         *           in dereferencing a null pointer.
+         */
         iterator end() const;
         reverse_iterator rbegin() const;
         reverse_iterator rend() const;

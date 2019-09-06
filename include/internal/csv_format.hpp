@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "compatibility.hpp"
+
 namespace csv {
     class CSVReader;
 
@@ -65,10 +67,16 @@ namespace csv {
         /** Tells the parser to throw an std::runtime_error if an
          *  invalid CSV sequence is found
          */
-        CSVFormat& strict_parsing(bool strict = true);
+        CONSTEXPR CSVFormat& strict_parsing(bool strict = true) {
+            this->strict = strict;
+            return *this;
+        }
 
         /** Tells the parser to detect and remove UTF-8 byte order marks */
-        CSVFormat& detect_bom(bool detect = true);
+        CONSTEXPR CSVFormat& detect_bom(bool detect = true) {
+            this->unicode_detect = detect;
+            return *this;
+        }
 
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() {
@@ -80,16 +88,33 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
-        int get_header() {
+        CONSTEXPR int get_header() {
             return this->header;
         }
         #endif
         
         /** CSVFormat for guessing the delimiter */
-        static const CSVFormat GUESS_CSV;
+        CSV_INLINE static CSVFormat guess_csv() {
+            CSVFormat format;
+            format.delimiter({ ',', '|', '\t', ';', '^' })
+                .quote('"')
+                .header_row(0)
+                .detect_bom(true);
+
+            return format;
+        }
 
         /** CSVFormat for strict RFC 4180 parsing */
-        static const CSVFormat RFC4180_STRICT;
+        CSV_INLINE static CSVFormat rfc4180_strict() {
+            CSVFormat format;
+            format.delimiter(',')
+                .quote('"')
+                .header_row(0)
+                .detect_bom(true)
+                .strict_parsing(true);
+
+            return format;
+        }
 
         friend CSVReader;
     private:

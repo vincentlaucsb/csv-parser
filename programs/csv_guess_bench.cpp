@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
         auto start = std::chrono::system_clock::now();
 
         // This reads just the first 500 kb of a file
-        CSVReader reader(filename, CSVFormat::GUESS_CSV);
+        CSVReader reader(filename, CSVFormat::guess_csv());
 
         auto end = std::chrono::system_clock::now();
         std::chrono::duration<double> diff = end - start;
