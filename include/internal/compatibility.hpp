@@ -2,6 +2,11 @@
  *  Defines various compatibility macros
  */
 
+/** Helper macro which should be #defined as "inline" 
+ *  in the single header version
+ */
+#define CSV_INLINE
+
 #pragma once
 #include "../external/string_view.hpp"
 

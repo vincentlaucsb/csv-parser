@@ -11,22 +11,22 @@ namespace csv {
         // ColNames //
         //////////////
 
-        ColNames::ColNames(const std::vector<std::string>& _cnames)
+        CSV_INLINE ColNames::ColNames(const std::vector<std::string>& _cnames)
             : col_names(_cnames) {
             for (size_t i = 0; i < _cnames.size(); i++) {
                 this->col_pos[_cnames[i]] = i;
             }
         }
 
-        std::vector<std::string> ColNames::get_col_names() const {
+        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
             return this->col_names;
         }
 
-        size_t ColNames::size() const {
+        CSV_INLINE size_t ColNames::size() const {
             return this->col_names.size();
         }
 
-        csv::string_view RawRowBuffer::get_row() {
+        CSV_INLINE csv::string_view RawRowBuffer::get_row() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
                 (this->buffer.size() - this->current_end) // Count
@@ -36,7 +36,7 @@ namespace csv {
             return ret;
         }
 
-        ColumnPositions RawRowBuffer::get_splits()
+        CSV_INLINE ColumnPositions RawRowBuffer::get_splits()
         {
             const size_t head_idx = this->current_split_idx,
                 new_split_idx = this->split_buffer.size();
@@ -45,15 +45,15 @@ namespace csv {
             return ColumnPositions(*this, head_idx, (unsigned short)(new_split_idx - head_idx + 1));
         }
 
-        size_t RawRowBuffer::size() const {
+        CSV_INLINE size_t RawRowBuffer::size() const {
             return this->buffer.size() - this->current_end;
         }
 
-        size_t RawRowBuffer::splits_size() const {
+        CSV_INLINE size_t RawRowBuffer::splits_size() const {
             return this->split_buffer.size() - this->current_split_idx;
         }
         
-        HEDLEY_WARN_UNUSED_RESULT
+        HEDLEY_WARN_UNUSED_RESULT CSV_INLINE
         BufferPtr RawRowBuffer::reset() const {
             // Save current row in progress
             auto new_buff = BufferPtr(new RawRowBuffer());
@@ -76,7 +76,7 @@ namespace csv {
             return new_buff;
         }
 
-        unsigned short ColumnPositions::split_at(int n) const {
+        CSV_INLINE unsigned short ColumnPositions::split_at(int n) const {
             return this->parent->split_buffer[this->start + n];
         }
     }

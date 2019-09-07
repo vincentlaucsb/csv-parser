@@ -27,7 +27,6 @@ namespace csv {
 
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
-        std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
@@ -64,14 +63,24 @@ namespace csv {
             iterator(CSVReader* reader) : daddy(reader) {};
             iterator(CSVReader*, CSVRow&&);
 
-            reference operator*();
-            pointer operator->();
+            /** Access the CSVRow held by the iterator */
+            CONSTEXPR reference operator*() { return this->row; }
+
+            /** Return a pointer to the CSVRow the iterator has stopped at */
+            CONSTEXPR pointer operator->() { return &(this->row); }
+
             iterator& operator++();   /**< Pre-increment iterator */
             iterator operator++(int); /**< Post-increment ierator */
             iterator& operator--();
 
-            bool operator==(const iterator&) const;
-            bool operator!=(const iterator& other) const { return !operator==(other); }
+            /** Returns true if iterators were constructed from the same CSVReader
+             *  and point to the same row
+             */
+            CONSTEXPR bool operator==(const iterator& other) const {
+                return (this->daddy == other.daddy) && (this->i == other.i);
+            }
+
+            CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
 
         private:
             CSVReader * daddy = nullptr;  // Pointer to parent
@@ -83,7 +92,7 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
         CSVReader(CSVFormat format = CSVFormat());
         ///@}
 

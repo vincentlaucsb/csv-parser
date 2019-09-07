@@ -10,7 +10,11 @@ endif(CSV_CXX_STANDARD)
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
 # Defines CSV_HAS_CXX17 in compatibility.hpp
-add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
+if (CMAKE_VERSION VERSION_LESS "3.12.0")
+	add_definitions(-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
+else()
+	add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
+endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads QUIET REQUIRED)
@@ -60,11 +64,15 @@ if (CSV_DEVELOPER)
     if(Python3_Interpreter_FOUND)
       add_custom_target(generate_single_header
           COMMAND ${Python3_EXECUTABLE} single_header.py > single_include/csv.hpp
+          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include_test/csv.hpp
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
       )
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
     endif()
+
+    # Single header compilation test
+    add_subdirectory(single_include_test)
 
     # Documentation
     find_package(Doxygen QUIET)

@@ -90,25 +90,6 @@ namespace csv {
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
         template<> inline DataType type_num<std::string>() { return CSV_STRING; }
 
-        inline std::string type_name(const DataType& dtype) {
-            switch (dtype) {
-            case CSV_STRING:
-                return "string";
-            case CSV_INT8:
-                return "int8";
-            case CSV_INT16:
-                return "int16";
-            case CSV_INT32:
-                return "int32";
-            case CSV_INT64:
-                return "int64";
-            case CSV_DOUBLE:
-                return "double";
-            default:
-                return "null";
-            }
-        };
-
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 

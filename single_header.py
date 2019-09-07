@@ -117,6 +117,10 @@ def file_strip(file: Path) -> str:
         for line in infile:
             add_this_line = sum(re.search(strip, line) is not None for strip in strip_these) == 0
 
+            # Change "#define CSV_INLINE" to "#define CSV_INLINE inline"
+            if ('#define CSV_INLINE' in line):
+                line = "#define CSV_INLINE inline\n"
+
             if (add_this_line):
                 new_file += line
 

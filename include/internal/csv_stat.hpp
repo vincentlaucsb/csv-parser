@@ -8,8 +8,7 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    /** @class CSVStat
-     *  @brief Class for calculating statistics from CSV files and in-memory sources
+    /** Class for calculating statistics from CSV files and in-memory sources
      *
      *  **Example**
      *  \include programs/csv_stats.cpp
@@ -28,7 +27,7 @@ namespace csv {
         std::vector<FreqCount> get_counts() const;
         std::vector<TypeCount> get_dtypes() const;
 
-        CSVStat(std::string filename, CSVFormat format = CSVFormat::GUESS_CSV);
+        CSVStat(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
         CSVStat(CSVFormat format = CSVFormat()) : CSVReader(format) {};
     private:
         // An array of rolling averages

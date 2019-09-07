@@ -6,7 +6,7 @@
 #include "csv_stat.hpp"
 
 namespace csv {
-    CSVStat::CSVStat(std::string filename, CSVFormat format) :
+    CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
         CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor
          *  is called, CSVStat will process the entire file iteratively. Once finished,
@@ -21,13 +21,13 @@ namespace csv {
             this->calc();
     }
 
-    void CSVStat::end_feed() {
+    CSV_INLINE void CSVStat::end_feed() {
         CSVReader::end_feed();
         this->calc();
     }
 
-    /** @brief Return current means */
-    std::vector<long double> CSVStat::get_mean() const {
+    /** Return current means */
+    CSV_INLINE std::vector<long double> CSVStat::get_mean() const {
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->rolling_means[i]);
@@ -35,8 +35,8 @@ namespace csv {
         return ret;
     }
 
-    /** @brief Return current variances */
-    std::vector<long double> CSVStat::get_variance() const {
+    /** Return current variances */
+    CSV_INLINE std::vector<long double> CSVStat::get_variance() const {
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
@@ -44,8 +44,8 @@ namespace csv {
         return ret;
     }
 
-    /** @brief Return current mins */
-    std::vector<long double> CSVStat::get_mins() const {
+    /** Return current mins */
+    CSV_INLINE std::vector<long double> CSVStat::get_mins() const {
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->mins[i]);
@@ -53,8 +53,8 @@ namespace csv {
         return ret;
     }
 
-    /** @brief Return current maxes */
-    std::vector<long double> CSVStat::get_maxes() const {
+    /** Return current maxes */
+    CSV_INLINE std::vector<long double> CSVStat::get_maxes() const {
         std::vector<long double> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->maxes[i]);
@@ -62,8 +62,8 @@ namespace csv {
         return ret;
     }
 
-    /** @brief Get counts for each column */
-    std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
+    /** Get counts for each column */
+    CSV_INLINE std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
         std::vector<FreqCount> ret;
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->counts[i]);
@@ -71,8 +71,8 @@ namespace csv {
         return ret;
     }
 
-    /** @brief Get data type counts for each column */
-    std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
+    /** Get data type counts for each column */
+    CSV_INLINE std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
         std::vector<TypeCount> ret;        
         for (size_t i = 0; i < this->col_names->size(); i++) {
             ret.push_back(this->dtypes[i]);
@@ -80,7 +80,7 @@ namespace csv {
         return ret;
     }
 
-    void CSVStat::calc() {
+    CSV_INLINE void CSVStat::calc() {
         /** Go through all records and calculate specified statistics */
         for (size_t i = 0; i < this->col_names->size(); i++) {
             dtypes.push_back({});
@@ -105,7 +105,7 @@ namespace csv {
         this->records.clear();
     }
 
-    void CSVStat::calc_worker(const size_t &i) {
+    CSV_INLINE void CSVStat::calc_worker(const size_t &i) {
         /** Worker thread for CSVStat::calc() which calculates statistics for one column.
          * 
          *  @param[in] i Column index
@@ -134,7 +134,7 @@ namespace csv {
         }
     }
 
-    void CSVStat::dtype(CSVField& data, const size_t &i) {
+    CSV_INLINE void CSVStat::dtype(CSVField& data, const size_t &i) {
         /** Given a record update the type counter
          *  @param[in]  record Data observation
          *  @param[out] i      The column index that should be updated
@@ -151,7 +151,7 @@ namespace csv {
         }
     }
 
-    void CSVStat::count(CSVField& data, const size_t &i) {
+    CSV_INLINE void CSVStat::count(CSVField& data, const size_t &i) {
         /** Given a record update the frequency counter
          *  @param[in]  record Data observation
          *  @param[out] i      The column index that should be updated
@@ -169,7 +169,7 @@ namespace csv {
         }
     }
 
-    void CSVStat::min_max(const long double &x_n, const size_t &i) {
+    CSV_INLINE void CSVStat::min_max(const long double &x_n, const size_t &i) {
         /** Update current minimum and maximum
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
@@ -185,7 +185,7 @@ namespace csv {
             this->maxes[i] = x_n;
     }
 
-    void CSVStat::variance(const long double &x_n, const size_t &i) {
+    CSV_INLINE void CSVStat::variance(const long double &x_n, const size_t &i) {
         /** Given a record update rolling mean and variance for all columns
          *  using Welford's Algorithm
          *  @param[in]  x_n Data observation
@@ -209,7 +209,7 @@ namespace csv {
         }
     }
 
-    /** @brief Useful for uploading CSV files to SQL databases.
+    /** Useful for uploading CSV files to SQL databases.
      *
      *  Return a data type for each column such that every value in a column can be
      *  converted to the corresponding data type without data loss.
@@ -217,7 +217,7 @@ namespace csv {
      *
      *  \return A mapping of column names to csv::DataType enums
      */
-    std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
+    CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
         CSVStat stat(filename);
         std::unordered_map<std::string, DataType> csv_dtypes;
 
