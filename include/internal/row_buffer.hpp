@@ -76,6 +76,12 @@ namespace csv {
             size_t splits_size() const;      /**< Return (num columns - 1) for current row */
             BufferPtr reset() const;         /**< Create a new RawRowBuffer with this buffer's unfinished work */
 
+            /*
+             * TODO: Investigate performance benefits by storing a row's text right next to its 
+             * split_buffer. This would take greater advantage of locality, but would require a reworking
+             * of this data structure.
+             */
+
             std::string buffer;              /**< Buffer for storing text */
             SplitArray split_buffer = {};    /**< Array for storing indices (in buffer)
                                                   of where CSV fields start */

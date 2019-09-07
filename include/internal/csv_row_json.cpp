@@ -1,3 +1,7 @@
+/** @file
+ *  Implements JSON serialization abilities
+ */
+
 #include "csv_row.hpp"
 
 namespace csv {
@@ -97,7 +101,7 @@ namespace csv {
             {
                 switch (c)
                 {
-                    // quotation mark (0x22)
+                // quotation mark (0x22)
                 case '"':
                 {
                     result[pos + 1] = '"';

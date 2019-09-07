@@ -6,7 +6,7 @@
 #include "csv_stat.hpp"
 
 namespace csv {
-    CSV_INLINE CSVStat::CSVStat(std::string filename, CSVFormat format) :
+    CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
         CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor
          *  is called, CSVStat will process the entire file iteratively. Once finished,

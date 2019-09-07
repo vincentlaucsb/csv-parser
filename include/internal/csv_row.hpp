@@ -245,12 +245,12 @@ namespace csv {
             iterator operator+(difference_type n) const;
             iterator operator-(difference_type n) const;
 
-            CONSTEXPR bool operator==(const iterator& other) const {
-                /** Two iterators are equal if they point to the same field */
+            /** Two iterators are equal if they point to the same field */
+            constexpr bool operator==(const iterator& other) const {
                 return this->i == other.i;
             };
 
-            CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
+            constexpr bool operator!=(const iterator& other) const { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;
@@ -262,7 +262,7 @@ namespace csv {
             int i = 0;                                 // Index of current field
         };
 
-        /** @brief A reverse iterator over the contents of a CSVRow. */
+        /** A reverse iterator over the contents of a CSVRow. */
         using reverse_iterator = std::reverse_iterator<iterator>;
 
         /** @name Iterators
@@ -270,12 +270,6 @@ namespace csv {
          */
          ///@{
         iterator begin() const;
-
-        /** Return an iterator pointing to just after the end of the CSVRow.
-         *
-         *  @warning Attempting to dereference the end iterator results
-         *           in dereferencing a null pointer.
-         */
         iterator end() const;
         reverse_iterator rbegin() const;
         reverse_iterator rend() const;

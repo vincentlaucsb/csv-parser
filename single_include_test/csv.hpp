@@ -3327,25 +3327,6 @@ namespace csv {
         template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
         template<> inline DataType type_num<std::string>() { return CSV_STRING; }
 
-        inline std::string type_name(const DataType& dtype) {
-            switch (dtype) {
-            case CSV_STRING:
-                return "string";
-            case CSV_INT8:
-                return "int8";
-            case CSV_INT16:
-                return "int16";
-            case CSV_INT32:
-                return "int32";
-            case CSV_INT64:
-                return "int64";
-            case CSV_DOUBLE:
-                return "double";
-            default:
-                return "null";
-            }
-        };
-
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
@@ -3625,6 +3606,12 @@ namespace csv {
             size_t size() const;             /**< Return size of current row */
             size_t splits_size() const;      /**< Return (num columns - 1) for current row */
             BufferPtr reset() const;         /**< Create a new RawRowBuffer with this buffer's unfinished work */
+
+            /*
+             * TODO: Investigate performance benefits by storing a row's text right next to its 
+             * split_buffer. This would take greater advantage of locality, but would require a reworking
+             * of this data structure.
+             */
 
             std::string buffer;              /**< Buffer for storing text */
             SplitArray split_buffer = {};    /**< Array for storing indices (in buffer)
@@ -3983,12 +3970,12 @@ namespace csv {
             iterator operator+(difference_type n) const;
             iterator operator-(difference_type n) const;
 
-            CONSTEXPR bool operator==(const iterator& other) const {
-                /** Two iterators are equal if they point to the same field */
+            /** Two iterators are equal if they point to the same field */
+            constexpr bool operator==(const iterator& other) const {
                 return this->i == other.i;
             };
 
-            CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
+            constexpr bool operator!=(const iterator& other) const { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;
@@ -4000,7 +3987,7 @@ namespace csv {
             int i = 0;                                 // Index of current field
         };
 
-        /** @brief A reverse iterator over the contents of a CSVRow. */
+        /** A reverse iterator over the contents of a CSVRow. */
         using reverse_iterator = std::reverse_iterator<iterator>;
 
         /** @name Iterators
@@ -4008,12 +3995,6 @@ namespace csv {
          */
          ///@{
         iterator begin() const;
-
-        /** Return an iterator pointing to just after the end of the CSVRow.
-         *
-         *  @warning Attempting to dereference the end iterator results
-         *           in dereferencing a null pointer.
-         */
         iterator end() const;
         reverse_iterator rbegin() const;
         reverse_iterator rend() const;
@@ -4097,7 +4078,6 @@ namespace csv {
 
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
-        std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
@@ -4372,8 +4352,7 @@ namespace csv {
 #include <vector>
 
 namespace csv {
-    /** @class CSVStat
-     *  @brief Class for calculating statistics from CSV files and in-memory sources
+    /** Class for calculating statistics from CSV files and in-memory sources
      *
      *  **Example**
      *  \include programs/csv_stats.cpp
@@ -4392,7 +4371,7 @@ namespace csv {
         std::vector<FreqCount> get_counts() const;
         std::vector<TypeCount> get_dtypes() const;
 
-        CSVStat(std::string filename, CSVFormat format = CSVFormat::guess_csv());
+        CSVStat(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
         CSVStat(CSVFormat format = CSVFormat()) : CSVReader(format) {};
     private:
         // An array of rolling averages
@@ -5341,6 +5320,10 @@ namespace csv {
 #pragma endregion CSVRow Iterator
 }
 
+/** @file
+ *  Implements JSON serialization abilities
+ */
+
 
 namespace csv {
     /*
@@ -5439,7 +5422,7 @@ namespace csv {
             {
                 switch (c)
                 {
-                    // quotation mark (0x22)
+                // quotation mark (0x22)
                 case '"':
                 {
                     result[pos + 1] = '"';
@@ -5604,7 +5587,7 @@ namespace csv {
 #include <string>
 
 namespace csv {
-    CSV_INLINE CSVStat::CSVStat(std::string filename, CSVFormat format) :
+    CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
         CSVReader(filename, format) {
         /** Lazily calculate statistics for a potentially large file. Once this constructor
          *  is called, CSVStat will process the entire file iteratively. Once finished,
@@ -5896,7 +5879,7 @@ namespace csv {
         return reader.index_of(col_name);
     }
 
-    /** @brief Get basic information about a CSV file
+    /** Get basic information about a CSV file
      *  @include programs/csv_info.cpp
      */
     CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {

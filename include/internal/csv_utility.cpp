@@ -53,7 +53,7 @@ namespace csv {
         return reader.index_of(col_name);
     }
 
-    /** @brief Get basic information about a CSV file
+    /** Get basic information about a CSV file
      *  @include programs/csv_info.cpp
      */
     CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {

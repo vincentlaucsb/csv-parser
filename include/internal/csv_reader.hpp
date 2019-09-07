@@ -27,7 +27,6 @@ namespace csv {
 
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
-        std::string type_name(const DataType& dtype);
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 

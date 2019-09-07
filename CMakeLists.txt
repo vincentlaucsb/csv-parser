@@ -59,8 +59,6 @@ add_subdirectory("programs")
 
 ## Developer settings
 if (CSV_DEVELOPER)
-    add_subdirectory(single_include_test)
-
     # Generate a single header library
     find_package(Python3 QUIET)
     if(Python3_Interpreter_FOUND)
@@ -72,6 +70,9 @@ if (CSV_DEVELOPER)
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
     endif()
+
+    # Single header compilation test
+    add_subdirectory(single_include_test)
 
     # Documentation
     find_package(Doxygen QUIET)
