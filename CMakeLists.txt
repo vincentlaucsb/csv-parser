@@ -22,20 +22,13 @@ find_package(Threads QUIET REQUIRED)
 if(MSVC)
 	# Make Visual Studio report accurate C++ version
 	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
-	set(CMAKE_CXX_FLAGS "/EHsc /Zc:__cplusplus")
-
-	if(CMAKE_BUILD_TYPE MATCHES Debug)
-		# /Wall emits warnings about the C++ standard library
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-	endif()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /Zc:__cplusplus")
+  # /Wall emits warnings about the C++ standard library
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /W4")
 else()
 	# Ignore Visual Studio pragma regions
-	set(CMAKE_CXX_FLAGS "-Wno-unknown-pragmas")
-	if(CMAKE_BUILD_TYPE MATCHES Debug)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-	else()
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -g")
-	endif()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
 endif(MSVC)
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
