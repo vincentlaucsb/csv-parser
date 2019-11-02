@@ -366,3 +366,23 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
         }
     }
 }
+
+// As reported in: https://github.com/vincentlaucsb/csv-parser/issues/56
+TEST_CASE("Test CSV parser regression", "[read_csv_regression]") {
+    std::string csvString(R"(category,subcategory,project name
+,,foo-project
+bar-category,,bar-project
+	)");
+    auto format = csv::CSVFormat();
+    csv::CSVReader reader(format);
+    reader.feed(csvString);
+    reader.end_feed();
+    
+    CSVRow first_row, second_row;
+    REQUIRE(reader.read_row(first_row));
+    REQUIRE(reader.read_row(second_row));
+
+    REQUIRE(first_row["category"] == "");
+    REQUIRE(first_row["subcategory"] == "");
+    REQUIRE(first_row["project name"] == "foo-project");
+}

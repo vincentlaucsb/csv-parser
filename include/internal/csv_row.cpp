@@ -17,8 +17,10 @@ namespace csv {
      */
     CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
         csv::string_view ret(this->row_str);
+
+        // First assume that field comprises entire row, then adjust accordingly
         size_t beg = 0,
-            end = 0,
+            end = row_str.size(),
             r_size = this->size();
 
         if (n >= r_size)
@@ -35,11 +37,6 @@ namespace csv {
                 beg = this->split_at(n - 1);
                 if (n != r_size - 1) end = this->split_at(n);
             }
-        }
-
-        // Performance optimization
-        if (end == 0) {
-            end = row_str.size();
         }
         
         return ret.substr(
