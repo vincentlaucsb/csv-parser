@@ -67,8 +67,8 @@ namespace csv {
         /** Tells the parser to throw an std::runtime_error if an
          *  invalid CSV sequence is found
          */
-        CONSTEXPR CSVFormat& strict_parsing(bool strict = true) {
-            this->strict = strict;
+        CONSTEXPR CSVFormat& strict_parsing(bool is_strict = true) {
+            this->strict = is_strict;
             return *this;
         }
 
