@@ -367,15 +367,15 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     }
 }
 
-// As reported in: https://github.com/vincentlaucsb/csv-parser/issues/56
-TEST_CASE("Test CSV parser regression", "[read_csv_regression]") {
-    std::string csvString(R"(category,subcategory,project name
+// Reported in: https://github.com/vincentlaucsb/csv-parser/issues/56
+TEST_CASE("Leading Empty Field Regression", "[empty_field_regression]") {
+    std::string csv_string(R"(category,subcategory,project name
 ,,foo-project
 bar-category,,bar-project
 	)");
     auto format = csv::CSVFormat();
     csv::CSVReader reader(format);
-    reader.feed(csvString);
+    reader.feed(csv_string);
     reader.end_feed();
     
     CSVRow first_row, second_row;
@@ -385,4 +385,8 @@ bar-category,,bar-project
     REQUIRE(first_row["category"] == "");
     REQUIRE(first_row["subcategory"] == "");
     REQUIRE(first_row["project name"] == "foo-project");
+
+    REQUIRE(second_row["category"] == "bar-category");
+    REQUIRE(second_row["subcategory"] == "");
+    REQUIRE(second_row["project name"] == "bar-project");
 }
