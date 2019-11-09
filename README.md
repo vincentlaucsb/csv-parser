@@ -241,7 +241,7 @@ If a CSV file does not have column names, you can specify your own:
 ```cpp
 std::vector<std::string> col_names = { ... };
 CSVFormat format;
-format.set_column_names(col_names);
+format.column_names(col_names);
 ```
 
 ### Parsing an In-Memory String

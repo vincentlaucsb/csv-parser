@@ -201,10 +201,10 @@ namespace csv {
             col_names = this->buffer->col_names->get_col_names();
         }
 
-        const size_t n_cols = col_names.size();
+        const size_t _n_cols = col_names.size();
         std::string ret = "{";
         
-        for (size_t i = 0; i < n_cols; i++) {
+        for (size_t i = 0; i < _n_cols; i++) {
             auto& col = col_names[i];
             auto field = this->operator[](col);
 
@@ -218,7 +218,7 @@ namespace csv {
                 ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
 
             // Do not add comma after last string
-            if (i + 1 < n_cols)
+            if (i + 1 < _n_cols)
                 ret += ',';
         }
 
@@ -238,10 +238,10 @@ namespace csv {
         if (subset.empty())
             col_names = this->buffer->col_names->get_col_names();
 
-        const size_t n_cols = col_names.size();
+        const size_t _n_cols = col_names.size();
         std::string ret = "[";
 
-        for (size_t i = 0; i < n_cols; i++) {
+        for (size_t i = 0; i < _n_cols; i++) {
             auto field = this->operator[](col_names[i]);
 
             // Add quotes around strings but not numbers
@@ -251,7 +251,7 @@ namespace csv {
                 ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
 
             // Do not add comma after last string
-            if (i + 1 < n_cols)
+            if (i + 1 < _n_cols)
                 ret += ',';
         }
 
