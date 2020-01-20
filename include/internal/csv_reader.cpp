@@ -453,14 +453,19 @@ namespace csv {
                  * 2) Too short or too long
                  */
                 this->row_num--;
-                if (row_size > 0)
+                if (row_size > 0) {
                     bad_row_handler(std::vector<std::string>(CSVRow(
                         this->record_buffer)));
+                }
             }
         }
         else if (this->row_num == this->header_row) {
             this->set_col_names(std::vector<std::string>(CSVRow(this->record_buffer)));
-        } // else: Ignore rows before header row
+        }
+        else {
+            // Ignore rows before header row
+            this->record_buffer->get_row();
+        }
 
         this->row_num++;
     }

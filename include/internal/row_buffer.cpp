@@ -26,6 +26,9 @@ namespace csv {
             return this->col_names.size();
         }
 
+        /** Get the current row in the buffer
+         *  @note Has the side effect of updating the current end pointer
+         */
         CSV_INLINE csv::string_view RawRowBuffer::get_row() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
