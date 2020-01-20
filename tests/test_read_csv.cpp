@@ -390,3 +390,33 @@ bar-category,,bar-project
     REQUIRE(second_row["subcategory"] == "");
     REQUIRE(second_row["project name"] == "bar-project");
 }
+
+// Reported in: https://github.com/vincentlaucsb/csv-parser/issues/67
+TEST_CASE("Comments in Header Regression", "[comments_in_header_regression]") {
+    std::string csv_string(R"(# some extra metadata
+# some extra metadata
+timestamp,distance,angle,amplitude
+22857782,30000,-3141.59,0
+22857786,30000,-3141.09,0
+)");
+
+    auto format = csv::CSVFormat();
+    format.header_row(2);
+
+    csv::CSVReader reader(format);
+    reader.feed(csv_string);
+    reader.end_feed();
+
+    for (auto& str : reader.get_col_names()) {
+        std::cout << str << std::endl;
+    }
+
+    std::vector<std::string> expected = {
+        "timestamp", "distance", "angle", "amplitude"
+    };
+
+    // Original issue: Leading comments appeared in column names
+    for (size_t i = 0; i < expected.size(); i++) {
+        REQUIRE(expected[i] == reader.get_col_names()[i]);
+    }
+}

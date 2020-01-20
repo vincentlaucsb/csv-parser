@@ -1,11 +1,11 @@
 #pragma once
 /*
-CSV for C++, version 1.2.2
+CSV for C++, version 1.2.4
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
 
-Copyright (c) 2017-2019 Vincent La
+Copyright (c) 2017-2020 Vincent La
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4273,14 +4273,10 @@ namespace csv {
         /** @name Parser State */
         ///@{
         /** Pointer to a object containing column information */
-        internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>(
-            std::vector<std::string>({}));
+        internals::ColNamesPtr col_names = nullptr;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
-
-        /** Whether or not we have parsed the header row */
-        bool header_was_parsed = false;
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
@@ -4767,7 +4763,11 @@ namespace csv {
 
     /** Return the CSV's column names as a vector of strings. */
     CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
-        return this->col_names->get_col_names();
+        if (this->col_names) {
+            return this->col_names->get_col_names();
+        }
+
+        return std::vector<std::string>();
     }
 
     /** Return the index of the column name if found or
@@ -4921,7 +4921,7 @@ namespace csv {
          *  Drop it otherwise.
          */
 
-        if (header_was_parsed) {
+        if (this->col_names) {
             // Make sure record is of the right length
             const size_t row_size = this->record_buffer->splits_size();
             if (row_size + 1 == this->n_cols) {
@@ -4933,14 +4933,19 @@ namespace csv {
                  * 2) Too short or too long
                  */
                 this->row_num--;
-                if (row_size > 0)
+                if (row_size > 0) {
                     bad_row_handler(std::vector<std::string>(CSVRow(
                         this->record_buffer)));
+                }
             }
         }
         else if (this->row_num == this->header_row) {
             this->set_col_names(std::vector<std::string>(CSVRow(this->record_buffer)));
-        } // else: Ignore rows before header row
+        }
+        else {
+            // Ignore rows before header row
+            this->record_buffer->get_row();
+        }
 
         this->row_num++;
     }
@@ -4988,7 +4993,6 @@ namespace csv {
     {
         this->col_names = std::make_shared<internals::ColNames>(names);
         this->record_buffer->col_names = this->col_names;
-        this->header_was_parsed = true;
         this->n_cols = names.size();
     }
 
@@ -5926,6 +5930,9 @@ namespace csv {
             return this->col_names.size();
         }
 
+        /** Get the current row in the buffer
+         *  @note Has the side effect of updating the current end pointer
+         */
         CSV_INLINE csv::string_view RawRowBuffer::get_row() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
