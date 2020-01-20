@@ -9,9 +9,6 @@ if(CSV_DEVELOPER)
 	add_executable(csv_guess_bench ${CMAKE_CURRENT_LIST_DIR}/csv_guess_bench.cpp)
 	target_link_libraries(csv_guess_bench csv)
 
-	add_executable(csv_generator ${CMAKE_CURRENT_LIST_DIR}/csv_generator.cpp)
-	target_link_libraries(csv_generator csv)
-
 	# Benchmarks for parsing speed
 	add_executable(csv_bench ${CMAKE_CURRENT_LIST_DIR}/csv_bench.cpp)
 	target_link_libraries(csv_bench csv)
@@ -21,7 +18,12 @@ if(CSV_DEVELOPER)
 		WORKING_DIRECTORY ${CSV_TEST_DIR}/data/real_data
 	)
 
-#	# Benchmarks for data_type() function
+	if("${CMAKE_CXX_STANDARD}" MATCHES "17")
+		add_executable(csv_generator ${CMAKE_CURRENT_LIST_DIR}/csv_generator.cpp)
+		target_link_libraries(csv_generator csv)
+	endif()
+
+	#	# Benchmarks for data_type() function
 #	add_executable(data_type_bench ${CMAKE_CURRENT_LIST_DIR}/data_type_bench.cpp)
 #	target_link_libraries(data_type_bench csv)
 #
