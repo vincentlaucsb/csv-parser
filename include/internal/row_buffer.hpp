@@ -18,7 +18,8 @@ namespace csv {
         struct ColNames;
         using BufferPtr = std::shared_ptr<RawRowBuffer>;
         using ColNamesPtr = std::shared_ptr<ColNames>;
-        using SplitArray = std::vector<unsigned short>;
+        using StrBufferPos = unsigned short;
+        using SplitArray = std::vector<StrBufferPos>;
 
         /** @struct ColNames
          *  A data structure for handling column name information.
@@ -65,7 +66,7 @@ namespace csv {
              *  @param[in] _splits    Positions in buffer where CSV fields begin
              *  @param[in] _col_names Pointer to a vector of column names
              */
-            RawRowBuffer(const std::string& _buffer, const std::vector<unsigned short>& _splits,
+            RawRowBuffer(const std::string& _buffer, const std::vector<StrBufferPos>& _splits,
                 const std::shared_ptr<ColNames>& _col_names) :
                 buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
 

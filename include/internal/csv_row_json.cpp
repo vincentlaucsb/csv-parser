@@ -198,7 +198,7 @@ namespace csv {
     CSV_INLINE std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
         if (subset.empty()) {
-            col_names = this->buffer->col_names->get_col_names();
+            col_names = this->buffer ? this->buffer->col_names->get_col_names() : std::vector<std::string>();
         }
 
         const size_t _n_cols = col_names.size();
@@ -236,7 +236,7 @@ namespace csv {
     CSV_INLINE std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
         if (subset.empty())
-            col_names = this->buffer->col_names->get_col_names();
+            col_names = this->buffer ? this->buffer->col_names->get_col_names() : std::vector<std::string>();
 
         const size_t _n_cols = col_names.size();
         std::string ret = "[";

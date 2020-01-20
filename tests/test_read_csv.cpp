@@ -391,6 +391,25 @@ bar-category,,bar-project
     REQUIRE(second_row["project name"] == "bar-project");
 }
 
+TEST_CASE("Test Parsing CSV with Dummy Column", "[read_csv_dummy]") {
+    std::string csv_string(R"(A,B,C,
+123,345,678,)");
+
+    auto format = csv::CSVFormat();
+    csv::CSVReader reader(format);
+    reader.feed(csv_string);
+    reader.end_feed();
+
+    CSVRow first_row;
+
+    REQUIRE(reader.get_col_names() == std::vector<std::string>({"A","B","C",""}));
+
+    reader.read_row(first_row);
+    REQUIRE(std::vector<std::string>(first_row) == std::vector<std::string>({
+        "123", "345", "678", ""
+    }));
+}
+
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/67
 TEST_CASE("Comments in Header Regression", "[comments_in_header_regression]") {
     std::string csv_string(R"(# some extra metadata
@@ -407,16 +426,10 @@ timestamp,distance,angle,amplitude
     reader.feed(csv_string);
     reader.end_feed();
 
-    for (auto& str : reader.get_col_names()) {
-        std::cout << str << std::endl;
-    }
-
     std::vector<std::string> expected = {
         "timestamp", "distance", "angle", "amplitude"
     };
 
     // Original issue: Leading comments appeared in column names
-    for (size_t i = 0; i < expected.size(); i++) {
-        REQUIRE(expected[i] == reader.get_col_names()[i]);
-    }
+    REQUIRE(expected == reader.get_col_names());
 }
