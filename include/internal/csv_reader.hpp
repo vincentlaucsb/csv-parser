@@ -222,14 +222,10 @@ namespace csv {
         /** @name Parser State */
         ///@{
         /** Pointer to a object containing column information */
-        internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>(
-            std::vector<std::string>({}));
+        internals::ColNamesPtr col_names = nullptr;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
-
-        /** Whether or not we have parsed the header row */
-        bool header_was_parsed = false;
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;

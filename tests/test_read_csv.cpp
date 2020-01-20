@@ -391,7 +391,7 @@ bar-category,,bar-project
     REQUIRE(second_row["project name"] == "bar-project");
 }
 
-// Reported in: 
+// Reported in: https://github.com/vincentlaucsb/csv-parser/issues/67
 TEST_CASE("Comments in Header Regression", "[comments_in_header_regression]") {
     std::string csv_string(R"(# some extra metadata
 # some extra metadata
@@ -411,5 +411,12 @@ timestamp,distance,angle,amplitude
         std::cout << str << std::endl;
     }
 
-    REQUIRE(reader.get_col_names()[0] == "timestamp");
+    std::vector<std::string> expected = {
+        "timestamp", "distance", "angle", "amplitude"
+    };
+
+    // Original issue: Leading comments appeared in column names
+    for (size_t i = 0; i < expected.size(); i++) {
+        REQUIRE(expected[i] == reader.get_col_names()[i]);
+    }
 }
