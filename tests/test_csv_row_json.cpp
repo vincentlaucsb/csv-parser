@@ -5,12 +5,14 @@ using namespace csv;
 /** Construct a CSVRow object for testing given column names and CSV fields */
 CSVRow make_csv_row(std::vector<std::string> data, std::vector<std::string> col_names) {
     // Concatenate vector or strings into one large string
+    using namespace csv::internals;
+
     std::string concat;
-    std::vector<unsigned short> splits = {};
+    SplitArray splits = {};
 
     for (auto& field : data) {
         concat += field;
-        splits.push_back(concat.size());
+        splits.push_back((StrBufferPos)concat.size());
     }
 
     return CSVRow(concat, splits, std::make_shared<internals::ColNames>(col_names));
