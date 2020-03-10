@@ -92,7 +92,13 @@ namespace csv {
 
             // Allow fallthrough from previous if branch
             IF_CONSTEXPR(!std::is_floating_point<T>::value) {
-                if (internals::type_num<T>() < this->_type) {
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    // Quick hack to perform correct unsigned integer boundary checks
+                    if (this->value > internals::get_uint_max<sizeof(T)>()) {
+                        throw std::runtime_error(internals::ERROR_OVERFLOW);
+                    }
+                }
+                else if (internals::type_num<T>() < this->_type) {
                     throw std::runtime_error(internals::ERROR_OVERFLOW);
                 }
             }
