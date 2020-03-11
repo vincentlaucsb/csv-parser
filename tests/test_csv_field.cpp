@@ -59,8 +59,20 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
     REQUIRE(ex_caught);
 }
 
+TEST_CASE("CSVField get<>() - Integer Boundary Value", "[test_csv_field_get_boundary]") {
+    // Note: Tests may fail if compiler defines typenames differently than
+    // Microsoft/GCC/clang
+    REQUIRE(CSVField("127").get<signed char>() == 127);
+    REQUIRE(CSVField("32767").get<short>() == 32767);
+    REQUIRE(CSVField("2147483647").get<int>() == 2147483647);
+
+    REQUIRE(CSVField("255").get<unsigned char>() == 255);
+    REQUIRE(CSVField("65535").get<unsigned short>() == 65535);
+    REQUIRE(CSVField("4294967295").get<unsigned>() == 4294967295);
+}
+
 // Test converting a small integer to unsigned and signed integer types
-TEMPLATE_TEST_CASE("CSVField get<>() - Integral Value to Int", "[test_csv_field_get_int]",
+TEMPLATE_TEST_CASE("CSVField get<>() - Integral Value to Int", "[test_csv_field_convert_int]",
     unsigned char, unsigned short, unsigned int, unsigned long long,
     char, short, int, long long int) {
     CSVField savage("21");
