@@ -4444,6 +4444,413 @@ namespace csv {
     };
 }
 
+#include <vector>
+
+
+namespace csv {
+    /** Shorthand function for parsing an in-memory CSV string,
+     *  a collection of CSVRow objects
+     *
+     *  @snippet tests/test_read_csv.cpp Parse Example
+     */
+    CSV_INLINE CSVCollection parse(csv::string_view in, CSVFormat format) {
+        CSVReader parser(format);
+        parser.feed(in);
+        parser.end_feed();
+        return parser.records;
+    }
+
+    /** Parse a RFC 4180 CSV string, returning a collection
+     *  of CSVRow objects
+     *
+     *  @par Example
+     *  @snippet tests/test_read_csv.cpp Escaped Comma
+     *
+     */
+    CSV_INLINE CSVCollection operator ""_csv(const char* in, size_t n) {
+        return parse(csv::string_view(in, n));
+    }
+
+    /** Return a CSV's column names
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] format    Format of the CSV file
+     *
+     */
+    CSV_INLINE std::vector<std::string> get_col_names(const std::string& filename, CSVFormat format) {
+        CSVReader reader(filename, format);
+        return reader.get_col_names();
+    }
+
+    /**
+     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] col_name  Column whose position we should resolve
+     *  @param[in] format    Format of the CSV file
+     */
+    CSV_INLINE int get_col_pos(
+        const std::string filename,
+        const std::string col_name,
+        const CSVFormat format) {
+        CSVReader reader(filename, format);
+        return reader.index_of(col_name);
+    }
+
+    /** Get basic information about a CSV file
+     *  @include programs/csv_info.cpp
+     */
+    CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
+        CSVReader reader(filename);
+        CSVFormat format = reader.get_format();
+        for (auto& row : reader) {
+            #ifndef NDEBUG
+            SUPPRESS_UNUSED_WARNING(row);
+            #endif
+        }
+
+        CSVFileInfo info = {
+            filename,
+            reader.get_col_names(),
+            format.get_delim(),
+            reader.correct_rows,
+            (int)reader.get_col_names().size()
+        };
+
+        return info;
+    }
+}
+/** @file
+ *  Defines an object which can store CSV data in
+ *  continuous regions of memory
+ */
+
+
+namespace csv {
+    namespace internals {
+        //////////////
+        // ColNames //
+        //////////////
+
+        CSV_INLINE ColNames::ColNames(const std::vector<std::string>& _cnames)
+            : col_names(_cnames) {
+            for (size_t i = 0; i < _cnames.size(); i++) {
+                this->col_pos[_cnames[i]] = i;
+            }
+        }
+
+        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
+            return this->col_names;
+        }
+
+        CSV_INLINE size_t ColNames::size() const {
+            return this->col_names.size();
+        }
+
+        /** Get the current row in the buffer
+         *  @note Has the side effect of updating the current end pointer
+         */
+        CSV_INLINE csv::string_view RawRowBuffer::get_row() {
+            csv::string_view ret(
+                this->buffer.c_str() + this->current_end, // Beginning of string
+                (this->buffer.size() - this->current_end) // Count
+            );
+
+            this->current_end = this->buffer.size();
+            return ret;
+        }
+
+        CSV_INLINE ColumnPositions RawRowBuffer::get_splits()
+        {
+            const size_t head_idx = this->current_split_idx,
+                new_split_idx = this->split_buffer.size();
+         
+            this->current_split_idx = new_split_idx;
+            return ColumnPositions(*this, head_idx, (unsigned short)(new_split_idx - head_idx + 1));
+        }
+
+        CSV_INLINE size_t RawRowBuffer::size() const {
+            return this->buffer.size() - this->current_end;
+        }
+
+        CSV_INLINE size_t RawRowBuffer::splits_size() const {
+            return this->split_buffer.size() - this->current_split_idx;
+        }
+        
+        HEDLEY_WARN_UNUSED_RESULT CSV_INLINE
+        BufferPtr RawRowBuffer::reset() const {
+            // Save current row in progress
+            auto new_buff = BufferPtr(new RawRowBuffer());
+
+            // Save text
+            new_buff->buffer = this->buffer.substr(
+                this->current_end,   // Position
+                (this->buffer.size() - this->current_end) // Count
+            );
+
+            // Save split buffer in progress
+            for (size_t i = this->current_split_idx; i < this->split_buffer.size(); i++) {
+                new_buff->split_buffer.push_back(this->split_buffer[i]);
+            }
+
+            new_buff->col_names = this->col_names;
+
+            // No need to remove unnecessary bits from this buffer
+            // (memory savings would be marginal anyways)
+            return new_buff;
+        }
+
+        CSV_INLINE unsigned short ColumnPositions::split_at(int n) const {
+            return this->parent->split_buffer[this->start + n];
+        }
+    }
+}
+/** @file
+ *  Calculates statistics from CSV files
+ */
+
+#include <string>
+
+namespace csv {
+    CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
+        CSVReader(filename, format) {
+        /** Lazily calculate statistics for a potentially large file. Once this constructor
+         *  is called, CSVStat will process the entire file iteratively. Once finished,
+         *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
+         */
+        while (!this->eof()) {
+            this->read_csv(internals::ITERATION_CHUNK_SIZE);
+            this->calc();
+        }
+
+        if (!this->records.empty())
+            this->calc();
+    }
+
+    CSV_INLINE void CSVStat::end_feed() {
+        CSVReader::end_feed();
+        this->calc();
+    }
+
+    /** Return current means */
+    CSV_INLINE std::vector<long double> CSVStat::get_mean() const {
+        std::vector<long double> ret;        
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            ret.push_back(this->rolling_means[i]);
+        }
+        return ret;
+    }
+
+    /** Return current variances */
+    CSV_INLINE std::vector<long double> CSVStat::get_variance() const {
+        std::vector<long double> ret;        
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
+        }
+        return ret;
+    }
+
+    /** Return current mins */
+    CSV_INLINE std::vector<long double> CSVStat::get_mins() const {
+        std::vector<long double> ret;        
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            ret.push_back(this->mins[i]);
+        }
+        return ret;
+    }
+
+    /** Return current maxes */
+    CSV_INLINE std::vector<long double> CSVStat::get_maxes() const {
+        std::vector<long double> ret;        
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            ret.push_back(this->maxes[i]);
+        }
+        return ret;
+    }
+
+    /** Get counts for each column */
+    CSV_INLINE std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
+        std::vector<FreqCount> ret;
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            ret.push_back(this->counts[i]);
+        }
+        return ret;
+    }
+
+    /** Get data type counts for each column */
+    CSV_INLINE std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
+        std::vector<TypeCount> ret;        
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            ret.push_back(this->dtypes[i]);
+        }
+        return ret;
+    }
+
+    CSV_INLINE void CSVStat::calc() {
+        /** Go through all records and calculate specified statistics */
+        for (size_t i = 0; i < this->col_names->size(); i++) {
+            dtypes.push_back({});
+            counts.push_back({});
+            rolling_means.push_back(0);
+            rolling_vars.push_back(0);
+            mins.push_back(NAN);
+            maxes.push_back(NAN);
+            n.push_back(0);
+        }
+
+        std::vector<std::thread> pool;
+
+        // Start threads
+        for (size_t i = 0; i < this->col_names->size(); i++)
+            pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
+
+        // Block until done
+        for (auto& th: pool)
+            th.join();
+
+        this->records.clear();
+    }
+
+    CSV_INLINE void CSVStat::calc_worker(const size_t &i) {
+        /** Worker thread for CSVStat::calc() which calculates statistics for one column.
+         * 
+         *  @param[in] i Column index
+         */
+
+        auto current_record = this->records.begin();
+        for (size_t processed = 0; current_record != this->records.end(); processed++) {
+            auto current_field = (*current_record)[i];
+
+            // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
+            if (processed < 1000 || this->counts[i].size() <= 500)
+                this->count(current_field, i);
+
+            this->dtype(current_field, i);
+
+            // Numeric Stuff
+            if (current_field.is_num()) {
+                long double x_n = current_field.get<long double>();
+
+                // This actually calculates mean AND variance
+                this->variance(x_n, i);
+                this->min_max(x_n, i);
+            }
+
+            ++current_record;
+        }
+    }
+
+    CSV_INLINE void CSVStat::dtype(CSVField& data, const size_t &i) {
+        /** Given a record update the type counter
+         *  @param[in]  record Data observation
+         *  @param[out] i      The column index that should be updated
+         */
+        
+        auto type = data.type();
+        if (this->dtypes[i].find(type) !=
+            this->dtypes[i].end()) {
+            // Increment count
+            this->dtypes[i][type]++;
+        } else {
+            // Initialize count
+            this->dtypes[i].insert(std::make_pair(type, 1));
+        }
+    }
+
+    CSV_INLINE void CSVStat::count(CSVField& data, const size_t &i) {
+        /** Given a record update the frequency counter
+         *  @param[in]  record Data observation
+         *  @param[out] i      The column index that should be updated
+         */
+
+        auto item = data.get<std::string>();
+
+        if (this->counts[i].find(item) !=
+            this->counts[i].end()) {
+            // Increment count
+            this->counts[i][item]++;
+        } else {
+            // Initialize count
+            this->counts[i].insert(std::make_pair(item, 1));
+        }
+    }
+
+    CSV_INLINE void CSVStat::min_max(const long double &x_n, const size_t &i) {
+        /** Update current minimum and maximum
+         *  @param[in]  x_n Data observation
+         *  @param[out] i   The column index that should be updated
+         */
+        if (isnan(this->mins[i]))
+            this->mins[i] = x_n;
+        if (isnan(this->maxes[i]))
+            this->maxes[i] = x_n;
+        
+        if (x_n < this->mins[i])
+            this->mins[i] = x_n;
+        else if (x_n > this->maxes[i])
+            this->maxes[i] = x_n;
+    }
+
+    CSV_INLINE void CSVStat::variance(const long double &x_n, const size_t &i) {
+        /** Given a record update rolling mean and variance for all columns
+         *  using Welford's Algorithm
+         *  @param[in]  x_n Data observation
+         *  @param[out] i   The column index that should be updated
+         */
+        long double& current_rolling_mean = this->rolling_means[i];
+        long double& current_rolling_var = this->rolling_vars[i];
+        long double& current_n = this->n[i];
+        long double delta;
+        long double delta2;
+
+        current_n++;
+        
+        if (current_n == 1) {
+            current_rolling_mean = x_n;
+        } else {
+            delta = x_n - current_rolling_mean;
+            current_rolling_mean += delta/current_n;
+            delta2 = x_n - current_rolling_mean;
+            current_rolling_var += delta*delta2;
+        }
+    }
+
+    /** Useful for uploading CSV files to SQL databases.
+     *
+     *  Return a data type for each column such that every value in a column can be
+     *  converted to the corresponding data type without data loss.
+     *  @param[in]  filename The CSV file
+     *
+     *  \return A mapping of column names to csv::DataType enums
+     */
+    CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
+        CSVStat stat(filename);
+        std::unordered_map<std::string, DataType> csv_dtypes;
+
+        auto col_names = stat.get_col_names();
+        auto temp = stat.get_dtypes();
+
+        for (size_t i = 0; i < stat.get_col_names().size(); i++) {
+            auto& col = temp[i];
+            auto& col_name = col_names[i];
+
+            if (col[CSV_STRING])
+                csv_dtypes[col_name] = CSV_STRING;
+            else if (col[CSV_INT64])
+                csv_dtypes[col_name] = CSV_INT64;
+            else if (col[CSV_INT32])
+                csv_dtypes[col_name] = CSV_INT32;
+            else if (col[CSV_INT16])
+                csv_dtypes[col_name] = CSV_INT16;
+            else if (col[CSV_INT8])
+                csv_dtypes[col_name] = CSV_INT8;
+            else
+                csv_dtypes[col_name] = CSV_DOUBLE;
+        }
+
+        return csv_dtypes;
+    }
+}
 /** @file
  *  Defines an object used to store CSV format settings
  */
@@ -5142,239 +5549,6 @@ namespace csv {
 }
 
 /** @file
- *  Defines an input iterator for csv::CSVReader
- */
-
-
-namespace csv {
-    /** Return an iterator to the first row in the reader */
-    CSV_INLINE CSVReader::iterator CSVReader::begin() {
-        CSVReader::iterator ret(this, std::move(this->records.front()));
-        this->records.pop_front();
-        return ret;
-    }
-
-    /** A placeholder for the imaginary past the end row in a CSV.
-     *  Attempting to deference this will lead to bad things.
-     */
-    CSV_INLINE HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
-        return CSVReader::iterator();
-    }
-
-    /////////////////////////
-    // CSVReader::iterator //
-    /////////////////////////
-
-    CSV_INLINE CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
-        daddy(_daddy) {
-        row = std::move(_row);
-    }
-
-    /** Advance the iterator by one row. If this CSVReader has an
-     *  associated file, then the iterator will lazily pull more data from
-     *  that file until EOF.
-     */
-    CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
-        if (!daddy->read_row(this->row)) {
-            this->daddy = nullptr; // this == end()
-        }
-
-        return *this;
-    }
-
-    /** Post-increment iterator */
-    CSV_INLINE CSVReader::iterator CSVReader::iterator::operator++(int) {
-        auto temp = *this;
-        if (!daddy->read_row(this->row)) {
-            this->daddy = nullptr; // this == end()
-        }
-
-        return temp;
-    }
-}
-/** @file
- *  Defines the data type used for storing information about a CSV row
- */
-
-#include <cassert>
-#include <functional>
-
-namespace csv {
-    /** Return a string view of the nth field
-     *
-     *  @complexity
-     *  Constant
-     *
-     *  @throws
-     *  std::runtime_error If n is out of bounds
-     */
-    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str);
-
-        // First assume that field comprises entire row, then adjust accordingly
-        size_t beg = 0,
-            end = row_str.size(),
-            r_size = this->size();
-
-        if (n >= r_size)
-            throw std::runtime_error("Index out of bounds.");
-
-        if (r_size > 1) {
-            if (n == 0) {
-                end = this->split_at(0);
-            }
-            else if (r_size == 2) {
-                beg = this->split_at(0);
-            }
-            else {
-                beg = this->split_at(n - 1);
-                if (n != r_size - 1) end = this->split_at(n);
-            }
-        }
-        
-        return ret.substr(
-            beg,
-            end - beg // Number of characters
-        );
-    }
-
-    /** Return a CSVField object corrsponding to the nth value in the row.
-     *
-     *  @note This method performs bounds checking, and will throw an
-     *        `std::runtime_error` if n is invalid.
-     *
-     *  @complexity
-     *  Constant, by calling csv::CSVRow::get_csv::string_view()
-     *
-     */
-    CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
-        return CSVField(this->get_string_view(n));
-    }
-
-    /** Retrieve a value by its associated column name. If the column
-     *  specified can't be round, a runtime error is thrown.
-     *
-     *  @complexity
-     *  Constant. This calls the other CSVRow::operator[]() after
-     *  converting column names into indices using a hash table.
-     *
-     *  @param[in] col_name The column to look for
-     */
-    CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto & col_names = this->buffer->col_names;
-        auto col_pos = col_names->col_pos.find(col_name);
-        if (col_pos != col_names->col_pos.end())
-            return this->operator[](col_pos->second);
-
-        throw std::runtime_error("Can't find a column named " + col_name);
-    }
-
-    CSV_INLINE CSVRow::operator std::vector<std::string>() const {
-
-        std::vector<std::string> ret;
-        for (size_t i = 0; i < size(); i++)
-            ret.push_back(std::string(this->get_string_view(i)));
-
-        return ret;
-    }
-
-#pragma region CSVRow Iterator
-    /** Return an iterator pointing to the first field. */
-    CSV_INLINE CSVRow::iterator CSVRow::begin() const {
-        return CSVRow::iterator(this, 0);
-    }
-
-    /** Return an iterator pointing to just after the end of the CSVRow.
-     *
-     *  @warning Attempting to dereference the end iterator results
-     *           in dereferencing a null pointer.
-     */
-    CSV_INLINE CSVRow::iterator CSVRow::end() const {
-        return CSVRow::iterator(this, (int)this->size());
-    }
-
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const {
-        return std::reverse_iterator<CSVRow::iterator>(this->end());
-    }
-
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
-        return std::reverse_iterator<CSVRow::iterator>(this->begin());
-    }
-
-    CSV_INLINE unsigned short CSVRow::split_at(size_t n) const
-    {
-        return this->buffer->split_buffer[this->start + n];
-    }
-
-    CSV_INLINE HEDLEY_NON_NULL(2)
-    CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), i(_i) {
-        if (_i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](_i));
-        else
-            this->field = nullptr;
-    }
-
-    CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
-        return *(this->field.get());
-    }
-
-    CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-        #ifdef _MSC_BUILD
-        return this->field;
-        #else
-        return this->field.get();
-        #endif
-    }
-
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
-        // Pre-increment operator
-        this->i++;
-        if (this->i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](i));
-        else // Reached the end of row
-            this->field = nullptr;
-        return *this;
-    }
-
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator++(int) {
-        // Post-increment operator
-        auto temp = *this;
-        this->operator++();
-        return temp;
-    }
-
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
-        // Pre-decrement operator
-        this->i--;
-        this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
-        return *this;
-    }
-
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator--(int) {
-        // Post-decrement operator
-        auto temp = *this;
-        this->operator--();
-        return temp;
-    }
-    
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
-        // Allows for iterator arithmetic
-        return CSVRow::iterator(this->daddy, i + (int)n);
-    }
-
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
-        // Allows for iterator arithmetic
-        return CSVRow::iterator::operator+(-n);
-    }
-#pragma endregion CSVRow Iterator
-}
-
-/** @file
  *  Implements JSON serialization abilities
  */
 
@@ -5635,410 +5809,236 @@ namespace csv {
     }
 }
 /** @file
- *  Calculates statistics from CSV files
+ *  Defines an input iterator for csv::CSVReader
  */
 
-#include <string>
 
 namespace csv {
-    CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
-        CSVReader(filename, format) {
-        /** Lazily calculate statistics for a potentially large file. Once this constructor
-         *  is called, CSVStat will process the entire file iteratively. Once finished,
-         *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
-         */
-        while (!this->eof()) {
-            this->read_csv(internals::ITERATION_CHUNK_SIZE);
-            this->calc();
-        }
-
-        if (!this->records.empty())
-            this->calc();
-    }
-
-    CSV_INLINE void CSVStat::end_feed() {
-        CSVReader::end_feed();
-        this->calc();
-    }
-
-    /** Return current means */
-    CSV_INLINE std::vector<long double> CSVStat::get_mean() const {
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            ret.push_back(this->rolling_means[i]);
-        }
+    /** Return an iterator to the first row in the reader */
+    CSV_INLINE CSVReader::iterator CSVReader::begin() {
+        CSVReader::iterator ret(this, std::move(this->records.front()));
+        this->records.pop_front();
         return ret;
     }
 
-    /** Return current variances */
-    CSV_INLINE std::vector<long double> CSVStat::get_variance() const {
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
-        }
-        return ret;
-    }
-
-    /** Return current mins */
-    CSV_INLINE std::vector<long double> CSVStat::get_mins() const {
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            ret.push_back(this->mins[i]);
-        }
-        return ret;
-    }
-
-    /** Return current maxes */
-    CSV_INLINE std::vector<long double> CSVStat::get_maxes() const {
-        std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            ret.push_back(this->maxes[i]);
-        }
-        return ret;
-    }
-
-    /** Get counts for each column */
-    CSV_INLINE std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
-        std::vector<FreqCount> ret;
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            ret.push_back(this->counts[i]);
-        }
-        return ret;
-    }
-
-    /** Get data type counts for each column */
-    CSV_INLINE std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
-        std::vector<TypeCount> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            ret.push_back(this->dtypes[i]);
-        }
-        return ret;
-    }
-
-    CSV_INLINE void CSVStat::calc() {
-        /** Go through all records and calculate specified statistics */
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            dtypes.push_back({});
-            counts.push_back({});
-            rolling_means.push_back(0);
-            rolling_vars.push_back(0);
-            mins.push_back(NAN);
-            maxes.push_back(NAN);
-            n.push_back(0);
-        }
-
-        std::vector<std::thread> pool;
-
-        // Start threads
-        for (size_t i = 0; i < this->col_names->size(); i++)
-            pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
-
-        // Block until done
-        for (auto& th: pool)
-            th.join();
-
-        this->records.clear();
-    }
-
-    CSV_INLINE void CSVStat::calc_worker(const size_t &i) {
-        /** Worker thread for CSVStat::calc() which calculates statistics for one column.
-         * 
-         *  @param[in] i Column index
-         */
-
-        auto current_record = this->records.begin();
-        for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            auto current_field = (*current_record)[i];
-
-            // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
-            if (processed < 1000 || this->counts[i].size() <= 500)
-                this->count(current_field, i);
-
-            this->dtype(current_field, i);
-
-            // Numeric Stuff
-            if (current_field.is_num()) {
-                long double x_n = current_field.get<long double>();
-
-                // This actually calculates mean AND variance
-                this->variance(x_n, i);
-                this->min_max(x_n, i);
-            }
-
-            ++current_record;
-        }
-    }
-
-    CSV_INLINE void CSVStat::dtype(CSVField& data, const size_t &i) {
-        /** Given a record update the type counter
-         *  @param[in]  record Data observation
-         *  @param[out] i      The column index that should be updated
-         */
-        
-        auto type = data.type();
-        if (this->dtypes[i].find(type) !=
-            this->dtypes[i].end()) {
-            // Increment count
-            this->dtypes[i][type]++;
-        } else {
-            // Initialize count
-            this->dtypes[i].insert(std::make_pair(type, 1));
-        }
-    }
-
-    CSV_INLINE void CSVStat::count(CSVField& data, const size_t &i) {
-        /** Given a record update the frequency counter
-         *  @param[in]  record Data observation
-         *  @param[out] i      The column index that should be updated
-         */
-
-        auto item = data.get<std::string>();
-
-        if (this->counts[i].find(item) !=
-            this->counts[i].end()) {
-            // Increment count
-            this->counts[i][item]++;
-        } else {
-            // Initialize count
-            this->counts[i].insert(std::make_pair(item, 1));
-        }
-    }
-
-    CSV_INLINE void CSVStat::min_max(const long double &x_n, const size_t &i) {
-        /** Update current minimum and maximum
-         *  @param[in]  x_n Data observation
-         *  @param[out] i   The column index that should be updated
-         */
-        if (isnan(this->mins[i]))
-            this->mins[i] = x_n;
-        if (isnan(this->maxes[i]))
-            this->maxes[i] = x_n;
-        
-        if (x_n < this->mins[i])
-            this->mins[i] = x_n;
-        else if (x_n > this->maxes[i])
-            this->maxes[i] = x_n;
-    }
-
-    CSV_INLINE void CSVStat::variance(const long double &x_n, const size_t &i) {
-        /** Given a record update rolling mean and variance for all columns
-         *  using Welford's Algorithm
-         *  @param[in]  x_n Data observation
-         *  @param[out] i   The column index that should be updated
-         */
-        long double& current_rolling_mean = this->rolling_means[i];
-        long double& current_rolling_var = this->rolling_vars[i];
-        long double& current_n = this->n[i];
-        long double delta;
-        long double delta2;
-
-        current_n++;
-        
-        if (current_n == 1) {
-            current_rolling_mean = x_n;
-        } else {
-            delta = x_n - current_rolling_mean;
-            current_rolling_mean += delta/current_n;
-            delta2 = x_n - current_rolling_mean;
-            current_rolling_var += delta*delta2;
-        }
-    }
-
-    /** Useful for uploading CSV files to SQL databases.
-     *
-     *  Return a data type for each column such that every value in a column can be
-     *  converted to the corresponding data type without data loss.
-     *  @param[in]  filename The CSV file
-     *
-     *  \return A mapping of column names to csv::DataType enums
+    /** A placeholder for the imaginary past the end row in a CSV.
+     *  Attempting to deference this will lead to bad things.
      */
-    CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
-        CSVStat stat(filename);
-        std::unordered_map<std::string, DataType> csv_dtypes;
+    CSV_INLINE HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
+        return CSVReader::iterator();
+    }
 
-        auto col_names = stat.get_col_names();
-        auto temp = stat.get_dtypes();
+    /////////////////////////
+    // CSVReader::iterator //
+    /////////////////////////
 
-        for (size_t i = 0; i < stat.get_col_names().size(); i++) {
-            auto& col = temp[i];
-            auto& col_name = col_names[i];
+    CSV_INLINE CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
+        daddy(_daddy) {
+        row = std::move(_row);
+    }
 
-            if (col[CSV_STRING])
-                csv_dtypes[col_name] = CSV_STRING;
-            else if (col[CSV_INT64])
-                csv_dtypes[col_name] = CSV_INT64;
-            else if (col[CSV_INT32])
-                csv_dtypes[col_name] = CSV_INT32;
-            else if (col[CSV_INT16])
-                csv_dtypes[col_name] = CSV_INT16;
-            else if (col[CSV_INT8])
-                csv_dtypes[col_name] = CSV_INT8;
-            else
-                csv_dtypes[col_name] = CSV_DOUBLE;
+    /** Advance the iterator by one row. If this CSVReader has an
+     *  associated file, then the iterator will lazily pull more data from
+     *  that file until EOF.
+     */
+    CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
+        if (!daddy->read_row(this->row)) {
+            this->daddy = nullptr; // this == end()
         }
 
-        return csv_dtypes;
-    }
-}
-#include <vector>
-
-
-namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string,
-     *  a collection of CSVRow objects
-     *
-     *  @snippet tests/test_read_csv.cpp Parse Example
-     */
-    CSV_INLINE CSVCollection parse(csv::string_view in, CSVFormat format) {
-        CSVReader parser(format);
-        parser.feed(in);
-        parser.end_feed();
-        return parser.records;
+        return *this;
     }
 
-    /** Parse a RFC 4180 CSV string, returning a collection
-     *  of CSVRow objects
-     *
-     *  @par Example
-     *  @snippet tests/test_read_csv.cpp Escaped Comma
-     *
-     */
-    CSV_INLINE CSVCollection operator ""_csv(const char* in, size_t n) {
-        return parse(csv::string_view(in, n));
-    }
-
-    /** Return a CSV's column names
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] format    Format of the CSV file
-     *
-     */
-    CSV_INLINE std::vector<std::string> get_col_names(const std::string& filename, CSVFormat format) {
-        CSVReader reader(filename, format);
-        return reader.get_col_names();
-    }
-
-    /**
-     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] col_name  Column whose position we should resolve
-     *  @param[in] format    Format of the CSV file
-     */
-    CSV_INLINE int get_col_pos(
-        const std::string filename,
-        const std::string col_name,
-        const CSVFormat format) {
-        CSVReader reader(filename, format);
-        return reader.index_of(col_name);
-    }
-
-    /** Get basic information about a CSV file
-     *  @include programs/csv_info.cpp
-     */
-    CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
-        CSVReader reader(filename);
-        CSVFormat format = reader.get_format();
-        for (auto& row : reader) {
-            #ifndef NDEBUG
-            SUPPRESS_UNUSED_WARNING(row);
-            #endif
+    /** Post-increment iterator */
+    CSV_INLINE CSVReader::iterator CSVReader::iterator::operator++(int) {
+        auto temp = *this;
+        if (!daddy->read_row(this->row)) {
+            this->daddy = nullptr; // this == end()
         }
 
-        CSVFileInfo info = {
-            filename,
-            reader.get_col_names(),
-            format.get_delim(),
-            reader.correct_rows,
-            (int)reader.get_col_names().size()
-        };
-
-        return info;
+        return temp;
     }
 }
 /** @file
- *  Defines an object which can store CSV data in
- *  continuous regions of memory
+ *  Defines the data type used for storing information about a CSV row
  */
 
+#include <cassert>
+#include <functional>
 
 namespace csv {
-    namespace internals {
-        //////////////
-        // ColNames //
-        //////////////
+    /** Return a string view of the nth field
+     *
+     *  @complexity
+     *  Constant
+     *
+     *  @throws
+     *  std::runtime_error If n is out of bounds
+     */
+    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
+        csv::string_view ret(this->row_str);
 
-        CSV_INLINE ColNames::ColNames(const std::vector<std::string>& _cnames)
-            : col_names(_cnames) {
-            for (size_t i = 0; i < _cnames.size(); i++) {
-                this->col_pos[_cnames[i]] = i;
+        // First assume that field comprises entire row, then adjust accordingly
+        size_t beg = 0,
+            end = row_str.size(),
+            r_size = this->size();
+
+        if (n >= r_size)
+            throw std::runtime_error("Index out of bounds.");
+
+        if (r_size > 1) {
+            if (n == 0) {
+                end = this->split_at(0);
             }
-        }
-
-        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
-        }
-
-        CSV_INLINE size_t ColNames::size() const {
-            return this->col_names.size();
-        }
-
-        /** Get the current row in the buffer
-         *  @note Has the side effect of updating the current end pointer
-         */
-        CSV_INLINE csv::string_view RawRowBuffer::get_row() {
-            csv::string_view ret(
-                this->buffer.c_str() + this->current_end, // Beginning of string
-                (this->buffer.size() - this->current_end) // Count
-            );
-
-            this->current_end = this->buffer.size();
-            return ret;
-        }
-
-        CSV_INLINE ColumnPositions RawRowBuffer::get_splits()
-        {
-            const size_t head_idx = this->current_split_idx,
-                new_split_idx = this->split_buffer.size();
-         
-            this->current_split_idx = new_split_idx;
-            return ColumnPositions(*this, head_idx, (unsigned short)(new_split_idx - head_idx + 1));
-        }
-
-        CSV_INLINE size_t RawRowBuffer::size() const {
-            return this->buffer.size() - this->current_end;
-        }
-
-        CSV_INLINE size_t RawRowBuffer::splits_size() const {
-            return this->split_buffer.size() - this->current_split_idx;
+            else if (r_size == 2) {
+                beg = this->split_at(0);
+            }
+            else {
+                beg = this->split_at(n - 1);
+                if (n != r_size - 1) end = this->split_at(n);
+            }
         }
         
-        HEDLEY_WARN_UNUSED_RESULT CSV_INLINE
-        BufferPtr RawRowBuffer::reset() const {
-            // Save current row in progress
-            auto new_buff = BufferPtr(new RawRowBuffer());
-
-            // Save text
-            new_buff->buffer = this->buffer.substr(
-                this->current_end,   // Position
-                (this->buffer.size() - this->current_end) // Count
-            );
-
-            // Save split buffer in progress
-            for (size_t i = this->current_split_idx; i < this->split_buffer.size(); i++) {
-                new_buff->split_buffer.push_back(this->split_buffer[i]);
-            }
-
-            new_buff->col_names = this->col_names;
-
-            // No need to remove unnecessary bits from this buffer
-            // (memory savings would be marginal anyways)
-            return new_buff;
-        }
-
-        CSV_INLINE unsigned short ColumnPositions::split_at(int n) const {
-            return this->parent->split_buffer[this->start + n];
-        }
+        return ret.substr(
+            beg,
+            end - beg // Number of characters
+        );
     }
+
+    /** Return a CSVField object corrsponding to the nth value in the row.
+     *
+     *  @note This method performs bounds checking, and will throw an
+     *        `std::runtime_error` if n is invalid.
+     *
+     *  @complexity
+     *  Constant, by calling csv::CSVRow::get_csv::string_view()
+     *
+     */
+    CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
+        return CSVField(this->get_string_view(n));
+    }
+
+    /** Retrieve a value by its associated column name. If the column
+     *  specified can't be round, a runtime error is thrown.
+     *
+     *  @complexity
+     *  Constant. This calls the other CSVRow::operator[]() after
+     *  converting column names into indices using a hash table.
+     *
+     *  @param[in] col_name The column to look for
+     */
+    CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
+        auto & col_names = this->buffer->col_names;
+        auto col_pos = col_names->col_pos.find(col_name);
+        if (col_pos != col_names->col_pos.end())
+            return this->operator[](col_pos->second);
+
+        throw std::runtime_error("Can't find a column named " + col_name);
+    }
+
+    CSV_INLINE CSVRow::operator std::vector<std::string>() const {
+
+        std::vector<std::string> ret;
+        for (size_t i = 0; i < size(); i++)
+            ret.push_back(std::string(this->get_string_view(i)));
+
+        return ret;
+    }
+
+#pragma region CSVRow Iterator
+    /** Return an iterator pointing to the first field. */
+    CSV_INLINE CSVRow::iterator CSVRow::begin() const {
+        return CSVRow::iterator(this, 0);
+    }
+
+    /** Return an iterator pointing to just after the end of the CSVRow.
+     *
+     *  @warning Attempting to dereference the end iterator results
+     *           in dereferencing a null pointer.
+     */
+    CSV_INLINE CSVRow::iterator CSVRow::end() const {
+        return CSVRow::iterator(this, (int)this->size());
+    }
+
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const {
+        return std::reverse_iterator<CSVRow::iterator>(this->end());
+    }
+
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
+        return std::reverse_iterator<CSVRow::iterator>(this->begin());
+    }
+
+    CSV_INLINE unsigned short CSVRow::split_at(size_t n) const
+    {
+        return this->buffer->split_buffer[this->start + n];
+    }
+
+    CSV_INLINE HEDLEY_NON_NULL(2)
+    CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
+        : daddy(_reader), i(_i) {
+        if (_i < (int)this->daddy->size())
+            this->field = std::make_shared<CSVField>(
+                this->daddy->operator[](_i));
+        else
+            this->field = nullptr;
+    }
+
+    CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
+        return *(this->field.get());
+    }
+
+    CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
+        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
+        #ifdef _MSC_BUILD
+        return this->field;
+        #else
+        return this->field.get();
+        #endif
+    }
+
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
+        // Pre-increment operator
+        this->i++;
+        if (this->i < (int)this->daddy->size())
+            this->field = std::make_shared<CSVField>(
+                this->daddy->operator[](i));
+        else // Reached the end of row
+            this->field = nullptr;
+        return *this;
+    }
+
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator++(int) {
+        // Post-increment operator
+        auto temp = *this;
+        this->operator++();
+        return temp;
+    }
+
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
+        // Pre-decrement operator
+        this->i--;
+        this->field = std::make_shared<CSVField>(
+            this->daddy->operator[](this->i));
+        return *this;
+    }
+
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator--(int) {
+        // Post-decrement operator
+        auto temp = *this;
+        this->operator--();
+        return temp;
+    }
+    
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
+        // Allows for iterator arithmetic
+        return CSVRow::iterator(this->daddy, i + (int)n);
+    }
+
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
+        // Allows for iterator arithmetic
+        return CSVRow::iterator::operator+(-n);
+    }
+#pragma endregion CSVRow Iterator
 }
+
 
