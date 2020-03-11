@@ -4642,12 +4642,16 @@ namespace csv {
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];
-                if (row_tally.find(row.size()) != row_tally.end()) {
-                    row_tally[row.size()]++;
-                }
-                else {
-                    row_tally[row.size()] = 1;
-                    row_when[row.size()] = i;
+
+                // Ignore zero-length rows
+                if (row.size() > 0) {
+                    if (row_tally.find(row.size()) != row_tally.end()) {
+                        row_tally[row.size()]++;
+                    }
+                    else {
+                        row_tally[row.size()] = 1;
+                        row_when[row.size()] = i;
+                    }
                 }
             }
 
