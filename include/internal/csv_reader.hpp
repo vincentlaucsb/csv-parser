@@ -3,7 +3,7 @@
  */
 
 #pragma once
-#include <array>
+
 #include <deque>
 #include <iterator>
 #include <memory>
@@ -16,6 +16,7 @@
 #include "constants.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
+#include "csv_reader_internals.hpp"
 #include "csv_row.hpp"
 #include "compatibility.hpp"
 #include "row_buffer.hpp"
@@ -148,33 +149,8 @@ namespace csv {
          * @{
          */
 
-         /**  @typedef ParseFlags
-          *   An enum used for describing the significance of each character
-          *   with respect to CSV parsing
-          */
-        enum ParseFlags {
-            NOT_SPECIAL, /**< Characters with no special meaning */
-            QUOTE,       /**< Characters which may signify a quote escape */
-            DELIMITER,   /**< Characters which may signify a new field */
-            NEWLINE      /**< Characters which may signify a new row */
-        };
-
         /** A string buffer and its size. Consumed by read_csv_worker(). */
         using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character and, v[i + 128] labels it according to
-         *  the CSVReader::ParseFlags enum
-         */
-        HEDLEY_CONST CONSTEXPR
-            std::array<CSVReader::ParseFlags, 256> make_parse_flags() const;
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character c and, v[i + 128] is true if 
-         *  c is a whitespace character
-         */
-        HEDLEY_CONST CONSTEXPR
-            std::array<bool, 256> make_ws_flags(const char * delims, size_t n_chars) const;
 
         /** Open a file for reading. Implementation is compiler specific. */
         void fopen(csv::string_view filename);
@@ -211,7 +187,7 @@ namespace csv {
         bool strict = false;    /**< Strictness of parser */
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        std::array<ParseFlags, 256> parse_flags;
+        std::array<internals::ParseFlags, 256> parse_flags;
 
         /** An array where the (i + 128)th slot determines whether ASCII character i should
          *  be trimmed
