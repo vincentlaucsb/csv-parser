@@ -29,9 +29,6 @@ namespace csv {
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
-    std::vector<std::string> get_col_names(
-        const std::string& filename,
-        const CSVFormat format = CSVFormat::guess_csv());
     int get_col_pos(const std::string filename, const std::string col_name,
         const CSVFormat format = CSVFormat::guess_csv());
     ///@}

@@ -26,6 +26,45 @@ namespace csv {
         }
     }
 
+    /** Return a CSV's column names
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] format    Format of the CSV file
+     *
+     */
+    CSV_INLINE std::vector<std::string> get_col_names(const std::string& filename, CSVFormat format) {
+        auto head = internals::get_csv_head(filename);
+
+        // TODO: Refactor
+
+        /** Guess delimiter and header row */
+        if (format.guess_delim()) {
+            auto guess_result = guess_format(filename, format.possible_delimiters);
+            format.delimiter(guess_result.delim);
+            format.header = guess_result.header_row;
+        }
+
+        // Parse the CSV
+        auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+        std::deque<CSVRow> rows;
+
+        auto write_row = [&buffer_ptr, &rows]() {
+            rows.push_back(CSVRow(buffer_ptr));
+        };
+
+        internals::parse({
+            head,
+            internals::make_parse_flags(format.get_delim(), '"'),
+            internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
+            buffer_ptr,
+            false,
+            write_row
+            });
+
+
+        return rows[format.header];
+    }
+
     /** Guess the delimiter used by a delimiter-separated values file */
     CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
         auto head = internals::get_csv_head(filename);

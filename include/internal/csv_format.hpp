@@ -88,6 +88,10 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
+        std::vector<char> get_possible_delims() {
+            return this->possible_delimiters;
+        }
+
         CONSTEXPR int get_header() {
             return this->header;
         }
@@ -116,12 +120,13 @@ namespace csv {
             return format;
         }
 
-        friend CSVReader;
-    private:
         bool guess_delim() {
             return this->possible_delimiters.size() > 1;
         }
 
+        friend CSVReader;
+        friend std::vector<std::string> get_col_names(const std::string&, CSVFormat);
+    private:
         /**< Throws an error if delimiters and trim characters overlap */
         void assert_no_char_overlap();
 

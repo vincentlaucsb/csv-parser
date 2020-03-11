@@ -27,17 +27,6 @@ namespace csv {
         return parse(csv::string_view(in, n));
     }
 
-    /** Return a CSV's column names
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] format    Format of the CSV file
-     *
-     */
-    CSV_INLINE std::vector<std::string> get_col_names(const std::string& filename, CSVFormat format) {
-        CSVReader reader(filename, format);
-        return reader.get_col_names();
-    }
-
     /**
      *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
      *
