@@ -31,6 +31,8 @@ namespace csv {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
+    CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims);
+
     /** @class CSVReader
      *  @brief Main class for parsing CSVs from files and in-memory sources
      *
@@ -226,42 +228,4 @@ namespace csv {
 
         /**@}*/ // End of parser internals
     };
-
-    namespace internals {
-        /** Class for guessing the delimiter & header row number of CSV files */
-        class CSVGuesser {
-
-            /** Private subclass of csv::CSVReader which performs statistics 
-             *  on row lengths
-             */
-            struct Guesser : public CSVReader {
-                using CSVReader::CSVReader;
-                void bad_row_handler(std::vector<std::string> record) override;
-                friend CSVGuesser;
-
-                // Frequency counter of row length
-                std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
-
-                // Map row lengths to row num where they first occurred
-                std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
-            };
-
-        public:
-            CSVGuesser(csv::string_view _filename, const std::vector<char>& _delims) :
-                filename(_filename), delims(_delims) {};
-            CSVGuessResult guess_delim();
-            bool first_guess();
-            void second_guess();
-
-        private:
-            std::string filename;      /**< File to read */
-            std::string head;          /**< First x bytes of file */
-            std::vector<char> delims;  /**< Candidate delimiters */
-
-            char delim;                /**< Chosen delimiter (set by guess_delim()) */
-            int header_row = 0;        /**< Chosen header row (set by guess_delim()) */
-
-            void get_csv_head();       /**< Retrieve the first x bytes of a file */
-        };
-    }
 }

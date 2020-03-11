@@ -11,35 +11,11 @@ using namespace csv;
 using std::vector;
 using std::string;
 
-//
-// guess_delim()
-//
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
     int pos = get_col_pos(
         "./tests/data/real_data/2015_StateDepartment.csv",
         "Entity Type");
     REQUIRE(pos == 1);
-}
-
-TEST_CASE("guess_delim() Test - Pipe", "[test_guess_pipe]") {
-    CSVGuessResult format = guess_format(
-        "./tests/data/real_data/2009PowerStatus.txt");
-    REQUIRE(format.delim == '|');
-    REQUIRE(format.header_row == 0);
-}
-
-TEST_CASE("guess_delim() Test - Semi-Colon", "[test_guess_scolon]") {
-    CSVGuessResult format = guess_format(
-        "./tests/data/real_data/YEAR07_CBSA_NAC3.txt");
-    REQUIRE(format.delim == ';');
-    REQUIRE(format.header_row == 0);
-}
-
-TEST_CASE("guess_delim() Test - CSV with Comments", "[test_guess_comment]") {
-    CSVGuessResult format = guess_format(
-        "./tests/data/fake_data/ints_comments.csv");
-    REQUIRE(format.delim == ',');
-    REQUIRE(format.header_row == 5);
 }
 
 TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwrite]") {
@@ -218,6 +194,7 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     }
 }
 
+/**
 TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     string csv_string("A,B,C\r\n" // Header row
         "123,234,345\r\n"
@@ -238,6 +215,7 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     REQUIRE(error_caught);
     REQUIRE(error_message.substr(0, 14) == "Line too short");
 }
+*/
 
 TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
     // Make sure attempting to parse a non-existent CSV throws an error

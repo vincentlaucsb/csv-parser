@@ -11,6 +11,7 @@ target_sources(csv_test
         test_csv_row.cpp
         test_csv_row_json.cpp
         test_csv_stat.cpp
+        test_guess_csv.cpp
         test_read_csv.cpp
         test_write_csv.cpp
         test_data_type.cpp
