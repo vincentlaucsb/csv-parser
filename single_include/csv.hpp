@@ -4132,6 +4132,31 @@ namespace csv {
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
+
+        /**  @typedef ParseFlags
+         *   An enum used for describing the significance of each character
+         *   with respect to CSV parsing
+         */
+        enum ParseFlags {
+            NOT_SPECIAL, /**< Characters with no special meaning */
+            QUOTE,       /**< Characters which may signify a quote escape */
+            DELIMITER,   /**< Characters which may signify a new field */
+            NEWLINE      /**< Characters which may signify a new row */
+        };
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR
+            std::array<ParseFlags, 256> make_parse_flags(char, char);
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character c and, v[i + 128] is true if
+         *  c is a whitespace character
+         */
+        HEDLEY_CONST CONSTEXPR
+            std::array<bool, 256> make_ws_flags(const char *, size_t);
     }
 
     /** @class CSVReader
@@ -4252,17 +4277,6 @@ namespace csv {
          * @{
          */
 
-         /**  @typedef ParseFlags
-          *   An enum used for describing the significance of each character
-          *   with respect to CSV parsing
-          */
-        enum ParseFlags {
-            NOT_SPECIAL, /**< Characters with no special meaning */
-            QUOTE,       /**< Characters which may signify a quote escape */
-            DELIMITER,   /**< Characters which may signify a new field */
-            NEWLINE      /**< Characters which may signify a new row */
-        };
-
         /** A string buffer and its size. Consumed by read_csv_worker(). */
         using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
 
@@ -4322,7 +4336,7 @@ namespace csv {
         bool strict = false;    /**< Strictness of parser */
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        std::array<ParseFlags, 256> parse_flags;
+        std::array<internals::ParseFlags, 256> parse_flags;
 
         /** An array where the (i + 128)th slot determines whether ASCII character i should
          *  be trimmed
@@ -4697,44 +4711,6 @@ namespace csv {
         return guesser.guess_delim();
     }
 
-    HEDLEY_CONST CONSTEXPR
-    std::array<CSVReader::ParseFlags, 256> CSVReader::make_parse_flags() const {
-        std::array<ParseFlags, 256> ret = {};
-        for (int i = -128; i < 128; i++) {
-            const int arr_idx = i + 128;
-            char ch = char(i);
-
-            if (ch == this->delimiter)
-                ret[arr_idx] = DELIMITER;
-            else if (ch == this->quote_char)
-                ret[arr_idx] = QUOTE;
-            else if (ch == '\r' || ch == '\n')
-                ret[arr_idx] = NEWLINE;
-            else
-                ret[arr_idx] = NOT_SPECIAL;
-        }
-
-        return ret;
-    }
-
-    HEDLEY_CONST CONSTEXPR
-    std::array<bool, 256> CSVReader::make_ws_flags(const char * delims, size_t n_chars) const {
-        std::array<bool, 256> ret = {};
-        for (int i = -128; i < 128; i++) {
-            const int arr_idx = i + 128;
-            char ch = char(i);
-            ret[arr_idx] = false;
-
-            for (size_t j = 0; j < n_chars; j++) {
-                if (delims[j] == ch) {
-                    ret[arr_idx] = true;
-                }
-            }
-        }
-
-        return ret;
-    }
-
     CSV_INLINE void CSVReader::bad_row_handler(std::vector<std::string> record) {
         /** Handler for rejected rows (too short or too long). This does nothing
          *  unless strict parsing was set, in which case it throws an eror.
@@ -4762,8 +4738,8 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
         
-        parse_flags = this->make_parse_flags();
-        ws_flags = this->make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+        parse_flags = internals::make_parse_flags(this->delimiter, this->quote_char);
+        ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     };
 
     /** Allows reading a CSV file in chunks, using overlapped
@@ -4796,8 +4772,8 @@ namespace csv {
         delimiter = format.get_delim();
         quote_char = format.quote_char;
         strict = format.strict;
-        parse_flags = this->make_parse_flags();
-        ws_flags = this->make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+        parse_flags = internals::make_parse_flags(delimiter, quote_char);
+        ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
         // Read first 500KB of CSV
         this->fopen(filename);
@@ -4852,6 +4828,7 @@ namespace csv {
          *  @note
          *  `end_feed()` should be called after the last string.
          */
+        using internals::ParseFlags;
 
         this->handle_unicode_bom(in);
         bool quote_escape = false;  // Are we currently in a quote escaped field?
@@ -4868,88 +4845,89 @@ namespace csv {
         const size_t in_size = in.size();
         for (size_t i = 0; i < in_size; i++) {
             switch (_parse_flags[in[i] + 128]) {
-                case DELIMITER:
-                    if (!quote_escape) {
-                        split_buffer.push_back((unsigned short)row_buffer.size());
-                        break;
-                    }
-
-                    HEDLEY_FALL_THROUGH;
-                case NEWLINE:
-                    if (!quote_escape) {
-                        // End of record -> Write record
-                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
-                            ++i;
-                        this->write_record();
-                        break;
-                    }
-
-                    // Treat as regular character
-                    text_buffer += in[i];
+            case ParseFlags::DELIMITER:
+                if (!quote_escape) {
+                    split_buffer.push_back((unsigned short)row_buffer.size());
                     break;
-                case NOT_SPECIAL: {
-                    size_t start, end;
+                }
 
-                    // Trim off leading whitespace
-                    while (i < in_size && _ws_flags[in[i] + 128]) {
-                        i++;
-                    }
+                HEDLEY_FALL_THROUGH;
+            case ParseFlags::NEWLINE:
+                if (!quote_escape) {
+                    // End of record -> Write record
+                    if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                        ++i;
+                    this->write_record();
+                    break;
+                }
 
-                    start = i;
+                // Treat as regular character
+                text_buffer += in[i];
+                break;
+            case ParseFlags::NOT_SPECIAL: {
+                size_t start, end;
 
-                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-                    // sequences, use the loop below to avoid having to go through the outer
-                    // switch statement as much as possible
-                    while (i + 1 < in_size && _parse_flags[in[i + 1] + 128] == NOT_SPECIAL) {
-                        i++;
-                    }
+                // Trim off leading whitespace
+                while (i < in_size && _ws_flags[in[i] + 128]) {
+                    i++;
+                }
 
-                    // Trim off trailing whitespace
-                    end = i;
-                    while (_ws_flags[in[end] + 128]) {
-                        end--;
-                    }
+                start = i;
 
-                    // Finally append text
+                // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                // sequences, use the loop below to avoid having to go through the outer
+                // switch statement as much as possible
+                while (i + 1 < in_size
+                    && _parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
+                    i++;
+                }
+
+                // Trim off trailing whitespace
+                end = i;
+                while (_ws_flags[in[end] + 128]) {
+                    end--;
+                }
+
+                // Finally append text
 #ifdef CSV_HAS_CXX17
-                    text_buffer += in.substr(start, end - start + 1);
+                text_buffer += in.substr(start, end - start + 1);
 #else
-                    for (; start < end + 1; start++) {
-                        text_buffer += in[start];
-                    }
+                for (; start < end + 1; start++) {
+                    text_buffer += in[start];
+                }
 #endif
+
+                break;
+            }
+            default: // Quote
+                if (!quote_escape) {
+                    // Don't deref past beginning
+                    if (i && _parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
+                        // Case: Previous character was delimiter or newline
+                        quote_escape = true;
+                    }
 
                     break;
                 }
-                default: // Quote
-                    if (!quote_escape) {
-                        // Don't deref past beginning
-                        if (i && _parse_flags[in[i - 1] + 128] >= DELIMITER) {
-                            // Case: Previous character was delimiter or newline
-                            quote_escape = true;
-                        }
 
-                        break;
-                    }
-
-                    auto next_ch = _parse_flags[in[i + 1] + 128];
-                    if (next_ch >= DELIMITER) {
-                        // Case: Delim or newline => end of field
-                        quote_escape = false;
-                        break;
-                    }
-                        
-                    // Case: Escaped quote
-                    text_buffer += in[i];
-
-                    if (next_ch == QUOTE)
-                        ++i;  // Case: Two consecutive quotes
-                    else if (this->strict)
-                        throw std::runtime_error("Unescaped single quote around line " +
-                            std::to_string(this->correct_rows) + " near:\n" +
-                            std::string(in.substr(i, 100)));
-                        
+                auto next_ch = _parse_flags[in[i + 1] + 128];
+                if (next_ch >= ParseFlags::DELIMITER) {
+                    // Case: Delim or newline => end of field
+                    quote_escape = false;
                     break;
+                }
+                        
+                // Case: Escaped quote
+                text_buffer += in[i];
+
+                if (next_ch == ParseFlags::QUOTE)
+                    ++i;  // Case: Two consecutive quotes
+                else if (this->strict)
+                    throw std::runtime_error("Unescaped single quote around line " +
+                        std::to_string(this->correct_rows) + " near:\n" +
+                        std::string(in.substr(i, 100)));
+                        
+                break;
             }
         }
         
@@ -5146,6 +5124,46 @@ namespace csv {
     }
 }
 
+
+namespace csv {
+    namespace internals {
+        HEDLEY_CONST CONSTEXPR std::array<ParseFlags, 256> make_parse_flags(char delimiter, char quote_char) {
+            std::array<ParseFlags, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+
+                if (ch == delimiter)
+                    ret[arr_idx] = DELIMITER;
+                else if (ch == quote_char)
+                    ret[arr_idx] = QUOTE;
+                else if (ch == '\r' || ch == '\n')
+                    ret[arr_idx] = NEWLINE;
+                else
+                    ret[arr_idx] = NOT_SPECIAL;
+            }
+
+            return ret;
+        }
+
+        HEDLEY_CONST CONSTEXPR std::array<bool, 256> make_ws_flags(const char * ws_chars, size_t n_chars) {
+            std::array<bool, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+                ret[arr_idx] = false;
+
+                for (size_t j = 0; j < n_chars; j++) {
+                    if (ws_chars[j] == ch) {
+                        ret[arr_idx] = true;
+                    }
+                }
+            }
+
+            return ret;
+        }
+    }
+}
 /** @file
  *  Defines an input iterator for csv::CSVReader
  */
