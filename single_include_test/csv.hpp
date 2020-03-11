@@ -4347,20 +4347,6 @@ namespace csv {
             std::condition_variable feed_cond; /**< Wake up worker */
         };
 
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character and, v[i + 128] labels it according to
-         *  the CSVReader::ParseFlags enum
-         */
-        HEDLEY_CONST CONSTEXPR
-            std::array<CSVReader::ParseFlags, 256> make_parse_flags() const;
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character c and, v[i + 128] is true if 
-         *  c is a whitespace character
-         */
-        HEDLEY_CONST CONSTEXPR
-            std::array<bool, 256> make_ws_flags(const char * delims, size_t n_chars) const;
-
         /** Open a file for reading. Implementation is compiler specific. */
         void fopen(csv::string_view filename);
 
