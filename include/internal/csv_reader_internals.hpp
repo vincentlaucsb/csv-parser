@@ -1,5 +1,9 @@
 #pragma once
 #include <array>
+#include <functional>
+
+#include "compatibility.hpp"
+#include "row_buffer.hpp"
 
 namespace csv {
     namespace internals {
@@ -14,11 +18,14 @@ namespace csv {
             NEWLINE      /**< Characters which may signify a new row */
         };
 
+        using ParseFlagMap = std::array<ParseFlags, 256>;
+        using WhitespaceMap = std::array<bool, 256>;
+
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR std::array<ParseFlags, 256> make_parse_flags(char delimiter, char quote_char) {
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
             std::array<ParseFlags, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -41,7 +48,7 @@ namespace csv {
          *  ASCII number for a character c and, v[i + 128] is true if
          *  c is a whitespace character
          */
-        HEDLEY_CONST CONSTEXPR std::array<bool, 256> make_ws_flags(const char * ws_chars, size_t n_chars) {
+        HEDLEY_CONST CONSTEXPR WhitespaceMap make_ws_flags(const char * ws_chars, size_t n_chars) {
             std::array<bool, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -57,5 +64,17 @@ namespace csv {
 
             return ret;
         }
+
+        struct ParseData {
+            csv::string_view in;
+            ParseFlagMap parse_flags;
+            WhitespaceMap ws_flags;
+            BufferPtr row_buffer;
+            bool strict;
+            std::function<void()> write_record;
+        };
+
+        CSV_INLINE BufferPtr parse(const ParseData& data);
+        CSV_INLINE void write_record(const ParseData& data);
     }
 }

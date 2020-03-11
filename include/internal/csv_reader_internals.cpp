@@ -1,0 +1,114 @@
+#pragma once
+#include "csv_reader_internals.hpp"
+
+namespace csv {
+    namespace internals {
+        CSV_INLINE BufferPtr parse(const ParseData& data) {
+            using internals::ParseFlags;
+
+            // TODO: Should this be an instance variable?
+            bool quote_escape = false;  // Are we currently in a quote escaped field?
+
+            // Optimizations
+            auto * HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
+            auto * HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
+            auto& in = data.in;
+            auto& row_buffer = *(data.row_buffer.get());
+            auto& text_buffer = row_buffer.buffer;
+            auto& split_buffer = row_buffer.split_buffer;
+            text_buffer.reserve(data.in.size());
+            split_buffer.reserve(data.in.size() / 10);
+
+            const size_t in_size = in.size();
+            for (size_t i = 0; i < in_size; i++) {
+                switch (parse_flags[data.in[i] + 128]) {
+                case ParseFlags::DELIMITER:
+                    if (!quote_escape) {
+                        split_buffer.push_back((unsigned short)row_buffer.size());
+                        break;
+                    }
+
+                    HEDLEY_FALL_THROUGH;
+                case ParseFlags::NEWLINE:
+                    if (!quote_escape) {
+                        // End of record -> Write record
+                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                            ++i;
+
+                        data.write_record();
+                        break;
+                    }
+
+                    // Treat as regular character
+                    text_buffer += in[i];
+                    break;
+                case ParseFlags::NOT_SPECIAL: {
+                    size_t start, end;
+
+                    // Trim off leading whitespace
+                    while (i < in_size && ws_flags[in[i] + 128]) {
+                        i++;
+                    }
+
+                    start = i;
+
+                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                    // sequences, use the loop below to avoid having to go through the outer
+                    // switch statement as much as possible
+                    while (i + 1 < in_size
+                        && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
+                        i++;
+                    }
+
+                    // Trim off trailing whitespace
+                    end = i;
+                    while (ws_flags[in[end] + 128]) {
+                        end--;
+                    }
+
+                    // Finally append text
+#ifdef CSV_HAS_CXX17
+                    text_buffer += in.substr(start, end - start + 1);
+#else
+                    for (; start < end + 1; start++) {
+                        text_buffer += in[start];
+                    }
+#endif
+
+                    break;
+                }
+                default: // Quote
+                    if (!quote_escape) {
+                        // Don't deref past beginning
+                        if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
+                            // Case: Previous character was delimiter or newline
+                            quote_escape = true;
+                        }
+
+                        break;
+                    }
+
+                    auto next_ch = parse_flags[in[i + 1] + 128];
+                    if (next_ch >= ParseFlags::DELIMITER) {
+                        // Case: Delim or newline => end of field
+                        quote_escape = false;
+                        break;
+                    }
+
+                    // Case: Escaped quote
+                    text_buffer += in[i];
+
+                    if (next_ch == ParseFlags::QUOTE)
+                        ++i;  // Case: Two consecutive quotes
+                    else if (data.strict) {
+                        throw std::runtime_error("Unescaped single quote");
+                    }
+
+                    break;
+                }
+            }
+
+            return row_buffer.reset();
+        }
+    }
+}
