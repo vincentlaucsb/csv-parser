@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.2.5
+CSV for C++, version 1.2.5.1
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -4266,6 +4266,13 @@ namespace csv {
         /** A string buffer and its size. Consumed by read_csv_worker(). */
         using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
 
+        /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
+        struct ThreadedReadingState {
+            std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
+            std::mutex feed_lock; /**< Allow only one worker to write */
+            std::condition_variable feed_cond; /**< Wake up worker */
+        };
+
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
@@ -4347,9 +4354,7 @@ namespace csv {
         std::FILE* HEDLEY_RESTRICT
             infile = nullptr;                /**< Current file handle.
                                                   Destroyed by ~CSVReader(). */
-        std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
-        std::mutex feed_lock;                /**< Allow only one worker to write */
-        std::condition_variable feed_cond;   /**< Wake up worker */
+        std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 
         /**@}*/ // End of parser internals
@@ -4752,7 +4757,7 @@ namespace csv {
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.get_delim()), quote_char(format.quote_char),
         header_row(format.header), strict(format.strict),
-        unicode_bom_scan(!format.unicode_detect) {
+        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -4775,7 +4780,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
+    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = guess_format(filename, format.possible_delimiters);
@@ -5008,13 +5013,13 @@ namespace csv {
          *         thread pulls data from disk)
          */
         while (true) {
-            std::unique_lock<std::mutex> lock{ this->feed_lock }; // Get lock
-            this->feed_cond.wait(lock,                            // Wait
-                [this] { return !(this->feed_buffer.empty()); });
+            std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock }; // Get lock
+            this->feed_state->feed_cond.wait(lock,                            // Wait
+                [this] { return !(this->feed_state->feed_buffer.empty()); });
 
             // Wake-up
-            auto in = std::move(this->feed_buffer.front());
-            this->feed_buffer.pop_front();
+            auto in = std::move(this->feed_state->feed_buffer.front());
+            this->feed_state->feed_buffer.pop_front();
 
             // Nullptr --> Die
             if (!in.first) break;
@@ -5073,23 +5078,23 @@ namespace csv {
 
             if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
                 processed += (line_buffer - buffer.get());
-                std::unique_lock<std::mutex> lock{ this->feed_lock };
+                std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
 
-                this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
+                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
                 line_buffer[0] = '\0';
 
-                this->feed_cond.notify_one();
+                this->feed_state->feed_cond.notify_one();
             }
         }
 
         // Feed remaining bits
-        std::unique_lock<std::mutex> lock{ this->feed_lock };
-        this->feed_buffer.push_back(std::make_pair<>(std::move(buffer), line_buffer - buffer.get()));
-        this->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
-        this->feed_cond.notify_one();
+        std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
+        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), line_buffer - buffer.get()));
+        this->feed_state->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
+        this->feed_state->feed_cond.notify_one();
         lock.unlock();
         worker.join();
 
