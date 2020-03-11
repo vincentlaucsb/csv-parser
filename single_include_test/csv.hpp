@@ -3730,6 +3730,89 @@ namespace csv {
     class CSVRow;
     using CSVCollection = std::deque<CSVRow>;
 }
+#include <array>
+#include <functional>
+#include <fstream>
+#include <memory>
+#include <string>
+
+
+namespace csv {
+    namespace internals {
+        /**  @typedef ParseFlags
+         *   An enum used for describing the significance of each character
+         *   with respect to CSV parsing
+         */
+        enum ParseFlags {
+            NOT_SPECIAL, /**< Characters with no special meaning */
+            QUOTE,       /**< Characters which may signify a quote escape */
+            DELIMITER,   /**< Characters which may signify a new field */
+            NEWLINE      /**< Characters which may signify a new row */
+        };
+
+        using ParseFlagMap = std::array<ParseFlags, 256>;
+        using WhitespaceMap = std::array<bool, 256>;
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+            std::array<ParseFlags, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+
+                if (ch == delimiter)
+                    ret[arr_idx] = DELIMITER;
+                else if (ch == quote_char)
+                    ret[arr_idx] = QUOTE;
+                else if (ch == '\r' || ch == '\n')
+                    ret[arr_idx] = NEWLINE;
+                else
+                    ret[arr_idx] = NOT_SPECIAL;
+            }
+
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character c and, v[i + 128] is true if
+         *  c is a whitespace character
+         */
+        HEDLEY_CONST CONSTEXPR WhitespaceMap make_ws_flags(const char * ws_chars, size_t n_chars) {
+            std::array<bool, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+                ret[arr_idx] = false;
+
+                for (size_t j = 0; j < n_chars; j++) {
+                    if (ws_chars[j] == ch) {
+                        ret[arr_idx] = true;
+                    }
+                }
+            }
+
+            return ret;
+        }
+
+        struct ParseData {
+            csv::string_view in;
+            ParseFlagMap parse_flags;
+            WhitespaceMap ws_flags;
+            BufferPtr row_buffer;
+            bool strict;
+            std::function<void()> write_record;
+        };
+
+        CSV_INLINE BufferPtr parse(const ParseData& data);
+        CSV_INLINE void write_record(const ParseData& data);
+
+        /** Read the first 500KB of a CSV file */
+        CSV_INLINE std::string get_csv_head(csv::string_view filename);
+    }
+}
 
 #include <string>
 #include <type_traits>
@@ -4113,7 +4196,7 @@ inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) 
  *  @brief Defines functionality needed for basic CSV parsing
  */
 
-#include <array>
+
 #include <deque>
 #include <iterator>
 #include <memory>
@@ -4132,32 +4215,9 @@ namespace csv {
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
-
-        /**  @typedef ParseFlags
-         *   An enum used for describing the significance of each character
-         *   with respect to CSV parsing
-         */
-        enum ParseFlags {
-            NOT_SPECIAL, /**< Characters with no special meaning */
-            QUOTE,       /**< Characters which may signify a quote escape */
-            DELIMITER,   /**< Characters which may signify a new field */
-            NEWLINE      /**< Characters which may signify a new row */
-        };
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character and, v[i + 128] labels it according to
-         *  the CSVReader::ParseFlags enum
-         */
-        HEDLEY_CONST CONSTEXPR
-            std::array<ParseFlags, 256> make_parse_flags(char, char);
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character c and, v[i + 128] is true if
-         *  c is a whitespace character
-         */
-        HEDLEY_CONST CONSTEXPR
-            std::array<bool, 256> make_ws_flags(const char *, size_t);
     }
+
+    CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims);
 
     /** @class CSVReader
      *  @brief Main class for parsing CSVs from files and in-memory sources
@@ -4373,44 +4433,6 @@ namespace csv {
 
         /**@}*/ // End of parser internals
     };
-
-    namespace internals {
-        /** Class for guessing the delimiter & header row number of CSV files */
-        class CSVGuesser {
-
-            /** Private subclass of csv::CSVReader which performs statistics 
-             *  on row lengths
-             */
-            struct Guesser : public CSVReader {
-                using CSVReader::CSVReader;
-                void bad_row_handler(std::vector<std::string> record) override;
-                friend CSVGuesser;
-
-                // Frequency counter of row length
-                std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
-
-                // Map row lengths to row num where they first occurred
-                std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
-            };
-
-        public:
-            CSVGuesser(csv::string_view _filename, const std::vector<char>& _delims) :
-                filename(_filename), delims(_delims) {};
-            CSVGuessResult guess_delim();
-            bool first_guess();
-            void second_guess();
-
-        private:
-            std::string filename;      /**< File to read */
-            std::string head;          /**< First x bytes of file */
-            std::vector<char> delims;  /**< Candidate delimiters */
-
-            char delim;                /**< Chosen delimiter (set by guess_delim()) */
-            int header_row = 0;        /**< Chosen header row (set by guess_delim()) */
-
-            void get_csv_head();       /**< Retrieve the first x bytes of a file */
-        };
-    }
 }
 /** @file
  *  Calculates statistics from CSV files
@@ -4575,140 +4597,82 @@ namespace csv {
 
             return ret.str();
         }
+    }
 
-        //
-        // CSVGuesser
-        //
-        CSV_INLINE void CSVGuesser::Guesser::bad_row_handler(std::vector<std::string> record) {
-            /** Helps CSVGuesser tally up the size of rows encountered while parsing */
-            if (row_tally.find(record.size()) != row_tally.end()) row_tally[record.size()]++;
-            else {
-                row_tally[record.size()] = 1;
-                row_when[record.size()] = this->row_num + 1;
-            }
-        }
+    /** Guess the delimiter used by a delimiter-separated values file */
+    CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
+        auto head = internals::get_csv_head(filename);
 
-        CSV_INLINE CSVGuessResult CSVGuesser::guess_delim() {
-            /** Guess the delimiter of a CSV by scanning the first 100 lines by
-            *  First assuming that the header is on the first row
-            *  If the first guess returns too few rows, then we move to the second
-            *  guess method
-            */
-            CSVFormat format;
-            if (!first_guess()) second_guess();
-
-            return { delim, header_row };
-        }
-
-        CSV_INLINE bool CSVGuesser::first_guess() {
-            /** Guess the delimiter of a delimiter separated values file
-             *  by scanning the first 100 lines
-             *
-             *  - "Winner" is based on which delimiter has the most number
-             *    of correctly parsed rows + largest number of columns
-             *  -  **Note:** Assumes that whatever the dialect, all records
-             *     are newline separated
-             *
-             *  Returns True if guess was a good one and second guess isn't needed
-             */
-
-            CSVFormat format;
-            char current_delim{ ',' };
-            RowCount max_rows = 0,
-                temp_rows = 0;
-            size_t max_cols = 0;
-
-            // Read first 500KB of the CSV file
-            this->get_csv_head();
-
-            for (char cand_delim: this->delims) {
-                format.delimiter(cand_delim);
-                CSVReader guesser(format);
-                guesser.feed(this->head);
-                guesser.end_feed();
-
-                // WORKAROUND on Unix systems because certain newlines
-                // get double counted
-                // temp_rows = guesser.correct_rows;
-                temp_rows = std::min(guesser.correct_rows, (RowCount)100);
-                if ((guesser.row_num >= max_rows) &&
-                    (guesser.get_col_names().size() > max_cols)) {
-                    max_rows = temp_rows;
-                    max_cols = guesser.get_col_names().size();
-                    current_delim = cand_delim;
-                }
-            }
-
-            this->delim = current_delim;
-
-            // If there are only a few rows/columns, trying guessing again
-            return (max_rows > 10 && max_cols > 2);
-        }
-
-        CSV_INLINE void CSVGuesser::second_guess() {
-            /** For each delimiter, find out which row length was most common.
+        /** For each delimiter, find out which row length was most common.
              *  The delimiter with the longest mode row length wins.
              *  Then, the line number of the header row is the first row with
              *  the mode row length.
              */
 
-            CSVFormat format;
-            size_t max_rlen = 0,
-                header = 0;
+        CSVFormat format;
+        size_t max_rlen = 0,
+               header = 0;
+        char current_delim = delims[0];
 
-            for (char cand_delim: this->delims) {
-                format.delimiter(cand_delim);
-                Guesser guess(format);
-                guess.feed(this->head);
-                guess.end_feed();
+        for (char cand_delim : delims) {
+            // Frequency counter of row length
+            std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
 
-                // Most common row length
-                auto max = std::max_element(guess.row_tally.begin(), guess.row_tally.end(),
-                    [](const std::pair<size_t, size_t>& x,
-                        const std::pair<size_t, size_t>& y) {
-                    return x.second < y.second; });
+            // Map row lengths to row num where they first occurred
+            std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
-                // Idea: If CSV has leading comments, actual rows don't start
-                // until later and all actual rows get rejected because the CSV
-                // parser mistakenly uses the .size() of the comment rows to
-                // judge whether or not they are valid.
-                // 
-                // The first part of the if clause means we only change the header
-                // row if (number of rejected rows) > (number of actual rows)
-                if (max->second > guess.records.size() &&
-                    (max->first > max_rlen)) {
-                    max_rlen = max->first;
-                    header = guess.row_when[max_rlen];
+            format.delimiter(cand_delim);
+
+            // Parse the CSV
+            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+            std::deque<CSVRow> rows;
+
+            auto write_row = [&buffer_ptr, &rows]() {
+                rows.push_back(CSVRow(buffer_ptr));
+            };
+
+            internals::parse({
+                head,
+                internals::make_parse_flags(cand_delim, '"'),
+                internals::make_ws_flags({}, 0),
+                buffer_ptr,
+                false,
+                write_row
+                });
+
+            for (size_t i = 0; i < rows.size(); i++) {
+                auto& row = rows[i];
+                if (row_tally.find(row.size()) != row_tally.end()) {
+                    row_tally[row.size()]++;
+                }
+                else {
+                    row_tally[row.size()] = 1;
+                    row_when[row.size()] = i + 1;
                 }
             }
 
-            this->header_row = static_cast<int>(header);
+            // Most common row length
+            auto max = std::max_element(row_tally.begin(), row_tally.end(),
+                [](const std::pair<size_t, size_t>& x,
+                    const std::pair<size_t, size_t>& y) {
+                return x.second < y.second; });
+
+            // Idea: If CSV has leading comments, actual rows don't start
+            // until later and all actual rows get rejected because the CSV
+            // parser mistakenly uses the .size() of the comment rows to
+            // judge whether or not they are valid.
+            // 
+            // The first part of the if clause means we only change the header
+            // row if (number of rejected rows) > (number of actual rows)
+            if (max->second > rows.size() &&
+                (max->first > max_rlen)) {
+                max_rlen = max->first;
+                current_delim = cand_delim;
+                header = row_when[max_rlen];
+            }
         }
 
-        /** Read the first 500KB of a CSV file */
-        CSV_INLINE void CSVGuesser::get_csv_head() {
-            const size_t bytes = 500000;
-            std::ifstream infile(this->filename);
-            if (!infile.is_open()) {
-                throw std::runtime_error("Cannot open file " + this->filename);
-            }
-
-            std::unique_ptr<char[]> buffer(new char[bytes + 1]);
-            char * head_buffer = buffer.get();
-
-            for (size_t i = 0; i < bytes + 1; i++) {
-                head_buffer[i] = '\0';
-            }
-
-            infile.read(head_buffer, bytes);
-            this->head = head_buffer;
-        }
-    }
-
-    /** Guess the delimiter used by a delimiter-separated values file */
-    CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
-        internals::CSVGuesser guesser(filename, delims);
-        return guesser.guess_delim();
+        return { current_delim, (int)header };
     }
 
     CSV_INLINE void CSVReader::bad_row_handler(std::vector<std::string> record) {
@@ -4828,110 +4792,26 @@ namespace csv {
          *  @note
          *  `end_feed()` should be called after the last string.
          */
-        using internals::ParseFlags;
-
         this->handle_unicode_bom(in);
-        bool quote_escape = false;  // Are we currently in a quote escaped field?
 
-        // Optimizations
-        auto * HEDLEY_RESTRICT _parse_flags = this->parse_flags.data();
-        auto * HEDLEY_RESTRICT _ws_flags = this->ws_flags.data();
-        auto& row_buffer = *(this->record_buffer.get());
-        auto& text_buffer = row_buffer.buffer;
-        auto& split_buffer = row_buffer.split_buffer;
-        text_buffer.reserve(in.size());
-        split_buffer.reserve(in.size() / 10);
-
-        const size_t in_size = in.size();
-        for (size_t i = 0; i < in_size; i++) {
-            switch (_parse_flags[in[i] + 128]) {
-            case ParseFlags::DELIMITER:
-                if (!quote_escape) {
-                    split_buffer.push_back((unsigned short)row_buffer.size());
-                    break;
-                }
-
-                HEDLEY_FALL_THROUGH;
-            case ParseFlags::NEWLINE:
-                if (!quote_escape) {
-                    // End of record -> Write record
-                    if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
-                        ++i;
-                    this->write_record();
-                    break;
-                }
-
-                // Treat as regular character
-                text_buffer += in[i];
-                break;
-            case ParseFlags::NOT_SPECIAL: {
-                size_t start, end;
-
-                // Trim off leading whitespace
-                while (i < in_size && _ws_flags[in[i] + 128]) {
-                    i++;
-                }
-
-                start = i;
-
-                // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-                // sequences, use the loop below to avoid having to go through the outer
-                // switch statement as much as possible
-                while (i + 1 < in_size
-                    && _parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
-                    i++;
-                }
-
-                // Trim off trailing whitespace
-                end = i;
-                while (_ws_flags[in[end] + 128]) {
-                    end--;
-                }
-
-                // Finally append text
-#ifdef CSV_HAS_CXX17
-                text_buffer += in.substr(start, end - start + 1);
-#else
-                for (; start < end + 1; start++) {
-                    text_buffer += in[start];
-                }
-#endif
-
-                break;
-            }
-            default: // Quote
-                if (!quote_escape) {
-                    // Don't deref past beginning
-                    if (i && _parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
-                        // Case: Previous character was delimiter or newline
-                        quote_escape = true;
-                    }
-
-                    break;
-                }
-
-                auto next_ch = _parse_flags[in[i + 1] + 128];
-                if (next_ch >= ParseFlags::DELIMITER) {
-                    // Case: Delim or newline => end of field
-                    quote_escape = false;
-                    break;
-                }
-                        
-                // Case: Escaped quote
-                text_buffer += in[i];
-
-                if (next_ch == ParseFlags::QUOTE)
-                    ++i;  // Case: Two consecutive quotes
-                else if (this->strict)
-                    throw std::runtime_error("Unescaped single quote around line " +
-                        std::to_string(this->correct_rows) + " near:\n" +
-                        std::string(in.substr(i, 100)));
-                        
-                break;
-            }
+        try {
+            this->record_buffer = internals::parse({
+                in,
+                this->parse_flags,
+                this->ws_flags,
+                this->record_buffer,
+                this->strict,
+                std::bind(&CSVReader::write_record, this)
+                });
         }
-        
-        this->record_buffer = row_buffer.reset();
+        catch (std::runtime_error& err) {
+            throw std::runtime_error("Unescaped single quote around line ");
+            
+            /** TODO: Add this back in+
+                std::to_string(this->correct_rows) + " near:\n" +
+                std::string(in.substr(i, 100)));
+                */
+        }
     }
 
     CSV_INLINE void CSVReader::end_feed() {
@@ -5127,40 +5007,130 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        HEDLEY_CONST CONSTEXPR std::array<ParseFlags, 256> make_parse_flags(char delimiter, char quote_char) {
-            std::array<ParseFlags, 256> ret = {};
-            for (int i = -128; i < 128; i++) {
-                const int arr_idx = i + 128;
-                char ch = char(i);
+        CSV_INLINE BufferPtr parse(const ParseData& data) {
+            using internals::ParseFlags;
 
-                if (ch == delimiter)
-                    ret[arr_idx] = DELIMITER;
-                else if (ch == quote_char)
-                    ret[arr_idx] = QUOTE;
-                else if (ch == '\r' || ch == '\n')
-                    ret[arr_idx] = NEWLINE;
-                else
-                    ret[arr_idx] = NOT_SPECIAL;
-            }
+            // TODO: Should this be an instance variable?
+            bool quote_escape = false;  // Are we currently in a quote escaped field?
 
-            return ret;
-        }
+            // Optimizations
+            auto * HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
+            auto * HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
+            auto& in = data.in;
+            auto& row_buffer = *(data.row_buffer.get());
+            auto& text_buffer = row_buffer.buffer;
+            auto& split_buffer = row_buffer.split_buffer;
+            text_buffer.reserve(data.in.size());
+            split_buffer.reserve(data.in.size() / 10);
 
-        HEDLEY_CONST CONSTEXPR std::array<bool, 256> make_ws_flags(const char * ws_chars, size_t n_chars) {
-            std::array<bool, 256> ret = {};
-            for (int i = -128; i < 128; i++) {
-                const int arr_idx = i + 128;
-                char ch = char(i);
-                ret[arr_idx] = false;
-
-                for (size_t j = 0; j < n_chars; j++) {
-                    if (ws_chars[j] == ch) {
-                        ret[arr_idx] = true;
+            const size_t in_size = in.size();
+            for (size_t i = 0; i < in_size; i++) {
+                switch (parse_flags[data.in[i] + 128]) {
+                case ParseFlags::DELIMITER:
+                    if (!quote_escape) {
+                        split_buffer.push_back((unsigned short)row_buffer.size());
+                        break;
                     }
+
+                    HEDLEY_FALL_THROUGH;
+                case ParseFlags::NEWLINE:
+                    if (!quote_escape) {
+                        // End of record -> Write record
+                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                            ++i;
+
+                        data.write_record();
+                        break;
+                    }
+
+                    // Treat as regular character
+                    text_buffer += in[i];
+                    break;
+                case ParseFlags::NOT_SPECIAL: {
+                    size_t start, end;
+
+                    // Trim off leading whitespace
+                    while (i < in_size && ws_flags[in[i] + 128]) {
+                        i++;
+                    }
+
+                    start = i;
+
+                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                    // sequences, use the loop below to avoid having to go through the outer
+                    // switch statement as much as possible
+                    while (i + 1 < in_size
+                        && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
+                        i++;
+                    }
+
+                    // Trim off trailing whitespace
+                    end = i;
+                    while (ws_flags[in[end] + 128]) {
+                        end--;
+                    }
+
+                    // Finally append text
+#ifdef CSV_HAS_CXX17
+                    text_buffer += in.substr(start, end - start + 1);
+#else
+                    for (; start < end + 1; start++) {
+                        text_buffer += in[start];
+                    }
+#endif
+
+                    break;
+                }
+                default: // Quote
+                    if (!quote_escape) {
+                        // Don't deref past beginning
+                        if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
+                            // Case: Previous character was delimiter or newline
+                            quote_escape = true;
+                        }
+
+                        break;
+                    }
+
+                    auto next_ch = parse_flags[in[i + 1] + 128];
+                    if (next_ch >= ParseFlags::DELIMITER) {
+                        // Case: Delim or newline => end of field
+                        quote_escape = false;
+                        break;
+                    }
+
+                    // Case: Escaped quote
+                    text_buffer += in[i];
+
+                    if (next_ch == ParseFlags::QUOTE)
+                        ++i;  // Case: Two consecutive quotes
+                    else if (data.strict) {
+                        throw std::runtime_error("Unescaped single quote");
+                    }
+
+                    break;
                 }
             }
 
-            return ret;
+            return row_buffer.reset();
+        }
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
+            const size_t bytes = 500000;
+            std::ifstream infile(filename.data());
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            std::unique_ptr<char[]> buffer(new char[bytes + 1]);
+            char * head_buffer = buffer.get();
+
+            for (size_t i = 0; i < bytes + 1; i++) {
+                head_buffer[i] = '\0';
+            }
+
+            infile.read(head_buffer, bytes);
+            return std::string(head_buffer);
         }
     }
 }

@@ -1,6 +1,9 @@
 #pragma once
 #include <array>
 #include <functional>
+#include <fstream>
+#include <memory>
+#include <string>
 
 #include "compatibility.hpp"
 #include "row_buffer.hpp"
@@ -76,5 +79,8 @@ namespace csv {
 
         CSV_INLINE BufferPtr parse(const ParseData& data);
         CSV_INLINE void write_record(const ParseData& data);
+
+        /** Read the first 500KB of a CSV file */
+        CSV_INLINE std::string get_csv_head(csv::string_view filename);
     }
 }
