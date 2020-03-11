@@ -9,6 +9,7 @@ target_sources(csv
 		csv_reader.hpp
 		csv_reader.cpp
 		csv_reader_internals.hpp
+        csv_reader_internals.cpp
 		csv_reader_iterator.cpp
 		csv_row.hpp
 		csv_row.cpp
