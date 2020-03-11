@@ -31,7 +31,9 @@ namespace csv {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
     }
 
-    CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims);
+    /** Guess the delimiter used by a delimiter-separated values file */
+    CSVGuessResult guess_format(csv::string_view filename,
+        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
     /** @class CSVReader
      *  @brief Main class for parsing CSVs from files and in-memory sources
