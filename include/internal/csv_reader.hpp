@@ -162,6 +162,13 @@ namespace csv {
         /** A string buffer and its size. Consumed by read_csv_worker(). */
         using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
 
+        /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
+        struct ThreadedReadingState {
+            std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
+            std::mutex feed_lock; /**< Allow only one worker to write */
+            std::condition_variable feed_cond; /**< Wake up worker */
+        };
+
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
@@ -243,9 +250,7 @@ namespace csv {
         std::FILE* HEDLEY_RESTRICT
             infile = nullptr;                /**< Current file handle.
                                                   Destroyed by ~CSVReader(). */
-        std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
-        std::mutex feed_lock;                /**< Allow only one worker to write */
-        std::condition_variable feed_cond;   /**< Wake up worker */
+        std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 
         /**@}*/ // End of parser internals
