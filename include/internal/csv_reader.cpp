@@ -273,8 +273,8 @@ namespace csv {
         }
 
         if (!this->pre_header_trimmed) {
-            for (size_t i = 0; i <= this->header_row && !this->records.empty(); i++) {
-                if (i == this->header_row && !this->col_names) {
+            for (int i = 0; i <= this->header_row && !this->records.empty(); i++) {
+                if (i == this->header_row && this->col_names->get_col_names().empty()) {
                     this->set_col_names(this->records.front());
                 }
 
