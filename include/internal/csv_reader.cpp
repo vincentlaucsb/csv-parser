@@ -131,8 +131,6 @@ namespace csv {
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
         unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
-        this->record_buffer->col_names = this->col_names;
-
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -157,8 +155,6 @@ namespace csv {
      *
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
-        this->record_buffer->col_names = this->col_names;
-
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = guess_format(filename, format.possible_delimiters);
@@ -242,7 +238,7 @@ namespace csv {
             throw std::runtime_error("Unescaped single quote around line ");
             
             /** TODO: Add this back in+
-                std::to_string(this->correct_rows) + " near:\n" +
+                std::to_string(this->num_rows) + " near:\n" +
                 std::string(in.substr(i, 100)));
                 */
         }
@@ -419,7 +415,7 @@ namespace csv {
 
         if (!this->records.empty()) {
             row = std::move(this->records.front());
-            this->correct_rows++;
+            this->num_rows++;
             this->records.pop_front();
             return true;
         }

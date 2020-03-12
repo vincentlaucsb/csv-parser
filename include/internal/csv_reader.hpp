@@ -139,10 +139,10 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount correct_rows = 0;   /**< How many correct rows (minus header)
-                                      *   have been parsed so far
-                                      */
-        bool utf8_bom = false;       /**< Set to true if UTF-8 BOM was detected */
+        RowCount num_rows = 0;   /**< How many rows (minus header)
+                                   *   have been parsed so far
+                                   */
+        bool utf8_bom = false;   /**< Set to true if UTF-8 BOM was detected */
         ///@}
 
         void close();
@@ -173,12 +173,6 @@ namespace csv {
         /** Returns true if we have reached end of file */
         bool eof() { return !(this->infile); };
 
-        /** Buffer for current row being parsed */
-        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer());
-
-        /** Queue of parsed CSV rows */
-        std::deque<CSVRow> records;
-
         /** Handles possible Unicode byte order mark */
         CONSTEXPR void handle_unicode_bom(csv::string_view& in);
 
@@ -199,6 +193,12 @@ namespace csv {
         ///@{
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
+
+        /** Buffer for current row being parsed */
+        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer(this->col_names));
+
+        /** Queue of parsed CSV rows */
+        std::deque<CSVRow> records;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;

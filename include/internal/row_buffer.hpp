@@ -69,6 +69,7 @@ namespace csv {
         class RawRowBuffer {
         public:
             RawRowBuffer() = default;
+            RawRowBuffer(const std::shared_ptr<ColNames>& _col_names) : col_names(_col_names) {};
 
             /** Constructor mainly used for testing
              *  @param[in] _buffer    CSV text without delimiters or newlines

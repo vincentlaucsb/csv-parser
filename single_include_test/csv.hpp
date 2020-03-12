@@ -4332,7 +4332,7 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount correct_rows = 0;   /**< How many correct rows (minus header)
+        RowCount num_rows = 0;   /**< How many correct rows (minus header)
                                       *   have been parsed so far
                                       */
         bool utf8_bom = false;       /**< Set to true if UTF-8 BOM was detected */
@@ -4710,7 +4710,7 @@ namespace csv {
             else problem = "too short";
 
             throw std::runtime_error("Line " + problem + " around line " +
-                std::to_string(correct_rows) + " near\n" +
+                std::to_string(num_rows) + " near\n" +
                 internals::format_row(record)
             );
         }
@@ -4837,7 +4837,7 @@ namespace csv {
             throw std::runtime_error("Unescaped single quote around line ");
             
             /** TODO: Add this back in+
-                std::to_string(this->correct_rows) + " near:\n" +
+                std::to_string(this->num_rows) + " near:\n" +
                 std::string(in.substr(i, 100)));
                 */
         }
@@ -5015,7 +5015,7 @@ namespace csv {
 
         if (!this->records.empty()) {
             row = std::move(this->records.front());
-            this->correct_rows++;
+            this->num_rows++;
             this->records.pop_front();
             return true;
         }
@@ -5957,7 +5957,7 @@ namespace csv {
             filename,
             reader.get_col_names(),
             format.get_delim(),
-            reader.correct_rows,
+            reader.num_rows,
             (int)reader.get_col_names().size()
         };
 

@@ -4837,7 +4837,7 @@ namespace csv {
             throw std::runtime_error("Unescaped single quote around line ");
             
             /** TODO: Add this back in+
-                std::to_string(this->correct_rows) + " near:\n" +
+                std::to_string(this->num_rows) + " near:\n" +
                 std::string(in.substr(i, 100)));
                 */
         }
