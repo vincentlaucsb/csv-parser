@@ -16,11 +16,11 @@ namespace csv {
      *  std::runtime_error If n is out of bounds
      */
     CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str);
+        csv::string_view ret(this->data.row_str);
 
         // First assume that field comprises entire row, then adjust accordingly
         size_t beg = 0,
-            end = row_str.size(),
+            end = this->data.row_str.size(),
             r_size = this->size();
 
         if (n >= r_size)
@@ -111,7 +111,7 @@ namespace csv {
 
     CSV_INLINE size_t CSVRow::split_at(size_t n) const
     {
-        return this->buffer->split_buffer[this->start + n];
+        return this->buffer->split_buffer[this->data.col_pos.start + n];
     }
 
     CSV_INLINE HEDLEY_NON_NULL(2)

@@ -107,12 +107,15 @@ namespace csv {
         };
 
         struct ColumnPositions {
+            ColumnPositions() = default;
             constexpr ColumnPositions(size_t _start, unsigned short _size) : start(_start), n_cols(_size) {};
             size_t start;                /**< Where in split_buffer the array of column positions begins */
             size_t n_cols;               /**< Number of columns */
         };
 
         struct RowData {
+            RowData() = default;
+
             csv::string_view row_str;
             ColumnPositions col_pos;
         };

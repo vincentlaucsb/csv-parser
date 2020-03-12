@@ -184,13 +184,7 @@ namespace csv {
         CSVRow() = default;
         
         /** Construct a CSVRow from a RawRowBuffer */
-        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer)
-        {
-            auto& row_data = _buffer->get_row();
-            this->row_str = row_data.row_str;
-            this->start = row_data.col_pos.start;
-            this->n_cols = row_data.col_pos.n_cols;
-        };
+        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
 
         /** Constructor for testing */
         CSVRow(const std::string& str, const std::vector<unsigned short>& splits,
@@ -198,10 +192,10 @@ namespace csv {
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
         /** Indicates whether row is empty or not */
-        CONSTEXPR bool empty() const { return this->row_str.empty(); }
+        CONSTEXPR bool empty() const { return this->data.row_str.empty(); }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return this->n_cols; }
+        CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
 
         /** @name Value Retrieval */
         ///@{
@@ -285,9 +279,7 @@ namespace csv {
         size_t split_at(size_t n) const;
 
         internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
-        csv::string_view row_str = "";         /**< Text data for this row */
-        size_t start;                          /**< Where in split buffer this row begins */
-        size_t n_cols;                         /**< Numbers of columns this row has */
+        internals::RowData data;               /**< Contains row string and column positions. */
     };
 
 #pragma region CSVField::get Specializations
