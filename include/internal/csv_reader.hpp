@@ -139,7 +139,6 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount row_num = 0;        /**< How many lines have been parsed so far */
         RowCount correct_rows = 0;   /**< How many correct rows (minus header)
                                       *   have been parsed so far
                                       */
@@ -187,8 +186,6 @@ namespace csv {
          *  These methods are called by feed().
          */
         ///@{
-        void write_record();
-
         /** Handles possible Unicode byte order mark */
         CONSTEXPR void handle_unicode_bom(csv::string_view& in);
         virtual void bad_row_handler(std::vector<std::string>);

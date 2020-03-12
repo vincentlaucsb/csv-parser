@@ -35,7 +35,9 @@ namespace csv {
                         if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
                             ++i;
 
-                        data.write_record();
+                        // TODO: Refactor this
+                        // Make row_buffer spit out a CSVRow not the other way around
+                        data.records.push_back(CSVRow(data.row_buffer));
                         break;
                     }
 

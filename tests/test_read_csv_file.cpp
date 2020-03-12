@@ -102,7 +102,7 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     
     // Skip to end
     while (reader.read_row(row));
-    REQUIRE( reader.row_num == 246498 );
+    REQUIRE( reader.correct_rows == 246497 );
 }
 
 //

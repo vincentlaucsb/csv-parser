@@ -1,11 +1,13 @@
 #pragma once
 #include <array>
+#include <deque>
 #include <functional>
 #include <fstream>
 #include <memory>
 #include <string>
 
 #include "compatibility.hpp"
+#include "csv_row.hpp"
 #include "row_buffer.hpp"
 
 namespace csv {
@@ -74,7 +76,7 @@ namespace csv {
             WhitespaceMap ws_flags;
             BufferPtr row_buffer;
             bool strict;
-            std::function<void()> write_record;
+            std::deque<CSVRow>& records;
         };
 
         CSV_INLINE BufferPtr parse(const ParseData& data);

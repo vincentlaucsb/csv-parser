@@ -48,19 +48,14 @@ namespace csv {
         auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
         std::deque<CSVRow> rows;
 
-        auto write_row = [&buffer_ptr, &rows]() {
-            rows.push_back(CSVRow(buffer_ptr));
-        };
-
         internals::parse({
             head,
             internals::make_parse_flags(format.get_delim(), '"'),
             internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
             buffer_ptr,
             false,
-            write_row
-            });
-
+            rows
+        });
 
         return rows[format.header];
     }
@@ -93,18 +88,14 @@ namespace csv {
             auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
             std::deque<CSVRow> rows;
 
-            auto write_row = [&buffer_ptr, &rows]() {
-                rows.push_back(CSVRow(buffer_ptr));
-            };
-
             internals::parse({
                 head,
                 internals::make_parse_flags(cand_delim, '"'),
                 internals::make_ws_flags({}, 0),
                 buffer_ptr,
                 false,
-                write_row
-                });
+                rows
+            });
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];
@@ -264,8 +255,8 @@ namespace csv {
                 this->ws_flags,
                 this->record_buffer,
                 this->strict,
-                std::bind(&CSVReader::write_record, this)
-                });
+                this->records
+            });
         }
         catch (std::runtime_error& err) {
             throw std::runtime_error("Unescaped single quote around line ");
@@ -279,7 +270,6 @@ namespace csv {
         if (!this->pre_header_trimmed) {
             for (size_t i = 0; i <= this->header_row && !this->records.empty(); i++) {
                 this->records.pop_front();
-                this->correct_rows--;
             }
 
             this->pre_header_trimmed = true;
@@ -290,7 +280,7 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        this->write_record();
+        this->records.push_back(CSVRow(this->record_buffer));
     }
 
     CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {
@@ -302,26 +292,6 @@ namespace csv {
 
             this->unicode_bom_scan = true;
         }
-    }
-
-    CSV_INLINE void CSVReader::write_record() {
-        /** Push the current row into a queue if it is the right length.
-         *  Drop it otherwise.
-         */
-
-        // Make sure record is of the right length
-        const size_t row_size = this->record_buffer->splits_size();
-        if (row_size + 1 == this->n_cols) {
-            this->correct_rows++;
-            this->records.push_back(CSVRow(this->record_buffer));
-        }
-        else {
-            this->row_num--;
-            this->record_buffer->get_row();
-            this->record_buffer->get_splits();
-        }
-        
-        this->row_num++;
     }
 
     CSV_INLINE void CSVReader::read_csv_worker() {
@@ -455,9 +425,18 @@ namespace csv {
             else return false; // Stop reading
         }
 
-        row = std::move(this->records.front());
-        this->records.pop_front();
+        while (!this->records.empty() && 
+            this->records.front().size() != this->n_cols) {
+            this->records.pop_front();
+        }
 
-        return true;
+        if (!this->records.empty()) {
+            row = std::move(this->records.front());
+            this->correct_rows++;
+            this->records.pop_front();
+            return true;
+        }
+
+        return false;
     }
 }
