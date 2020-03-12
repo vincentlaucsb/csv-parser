@@ -35,10 +35,17 @@ namespace csv {
             return this->col_names.size();
         }
 
+        CSV_INLINE RowData RawRowBuffer::get_row() {
+            return {
+                this->get_row_string(),
+                this->get_splits()
+            };
+        }
+
         /** Get the current row in the buffer
          *  @note Has the side effect of updating the current end pointer
          */
-        CSV_INLINE csv::string_view RawRowBuffer::get_row() {
+        CSV_INLINE csv::string_view RawRowBuffer::get_row_string() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
                 (this->buffer.size() - this->current_end) // Count
@@ -56,7 +63,7 @@ namespace csv {
                 (unsigned short)(new_split_idx - head_idx + 1): 0;
 
             this->current_split_idx = new_split_idx;
-            return ColumnPositions(*this, head_idx, n_cols);
+            return ColumnPositions(head_idx, n_cols);
         }
 
         CSV_INLINE size_t RawRowBuffer::size() const {
@@ -88,10 +95,6 @@ namespace csv {
             // No need to remove unnecessary bits from this buffer
             // (memory savings would be marginal anyways)
             return new_buff;
-        }
-
-        CSV_INLINE unsigned short ColumnPositions::split_at(int n) const {
-            return this->parent->split_buffer[this->start + n];
         }
     }
 }

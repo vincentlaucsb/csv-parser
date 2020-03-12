@@ -183,15 +183,13 @@ namespace csv {
     public:
         CSVRow() = default;
         
-        // TODO: Remove this
-        /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
-        CSVRow(const internals::BufferPtr& _str) : buffer(_str)
+        /** Construct a CSVRow from a RawRowBuffer */
+        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer)
         {
-            this->row_str = _str->get_row();
-
-            auto splits = _str->get_splits();
-            this->start = splits.start;
-            this->n_cols = splits.n_cols;
+            auto& row_data = _buffer->get_row();
+            this->row_str = row_data.row_str;
+            this->start = row_data.col_pos.start;
+            this->n_cols = row_data.col_pos.n_cols;
         };
 
         /** Constructor for testing */
@@ -284,12 +282,12 @@ namespace csv {
 
     private:
         /** Get the index in CSVRow's text buffer where the n-th field begins */
-        unsigned short split_at(size_t n) const;
+        size_t split_at(size_t n) const;
 
         internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
         csv::string_view row_str = "";         /**< Text data for this row */
         size_t start;                          /**< Where in split buffer this row begins */
-        unsigned short n_cols;                 /**< Numbers of columns this row has */
+        size_t n_cols;                         /**< Numbers of columns this row has */
     };
 
 #pragma region CSVField::get Specializations

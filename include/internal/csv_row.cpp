@@ -109,7 +109,7 @@ namespace csv {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    CSV_INLINE unsigned short CSVRow::split_at(size_t n) const
+    CSV_INLINE size_t CSVRow::split_at(size_t n) const
     {
         return this->buffer->split_buffer[this->start + n];
     }

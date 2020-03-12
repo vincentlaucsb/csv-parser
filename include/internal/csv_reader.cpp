@@ -24,6 +24,96 @@ namespace csv {
 
             return ret.str();
         }
+
+        /** Return a CSV's column names
+         *
+         *  @param[in] filename  Path to CSV file
+         *  @param[in] format    Format of the CSV file
+         *
+         */
+        CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
+            // Parse the CSV
+            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+            std::deque<CSVRow> rows;
+
+            internals::parse({
+                head,
+                internals::make_parse_flags(format.get_delim(), '"'),
+                internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
+                buffer_ptr,
+                false,
+                rows
+                });
+
+            return rows[format.header];
+        }
+
+        /** Guess the delimiter used by a delimiter-separated values file */
+        CSV_INLINE CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims) {
+            /** For each delimiter, find out which row length was most common.
+                 *  The delimiter with the longest mode row length wins.
+                 *  Then, the line number of the header row is the first row with
+                 *  the mode row length.
+                 */
+
+            CSVFormat format;
+            size_t max_rlen = 0,
+                header = 0;
+            char current_delim = delims[0];
+
+            for (char cand_delim : delims) {
+                // Frequency counter of row length
+                std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
+
+                // Map row lengths to row num where they first occurred
+                std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
+
+                format.delimiter(cand_delim);
+
+                // Parse the CSV
+                auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+                std::deque<CSVRow> rows;
+
+                internals::parse({
+                    head,
+                    internals::make_parse_flags(cand_delim, '"'),
+                    internals::make_ws_flags({}, 0),
+                    buffer_ptr,
+                    false,
+                    rows
+                    });
+
+                for (size_t i = 0; i < rows.size(); i++) {
+                    auto& row = rows[i];
+
+                    // Ignore zero-length rows
+                    if (row.size() > 0) {
+                        if (row_tally.find(row.size()) != row_tally.end()) {
+                            row_tally[row.size()]++;
+                        }
+                        else {
+                            row_tally[row.size()] = 1;
+                            row_when[row.size()] = i;
+                        }
+                    }
+                }
+
+                // Most common row length
+                auto max = std::max_element(row_tally.begin(), row_tally.end(),
+                    [](const std::pair<size_t, size_t>& x,
+                        const std::pair<size_t, size_t>& y) {
+                    return x.second < y.second; });
+
+                if (max->first > max_rlen) {
+                    max_rlen = max->first;
+                    current_delim = cand_delim;
+                    header = row_when[max_rlen];
+                }
+            }
+
+            return { current_delim, (int)header };
+        }
+
     }
 
     /** Return a CSV's column names
@@ -35,8 +125,6 @@ namespace csv {
     CSV_INLINE std::vector<std::string> get_col_names(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
 
-        // TODO: Refactor
-
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = guess_format(filename, format.possible_delimiters);
@@ -44,88 +132,13 @@ namespace csv {
             format.header = guess_result.header_row;
         }
 
-        // Parse the CSV
-        auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
-        std::deque<CSVRow> rows;
-
-        internals::parse({
-            head,
-            internals::make_parse_flags(format.get_delim(), '"'),
-            internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
-            buffer_ptr,
-            false,
-            rows
-        });
-
-        return rows[format.header];
+        return internals::_get_col_names(head, format);
     }
 
     /** Guess the delimiter used by a delimiter-separated values file */
     CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
         auto head = internals::get_csv_head(filename);
-
-        /** For each delimiter, find out which row length was most common.
-             *  The delimiter with the longest mode row length wins.
-             *  Then, the line number of the header row is the first row with
-             *  the mode row length.
-             */
-
-        CSVFormat format;
-        size_t max_rlen = 0,
-               header = 0;
-        char current_delim = delims[0];
-
-        for (char cand_delim : delims) {
-            // Frequency counter of row length
-            std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
-
-            // Map row lengths to row num where they first occurred
-            std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
-
-            format.delimiter(cand_delim);
-
-            // Parse the CSV
-            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
-            std::deque<CSVRow> rows;
-
-            internals::parse({
-                head,
-                internals::make_parse_flags(cand_delim, '"'),
-                internals::make_ws_flags({}, 0),
-                buffer_ptr,
-                false,
-                rows
-            });
-
-            for (size_t i = 0; i < rows.size(); i++) {
-                auto& row = rows[i];
-
-                // Ignore zero-length rows
-                if (row.size() > 0) {
-                    if (row_tally.find(row.size()) != row_tally.end()) {
-                        row_tally[row.size()]++;
-                    }
-                    else {
-                        row_tally[row.size()] = 1;
-                        row_when[row.size()] = i;
-                    }
-                }
-            }
-
-            // Most common row length
-            auto max = std::max_element(row_tally.begin(), row_tally.end(),
-                [](const std::pair<size_t, size_t>& x,
-                    const std::pair<size_t, size_t>& y) {
-                return x.second < y.second; });
-
-            if (max->first > max_rlen) {
-                max_rlen = max->first;
-                current_delim = cand_delim;
-                header = row_when[max_rlen];
-            }
-        }
-
-        return { current_delim, (int)header };
+        return internals::_guess_format(head, delims);
     }
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
@@ -155,9 +168,11 @@ namespace csv {
      *
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
+        auto head = internals::get_csv_head(filename);
+
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
-            auto guess_result = guess_format(filename, format.possible_delimiters);
+            auto guess_result = internals::_guess_format(head, format.possible_delimiters);
             format.delimiter(guess_result.delim);
             format.header = guess_result.header_row;
         }
@@ -166,7 +181,7 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
         else {
-            this->set_col_names(csv::get_col_names(filename, format));
+            this->set_col_names(internals::_get_col_names(head, format));
         }
 
         this->format = format;

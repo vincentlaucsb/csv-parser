@@ -10,6 +10,10 @@
 #include "compatibility.hpp"
 
 namespace csv {
+    namespace internals {
+
+    }
+
     class CSVReader;
 
     /** Stores the inferred format of a CSV file. */
@@ -126,6 +130,15 @@ namespace csv {
 
         friend CSVReader;
         friend std::vector<std::string> get_col_names(csv::string_view, CSVFormat);
+        // friend std::vector<std::string> internals::_get_col_names(csv::string_view, CSVFormat);
+
+
+        /**< Set of whitespace characters to trim */
+        std::vector<char> trim_chars = {};
+
+        /**< Row number with columns (ignored if col_names is non-empty) */
+        int header = 0;
+
     private:
         /**< Throws an error if delimiters and trim characters overlap */
         void assert_no_char_overlap();
@@ -133,14 +146,10 @@ namespace csv {
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
 
-        /**< Set of whitespace characters to trim */
-        std::vector<char> trim_chars = {};
 
         /**< Quote character */
         char quote_char = '"';
 
-        /**< Row number with columns (ignored if col_names is non-empty) */
-        int header = 0;
 
         /**< Should be left empty unless file doesn't include header */
         std::vector<std::string> col_names = {};

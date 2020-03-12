@@ -3661,7 +3661,7 @@ namespace csv {
                 const std::shared_ptr<ColNames>& _col_names) :
                 buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
 
-            csv::string_view get_row();      /**< Return a string_view over the current_row */
+            csv::string_view get_row_string();      /**< Return a string_view over the current_row */
             ColumnPositions get_splits();    /**< Return the field start positions for the current row */
 
             size_t size() const;             /**< Return size of current row */
@@ -3964,7 +3964,7 @@ namespace csv {
         /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
         CSVRow(const internals::BufferPtr& _str) : buffer(_str)
         {
-            this->row_str = _str->get_row();
+            this->row_str = _str->get_row_string();
 
             auto splits = _str->get_splits();
             this->start = splits.start;
@@ -6003,7 +6003,7 @@ namespace csv {
         /** Get the current row in the buffer
          *  @note Has the side effect of updating the current end pointer
          */
-        CSV_INLINE csv::string_view RawRowBuffer::get_row() {
+        CSV_INLINE csv::string_view RawRowBuffer::get_row_string() {
             csv::string_view ret(
                 this->buffer.c_str() + this->current_end, // Beginning of string
                 (this->buffer.size() - this->current_end) // Count
