@@ -128,24 +128,6 @@ namespace csv {
         return { current_delim, (int)header };
     }
 
-    CSV_INLINE void CSVReader::bad_row_handler(std::vector<std::string> record) {
-        /** Handler for rejected rows (too short or too long). This does nothing
-         *  unless strict parsing was set, in which case it throws an eror.
-         *  Subclasses of CSVReader may easily override this to provide
-         *  custom behavior.
-         */
-        if (this->strict) {
-            std::string problem;
-            if (record.size() > this->col_names->size()) problem = "too long";
-            else problem = "too short";
-
-            throw std::runtime_error("Line " + problem + " around line " +
-                std::to_string(correct_rows) + " near\n" +
-                internals::format_row(record)
-            );
-        }
-    };
-
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) :
         delimiter(format.get_delim()), quote_char(format.quote_char),
@@ -435,12 +417,11 @@ namespace csv {
 
         while (!this->records.empty() && 
             this->records.front().size() != this->n_cols) {
-            if (!this->strict) {
-                this->records.pop_front();
-            }
-            else {
+            if (this->strict) {
                 throw std::runtime_error("Line too short");
             }
+
+            this->records.pop_front();
         }
 
         if (!this->records.empty()) {

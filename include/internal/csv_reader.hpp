@@ -179,15 +179,8 @@ namespace csv {
         /** Queue of parsed CSV rows */
         std::deque<CSVRow> records;
 
-        /** @name CSV Parsing Callbacks
-         *  The heart of the CSV parser.
-         *  These methods are called by feed().
-         */
-        ///@{
         /** Handles possible Unicode byte order mark */
         CONSTEXPR void handle_unicode_bom(csv::string_view& in);
-        virtual void bad_row_handler(std::vector<std::string>);
-        ///@}
 
         /** @name CSV Settings **/
         ///@{
