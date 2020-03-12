@@ -132,7 +132,7 @@ namespace csv {
                 }
             }
             else if (this->format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
-                throw std::runtime_error("Line too short " + internals::format_row(*current_record));
+                throw std::runtime_error("Line has different length than the others " + internals::format_row(*current_record));
             }
 
             ++current_record;
