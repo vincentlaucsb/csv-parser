@@ -1,4 +1,3 @@
-#pragma once
 #include "csv_reader_internals.hpp"
 
 namespace csv {
