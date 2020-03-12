@@ -125,7 +125,7 @@ namespace csv {
         }
 
         friend CSVReader;
-        friend std::vector<std::string> get_col_names(const std::string&, CSVFormat);
+        friend std::vector<std::string> get_col_names(csv::string_view, CSVFormat);
     private:
         /**< Throws an error if delimiters and trim characters overlap */
         void assert_no_char_overlap();

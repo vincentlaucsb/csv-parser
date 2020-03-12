@@ -32,7 +32,7 @@ namespace csv {
     }
 
     std::vector<std::string> get_col_names(
-        const std::string& filename,
+        csv::string_view filename,
         const CSVFormat format = CSVFormat::guess_csv());
 
     /** Guess the delimiter used by a delimiter-separated values file */

@@ -32,7 +32,7 @@ namespace csv {
      *  @param[in] format    Format of the CSV file
      *
      */
-    CSV_INLINE std::vector<std::string> get_col_names(const std::string& filename, CSVFormat format) {
+    CSV_INLINE std::vector<std::string> get_col_names(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
 
         // TODO: Refactor
@@ -193,6 +193,9 @@ namespace csv {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
+        else {
+            this->set_col_names(csv::get_col_names(filename, format));
+        }
 
         header_row = format.header;
         delimiter = format.get_delim();
@@ -201,9 +204,7 @@ namespace csv {
         parse_flags = internals::make_parse_flags(delimiter, quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
-        // Read first 500KB of CSV
         this->fopen(filename);
-        this->read_csv(500000);
     }
 
     /** Return the format of the original raw CSV */
@@ -299,7 +300,7 @@ namespace csv {
          *  Drop it otherwise.
          */
 
-        if (this->col_names) {
+        if (this->row_num > this->header_row) {
             // Make sure record is of the right length
             const size_t row_size = this->record_buffer->splits_size();
             if (row_size + 1 == this->n_cols) {
@@ -307,24 +308,17 @@ namespace csv {
                 this->records.push_back(CSVRow(this->record_buffer));
             }
             else {
-                /* 1) Zero-length record, probably caused by extraneous newlines
-                 * 2) Too short or too long
-                 */
                 this->row_num--;
-                if (row_size > 0) {
-                    bad_row_handler(std::vector<std::string>(CSVRow(
-                        this->record_buffer)));
-                }
+                this->record_buffer->get_row();
+                this->record_buffer->get_splits();
             }
-        }
-        else if (this->row_num == this->header_row) {
-            this->set_col_names(std::vector<std::string>(CSVRow(this->record_buffer)));
         }
         else {
             // Ignore rows before header row
             this->record_buffer->get_row();
+            this->record_buffer->get_splits();
         }
-
+        
         this->row_num++;
     }
 
