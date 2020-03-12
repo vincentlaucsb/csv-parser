@@ -410,22 +410,22 @@ namespace csv {
             else return false; // Stop reading
         }
 
-        while (!this->records.empty() && 
-            this->records.front().size() != this->n_cols) {
-            if (this->format.strict) {
-                throw std::runtime_error("Line too short");
+        while (!this->records.empty()) {
+            if (this->records.front().size() != this->n_cols) {
+                if (this->format.strict) {
+                    throw std::runtime_error("Line too short");
+                }
+
+                this->records.pop_front();
             }
-
-            this->records.pop_front();
+            else {
+                row = std::move(this->records.front());
+                this->num_rows++;
+                this->records.pop_front();
+                return true;
+            }
         }
-
-        if (!this->records.empty()) {
-            row = std::move(this->records.front());
-            this->num_rows++;
-            this->records.pop_front();
-            return true;
-        }
-
+    
         return false;
     }
 }
