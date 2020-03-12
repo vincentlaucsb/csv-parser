@@ -435,7 +435,12 @@ namespace csv {
 
         while (!this->records.empty() && 
             this->records.front().size() != this->n_cols) {
-            this->records.pop_front();
+            if (!this->strict) {
+                this->records.pop_front();
+            }
+            else {
+                throw std::runtime_error("Line too short");
+            }
         }
 
         if (!this->records.empty()) {

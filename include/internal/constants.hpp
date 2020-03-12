@@ -41,7 +41,4 @@ namespace csv {
 
     /** Used for counting number of rows */
     using RowCount = long long int;
-
-    class CSVRow;
-    using CSVCollection = std::deque<CSVRow>;
 }

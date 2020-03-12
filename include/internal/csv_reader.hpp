@@ -146,8 +146,6 @@ namespace csv {
         ///@}
 
         void close();
-
-        friend CSVCollection parse(csv::string_view, CSVFormat);
     protected:
         /**
          * \defgroup csv_internal CSV Parser Internals

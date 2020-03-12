@@ -21,8 +21,8 @@ namespace csv {
      *  @brief Convienience functions for parsing small strings
      */
      ///@{
-    CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader operator ""_csv(const char*, size_t);
+    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
     ///@}
 
     /** @name Utility Functions */

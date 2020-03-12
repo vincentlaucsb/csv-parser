@@ -9,11 +9,11 @@ namespace csv {
      *
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
-    CSV_INLINE CSVCollection parse(csv::string_view in, CSVFormat format) {
+    CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
         parser.feed(in);
         parser.end_feed();
-        return parser.records;
+        return parser;
     }
 
     /** Parse a RFC 4180 CSV string, returning a collection
@@ -23,7 +23,7 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
-    CSV_INLINE CSVCollection operator ""_csv(const char* in, size_t n) {
+    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
         return parse(csv::string_view(in, n));
     }
 

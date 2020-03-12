@@ -19,7 +19,8 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
                 "1,2,3"_csv;
    
     // Expected Results
-    auto row = rows.front();
+    CSVRow row;
+    rows.read_row(row);
     vector<string> first_row = {"123", "234", "345"};
     REQUIRE( vector<string>(row) == first_row );
 }
@@ -32,7 +33,8 @@ TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
         "1,2,3"_csv;
 
     // Expected Results
-    auto row = rows.front();
+    CSVRow row;
+    rows.read_row(row);
     vector<string> first_row = { "123", "234", "345" };
     REQUIRE(vector<string>(row) == first_row);
 }
@@ -44,7 +46,9 @@ TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {
                 "1,2,3\r\n"
                 "1,2,3"_csv;
 
-    REQUIRE( vector<string>(rows.front()) == 
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE( vector<string>(row) == 
         vector<string>({"123", "234,345", "456"}));
 }
 //! [Escaped Comma]
@@ -55,7 +59,9 @@ TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
                 "1,2,3\r\n"
                 "1,2,3"_csv;
 
-    REQUIRE( vector<string>(rows.front()) == 
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE( vector<string>(row) == 
         vector<string>({ "123", "234\n,345", "456" }) );
 }
 
@@ -64,7 +70,9 @@ TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
     auto rows = "A,B,C\r\n" // Header row
                 "123,\"\",456\r\n"_csv;
 
-    REQUIRE( vector<string>(rows.front()) == 
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE( vector<string>(row) == 
         vector<string>({ "123", "", "456" }) );
 }
 
@@ -83,11 +91,13 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     vector<string> correct_row = {"123", "234\"345", "456"};
 
     // First Row
-    REQUIRE( vector<string>(rows.front()) == correct_row );
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE( vector<string>(row) == correct_row );
 
     // Second Row
-    rows.pop_front();
-    REQUIRE( vector<string>(rows.front()) == correct_row );
+    rows.read_row(row);
+    REQUIRE( vector<string>(row) == correct_row );
 
 //! [Parse Example]
 
@@ -143,16 +153,18 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
             .trim({ '\t', ' ' })
             .delimiter(',');
 
-        auto row = parse(row_str, format);
-        REQUIRE(vector<string>(row.front()) ==
+        auto rows = parse(row_str, format);
+        CSVRow row;
+        rows.read_row(row);
+
+        REQUIRE(vector<string>(row) ==
             vector<string>({ "123", "234\n,345", "456" }));
-        REQUIRE(row.front()["A"] == "123");
-        REQUIRE(row.front()["B"] == "234\n,345");
-        REQUIRE(row.front()["C"] == "456");
+        REQUIRE(row["A"] == "123");
+        REQUIRE(row["B"] == "234\n,345");
+        REQUIRE(row["C"] == "456");
     }
 }
 
-/**
 TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     string csv_string("A,B,C\r\n" // Header row
         "123,234,345\r\n"
@@ -163,7 +175,10 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     bool error_caught = false;
 
     try {
-        parse(csv_string, CSVFormat::rfc4180_strict());
+        auto rows = parse(csv_string, CSVFormat::rfc4180_strict());
+        for (auto& row : rows) {
+
+        }
     }
     catch (std::runtime_error& err) {
         error_caught = true;
@@ -173,7 +188,6 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     REQUIRE(error_caught);
     REQUIRE(error_message.substr(0, 14) == "Line too short");
 }
-*/
 
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     CSVFormat format;
@@ -185,7 +199,8 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
         << "," << std::endl;
 
     auto rows = parse(csv_string.str(), format);
-    CSVRow row = rows.front();
+    CSVRow row;
+    rows.read_row(row);
 
     // First Row
     REQUIRE((row[0].is_float() && row[0].is_num()));
@@ -193,16 +208,14 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
     REQUIRE(internals::is_equal(row[0].get<double>(), 3.14));
 
     // Second Row
-    rows.pop_front();
-    row = rows.front();
+    rows.read_row(row);
     REQUIRE((row[0].is_int() && row[0].is_num()));
     REQUIRE((row[1].is_int() && row[1].is_num()));
     REQUIRE(row[0].get<std::string>() == "60");
     REQUIRE(row[1].get<std::string>() == "70");
 
     // Third Row
-    rows.pop_front();
-    row = rows.front();
+    rows.read_row(row);
     REQUIRE(row[0].is_null());
     REQUIRE(row[1].is_null());
 }
