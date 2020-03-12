@@ -182,9 +182,7 @@ namespace csv {
 
     /** Return the format of the original raw CSV */
     CSV_INLINE CSVFormat CSVReader::get_format() const {
-        CSVFormat new_format;
-        new_format.delimiter(this->format.get_delim())
-            .quote(this->format.quote_char);
+        CSVFormat new_format = this->format;
 
         // Since users are normally not allowed to set 
         // column names and header row simulatenously,
