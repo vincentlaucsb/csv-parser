@@ -275,6 +275,15 @@ namespace csv {
                 std::string(in.substr(i, 100)));
                 */
         }
+
+        if (!this->pre_header_trimmed) {
+            for (size_t i = 0; i <= this->header_row && !this->records.empty(); i++) {
+                this->records.pop_front();
+                this->correct_rows--;
+            }
+
+            this->pre_header_trimmed = true;
+        }
     }
 
     CSV_INLINE void CSVReader::end_feed() {
@@ -300,21 +309,14 @@ namespace csv {
          *  Drop it otherwise.
          */
 
-        if (this->row_num > this->header_row) {
-            // Make sure record is of the right length
-            const size_t row_size = this->record_buffer->splits_size();
-            if (row_size + 1 == this->n_cols) {
-                this->correct_rows++;
-                this->records.push_back(CSVRow(this->record_buffer));
-            }
-            else {
-                this->row_num--;
-                this->record_buffer->get_row();
-                this->record_buffer->get_splits();
-            }
+        // Make sure record is of the right length
+        const size_t row_size = this->record_buffer->splits_size();
+        if (row_size + 1 == this->n_cols) {
+            this->correct_rows++;
+            this->records.push_back(CSVRow(this->record_buffer));
         }
         else {
-            // Ignore rows before header row
+            this->row_num--;
             this->record_buffer->get_row();
             this->record_buffer->get_splits();
         }

@@ -218,6 +218,9 @@ namespace csv {
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
 
+        /** Whether or not rows before header were trimmed */
+        bool pre_header_trimmed = false;
+
         /** The number of columns in this CSV */
         size_t n_cols = 0;
         ///@}

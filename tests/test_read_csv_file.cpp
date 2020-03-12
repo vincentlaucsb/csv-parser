@@ -123,38 +123,6 @@ TEST_CASE("Test read_row() CSVField - Easy", "[read_row_csvf1]") {
 }
 //! [CSVField Example]
 
-TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
-    CSVFormat format;
-    format.column_names({ "A", "B" });
-
-    std::stringstream csv_string;
-    csv_string << "3.14,9999" << std::endl
-        << "60,70" << std::endl
-        << "," << std::endl;
-
-    auto rows = parse(csv_string.str(), format);
-    CSVRow row = rows.front();
-
-    // First Row
-    REQUIRE((row[0].is_float() && row[0].is_num()));
-    REQUIRE(row[0].get<std::string>().substr(0, 4) == "3.14");
-    REQUIRE(internals::is_equal(row[0].get<double>(), 3.14));
-
-    // Second Row
-    rows.pop_front();
-    row = rows.front();
-    REQUIRE((row[0].is_int() && row[0].is_num()));
-    REQUIRE((row[1].is_int() && row[1].is_num()));
-    REQUIRE(row[0].get<std::string>() == "60");
-    REQUIRE(row[1].get<std::string>() == "70");
-
-    // Third Row
-    rows.pop_front();
-    row = rows.front();
-    REQUIRE(row[0].is_null());
-    REQUIRE(row[1].is_null());
-}
-
 TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
     CSVReader reader("./tests/data/real_data/2009PowerStatus.txt");
     CSVRow row;
