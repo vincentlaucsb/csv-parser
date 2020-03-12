@@ -41,9 +41,8 @@ namespace csv {
                 internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
                 buffer_ptr,
-                false,
                 rows
-                });
+            });
 
             return rows[format.header];
         }
@@ -79,9 +78,8 @@ namespace csv {
                     internals::make_parse_flags(cand_delim, '"'),
                     internals::make_ws_flags({}, 0),
                     buffer_ptr,
-                    false,
                     rows
-                    });
+                });
 
                 for (size_t i = 0; i < rows.size(); i++) {
                     auto& row = rows[i];
@@ -243,7 +241,6 @@ namespace csv {
             this->parse_flags,
             this->ws_flags,
             this->record_buffer,
-            this->format.strict,
             this->records
         });
 
@@ -411,11 +408,13 @@ namespace csv {
         }
 
         while (!this->records.empty()) {
-            if (this->records.front().size() != this->n_cols) {
-                if (this->format.strict) {
-                    throw std::runtime_error("Line too short");
+            if (this->records.front().size() != this->n_cols &&
+                this->format.variable_column_policy != VariableColumnPolicy::KEEP) {
+                if (this->format.variable_column_policy == VariableColumnPolicy::THROW) {
+                    throw std::runtime_error("Line too short " + internals::format_row(this->records.front()));
                 }
 
+                // Silently drop row (default)
                 this->records.pop_front();
             }
             else {

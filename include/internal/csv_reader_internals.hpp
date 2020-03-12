@@ -75,7 +75,6 @@ namespace csv {
             ParseFlagMap parse_flags;
             WhitespaceMap ws_flags;
             BufferPtr row_buffer;
-            bool strict;
             std::deque<CSVRow>& records;
         };
 

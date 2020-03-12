@@ -10,11 +10,13 @@
 #include "compatibility.hpp"
 
 namespace csv {
-    namespace internals {
-
-    }
-
     class CSVReader;
+
+    enum class VariableColumnPolicy {
+        THROW = -1,
+        IGNORE = 0,
+        KEEP   = 1
+    };
 
     /** Stores the inferred format of a CSV file. */
     struct CSVGuessResult {
@@ -68,11 +70,15 @@ namespace csv {
          */
         CSVFormat& header_row(int row);
 
-        /** Tells the parser to throw an std::runtime_error if an
-         *  invalid CSV sequence is found
-         */
-        CONSTEXPR CSVFormat& strict_parsing(bool is_strict = true) {
-            this->strict = is_strict;
+        /** Tells the parser how to handle columns of a different length than the others */
+        CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE) {
+            this->variable_column_policy = policy;
+            return *this;
+        }
+
+        /** Tells the parser how to handle columns of a different length than the others */
+        CONSTEXPR CSVFormat& variable_columns(bool policy) {
+            this->variable_column_policy = (VariableColumnPolicy)policy;
             return *this;
         }
 
@@ -96,9 +102,8 @@ namespace csv {
             return this->possible_delimiters;
         }
 
-        CONSTEXPR int get_header() {
-            return this->header;
-        }
+        CONSTEXPR int get_header() const { return this->header; }
+        CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->get_variable_column_policy(); }
         #endif
         
         /** CSVFormat for guessing the delimiter */
@@ -108,18 +113,6 @@ namespace csv {
                 .quote('"')
                 .header_row(0)
                 .detect_bom(true);
-
-            return format;
-        }
-
-        /** CSVFormat for strict RFC 4180 parsing */
-        CSV_INLINE static CSVFormat rfc4180_strict() {
-            CSVFormat format;
-            format.delimiter(',')
-                .quote('"')
-                .header_row(0)
-                .detect_bom(true)
-                .strict_parsing(true);
 
             return format;
         }
@@ -146,16 +139,14 @@ namespace csv {
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
 
-
         /**< Quote character */
         char quote_char = '"';
-
 
         /**< Should be left empty unless file doesn't include header */
         std::vector<std::string> col_names = {};
 
-        /**< RFC 4180 non-compliance -> throw an error */
-        bool strict = false;
+        /**< Allow variable length columns? */
+        VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE;
 
         /**< Detect and strip out Unicode byte order marks */
         bool unicode_detect = true;

@@ -113,7 +113,6 @@ namespace csv {
 
         auto current_record = this->records.begin();
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            // TODO: Throw error if user requests it???
             if (current_record->size() == this->n_cols) {
                 auto current_field = (*current_record)[i];
 
@@ -131,6 +130,9 @@ namespace csv {
                     this->variance(x_n, i);
                     this->min_max(x_n, i);
                 }
+            }
+            else if (this->format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
+                throw std::runtime_error("Line too short " + internals::format_row(*current_record));
             }
 
             ++current_record;

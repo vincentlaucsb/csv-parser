@@ -143,29 +143,65 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     }
 }
 
-TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
+TEST_CASE("Test Variable Row Length Handling", "[read_csv_var_len]") {
     string csv_string("A,B,C\r\n" // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
         "6,9\r\n" // Short row
+        "6,9,7,10\r\n" // Long row
         "1,2,3"),
         error_message = "";
     bool error_caught = false;
 
-    try {
-        // TODO: Make this more robust
-        auto rows = parse(csv_string, CSVFormat::rfc4180_strict());
-        for (auto& row : rows) {
+    SECTION("Throw Error") {
+        CSVFormat format;
+        format.variable_columns(VariableColumnPolicy::THROW);
 
+        auto rows = parse(csv_string, format);
+        size_t i = 0;
+
+        try {
+            for (auto& _ : rows) {
+                i++;
+            }
         }
-    }
-    catch (std::runtime_error& err) {
-        error_caught = true;
-        error_message = err.what();
+        catch (std::runtime_error& err) {
+            error_caught = true;
+            error_message = err.what();
+        }
+
+        REQUIRE(error_caught);
+        REQUIRE(i == 2);
+        REQUIRE(error_message.substr(0, 14) == "Line too short");
     }
 
-    REQUIRE(error_caught);
-    REQUIRE(error_message.substr(0, 14) == "Line too short");
+    SECTION("Ignore Row") {
+        CSVFormat format;
+        format.variable_columns(false);
+
+        auto reader = parse(csv_string, format);
+        std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+        // Expect short/long rows to be dropped
+        REQUIRE(rows.size() == 3);
+    }
+
+    SECTION("Keep Row") {
+        CSVFormat format;
+        format.variable_columns(true);
+
+        auto reader = parse(csv_string, format);
+        std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+        // Expect short/long rows to be kept
+        REQUIRE(rows.size() == 5);
+        REQUIRE(rows[2][0] == 6);
+        REQUIRE(rows[2][1] == 9);
+
+        // Should be able to index extra columns via numeric index
+        REQUIRE(rows[3][2] == 7);
+        REQUIRE(rows[3][3] == 10);
+    }
 }
 
 TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
