@@ -48,11 +48,7 @@ namespace csv {
     CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
-        for (auto& row : reader) {
-            #ifndef NDEBUG
-            SUPPRESS_UNUSED_WARNING(row);
-            #endif
-        }
+        for (auto it = reader.begin(); it != reader.end(); ++it);
 
         CSVFileInfo info = {
             filename,

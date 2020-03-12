@@ -15,9 +15,6 @@
 // See: https://github.com/nemequ/hedley
 #include "../external/hedley.h"
 
-/** Used to supress unused variable warning in g++ */
-#define SUPPRESS_UNUSED_WARNING(x) (void)x
-
 namespace csv {
     /**
      *  @def IF_CONSTEXPR

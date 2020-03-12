@@ -10,6 +10,7 @@
 #include <string>
 
 #include "compatibility.hpp" // For string view
+#include "constants.hpp"
 
 namespace csv {
     namespace internals {
@@ -40,6 +41,7 @@ namespace csv {
             void set_col_names(const std::vector<std::string>&);
             int index_of(csv::string_view) const;
 
+            bool empty() const { return this->col_names.empty(); }
             size_t size() const;
 
         private:

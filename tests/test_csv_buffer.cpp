@@ -57,7 +57,7 @@ TEST_CASE("GiantSplitBufferTest", "[test_giant_split_buffer]") {
         splits->push_back(2);
         splits->push_back(3);
 
-        auto pos = buffer->get_row().col_pos;
+        pos = buffer->get_row().col_pos;
         REQUIRE(split_at(buffer, pos, 0) == 1);
         REQUIRE(split_at(buffer, pos, 1) == 2);
         REQUIRE(split_at(buffer, pos, 2) == 3);

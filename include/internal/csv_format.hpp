@@ -12,6 +12,7 @@
 namespace csv {
     class CSVReader;
 
+    /** Determines how to handle rows that are shorter or longer than the majority */
     enum class VariableColumnPolicy {
         THROW = -1,
         IGNORE = 0,
@@ -98,12 +99,10 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
-        std::vector<char> get_possible_delims() {
-            return this->possible_delimiters;
-        }
-
         CONSTEXPR int get_header() const { return this->header; }
-        CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->get_variable_column_policy(); }
+        std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
+        std::vector<char> get_trim_chars() const { return this->trim_chars; }
+        CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         #endif
         
         /** CSVFormat for guessing the delimiter */
@@ -122,15 +121,6 @@ namespace csv {
         }
 
         friend CSVReader;
-        friend std::vector<std::string> get_col_names(csv::string_view, CSVFormat);
-        // friend std::vector<std::string> internals::_get_col_names(csv::string_view, CSVFormat);
-
-
-        /**< Set of whitespace characters to trim */
-        std::vector<char> trim_chars = {};
-
-        /**< Row number with columns (ignored if col_names is non-empty) */
-        int header = 0;
 
     private:
         /**< Throws an error if delimiters and trim characters overlap */
@@ -138,6 +128,12 @@ namespace csv {
 
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };
+
+        /**< Set of whitespace characters to trim */
+        std::vector<char> trim_chars = {};
+
+        /**< Row number with columns (ignored if col_names is non-empty) */
+        int header = 0;
 
         /**< Quote character */
         char quote_char = '"';

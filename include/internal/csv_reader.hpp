@@ -23,9 +23,6 @@
 
 /** The all encompassing namespace */
 namespace csv {
-    /** Integer indicating a requested column wasn't found. */
-    constexpr int CSV_NOT_FOUND = -1;
-
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
@@ -162,8 +159,8 @@ namespace csv {
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
             std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
-            std::mutex feed_lock; /**< Allow only one worker to write */
-            std::condition_variable feed_cond; /**< Wake up worker */
+            std::mutex feed_lock;                /**< Allow only one worker to write */
+            std::condition_variable feed_cond;   /**< Wake up worker */
         };
 
         /** Open a file for reading. Implementation is compiler specific. */
@@ -174,9 +171,6 @@ namespace csv {
 
         /** Returns true if we have reached end of file */
         bool eof() { return !(this->infile); };
-
-        /** Handles possible Unicode byte order mark */
-        CONSTEXPR void handle_unicode_bom(csv::string_view& in);
 
         /** @name CSV Settings **/
         ///@{
@@ -202,11 +196,14 @@ namespace csv {
         /** Queue of parsed CSV rows */
         std::deque<CSVRow> records;
 
+        /** Whether or not we are in a quote-escaped field */
+        bool quote_escape = false;
+
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
 
         /** Whether or not rows before header were trimmed */
-        bool pre_header_trimmed = false;
+        bool header_trimmed = false;
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
@@ -221,9 +218,8 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* HEDLEY_RESTRICT
-            infile = nullptr;                /**< Current file handle.
-                                                  Destroyed by ~CSVReader(). */
+        /** Current file handle. Destroyed by ~CSVReader(). */
+        std::FILE* HEDLEY_RESTRICT infile = nullptr;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 

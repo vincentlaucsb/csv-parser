@@ -6,9 +6,6 @@ namespace csv {
         CSV_INLINE BufferPtr parse(const ParseData& data) {
             using internals::ParseFlags;
 
-            // TODO: Should this be an instance variable?
-            bool quote_escape = false;  // Are we currently in a quote escaped field?
-
             // Optimizations
             auto * HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
             auto * HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
@@ -23,20 +20,18 @@ namespace csv {
             for (size_t i = 0; i < in_size; i++) {
                 switch (parse_flags[data.in[i] + 128]) {
                 case ParseFlags::DELIMITER:
-                    if (!quote_escape) {
+                    if (!data.quote_escape) {
                         split_buffer.push_back((unsigned short)row_buffer.size());
                         break;
                     }
 
                     HEDLEY_FALL_THROUGH;
                 case ParseFlags::NEWLINE:
-                    if (!quote_escape) {
+                    if (!data.quote_escape) {
                         // End of record -> Write record
                         if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
                             ++i;
 
-                        // TODO: Refactor this
-                        // Make row_buffer spit out a CSVRow not the other way around
                         data.records.push_back(CSVRow(data.row_buffer));
                         break;
                     }
@@ -80,11 +75,11 @@ namespace csv {
                     break;
                 }
                 default: // Quote
-                    if (!quote_escape) {
+                    if (!data.quote_escape) {
                         // Don't deref past beginning
                         if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
                             // Case: Previous character was delimiter or newline
-                            quote_escape = true;
+                            data.quote_escape = true;
                         }
 
                         break;
@@ -93,7 +88,7 @@ namespace csv {
                     auto next_ch = parse_flags[in[i + 1] + 128];
                     if (next_ch >= ParseFlags::DELIMITER) {
                         // Case: Delim or newline => end of field
-                        quote_escape = false;
+                        data.quote_escape = false;
                         break;
                     }
 

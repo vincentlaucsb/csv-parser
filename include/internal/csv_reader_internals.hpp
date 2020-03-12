@@ -75,6 +75,7 @@ namespace csv {
             ParseFlagMap parse_flags;
             WhitespaceMap ws_flags;
             BufferPtr row_buffer;
+            bool& quote_escape; /*< Whether or not we are currently in a quote escaped field */
             std::deque<CSVRow>& records;
         };
 

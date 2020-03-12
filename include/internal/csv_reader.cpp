@@ -34,17 +34,21 @@ namespace csv {
         CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
             // Parse the CSV
             auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+            auto trim_chars = format.get_trim_chars();
+
             std::deque<CSVRow> rows;
+            bool quote_escape = false;
 
             internals::parse({
                 head,
                 internals::make_parse_flags(format.get_delim(), '"'),
-                internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
+                internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
                 buffer_ptr,
+                quote_escape,
                 rows
             });
 
-            return rows[format.header];
+            return rows[format.get_header()];
         }
 
         /** Guess the delimiter used by a delimiter-separated values file */
@@ -72,12 +76,14 @@ namespace csv {
                 // Parse the CSV
                 auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
                 std::deque<CSVRow> rows;
+                bool quote_escape = false;
 
                 internals::parse({
                     head,
                     internals::make_parse_flags(cand_delim, '"'),
                     internals::make_ws_flags({}, 0),
                     buffer_ptr,
+                    quote_escape,
                     rows
                 });
 
@@ -125,9 +131,8 @@ namespace csv {
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
-            auto guess_result = guess_format(filename, format.possible_delimiters);
-            format.delimiter(guess_result.delim);
-            format.header = guess_result.header_row;
+            auto guess_result = guess_format(filename, format.get_possible_delims());
+            format.delimiter(guess_result.delim).header_row(guess_result.header_row);
         }
 
         return internals::_get_col_names(head, format);
@@ -175,11 +180,11 @@ namespace csv {
             format.header = guess_result.header_row;
         }
 
-        if (!format.col_names.empty()) {
-            this->set_col_names(format.col_names);
+        if (format.col_names.empty()) {
+            this->set_col_names(internals::_get_col_names(head, format));
         }
         else {
-            this->set_col_names(internals::_get_col_names(head, format));
+            this->set_col_names(format.col_names);
         }
 
         this->format = format;
@@ -226,34 +231,44 @@ namespace csv {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
+    /** Parse a CSV-formatted string.
+     *
+     *  @par Usage
+     *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
+     *
+     *  @note
+     *  `end_feed()` should be called after the last string.
+     */
     CSV_INLINE void CSVReader::feed(csv::string_view in) {
-        /** Parse a CSV-formatted string.
-         *
-         *  @par Usage
-         *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
-         *  
-         *  @note
-         *  `end_feed()` should be called after the last string.
-         */
-        this->handle_unicode_bom(in);
+        /** Handle possible Unicode byte order mark */
+        if (!this->unicode_bom_scan) {
+            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
+                in.remove_prefix(3); // Remove BOM from input string
+                this->utf8_bom = true;
+            }
+
+            this->unicode_bom_scan = true;
+        }
+
         this->record_buffer = internals::parse({
             in,
             this->parse_flags,
             this->ws_flags,
             this->record_buffer,
+            this->quote_escape,
             this->records
         });
 
-        if (!this->pre_header_trimmed) {
+        if (!this->header_trimmed) {
             for (int i = 0; i <= this->format.header && !this->records.empty(); i++) {
-                if (i == this->format.header && this->col_names->get_col_names().empty()) {
+                if (i == this->format.header && this->col_names->empty()) {
                     this->set_col_names(this->records.front());
                 }
 
                 this->records.pop_front();
             }
 
-            this->pre_header_trimmed = true;
+            this->header_trimmed = true;
         }
     }
 
@@ -266,21 +281,10 @@ namespace csv {
         }
     }
 
-    CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {
-        if (!this->unicode_bom_scan) {
-            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {            
-                in.remove_prefix(3); // Remove BOM from input string
-                this->utf8_bom = true;
-            }
-
-            this->unicode_bom_scan = true;
-        }
-    }
-
+    /** Worker thread for read_csv() which parses CSV rows (while the main
+     *  thread pulls data from disk)
+     */
     CSV_INLINE void CSVReader::read_csv_worker() {
-        /** Worker thread for read_csv() which parses CSV rows (while the main
-         *         thread pulls data from disk)
-         */
         while (true) {
             std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock }; // Get lock
             this->feed_state->feed_cond.wait(lock,                            // Wait

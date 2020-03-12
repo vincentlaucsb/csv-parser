@@ -161,7 +161,7 @@ TEST_CASE("Test Variable Row Length Handling", "[read_csv_var_len]") {
         size_t i = 0;
 
         try {
-            for (auto& _ : rows) {
+            for (auto it = rows.begin(); it != rows.end(); ++it) {
                 i++;
             }
         }

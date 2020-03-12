@@ -2871,9 +2871,6 @@ HEDLEY_DIAGNOSTIC_POP
 // takes precedence.
 // See: https://github.com/nemequ/hedley
 
-/** Used to supress unused variable warning in g++ */
-#define SUPPRESS_UNUSED_WARNING(x) (void)x
-
 namespace csv {
     /**
      *  @def IF_CONSTEXPR
@@ -2943,6 +2940,13 @@ namespace csv {
 namespace csv {
     class CSVReader;
 
+    /** Determines how to handle rows that are shorter or longer than the majority */
+    enum class VariableColumnPolicy {
+        THROW = -1,
+        IGNORE = 0,
+        KEEP   = 1
+    };
+
     /** Stores the inferred format of a CSV file. */
     struct CSVGuessResult {
         char delim;
@@ -2995,11 +2999,15 @@ namespace csv {
          */
         CSVFormat& header_row(int row);
 
-        /** Tells the parser to throw an std::runtime_error if an
-         *  invalid CSV sequence is found
-         */
-        CONSTEXPR CSVFormat& strict_parsing(bool is_strict = true) {
-            this->strict = is_strict;
+        /** Tells the parser how to handle columns of a different length than the others */
+        CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE) {
+            this->variable_column_policy = policy;
+            return *this;
+        }
+
+        /** Tells the parser how to handle columns of a different length than the others */
+        CONSTEXPR CSVFormat& variable_columns(bool policy) {
+            this->variable_column_policy = (VariableColumnPolicy)policy;
             return *this;
         }
 
@@ -3010,7 +3018,7 @@ namespace csv {
         }
 
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        char get_delim() {
+        char get_delim() const {
             // This error should never be received by end users.
             if (this->possible_delimiters.size() > 1) {
                 throw std::runtime_error("There is more than one possible delimiter.");
@@ -3019,13 +3027,10 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
-        std::vector<char> get_possible_delims() {
-            return this->possible_delimiters;
-        }
-
-        CONSTEXPR int get_header() {
-            return this->header;
-        }
+        CONSTEXPR int get_header() const { return this->header; }
+        std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
+        std::vector<char> get_trim_chars() const { return this->trim_chars; }
+        CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         #endif
         
         /** CSVFormat for guessing the delimiter */
@@ -3039,24 +3044,12 @@ namespace csv {
             return format;
         }
 
-        /** CSVFormat for strict RFC 4180 parsing */
-        CSV_INLINE static CSVFormat rfc4180_strict() {
-            CSVFormat format;
-            format.delimiter(',')
-                .quote('"')
-                .header_row(0)
-                .detect_bom(true)
-                .strict_parsing(true);
-
-            return format;
-        }
-
         bool guess_delim() {
             return this->possible_delimiters.size() > 1;
         }
 
         friend CSVReader;
-        friend std::vector<std::string> get_col_names(csv::string_view, CSVFormat);
+
     private:
         /**< Throws an error if delimiters and trim characters overlap */
         void assert_no_char_overlap();
@@ -3067,17 +3060,17 @@ namespace csv {
         /**< Set of whitespace characters to trim */
         std::vector<char> trim_chars = {};
 
-        /**< Quote character */
-        char quote_char = '"';
-
         /**< Row number with columns (ignored if col_names is non-empty) */
         int header = 0;
+
+        /**< Quote character */
+        char quote_char = '"';
 
         /**< Should be left empty unless file doesn't include header */
         std::vector<std::string> col_names = {};
 
-        /**< RFC 4180 non-compliance -> throw an error */
-        bool strict = false;
+        /**< Allow variable length columns? */
+        VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE;
 
         /**< Detect and strip out Unicode byte order marks */
         bool unicode_detect = true;
@@ -3583,123 +3576,6 @@ namespace csv {
     }
 }
 /** @file
- *  Defines an object which can store CSV data in
- *  continuous regions of memory
- */
-
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include <string>
-
-
-namespace csv {
-    namespace internals {
-        class RawRowBuffer;
-        struct ColumnPositions;
-        struct ColNames;
-        using BufferPtr = std::shared_ptr<RawRowBuffer>;
-        using ColNamesPtr = std::shared_ptr<ColNames>;
-        using StrBufferPos = unsigned short;
-        using SplitArray = std::vector<StrBufferPos>;
-
-        /** @struct ColNames
-         *  A data structure for handling column name information.
-         *
-         *  These are created by CSVReader and passed (via smart pointer)
-         *  to CSVRow objects it creates, thus
-         *  allowing for indexing by column name.
-         */
-        struct ColNames {
-        public:
-            ColNames() = default;
-            ColNames(const std::vector<std::string>& names) {
-                set_col_names(names);
-            }
-
-            std::vector<std::string> get_col_names() const;
-            void set_col_names(const std::vector<std::string>&);
-            int index_of(csv::string_view) const;
-
-            size_t size() const;
-
-        private:
-            std::vector<std::string> col_names;
-            std::unordered_map<std::string, size_t> col_pos;
-        };
-
-        /** Class for reducing number of new string and new vector
-         *  and malloc calls
-         *
-         *  @par Motivation
-         *  By storing CSV strings in a giant string (as opposed to an
-         *  `std::vector` of smaller strings), we vastly reduce the number
-         *  of calls to `malloc()`, thus speeding up the program.
-         *  However, by doing so we will need a way to tell where different
-         *  fields are located within this giant string.
-         *  Hence, an array of indices is also maintained.
-         *
-         *  @warning
-         *  `reset()` should be called somewhat often in the code. Since each
-         *  `csv::CSVRow` contains an `std::shared_ptr` to a RawRowBuffer,
-         *  the buffers do not get deleted until every CSVRow referencing it gets
-         *  deleted. If RawRowBuffers get very large, then so will memory consumption.
-         *  Currently, `reset()` is called by `csv::CSVReader::feed()` at the end of 
-         *  every sequence of bytes parsed.
-         *  
-         */
-        class RawRowBuffer {
-        public:
-            RawRowBuffer() = default;
-
-            /** Constructor mainly used for testing
-             *  @param[in] _buffer    CSV text without delimiters or newlines
-             *  @param[in] _splits    Positions in buffer where CSV fields begin
-             *  @param[in] _col_names Pointer to a vector of column names
-             */
-            RawRowBuffer(const std::string& _buffer, const std::vector<StrBufferPos>& _splits,
-                const std::shared_ptr<ColNames>& _col_names) :
-                buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
-
-            csv::string_view get_row_string();      /**< Return a string_view over the current_row */
-            ColumnPositions get_splits();    /**< Return the field start positions for the current row */
-
-            size_t size() const;             /**< Return size of current row */
-            size_t splits_size() const;      /**< Return (num columns - 1) for current row */
-            BufferPtr reset() const;         /**< Create a new RawRowBuffer with this buffer's unfinished work */
-
-            /*
-             * TODO: Investigate performance benefits by storing a row's text right next to its 
-             * split_buffer. This would take greater advantage of locality, but would require a reworking
-             * of this data structure.
-             */
-
-            std::string buffer;              /**< Buffer for storing text */
-            SplitArray split_buffer = {};    /**< Array for storing indices (in buffer)
-                                                  of where CSV fields start */
-            ColNamesPtr col_names = nullptr; /**< Pointer to column names */
-
-        private:
-            size_t current_end = 0;          /**< Where we are currently in the text buffer */
-            size_t current_split_idx = 0;    /**< Where we are currently in the split buffer */
-        };
-
-        struct ColumnPositions {
-            ColumnPositions() : parent(nullptr) {};
-            constexpr ColumnPositions(const RawRowBuffer& _parent,
-                size_t _start, unsigned short _size) : parent(&_parent), start(_start), n_cols(_size) {};
-
-            const RawRowBuffer * parent; /**< RawRowBuffer to grab data from */
-            size_t start;                /**< Where in split_buffer the array of column positions begins */
-            unsigned short n_cols;       /**< Number of columns */
-
-            /// Get the n-th column index
-            unsigned short split_at(int n) const;
-        };
-    }
-}
-
-/** @file
  *  Defines CSV global constants
  */
 
@@ -3735,8 +3611,11 @@ namespace csv {
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
          */
-        const size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
+        constexpr size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
     }
+
+    /** Integer indicating a requested column wasn't found. */
+    constexpr int CSV_NOT_FOUND = -1;
 
     /** Used for counting number of rows */
     using RowCount = long long int;
@@ -3779,6 +3658,128 @@ namespace csv {
             static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
             return std::abs(a - b) < epsilon;
         }
+    }
+}
+/** @file
+ *  Defines an object which can store CSV data in
+ *  continuous regions of memory
+ */
+
+#include <memory>
+#include <vector>
+#include <unordered_map>
+#include <string>
+
+
+namespace csv {
+    namespace internals {
+        class RawRowBuffer;
+        struct RowData;
+        struct ColumnPositions;
+        struct ColNames;
+        using BufferPtr = std::shared_ptr<RawRowBuffer>;
+        using ColNamesPtr = std::shared_ptr<ColNames>;
+        using StrBufferPos = unsigned short;
+        using SplitArray = std::vector<StrBufferPos>;
+
+        /** @struct ColNames
+         *  A data structure for handling column name information.
+         *
+         *  These are created by CSVReader and passed (via smart pointer)
+         *  to CSVRow objects it creates, thus
+         *  allowing for indexing by column name.
+         */
+        struct ColNames {
+        public:
+            ColNames() = default;
+            ColNames(const std::vector<std::string>& names) {
+                set_col_names(names);
+            }
+
+            std::vector<std::string> get_col_names() const;
+            void set_col_names(const std::vector<std::string>&);
+            int index_of(csv::string_view) const;
+
+            bool empty() const { return this->col_names.empty(); }
+            size_t size() const;
+
+        private:
+            std::vector<std::string> col_names;
+            std::unordered_map<std::string, size_t> col_pos;
+        };
+
+        /** Class for reducing number of new string and new vector
+         *  and malloc calls
+         *
+         *  @par Motivation
+         *  By storing CSV strings in a giant string (as opposed to an
+         *  `std::vector` of smaller strings), we vastly reduce the number
+         *  of calls to `malloc()`, thus speeding up the program.
+         *  However, by doing so we will need a way to tell where different
+         *  fields are located within this giant string.
+         *  Hence, an array of indices is also maintained.
+         *
+         *  @warning
+         *  `reset()` should be called somewhat often in the code. Since each
+         *  `csv::CSVRow` contains an `std::shared_ptr` to a RawRowBuffer,
+         *  the buffers do not get deleted until every CSVRow referencing it gets
+         *  deleted. If RawRowBuffers get very large, then so will memory consumption.
+         *  Currently, `reset()` is called by `csv::CSVReader::feed()` at the end of 
+         *  every sequence of bytes parsed.
+         *  
+         */
+        class RawRowBuffer {
+        public:
+            RawRowBuffer() = default;
+            RawRowBuffer(const std::shared_ptr<ColNames>& _col_names) : col_names(_col_names) {};
+
+            /** Constructor mainly used for testing
+             *  @param[in] _buffer    CSV text without delimiters or newlines
+             *  @param[in] _splits    Positions in buffer where CSV fields begin
+             *  @param[in] _col_names Pointer to a vector of column names
+             */
+            RawRowBuffer(const std::string& _buffer, const std::vector<StrBufferPos>& _splits,
+                const std::shared_ptr<ColNames>& _col_names) :
+                buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
+
+            /** Return necessary information to construct a CSV row */
+            RowData get_row();
+            size_t size() const;             /**< Return size of current row */
+            size_t splits_size() const;      /**< Return (num columns - 1) for current row */
+            BufferPtr reset() const;         /**< Create a new RawRowBuffer with this buffer's unfinished work */
+
+            /*
+             * TODO: Investigate performance benefits by storing a row's text right next to its 
+             * split_buffer. This would take greater advantage of locality, but would require a reworking
+             * of this data structure.
+             */
+
+            std::string buffer;              /**< Buffer for storing text */
+            SplitArray split_buffer = {};    /**< Array for storing indices (in buffer)
+                                                  of where CSV fields start */
+            ColNamesPtr col_names = nullptr; /**< Pointer to column names */
+
+        private:
+            csv::string_view get_row_string();   /**< Return a string_view over the current_row */
+            ColumnPositions get_splits();        /**< Return the field start positions for the current row */
+
+            size_t current_end = 0;          /**< Where we are currently in the text buffer */
+            size_t current_split_idx = 0;    /**< Where we are currently in the split buffer */
+        };
+
+        struct ColumnPositions {
+            ColumnPositions() = default;
+            constexpr ColumnPositions(size_t _start, unsigned short _size) : start(_start), n_cols(_size) {};
+            size_t start;                /**< Where in split_buffer the array of column positions begins */
+            size_t n_cols;               /**< Number of columns */
+        };
+
+        struct RowData {
+            RowData() = default;
+
+            csv::string_view row_str;
+            ColumnPositions col_pos;
+        };
     }
 }
 /** @file
@@ -3961,15 +3962,8 @@ namespace csv {
     public:
         CSVRow() = default;
         
-        /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
-        CSVRow(const internals::BufferPtr& _str) : buffer(_str)
-        {
-            this->row_str = _str->get_row_string();
-
-            auto splits = _str->get_splits();
-            this->start = splits.start;
-            this->n_cols = splits.n_cols;
-        };
+        /** Construct a CSVRow from a RawRowBuffer */
+        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
 
         /** Constructor for testing */
         CSVRow(const std::string& str, const std::vector<unsigned short>& splits,
@@ -3977,10 +3971,10 @@ namespace csv {
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
         /** Indicates whether row is empty or not */
-        CONSTEXPR bool empty() const { return this->row_str.empty(); }
+        CONSTEXPR bool empty() const { return this->data.row_str.empty(); }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return this->n_cols; }
+        CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
 
         /** @name Value Retrieval */
         ///@{
@@ -4061,12 +4055,10 @@ namespace csv {
 
     private:
         /** Get the index in CSVRow's text buffer where the n-th field begins */
-        unsigned short split_at(size_t n) const;
+        size_t split_at(size_t n) const;
 
         internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
-        csv::string_view row_str = "";         /**< Text data for this row */
-        size_t start;                          /**< Where in split buffer this row begins */
-        unsigned short n_cols;                 /**< Numbers of columns this row has */
+        internals::RowData data;               /**< Contains row string and column positions. */
     };
 
 #pragma region CSVField::get Specializations
@@ -4188,7 +4180,7 @@ namespace csv {
             ParseFlagMap parse_flags;
             WhitespaceMap ws_flags;
             BufferPtr row_buffer;
-            bool strict;
+            bool& quote_escape; /*< Whether or not we are currently in a quote escaped field */
             std::deque<CSVRow>& records;
         };
 
@@ -4216,12 +4208,12 @@ namespace csv {
 
 /** The all encompassing namespace */
 namespace csv {
-    /** Integer indicating a requested column wasn't found. */
-    constexpr int CSV_NOT_FOUND = -1;
-
     /** Stuff that is generally not of interest to end-users */
     namespace internals {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
+
+        std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
+        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     }
 
     std::vector<std::string> get_col_names(
@@ -4283,7 +4275,6 @@ namespace csv {
             }
 
             CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
-
         private:
             CSVReader * daddy = nullptr;  // Pointer to parent
             CSVRow row;                   // Current row
@@ -4332,10 +4323,10 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount num_rows = 0;   /**< How many correct rows (minus header)
-                                      *   have been parsed so far
-                                      */
-        bool utf8_bom = false;       /**< Set to true if UTF-8 BOM was detected */
+        RowCount num_rows = 0;   /**< How many rows (minus header)
+                                   *   have been parsed so far
+                                   */
+        bool utf8_bom = false;   /**< Set to true if UTF-8 BOM was detected */
         ///@}
 
         void close();
@@ -4353,8 +4344,8 @@ namespace csv {
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
             std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
-            std::mutex feed_lock; /**< Allow only one worker to write */
-            std::condition_variable feed_cond; /**< Wake up worker */
+            std::mutex feed_lock;                /**< Allow only one worker to write */
+            std::condition_variable feed_cond;   /**< Wake up worker */
         };
 
         /** Open a file for reading. Implementation is compiler specific. */
@@ -4366,36 +4357,17 @@ namespace csv {
         /** Returns true if we have reached end of file */
         bool eof() { return !(this->infile); };
 
-        /** Buffer for current row being parsed */
-        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer());
-
-        /** Queue of parsed CSV rows */
-        std::deque<CSVRow> records;
-
-        /** @name CSV Parsing Callbacks
-         *  The heart of the CSV parser.
-         *  These methods are called by feed().
-         */
-        ///@{
-        /** Handles possible Unicode byte order mark */
-        CONSTEXPR void handle_unicode_bom(csv::string_view& in);
-        virtual void bad_row_handler(std::vector<std::string>);
-        ///@}
-
         /** @name CSV Settings **/
         ///@{
-        char delimiter;         /**< Delimiter character */
-        char quote_char;        /**< Quote character */
-        int header_row;         /**< Line number of the header row (zero-indexed) */
-        bool strict = false;    /**< Strictness of parser */
+        CSVFormat format;
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        std::array<internals::ParseFlags, 256> parse_flags;
+        internals::ParseFlagMap parse_flags;
 
         /** An array where the (i + 128)th slot determines whether ASCII character i should
          *  be trimmed
          */
-        std::array<bool, 256> ws_flags;
+        internals::WhitespaceMap ws_flags;
         ///@}
 
         /** @name Parser State */
@@ -4403,11 +4375,20 @@ namespace csv {
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
+        /** Buffer for current row being parsed */
+        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer(this->col_names));
+
+        /** Queue of parsed CSV rows */
+        std::deque<CSVRow> records;
+
+        /** Whether or not we are in a quote-escaped field */
+        bool quote_escape = false;
+
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
 
         /** Whether or not rows before header were trimmed */
-        bool pre_header_trimmed = false;
+        bool header_trimmed = false;
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
@@ -4422,9 +4403,8 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::FILE* HEDLEY_RESTRICT
-            infile = nullptr;                /**< Current file handle.
-                                                  Destroyed by ~CSVReader(). */
+        /** Current file handle. Destroyed by ~CSVReader(). */
+        std::FILE* HEDLEY_RESTRICT infile = nullptr;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 
@@ -4594,6 +4574,100 @@ namespace csv {
 
             return ret.str();
         }
+
+        /** Return a CSV's column names
+         *
+         *  @param[in] filename  Path to CSV file
+         *  @param[in] format    Format of the CSV file
+         *
+         */
+        CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
+            // Parse the CSV
+            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+            auto trim_chars = format.get_trim_chars();
+
+            std::deque<CSVRow> rows;
+            bool quote_escape = false;
+
+            internals::parse({
+                head,
+                internals::make_parse_flags(format.get_delim(), '"'),
+                internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
+                buffer_ptr,
+                quote_escape,
+                rows
+            });
+
+            return rows[format.get_header()];
+        }
+
+        /** Guess the delimiter used by a delimiter-separated values file */
+        CSV_INLINE CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims) {
+            /** For each delimiter, find out which row length was most common.
+                 *  The delimiter with the longest mode row length wins.
+                 *  Then, the line number of the header row is the first row with
+                 *  the mode row length.
+                 */
+
+            CSVFormat format;
+            size_t max_rlen = 0,
+                header = 0;
+            char current_delim = delims[0];
+
+            for (char cand_delim : delims) {
+                // Frequency counter of row length
+                std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
+
+                // Map row lengths to row num where they first occurred
+                std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
+
+                format.delimiter(cand_delim);
+
+                // Parse the CSV
+                auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
+                std::deque<CSVRow> rows;
+                bool quote_escape = false;
+
+                internals::parse({
+                    head,
+                    internals::make_parse_flags(cand_delim, '"'),
+                    internals::make_ws_flags({}, 0),
+                    buffer_ptr,
+                    quote_escape,
+                    rows
+                });
+
+                for (size_t i = 0; i < rows.size(); i++) {
+                    auto& row = rows[i];
+
+                    // Ignore zero-length rows
+                    if (row.size() > 0) {
+                        if (row_tally.find(row.size()) != row_tally.end()) {
+                            row_tally[row.size()]++;
+                        }
+                        else {
+                            row_tally[row.size()] = 1;
+                            row_when[row.size()] = i;
+                        }
+                    }
+                }
+
+                // Most common row length
+                auto max = std::max_element(row_tally.begin(), row_tally.end(),
+                    [](const std::pair<size_t, size_t>& x,
+                        const std::pair<size_t, size_t>& y) {
+                    return x.second < y.second; });
+
+                if (max->first > max_rlen) {
+                    max_rlen = max->first;
+                    current_delim = cand_delim;
+                    header = row_when[max_rlen];
+                }
+            }
+
+            return { current_delim, (int)header };
+        }
+
     }
 
     /** Return a CSV's column names
@@ -4605,129 +4679,30 @@ namespace csv {
     CSV_INLINE std::vector<std::string> get_col_names(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
 
-        // TODO: Refactor
-
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
-            auto guess_result = guess_format(filename, format.possible_delimiters);
-            format.delimiter(guess_result.delim);
-            format.header = guess_result.header_row;
+            auto guess_result = guess_format(filename, format.get_possible_delims());
+            format.delimiter(guess_result.delim).header_row(guess_result.header_row);
         }
 
-        // Parse the CSV
-        auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
-        std::deque<CSVRow> rows;
-
-        internals::parse({
-            head,
-            internals::make_parse_flags(format.get_delim(), '"'),
-            internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()),
-            buffer_ptr,
-            false,
-            rows
-        });
-
-        return rows[format.header];
+        return internals::_get_col_names(head, format);
     }
 
     /** Guess the delimiter used by a delimiter-separated values file */
     CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
         auto head = internals::get_csv_head(filename);
-
-        /** For each delimiter, find out which row length was most common.
-             *  The delimiter with the longest mode row length wins.
-             *  Then, the line number of the header row is the first row with
-             *  the mode row length.
-             */
-
-        CSVFormat format;
-        size_t max_rlen = 0,
-               header = 0;
-        char current_delim = delims[0];
-
-        for (char cand_delim : delims) {
-            // Frequency counter of row length
-            std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
-
-            // Map row lengths to row num where they first occurred
-            std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
-
-            format.delimiter(cand_delim);
-
-            // Parse the CSV
-            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
-            std::deque<CSVRow> rows;
-
-            internals::parse({
-                head,
-                internals::make_parse_flags(cand_delim, '"'),
-                internals::make_ws_flags({}, 0),
-                buffer_ptr,
-                false,
-                rows
-            });
-
-            for (size_t i = 0; i < rows.size(); i++) {
-                auto& row = rows[i];
-
-                // Ignore zero-length rows
-                if (row.size() > 0) {
-                    if (row_tally.find(row.size()) != row_tally.end()) {
-                        row_tally[row.size()]++;
-                    }
-                    else {
-                        row_tally[row.size()] = 1;
-                        row_when[row.size()] = i;
-                    }
-                }
-            }
-
-            // Most common row length
-            auto max = std::max_element(row_tally.begin(), row_tally.end(),
-                [](const std::pair<size_t, size_t>& x,
-                    const std::pair<size_t, size_t>& y) {
-                return x.second < y.second; });
-
-            if (max->first > max_rlen) {
-                max_rlen = max->first;
-                current_delim = cand_delim;
-                header = row_when[max_rlen];
-            }
-        }
-
-        return { current_delim, (int)header };
+        return internals::_guess_format(head, delims);
     }
 
-    CSV_INLINE void CSVReader::bad_row_handler(std::vector<std::string> record) {
-        /** Handler for rejected rows (too short or too long). This does nothing
-         *  unless strict parsing was set, in which case it throws an eror.
-         *  Subclasses of CSVReader may easily override this to provide
-         *  custom behavior.
-         */
-        if (this->strict) {
-            std::string problem;
-            if (record.size() > this->col_names->size()) problem = "too long";
-            else problem = "too short";
-
-            throw std::runtime_error("Line " + problem + " around line " +
-                std::to_string(num_rows) + " near\n" +
-                internals::format_row(record)
-            );
-        }
-    };
-
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
-    CSV_INLINE CSVReader::CSVReader(CSVFormat format) :
-        delimiter(format.get_delim()), quote_char(format.quote_char),
-        header_row(format.header), strict(format.strict),
+    CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
         unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
-        this->record_buffer->col_names = this->col_names;
-
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
         
-        parse_flags = internals::make_parse_flags(this->delimiter, this->quote_char);
+        this->format = format;
+        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     };
 
@@ -4746,28 +4721,24 @@ namespace csv {
      *
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
-        this->record_buffer->col_names = this->col_names;
+        auto head = internals::get_csv_head(filename);
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
-            auto guess_result = guess_format(filename, format.possible_delimiters);
+            auto guess_result = internals::_guess_format(head, format.possible_delimiters);
             format.delimiter(guess_result.delim);
             format.header = guess_result.header_row;
         }
 
-        if (!format.col_names.empty()) {
-            this->set_col_names(format.col_names);
+        if (format.col_names.empty()) {
+            this->set_col_names(internals::_get_col_names(head, format));
         }
         else {
-            this->set_col_names(csv::get_col_names(filename, format));
+            this->set_col_names(format.col_names);
         }
 
-        header_row = format.header;
-        delimiter = format.get_delim();
-        quote_char = format.quote_char;
-        strict = format.strict;
-
-        parse_flags = internals::make_parse_flags(delimiter, quote_char);
+        this->format = format;
+        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
         this->fopen(filename);
@@ -4775,17 +4746,15 @@ namespace csv {
 
     /** Return the format of the original raw CSV */
     CSV_INLINE CSVFormat CSVReader::get_format() const {
-        CSVFormat format;
-        format.delimiter(this->delimiter)
-            .quote(this->quote_char);
+        CSVFormat new_format = this->format;
 
         // Since users are normally not allowed to set 
         // column names and header row simulatenously,
         // we will set the backing variables directly here
-        format.col_names = this->col_names->get_col_names();
-        format.header = this->header_row;
+        new_format.col_names = this->col_names->get_col_names();
+        new_format.header = this->format.header;
 
-        return format;
+        return new_format;
     }
 
     /** Return the CSV's column names as a vector of strings. */
@@ -4812,46 +4781,44 @@ namespace csv {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
+    /** Parse a CSV-formatted string.
+     *
+     *  @par Usage
+     *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
+     *
+     *  @note
+     *  `end_feed()` should be called after the last string.
+     */
     CSV_INLINE void CSVReader::feed(csv::string_view in) {
-        /** Parse a CSV-formatted string.
-         *
-         *  @par Usage
-         *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
-         *  
-         *  @note
-         *  `end_feed()` should be called after the last string.
-         */
-        this->handle_unicode_bom(in);
+        /** Handle possible Unicode byte order mark */
+        if (!this->unicode_bom_scan) {
+            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
+                in.remove_prefix(3); // Remove BOM from input string
+                this->utf8_bom = true;
+            }
 
-        try {
-            this->record_buffer = internals::parse({
-                in,
-                this->parse_flags,
-                this->ws_flags,
-                this->record_buffer,
-                this->strict,
-                this->records
-            });
-        }
-        catch (std::runtime_error& err) {
-            throw std::runtime_error("Unescaped single quote around line ");
-            
-            /** TODO: Add this back in+
-                std::to_string(this->num_rows) + " near:\n" +
-                std::string(in.substr(i, 100)));
-                */
+            this->unicode_bom_scan = true;
         }
 
-        if (!this->pre_header_trimmed) {
-            for (int i = 0; i <= this->header_row && !this->records.empty(); i++) {
-                if (i == this->header_row && this->col_names->get_col_names().empty()) {
+        this->record_buffer = internals::parse({
+            in,
+            this->parse_flags,
+            this->ws_flags,
+            this->record_buffer,
+            this->quote_escape,
+            this->records
+        });
+
+        if (!this->header_trimmed) {
+            for (int i = 0; i <= this->format.header && !this->records.empty(); i++) {
+                if (i == this->format.header && this->col_names->empty()) {
                     this->set_col_names(this->records.front());
                 }
 
                 this->records.pop_front();
             }
 
-            this->pre_header_trimmed = true;
+            this->header_trimmed = true;
         }
     }
 
@@ -4859,24 +4826,15 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        this->records.push_back(CSVRow(this->record_buffer));
-    }
-
-    CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {
-        if (!this->unicode_bom_scan) {
-            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {            
-                in.remove_prefix(3); // Remove BOM from input string
-                this->utf8_bom = true;
-            }
-
-            this->unicode_bom_scan = true;
+        if (this->record_buffer->size() > 0) {
+            this->records.push_back(CSVRow(this->record_buffer));
         }
     }
 
+    /** Worker thread for read_csv() which parses CSV rows (while the main
+     *  thread pulls data from disk)
+     */
     CSV_INLINE void CSVReader::read_csv_worker() {
-        /** Worker thread for read_csv() which parses CSV rows (while the main
-         *         thread pulls data from disk)
-         */
         while (true) {
             std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock }; // Get lock
             this->feed_state->feed_cond.wait(lock,                            // Wait
@@ -5003,23 +4961,24 @@ namespace csv {
             else return false; // Stop reading
         }
 
-        while (!this->records.empty() && 
-            this->records.front().size() != this->n_cols) {
-            if (!this->strict) {
+        while (!this->records.empty()) {
+            if (this->records.front().size() != this->n_cols &&
+                this->format.variable_column_policy != VariableColumnPolicy::KEEP) {
+                if (this->format.variable_column_policy == VariableColumnPolicy::THROW) {
+                    throw std::runtime_error("Line too short " + internals::format_row(this->records.front()));
+                }
+
+                // Silently drop row (default)
                 this->records.pop_front();
             }
             else {
-                throw std::runtime_error("Line too short");
+                row = std::move(this->records.front());
+                this->num_rows++;
+                this->records.pop_front();
+                return true;
             }
         }
-
-        if (!this->records.empty()) {
-            row = std::move(this->records.front());
-            this->num_rows++;
-            this->records.pop_front();
-            return true;
-        }
-
+    
         return false;
     }
 }
@@ -5028,9 +4987,6 @@ namespace csv {
     namespace internals {
         CSV_INLINE BufferPtr parse(const ParseData& data) {
             using internals::ParseFlags;
-
-            // TODO: Should this be an instance variable?
-            bool quote_escape = false;  // Are we currently in a quote escaped field?
 
             // Optimizations
             auto * HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
@@ -5046,20 +5002,18 @@ namespace csv {
             for (size_t i = 0; i < in_size; i++) {
                 switch (parse_flags[data.in[i] + 128]) {
                 case ParseFlags::DELIMITER:
-                    if (!quote_escape) {
+                    if (!data.quote_escape) {
                         split_buffer.push_back((unsigned short)row_buffer.size());
                         break;
                     }
 
                     HEDLEY_FALL_THROUGH;
                 case ParseFlags::NEWLINE:
-                    if (!quote_escape) {
+                    if (!data.quote_escape) {
                         // End of record -> Write record
                         if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
                             ++i;
 
-                        // TODO: Refactor this
-                        // Make row_buffer spit out a CSVRow not the other way around
                         data.records.push_back(CSVRow(data.row_buffer));
                         break;
                     }
@@ -5103,11 +5057,11 @@ namespace csv {
                     break;
                 }
                 default: // Quote
-                    if (!quote_escape) {
+                    if (!data.quote_escape) {
                         // Don't deref past beginning
                         if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
                             // Case: Previous character was delimiter or newline
-                            quote_escape = true;
+                            data.quote_escape = true;
                         }
 
                         break;
@@ -5116,18 +5070,16 @@ namespace csv {
                     auto next_ch = parse_flags[in[i + 1] + 128];
                     if (next_ch >= ParseFlags::DELIMITER) {
                         // Case: Delim or newline => end of field
-                        quote_escape = false;
+                        data.quote_escape = false;
                         break;
                     }
 
                     // Case: Escaped quote
                     text_buffer += in[i];
 
+                    // Note: Unescaped single quotes can be handled by the parser
                     if (next_ch == ParseFlags::QUOTE)
                         ++i;  // Case: Two consecutive quotes
-                    else if (data.strict) {
-                        throw std::runtime_error("Unescaped single quote");
-                    }
 
                     break;
                 }
@@ -5227,11 +5179,11 @@ namespace csv {
      *  std::runtime_error If n is out of bounds
      */
     CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str);
+        csv::string_view ret(this->data.row_str);
 
         // First assume that field comprises entire row, then adjust accordingly
         size_t beg = 0,
-            end = row_str.size(),
+            end = this->data.row_str.size(),
             r_size = this->size();
 
         if (n >= r_size)
@@ -5320,9 +5272,9 @@ namespace csv {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    CSV_INLINE unsigned short CSVRow::split_at(size_t n) const
+    CSV_INLINE size_t CSVRow::split_at(size_t n) const
     {
-        return this->buffer->split_buffer[this->start + n];
+        return this->buffer->split_buffer[this->data.col_pos.start + n];
     }
 
     CSV_INLINE HEDLEY_NON_NULL(2)
@@ -5767,21 +5719,26 @@ namespace csv {
 
         auto current_record = this->records.begin();
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            auto current_field = (*current_record)[i];
+            if (current_record->size() == this->n_cols) {
+                auto current_field = (*current_record)[i];
 
-            // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
-            if (processed < 1000 || this->counts[i].size() <= 500)
-                this->count(current_field, i);
+                // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
+                if (processed < 1000 || this->counts[i].size() <= 500)
+                    this->count(current_field, i);
 
-            this->dtype(current_field, i);
+                this->dtype(current_field, i);
 
-            // Numeric Stuff
-            if (current_field.is_num()) {
-                long double x_n = current_field.get<long double>();
+                // Numeric Stuff
+                if (current_field.is_num()) {
+                    long double x_n = current_field.get<long double>();
 
-                // This actually calculates mean AND variance
-                this->variance(x_n, i);
-                this->min_max(x_n, i);
+                    // This actually calculates mean AND variance
+                    this->variance(x_n, i);
+                    this->min_max(x_n, i);
+                }
+            }
+            else if (this->format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
+                throw std::runtime_error("Line too short " + internals::format_row(*current_record));
             }
 
             ++current_record;
@@ -5947,11 +5904,7 @@ namespace csv {
     CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
-        for (auto& row : reader) {
-            #ifndef NDEBUG
-            SUPPRESS_UNUSED_WARNING(row);
-            #endif
-        }
+        for (auto it = reader.begin(); it != reader.end(); ++it);
 
         CSVFileInfo info = {
             filename,
@@ -5990,14 +5943,20 @@ namespace csv {
         CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
             auto pos = this->col_pos.find(col_name.data());
             if (pos != this->col_pos.end())
-                return pos->second;
+                return (int)pos->second;
 
-            // TODO: Change to a constant
-            return -1;
+            return CSV_NOT_FOUND;
         }
 
         CSV_INLINE size_t ColNames::size() const {
             return this->col_names.size();
+        }
+
+        CSV_INLINE RowData RawRowBuffer::get_row() {
+            return {
+                this->get_row_string(),
+                this->get_splits()
+            };
         }
 
         /** Get the current row in the buffer
@@ -6021,7 +5980,7 @@ namespace csv {
                 (unsigned short)(new_split_idx - head_idx + 1): 0;
 
             this->current_split_idx = new_split_idx;
-            return ColumnPositions(*this, head_idx, n_cols);
+            return ColumnPositions(head_idx, n_cols);
         }
 
         CSV_INLINE size_t RawRowBuffer::size() const {
@@ -6053,10 +6012,6 @@ namespace csv {
             // No need to remove unnecessary bits from this buffer
             // (memory savings would be marginal anyways)
             return new_buff;
-        }
-
-        CSV_INLINE unsigned short ColumnPositions::split_at(int n) const {
-            return this->parent->split_buffer[this->start + n];
         }
     }
 }

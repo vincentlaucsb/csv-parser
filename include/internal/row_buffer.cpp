@@ -25,10 +25,9 @@ namespace csv {
         CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
             auto pos = this->col_pos.find(col_name.data());
             if (pos != this->col_pos.end())
-                return pos->second;
+                return (int)pos->second;
 
-            // TODO: Change to a constant
-            return -1;
+            return CSV_NOT_FOUND;
         }
 
         CSV_INLINE size_t ColNames::size() const {
