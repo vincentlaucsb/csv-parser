@@ -14,6 +14,7 @@
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
       * [Trimming Whitespace](#trimming-whitespace)
+      * [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
       * [Setting Column Names](#setting-column-names)
    * [Converting to JSON](#converting-to-json)
    * [Parsing an In-Memory String](#parsing-an-in-memory-string)
