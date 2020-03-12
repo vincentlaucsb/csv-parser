@@ -10,16 +10,25 @@ namespace csv {
         //////////////
         // ColNames //
         //////////////
+        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
+            return this->col_names;
+        }
 
-        CSV_INLINE ColNames::ColNames(const std::vector<std::string>& _cnames)
-            : col_names(_cnames) {
-            for (size_t i = 0; i < _cnames.size(); i++) {
-                this->col_pos[_cnames[i]] = i;
+        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
+            this->col_names = cnames;
+
+            for (size_t i = 0; i < cnames.size(); i++) {
+                this->col_pos[cnames[i]] = i;
             }
         }
 
-        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
+        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
+            auto pos = this->col_pos.find(col_name.data());
+            if (pos != this->col_pos.end())
+                return pos->second;
+
+            // TODO: Change to a constant
+            return -1;
         }
 
         CSV_INLINE size_t ColNames::size() const {

@@ -151,6 +151,8 @@ namespace csv {
         delimiter(format.get_delim()), quote_char(format.quote_char),
         header_row(format.header), strict(format.strict),
         unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
+        this->record_buffer->col_names = this->col_names;
+
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -174,6 +176,8 @@ namespace csv {
      *
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
+        this->record_buffer->col_names = this->col_names;
+
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = guess_format(filename, format.possible_delimiters);
@@ -192,6 +196,7 @@ namespace csv {
         delimiter = format.get_delim();
         quote_char = format.quote_char;
         strict = format.strict;
+
         parse_flags = internals::make_parse_flags(delimiter, quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
@@ -207,7 +212,7 @@ namespace csv {
         // Since users are normally not allowed to set 
         // column names and header row simulatenously,
         // we will set the backing variables directly here
-        format.col_names = this->col_names->col_names;
+        format.col_names = this->col_names->get_col_names();
         format.header = this->header_row;
 
         return format;
@@ -269,6 +274,10 @@ namespace csv {
 
         if (!this->pre_header_trimmed) {
             for (size_t i = 0; i <= this->header_row && !this->records.empty(); i++) {
+                if (i == this->header_row && !this->col_names) {
+                    this->set_col_names(this->records.front());
+                }
+
                 this->records.pop_front();
             }
 
@@ -335,8 +344,7 @@ namespace csv {
      */
     CSV_INLINE void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
-        this->col_names = std::make_shared<internals::ColNames>(names);
-        this->record_buffer->col_names = this->col_names;
+        this->col_names->set_col_names(names);
         this->n_cols = names.size();
     }
 

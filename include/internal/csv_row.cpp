@@ -69,9 +69,10 @@ namespace csv {
      */
     CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
         auto & col_names = this->buffer->col_names;
-        auto col_pos = col_names->col_pos.find(col_name);
-        if (col_pos != col_names->col_pos.end())
-            return this->operator[](col_pos->second);
+        auto col_pos = col_names->index_of(col_name);
+        if (col_pos > -1) {
+            return this->operator[](col_pos);
+        }
 
         throw std::runtime_error("Can't find a column named " + col_name);
     }

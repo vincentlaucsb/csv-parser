@@ -210,7 +210,7 @@ namespace csv {
         /** @name Parser State */
         ///@{
         /** Pointer to a object containing column information */
-        internals::ColNamesPtr col_names = nullptr;
+        internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
