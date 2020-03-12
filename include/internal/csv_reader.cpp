@@ -249,7 +249,9 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        this->records.push_back(CSVRow(this->record_buffer));
+        if (this->record_buffer->size() > 0) {
+            this->records.push_back(CSVRow(this->record_buffer));
+        }
     }
 
     CONSTEXPR void CSVReader::handle_unicode_bom(csv::string_view& in) {

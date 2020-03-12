@@ -113,21 +113,24 @@ namespace csv {
 
         auto current_record = this->records.begin();
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            auto current_field = (*current_record)[i];
+            // TODO: Throw error if user requests it???
+            if (current_record->size() == this->n_cols) {
+                auto current_field = (*current_record)[i];
 
-            // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
-            if (processed < 1000 || this->counts[i].size() <= 500)
-                this->count(current_field, i);
+                // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
+                if (processed < 1000 || this->counts[i].size() <= 500)
+                    this->count(current_field, i);
 
-            this->dtype(current_field, i);
+                this->dtype(current_field, i);
 
-            // Numeric Stuff
-            if (current_field.is_num()) {
-                long double x_n = current_field.get<long double>();
+                // Numeric Stuff
+                if (current_field.is_num()) {
+                    long double x_n = current_field.get<long double>();
 
-                // This actually calculates mean AND variance
-                this->variance(x_n, i);
-                this->min_max(x_n, i);
+                    // This actually calculates mean AND variance
+                    this->variance(x_n, i);
+                    this->min_max(x_n, i);
+                }
             }
 
             ++current_record;
