@@ -16,11 +16,11 @@ namespace csv {
      *  std::runtime_error If n is out of bounds
      */
     CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str);
+        csv::string_view ret(this->data.row_str);
 
         // First assume that field comprises entire row, then adjust accordingly
         size_t beg = 0,
-            end = row_str.size(),
+            end = this->data.row_str.size(),
             r_size = this->size();
 
         if (n >= r_size)
@@ -69,9 +69,10 @@ namespace csv {
      */
     CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
         auto & col_names = this->buffer->col_names;
-        auto col_pos = col_names->col_pos.find(col_name);
-        if (col_pos != col_names->col_pos.end())
-            return this->operator[](col_pos->second);
+        auto col_pos = col_names->index_of(col_name);
+        if (col_pos > -1) {
+            return this->operator[](col_pos);
+        }
 
         throw std::runtime_error("Can't find a column named " + col_name);
     }
@@ -108,9 +109,9 @@ namespace csv {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    CSV_INLINE unsigned short CSVRow::split_at(size_t n) const
+    CSV_INLINE size_t CSVRow::split_at(size_t n) const
     {
-        return this->buffer->split_buffer[this->start + n];
+        return this->buffer->split_buffer[this->data.col_pos.start + n];
     }
 
     CSV_INLINE HEDLEY_NON_NULL(2)

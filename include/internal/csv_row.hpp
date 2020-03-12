@@ -183,15 +183,8 @@ namespace csv {
     public:
         CSVRow() = default;
         
-        /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
-        CSVRow(const internals::BufferPtr& _str) : buffer(_str)
-        {
-            this->row_str = _str->get_row();
-
-            auto splits = _str->get_splits();
-            this->start = splits.start;
-            this->n_cols = splits.n_cols;
-        };
+        /** Construct a CSVRow from a RawRowBuffer */
+        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
 
         /** Constructor for testing */
         CSVRow(const std::string& str, const std::vector<unsigned short>& splits,
@@ -199,10 +192,10 @@ namespace csv {
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
         /** Indicates whether row is empty or not */
-        CONSTEXPR bool empty() const { return this->row_str.empty(); }
+        CONSTEXPR bool empty() const { return this->data.row_str.empty(); }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return this->n_cols; }
+        CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
 
         /** @name Value Retrieval */
         ///@{
@@ -283,12 +276,10 @@ namespace csv {
 
     private:
         /** Get the index in CSVRow's text buffer where the n-th field begins */
-        unsigned short split_at(size_t n) const;
+        size_t split_at(size_t n) const;
 
         internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
-        csv::string_view row_str = "";         /**< Text data for this row */
-        size_t start;                          /**< Where in split buffer this row begins */
-        unsigned short n_cols;                 /**< Numbers of columns this row has */
+        internals::RowData data;               /**< Contains row string and column positions. */
     };
 
 #pragma region CSVField::get Specializations

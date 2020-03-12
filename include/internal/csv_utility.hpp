@@ -21,19 +21,14 @@ namespace csv {
      *  @brief Convienience functions for parsing small strings
      */
      ///@{
-    CSVCollection operator ""_csv(const char*, size_t);
-    CSVCollection parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader operator ""_csv(const char*, size_t);
+    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
     ///@}
 
     /** @name Utility Functions */
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
-    CSVGuessResult guess_format(csv::string_view filename,
-        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
-    std::vector<std::string> get_col_names(
-        const std::string& filename,
-        const CSVFormat format = CSVFormat::guess_csv());
     int get_col_pos(const std::string filename, const std::string col_name,
         const CSVFormat format = CSVFormat::guess_csv());
     ///@}

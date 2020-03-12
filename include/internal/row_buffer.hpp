@@ -10,10 +10,12 @@
 #include <string>
 
 #include "compatibility.hpp" // For string view
+#include "constants.hpp"
 
 namespace csv {
     namespace internals {
         class RawRowBuffer;
+        struct RowData;
         struct ColumnPositions;
         struct ColNames;
         using BufferPtr = std::shared_ptr<RawRowBuffer>;
@@ -29,12 +31,22 @@ namespace csv {
          *  allowing for indexing by column name.
          */
         struct ColNames {
-            ColNames(const std::vector<std::string>&);
-            std::vector<std::string> col_names;
-            std::unordered_map<std::string, size_t> col_pos;
+        public:
+            ColNames() = default;
+            ColNames(const std::vector<std::string>& names) {
+                set_col_names(names);
+            }
 
             std::vector<std::string> get_col_names() const;
+            void set_col_names(const std::vector<std::string>&);
+            int index_of(csv::string_view) const;
+
+            bool empty() const { return this->col_names.empty(); }
             size_t size() const;
+
+        private:
+            std::vector<std::string> col_names;
+            std::unordered_map<std::string, size_t> col_pos;
         };
 
         /** Class for reducing number of new string and new vector
@@ -60,6 +72,7 @@ namespace csv {
         class RawRowBuffer {
         public:
             RawRowBuffer() = default;
+            RawRowBuffer(const std::shared_ptr<ColNames>& _col_names) : col_names(_col_names) {};
 
             /** Constructor mainly used for testing
              *  @param[in] _buffer    CSV text without delimiters or newlines
@@ -70,9 +83,8 @@ namespace csv {
                 const std::shared_ptr<ColNames>& _col_names) :
                 buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
 
-            csv::string_view get_row();      /**< Return a string_view over the current_row */
-            ColumnPositions get_splits();    /**< Return the field start positions for the current row */
-
+            /** Return necessary information to construct a CSV row */
+            RowData get_row();
             size_t size() const;             /**< Return size of current row */
             size_t splits_size() const;      /**< Return (num columns - 1) for current row */
             BufferPtr reset() const;         /**< Create a new RawRowBuffer with this buffer's unfinished work */
@@ -89,21 +101,25 @@ namespace csv {
             ColNamesPtr col_names = nullptr; /**< Pointer to column names */
 
         private:
+            csv::string_view get_row_string();   /**< Return a string_view over the current_row */
+            ColumnPositions get_splits();        /**< Return the field start positions for the current row */
+
             size_t current_end = 0;          /**< Where we are currently in the text buffer */
             size_t current_split_idx = 0;    /**< Where we are currently in the split buffer */
         };
 
         struct ColumnPositions {
-            ColumnPositions() : parent(nullptr) {};
-            constexpr ColumnPositions(const RawRowBuffer& _parent,
-                size_t _start, unsigned short _size) : parent(&_parent), start(_start), n_cols(_size) {};
-
-            const RawRowBuffer * parent; /**< RawRowBuffer to grab data from */
+            ColumnPositions() = default;
+            constexpr ColumnPositions(size_t _start, unsigned short _size) : start(_start), n_cols(_size) {};
             size_t start;                /**< Where in split_buffer the array of column positions begins */
-            unsigned short n_cols;       /**< Number of columns */
+            size_t n_cols;               /**< Number of columns */
+        };
 
-            /// Get the n-th column index
-            unsigned short split_at(int n) const;
+        struct RowData {
+            RowData() = default;
+
+            csv::string_view row_str;
+            ColumnPositions col_pos;
         };
     }
 }

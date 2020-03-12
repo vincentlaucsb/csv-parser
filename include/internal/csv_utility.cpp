@@ -9,11 +9,11 @@ namespace csv {
      *
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
-    CSV_INLINE CSVCollection parse(csv::string_view in, CSVFormat format) {
+    CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
         parser.feed(in);
         parser.end_feed();
-        return parser.records;
+        return parser;
     }
 
     /** Parse a RFC 4180 CSV string, returning a collection
@@ -23,19 +23,8 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
-    CSV_INLINE CSVCollection operator ""_csv(const char* in, size_t n) {
+    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
         return parse(csv::string_view(in, n));
-    }
-
-    /** Return a CSV's column names
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] format    Format of the CSV file
-     *
-     */
-    CSV_INLINE std::vector<std::string> get_col_names(const std::string& filename, CSVFormat format) {
-        CSVReader reader(filename, format);
-        return reader.get_col_names();
     }
 
     /**
@@ -59,17 +48,13 @@ namespace csv {
     CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
         CSVReader reader(filename);
         CSVFormat format = reader.get_format();
-        for (auto& row : reader) {
-            #ifndef NDEBUG
-            SUPPRESS_UNUSED_WARNING(row);
-            #endif
-        }
+        for (auto it = reader.begin(); it != reader.end(); ++it);
 
         CSVFileInfo info = {
             filename,
             reader.get_col_names(),
             format.get_delim(),
-            reader.correct_rows,
+            reader.num_rows,
             (int)reader.get_col_names().size()
         };
 

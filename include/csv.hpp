@@ -1,5 +1,5 @@
 /*
-CSV for C++, version 1.2.5.1
+CSV for C++, version 1.6.0
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
