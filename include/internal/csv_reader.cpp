@@ -129,9 +129,7 @@ namespace csv {
     }
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
-    CSV_INLINE CSVReader::CSVReader(CSVFormat format) :
-        delimiter(format.get_delim()), quote_char(format.quote_char),
-        header_row(format.header), strict(format.strict),
+    CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
         unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
         this->record_buffer->col_names = this->col_names;
 
@@ -139,7 +137,8 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
         
-        parse_flags = internals::make_parse_flags(this->delimiter, this->quote_char);
+        this->format = format;
+        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     };
 
@@ -174,12 +173,8 @@ namespace csv {
             this->set_col_names(csv::get_col_names(filename, format));
         }
 
-        header_row = format.header;
-        delimiter = format.get_delim();
-        quote_char = format.quote_char;
-        strict = format.strict;
-
-        parse_flags = internals::make_parse_flags(delimiter, quote_char);
+        this->format = format;
+        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
         this->fopen(filename);
@@ -187,17 +182,17 @@ namespace csv {
 
     /** Return the format of the original raw CSV */
     CSV_INLINE CSVFormat CSVReader::get_format() const {
-        CSVFormat format;
-        format.delimiter(this->delimiter)
-            .quote(this->quote_char);
+        CSVFormat new_format;
+        new_format.delimiter(this->format.get_delim())
+            .quote(this->format.quote_char);
 
         // Since users are normally not allowed to set 
         // column names and header row simulatenously,
         // we will set the backing variables directly here
-        format.col_names = this->col_names->get_col_names();
-        format.header = this->header_row;
+        new_format.col_names = this->col_names->get_col_names();
+        new_format.header = this->format.header;
 
-        return format;
+        return new_format;
     }
 
     /** Return the CSV's column names as a vector of strings. */
@@ -241,7 +236,7 @@ namespace csv {
                 this->parse_flags,
                 this->ws_flags,
                 this->record_buffer,
-                this->strict,
+                this->format.strict,
                 this->records
             });
         }
@@ -255,8 +250,8 @@ namespace csv {
         }
 
         if (!this->pre_header_trimmed) {
-            for (int i = 0; i <= this->header_row && !this->records.empty(); i++) {
-                if (i == this->header_row && this->col_names->get_col_names().empty()) {
+            for (int i = 0; i <= this->format.header && !this->records.empty(); i++) {
+                if (i == this->format.header && this->col_names->get_col_names().empty()) {
                     this->set_col_names(this->records.front());
                 }
 
@@ -417,7 +412,7 @@ namespace csv {
 
         while (!this->records.empty() && 
             this->records.front().size() != this->n_cols) {
-            if (this->strict) {
+            if (this->format.strict) {
                 throw std::runtime_error("Line too short");
             }
 

@@ -184,18 +184,15 @@ namespace csv {
 
         /** @name CSV Settings **/
         ///@{
-        char delimiter;         /**< Delimiter character */
-        char quote_char;        /**< Quote character */
-        int header_row;         /**< Line number of the header row (zero-indexed) */
-        bool strict = false;    /**< Strictness of parser */
+        CSVFormat format;
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        std::array<internals::ParseFlags, 256> parse_flags;
+        internals::ParseFlagMap parse_flags;
 
         /** An array where the (i + 128)th slot determines whether ASCII character i should
          *  be trimmed
          */
-        std::array<bool, 256> ws_flags;
+        internals::WhitespaceMap ws_flags;
         ///@}
 
         /** @name Parser State */

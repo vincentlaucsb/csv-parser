@@ -79,7 +79,7 @@ namespace csv {
         }
 
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        char get_delim() {
+        char get_delim() const {
             // This error should never be received by end users.
             if (this->possible_delimiters.size() > 1) {
                 throw std::runtime_error("There is more than one possible delimiter.");
