@@ -183,6 +183,7 @@ namespace csv {
     public:
         CSVRow() = default;
         
+        // TODO: Remove this
         /** Construct a CSVRow from a RawRowBuffer. Should be called by CSVReader::write_record. */
         CSVRow(const internals::BufferPtr& _str) : buffer(_str)
         {

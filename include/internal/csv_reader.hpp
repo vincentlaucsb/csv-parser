@@ -90,7 +90,6 @@ namespace csv {
             }
 
             CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
-
         private:
             CSVReader * daddy = nullptr;  // Pointer to parent
             CSVRow row;                   // Current row

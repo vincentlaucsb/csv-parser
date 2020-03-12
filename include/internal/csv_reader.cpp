@@ -223,25 +223,14 @@ namespace csv {
          *  `end_feed()` should be called after the last string.
          */
         this->handle_unicode_bom(in);
-
-        try {
-            this->record_buffer = internals::parse({
-                in,
-                this->parse_flags,
-                this->ws_flags,
-                this->record_buffer,
-                this->format.strict,
-                this->records
-            });
-        }
-        catch (std::runtime_error& err) {
-            throw std::runtime_error("Unescaped single quote around line ");
-            
-            /** TODO: Add this back in+
-                std::to_string(this->num_rows) + " near:\n" +
-                std::string(in.substr(i, 100)));
-                */
-        }
+        this->record_buffer = internals::parse({
+            in,
+            this->parse_flags,
+            this->ws_flags,
+            this->record_buffer,
+            this->format.strict,
+            this->records
+        });
 
         if (!this->pre_header_trimmed) {
             for (int i = 0; i <= this->format.header && !this->records.empty(); i++) {

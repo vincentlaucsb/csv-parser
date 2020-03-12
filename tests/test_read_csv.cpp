@@ -84,38 +84,16 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
         "123,\"234\"\"345\",456\r\n"
         "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
     );
-      
+    
     auto rows = parse(csv_string);
    
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = {"123", "234\"345", "456"};
-
-    // First Row
-    CSVRow row;
-    rows.read_row(row);
-    REQUIRE( vector<string>(row) == correct_row );
-
-    // Second Row
-    rows.read_row(row);
-    REQUIRE( vector<string>(row) == correct_row );
-
-//! [Parse Example]
-
-    // Strict Mode
-    bool caught_single_quote = false;
-    std::string error_message("");
-
-    try {
-        auto should_fail = parse(csv_string, CSVFormat::rfc4180_strict());
+    for (auto& row : rows) {
+        REQUIRE(vector<string>(row) == correct_row);
     }
-    catch (std::runtime_error& err) {
-        caught_single_quote = true;
-        error_message = err.what();
-    }
-
-    REQUIRE(caught_single_quote);
-    REQUIRE(error_message.substr(0, 29) == "Unescaped single quote around");
 }
+//! [Parse Example]
 
 TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     auto row_str = GENERATE(as<std::string> {},
@@ -175,6 +153,7 @@ TEST_CASE("Test Bad Row Handling", "[read_csv_strict]") {
     bool error_caught = false;
 
     try {
+        // TODO: Make this more robust
         auto rows = parse(csv_string, CSVFormat::rfc4180_strict());
         for (auto& row : rows) {
 

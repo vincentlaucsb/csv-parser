@@ -100,11 +100,9 @@ namespace csv {
                     // Case: Escaped quote
                     text_buffer += in[i];
 
+                    // Note: Unescaped single quotes can be handled by the parser
                     if (next_ch == ParseFlags::QUOTE)
                         ++i;  // Case: Two consecutive quotes
-                    else if (data.strict) {
-                        throw std::runtime_error("Unescaped single quote");
-                    }
 
                     break;
                 }
