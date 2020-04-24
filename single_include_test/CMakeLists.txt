@@ -5,3 +5,4 @@ target_sources(single_include_test
         file1.cpp
         file2.cpp
 )
+target_link_libraries(single_include_test PRIVATE Threads::Threads)

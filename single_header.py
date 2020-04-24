@@ -144,7 +144,7 @@ if __name__ == "__main__":
                 sources.append(fname)
 
     # Rearrange header order to avoid compilation conflicts
-    headers = header_list(headers)
+    headers = header_list(sorted(headers))
 
     # Reorder files such that master headers are first
     MASTER_HPP = [

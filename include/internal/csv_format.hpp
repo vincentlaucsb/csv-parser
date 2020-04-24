@@ -12,6 +12,13 @@
 namespace csv {
     class CSVReader;
 
+    /** Determines how to handle rows that are shorter or longer than the majority */
+    enum class VariableColumnPolicy {
+        THROW = -1,
+        IGNORE = 0,
+        KEEP   = 1
+    };
+
     /** Stores the inferred format of a CSV file. */
     struct CSVGuessResult {
         char delim;
@@ -64,11 +71,15 @@ namespace csv {
          */
         CSVFormat& header_row(int row);
 
-        /** Tells the parser to throw an std::runtime_error if an
-         *  invalid CSV sequence is found
-         */
-        CONSTEXPR CSVFormat& strict_parsing(bool is_strict = true) {
-            this->strict = is_strict;
+        /** Tells the parser how to handle columns of a different length than the others */
+        CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE) {
+            this->variable_column_policy = policy;
+            return *this;
+        }
+
+        /** Tells the parser how to handle columns of a different length than the others */
+        CONSTEXPR CSVFormat& variable_columns(bool policy) {
+            this->variable_column_policy = (VariableColumnPolicy)policy;
             return *this;
         }
 
@@ -79,7 +90,7 @@ namespace csv {
         }
 
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        char get_delim() {
+        char get_delim() const {
             // This error should never be received by end users.
             if (this->possible_delimiters.size() > 1) {
                 throw std::runtime_error("There is more than one possible delimiter.");
@@ -88,9 +99,10 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
-        CONSTEXPR int get_header() {
-            return this->header;
-        }
+        CONSTEXPR int get_header() const { return this->header; }
+        std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
+        std::vector<char> get_trim_chars() const { return this->trim_chars; }
+        CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         #endif
         
         /** CSVFormat for guessing the delimiter */
@@ -104,24 +116,13 @@ namespace csv {
             return format;
         }
 
-        /** CSVFormat for strict RFC 4180 parsing */
-        CSV_INLINE static CSVFormat rfc4180_strict() {
-            CSVFormat format;
-            format.delimiter(',')
-                .quote('"')
-                .header_row(0)
-                .detect_bom(true)
-                .strict_parsing(true);
-
-            return format;
-        }
-
-        friend CSVReader;
-    private:
         bool guess_delim() {
             return this->possible_delimiters.size() > 1;
         }
 
+        friend CSVReader;
+
+    private:
         /**< Throws an error if delimiters and trim characters overlap */
         void assert_no_char_overlap();
 
@@ -131,17 +132,17 @@ namespace csv {
         /**< Set of whitespace characters to trim */
         std::vector<char> trim_chars = {};
 
-        /**< Quote character */
-        char quote_char = '"';
-
         /**< Row number with columns (ignored if col_names is non-empty) */
         int header = 0;
+
+        /**< Quote character */
+        char quote_char = '"';
 
         /**< Should be left empty unless file doesn't include header */
         std::vector<std::string> col_names = {};
 
-        /**< RFC 4180 non-compliance -> throw an error */
-        bool strict = false;
+        /**< Allow variable length columns? */
+        VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE;
 
         /**< Detect and strip out Unicode byte order marks */
         bool unicode_detect = true;

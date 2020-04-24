@@ -15,7 +15,10 @@ TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
         "123,234,345\r\n"
         "1,2,3\r\n"
         "1,2,3"_csv;
-    auto row = rows.front();
+
+
+    CSVRow row;
+    rows.read_row(row);
 
     SECTION("Forwards and Backwards Iterators") {
         // Forwards

@@ -14,6 +14,7 @@
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
       * [Trimming Whitespace](#trimming-whitespace)
+      * [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
       * [Setting Column Names](#setting-column-names)
    * [Converting to JSON](#converting-to-json)
    * [Parsing an In-Memory String](#parsing-an-in-memory-string)
@@ -31,18 +32,20 @@ This CSV parser uses multiple threads to simulatenously pull data from disk and 
 
 On my computer (Intel Core i7-8550U @ 1.80GHz/Toshiba XG5 SSD), it is capable of parsing the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.33 seconds.
 
-### Robust
-#### RFC 4180 Compliance
-This CSV parser is much more than a fancy string splitter, and follows every guideline from [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt). An optional strict parsing mode can be enabled to sniff out errors in files.
+### Robust Yet Flexible
+#### RFC 4180 and Beyond
+This CSV parser is much more than a fancy string splitter, and parses all files following [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt).
 
-#### Non-RFC 4180 Deviations
-We know that actual CSV files come with many different quirks. In addition, there are many CSV-inspired formats like tab-separated values. Thus, this CSV library has many features for dealing with this reality:
+However, in reality we know that RFC 4180 is just a suggestion, and there's many "flavors" of CSV such as tab-delimited files. Thus, this library has:
  * Automatic delimiter guessing
  * Ability to ignore comments in leading rows and elsewhere
  * Ability to handle rows of different lengths
 
+By default, rows of variable length are silently ignored, although you may elect to keep them or throw an error.
+
 #### Encoding
-This CSV parser will handle ANSI and UTF-8 encoded files. It does not try to decode UTF-8, except for detecting and stripping byte order marks.
+This CSV parser is encoding-agnostic and will handle ANSI and UTF-8 encoded files.
+It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte order marks.
 
 ### Well Tested
 This CSV parser has an extensive test suite and is checked for memory safety with Valgrind. If you still manage to find a bug,
@@ -233,6 +236,25 @@ to trim.
 ```cpp
 CSVFormat format;
 format.trim({ ' ', '\t'  });
+```
+
+#### Handling Variable Numbers of Columns
+Sometimes, the rows in a CSV are not all of the same length. Whether this was intentional or not,
+this library is built to handle all use cases.
+
+```cpp
+CSVFormat format;
+
+// Default: Silently ignoring rows with missing or extraneous columns
+format.variable_columns(false); // Short-hand
+format.variable_columns(VariableColumnPolicy::IGNORE);
+
+// Case 2: Keeping variable-length rows
+format.variable_columns(true); // Short-hand
+format.variable_columns(VariableColumnPolicy::KEEP);
+
+// Case 3: Throwing an error if variable-length rows are encountered
+format.variable_columns(VariableColumnPolicy::THROW);
 ```
 
 #### Setting Column Names

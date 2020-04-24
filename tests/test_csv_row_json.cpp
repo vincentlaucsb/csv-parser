@@ -5,12 +5,14 @@ using namespace csv;
 /** Construct a CSVRow object for testing given column names and CSV fields */
 CSVRow make_csv_row(std::vector<std::string> data, std::vector<std::string> col_names) {
     // Concatenate vector or strings into one large string
+    using namespace csv::internals;
+
     std::string concat;
-    std::vector<unsigned short> splits = {};
+    SplitArray splits = {};
 
     for (auto& field : data) {
         concat += field;
-        splits.push_back(concat.size());
+        splits.push_back((StrBufferPos)concat.size());
     }
 
     return CSVRow(concat, splits, std::make_shared<internals::ColNames>(col_names));
@@ -87,4 +89,25 @@ TEST_CASE("CSVRow to_json_array() Test() - Mixed", "[csv_mixed_row_to_json_array
         REQUIRE(row.to_json_array({ "B", "C" }) == "[234,\"ABCD\"]");
         REQUIRE(row.to_json_array({ "B", "A" }) == "[234,1234.3]");
     }
+}
+
+// Reported in: https://github.com/vincentlaucsb/csv-parser/issues/68
+TEST_CASE("CSVRow to_json() with Wrong Columns", "[csv_json_wrong_cols]") {
+    std::string csv_string(R"(A,B,C,
+123,345,678,)");
+
+    auto format = csv::CSVFormat();
+    format.column_names({ "A", "B" });
+
+    csv::CSVReader reader(format);
+    reader.feed(csv_string);
+    reader.end_feed();
+
+    CSVRow first_row;
+    reader.read_row(first_row);
+
+    // Since the column names provided were wrong, there won't be any data.
+    // to_json() method should then produce an empty object instead of segfaulting.
+    REQUIRE(first_row.to_json() == "{}");
+    REQUIRE(first_row.to_json_array() == "[]");
 }

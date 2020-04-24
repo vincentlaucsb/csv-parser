@@ -59,12 +59,11 @@ if (CSV_DEVELOPER)
           COMMAND ${Python3_EXECUTABLE} single_header.py > single_include_test/csv.hpp
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
       )
+      # Single header compilation test
+      add_subdirectory(single_include_test)
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
     endif()
-
-    # Single header compilation test
-    add_subdirectory(single_include_test)
 
     # Documentation
     find_package(Doxygen QUIET)
