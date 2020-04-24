@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.3.0
+CSV for C++, version 1.3.0.1
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -3919,6 +3919,9 @@ namespace csv {
 
             return internals::is_equal(out, static_cast<long double>(other), 0.000001L);
         }
+
+        /** Return a string view over the field's contents */
+        CONSTEXPR csv::string_view get_sv() const { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
         CONSTEXPR bool is_null() { return type() == CSV_NULL; }
