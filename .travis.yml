@@ -6,14 +6,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'valgrind']
+          packages: ['g++-8', 'cmake', 'valgrind']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8']
+          packages: ['g++-8', 'cmake']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
@@ -21,13 +21,15 @@ sudo: required
 language:
   - cpp
 script:
-  - make run_csv_test
+  - cmake -DCMAKE_BUILD_TYPE=Debug
+  - make csv_test
+  - ./tests/csv_test
   - if [ "$MAIN_BUILD" == "true" ]; then
-        make code_cov;
-        make valgrind;
+        make csv_coverage;
+        #make valgrind;
     fi;
-after_success:
-  - if [ "$MAIN_BUILD" == "true" ]; then
-        cd test_results;
-        bash <(curl -s https://codecov.io/bash);
-    fi;
+#after_success:
+#  - if [ "$MAIN_BUILD" == "true" ]; then
+#        cd test_results;
+#        bash <(curl -s https://codecov.io/bash);
+#    fi;
