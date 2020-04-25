@@ -20,7 +20,7 @@ matrix:
     #  env: CXX=clang++
 dist: trusty
 before_install:
-  - pyenv install 3.5
+  - pyenv install 3.5.4
   - pip install gcovr
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug
