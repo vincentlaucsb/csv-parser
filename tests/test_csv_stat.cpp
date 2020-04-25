@@ -1,8 +1,9 @@
 #include "catch.hpp"
+#include "csv_test.hpp"
 #include "csv.hpp"
 using namespace csv;
 
-const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";
+const std::string PERSONS_CSV = data_file("/data/mimesis_data/persons.csv");
 
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
@@ -40,8 +41,8 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
 TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
     // Header on first row
     auto file = GENERATE(as<std::string> {},
-        "./tests/data/fake_data/ints.csv",
-        "./tests/data/fake_data/ints_newline_sep.csv"
+        data_file("/data/fake_data/ints.csv"),
+        data_file("/data/fake_data/ints_newline_sep.csv")
     );
 
     SECTION("Compute Statistics") {

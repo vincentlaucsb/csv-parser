@@ -16,20 +16,8 @@ target_sources(csv_test
         test_read_csv_file.cpp
         test_write_csv.cpp
         test_data_type.cpp
-)
+        "csv_test.hpp")
 target_link_libraries(csv_test csv)
 
-if(MSVC)
-    # Workaround to enable debugging unit tests in Visual Studio
-    add_custom_command(
-        TARGET csv_test POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CSV_TEST_DIR}/data $<TARGET_FILE_DIR:csv_test>/tests/data
-    )
-endif()
-
-add_test(
-    NAME test
-    COMMAND csv_test
-    WORKING_DIRECTORY ${CSV_ROOT_DIR}
-)
+set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
+add_test(NAME test COMMAND csv_test)
