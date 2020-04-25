@@ -26,7 +26,6 @@ script:
   - ./tests/csv_test
   - if [ "$MAIN_BUILD" == "true" ]; then
         make csv_coverage;
-        #make valgrind;
     fi;
 #after_success:
 #  - if [ "$MAIN_BUILD" == "true" ]; then
