@@ -19,10 +19,10 @@ matrix:
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
-before_install:
-  - pyenv install 3.6.0
-  - pyenv global 3.6.0
-  - pip3 install gcovr
+# before_install:
+#  - pyenv install 3.6.0
+#  - pyenv global 3.6.0
+#  - pip3 install gcovr
 script: 
   - export CSV_TEST_ROOT=$PWD/tests
   - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
@@ -32,6 +32,5 @@ script:
   #  fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
-        cd $PWD/include/internal/CMakeFiles/csv.dir;
         bash <(curl -s https://codecov.io/bash);
     fi;

@@ -87,7 +87,7 @@ if (CSV_DEVELOPER)
         include(CodeCoverage)
         append_coverage_compiler_flags()
         set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
-        setup_target_for_coverage_gcovr_html(
+        setup_target_for_coverage_lcov(
           NAME csv_coverage
           EXECUTABLE csv_test
           EXCLUDE "tests/*"
