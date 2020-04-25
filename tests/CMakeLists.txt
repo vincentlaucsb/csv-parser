@@ -19,5 +19,10 @@ target_sources(csv_test
         "csv_test.hpp")
 target_link_libraries(csv_test csv)
 
-set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
+if (WIN32)
+message("Win32 detected")
+    execute_process(COMMAND set CSV_TEST_ROOT=${CSV_TEST_DIR})
+
+
+endif()
 add_test(NAME test COMMAND csv_test)

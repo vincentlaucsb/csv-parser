@@ -1,3 +1,5 @@
+language:
+  - cpp
 matrix:
   include:
     - os: linux
@@ -17,9 +19,9 @@ matrix:
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
-sudo: required
-language:
-  - cpp
+before_install:
+  - pyenv install 3.5
+  - pip install gcovr
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug
   - make csv_test
