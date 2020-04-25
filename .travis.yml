@@ -24,7 +24,7 @@ dist: trusty
 #  - pyenv global 3.6.0
 #  - pip3 install gcovr
 script: 
-  - ln -sf usr/bin/gcov gcov-8
+  - lcov --version
   - export CSV_TEST_ROOT=$PWD/tests
   - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
   - make csv_coverage;
