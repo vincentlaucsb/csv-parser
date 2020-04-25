@@ -20,8 +20,8 @@ matrix:
     #  env: CXX=clang++
 dist: trusty
 before_install:
-  - pyenv install 3.5.4
-  - pip install gcovr
+  - sudo apt-get install python3
+  - pip3 install gcovr
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug
   - make csv_test
