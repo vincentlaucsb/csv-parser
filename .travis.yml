@@ -21,6 +21,7 @@ sudo: required
 language:
   - cpp
 script:
+  - export CSV_TEST_ROOT=$PWD/tests
   - make run_csv_test
   - if [ "$MAIN_BUILD" == "true" ]; then
         make code_cov;

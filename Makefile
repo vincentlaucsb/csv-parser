@@ -61,7 +61,6 @@ csv_test:
 	$(CXX) -o csv_test $(SOURCES) $(TEST_SOURCES) -I${SOURCE_DIR} $(TEST_FLAGS)
 	
 run_csv_test: csv_test
-	export CSV_TEST_ROOT="$(PWD)/tests"
 	mkdir -p tests/temp
 	./csv_test
 	
