@@ -25,10 +25,9 @@ before_install:
   - pip3 install gcovr
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug
-  - make csv_test
-  - ./tests/csv_test
+  - make csv_coverage;
   - if [ "$MAIN_BUILD" == "true" ]; then
-        make csv_coverage;
+        #make csv_coverage;
     fi;
 #after_success:
 #  - if [ "$MAIN_BUILD" == "true" ]; then
