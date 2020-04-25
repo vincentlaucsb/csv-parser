@@ -24,6 +24,7 @@ before_install:
   - pyenv global 3.6.0
   - pip3 install gcovr
 script: 
+  - export CSV_TEST_ROOT=$PWD/tests
   - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
   - make csv_coverage;
   #- if [ "$MAIN_BUILD" == "true" ]; then
