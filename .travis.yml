@@ -8,14 +8,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'cmake', 'valgrind']
+          packages: ['g++-8', 'cmake', 'valgrind', 'lcov']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'cmake']
+          packages: ['g++-8', 'cmake', 'lcov']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
