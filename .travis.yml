@@ -26,9 +26,9 @@ before_install:
 script: 
   - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
   - make csv_coverage;
-  - if [ "$MAIN_BUILD" == "true" ]; then
+  #- if [ "$MAIN_BUILD" == "true" ]; then
         #make csv_coverage;
-    fi;
+  #  fi;
 #after_success:
 #  - if [ "$MAIN_BUILD" == "true" ]; then
 #        cd test_results;
