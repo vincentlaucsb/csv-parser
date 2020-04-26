@@ -87,7 +87,8 @@ if (CSV_DEVELOPER)
     if(GCOV_PATH)
       add_custom_target(csv_coverage
             COMMAND csv_test
-            COMMAND ${GCOV_PATH} ${csv_sources} -o ${CMAKE_CURRENT_LIST_DIR}/CMakeFiles/csv.dir --relative-only
+            COMMAND echo ${csv_sources}
+            COMMAND ${GCOV_PATH} ${csv_sources} -o ${CSV_ROOT_DIR}/include/internal/CMakeFiles/csv.dir --relative-only
             WORKING_DIRECTORY ${CSV_ROOT_DIR}/include/internal
       )
     endif()
