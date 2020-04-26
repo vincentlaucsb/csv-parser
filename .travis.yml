@@ -24,14 +24,12 @@ dist: trusty
 #  - pyenv global 3.6.0
 #  - pip3 install gcovr
 script: 
-  - sh ./get_code_cov.sh
-  - lcov --version
   - export CSV_TEST_ROOT=$PWD/tests
   - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
-  - make csv_coverage;
-  #- if [ "$MAIN_BUILD" == "true" ]; then
-        #make csv_coverage;
-  #  fi;
+  - make csv_test;
+  - sh ./get_code_cov.sh;
+  - ./csv_test;
+  - ./tests/csv_test;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
         bash <(curl -s https://codecov.io/bash);
