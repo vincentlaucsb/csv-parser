@@ -79,4 +79,17 @@ if (CSV_DEVELOPER)
     ## Tests
     enable_testing()
     add_subdirectory("tests")
+
+    # Code coverage
+    get_target_property(csv_sources csv SOURCES)
+    message(Sources ${csv_sources})
+    find_program( GCOV_PATH gcov-8 )
+    if(GCOV_PATH)
+      add_custom_target(csv_coverage
+            COMMAND csv_test
+            COMMAND echo ${csv_sources}
+            COMMAND ${GCOV_PATH} ${csv_sources} -o ${CSV_ROOT_DIR}/include/internal/CMakeFiles/csv.dir --relative-only
+            WORKING_DIRECTORY ${CSV_ROOT_DIR}/include/internal
+      )
+    endif()
 endif()
