@@ -24,15 +24,5 @@ target_sources(csv
 		row_buffer.cpp
 )
 
-get_target_property(csv_sources csv SOURCES)
-
-# Code coverage
-find_program( GCOV_PATH gcov-8 )
-if(GCOV_PATH)
-	add_custom_target(csv_coverage
-		COMMAND ${GCOV_PATH} ${csv_sources} -o ${CMAKE_CURRENT_LIST_DIR}/CMakeFiles/csv.dir --relative-only
-	)
-endif()
-
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(csv PRIVATE Threads::Threads)
