@@ -27,7 +27,7 @@ script:
   - sudo apt-get install --only-upgrade lcov
   - lcov --version
   - export CSV_TEST_ROOT=$PWD/tests
-  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_CXX_OUTPUT_EXTENSION
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_CXX_OUTPUT_EXTENSION_REPLACE=ON
   - make csv_coverage;
   #- if [ "$MAIN_BUILD" == "true" ]; then
         #make csv_coverage;
