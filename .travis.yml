@@ -34,6 +34,6 @@ script:
   #  fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
-        cd include/internal/CMakeFiles/csv.dir
+        cd include/internal/CMakeFiles/csv.dir;
         bash <(curl -s https://codecov.io/bash);
     fi;
