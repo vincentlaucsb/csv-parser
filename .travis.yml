@@ -34,6 +34,6 @@ script:
   #  fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
-        mv ./include/internal/CMakeFiles/csv.dir/*.gcno ./
+        mv ./include/internal/CMakeFiles/csv.dir/*.gcno ./;
         bash <(curl -s https://codecov.io/bash);
     fi;
