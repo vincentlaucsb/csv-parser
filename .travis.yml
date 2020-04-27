@@ -41,6 +41,7 @@ after_success:
     fi;
 deploy:
   provider: pages:git
+  edge: true
   cleanup: false
   token: $GITHUB_TOKEN
   keep_history: true
