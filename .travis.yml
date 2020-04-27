@@ -8,14 +8,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'cmake', 'valgrind']
+          packages: ['g++-8', 'cmake', 'valgrind', 'doxygen']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'cmake']
+          packages: ['g++-8', 'cmake', 'doxygen']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
@@ -31,6 +31,7 @@ script:
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
         doxygen Doxyfile;
+        mv coverage /docs;
     fi;
 deploy:
   - provider: pages
