@@ -28,6 +28,12 @@ script:
   - export CSV_TEST_ROOT=$PWD/tests
   - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
   - make csv_coverage;
+  
+  # Memory leak check
+  - if [ "$MAIN_BUILD" == "true" ]; then
+        make csv_stats;
+        valgrind --leak-check=full ./csv_stats $(TEST_DIR)/data/real_data/2016_Gaz_place_national.txt
+    fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
         doxygen Doxyfile;
