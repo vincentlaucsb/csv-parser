@@ -32,7 +32,7 @@ script:
   # Memory leak check
   - if [ "$MAIN_BUILD" == "true" ]; then
         make csv_stats;
-        valgrind --leak-check=full ./programs/csv_stats $(TEST_DIR)/data/real_data/2016_Gaz_place_national.txt;
+        valgrind --leak-check=full ./programs/csv_stats $PWD/tests/data/real_data/2016_Gaz_place_national.txt;
     fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
