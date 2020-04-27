@@ -1,6 +1,5 @@
 # Vince's CSV Parser
 [![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
-[![codecov](https://codecov.io/gh/vincentlaucsb/csv-parser/branch/master/graph/badge.svg)](https://codecov.io/gh/vincentlaucsb/csv-parser)
 
  * [Motivation](#motivation)
  * [Documentation](#documentation)

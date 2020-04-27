@@ -1,3 +1,5 @@
+language:
+  - cpp
 matrix:
   include:
     - os: linux
@@ -6,28 +8,43 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'valgrind']
+          packages: ['g++-8', 'cmake', 'valgrind', 'doxygen']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8']
+          packages: ['g++-8', 'cmake', 'doxygen']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
 sudo: required
-language:
-  - cpp
+before_install:
+  - pyenv install 3.6.0
+  - pyenv global 3.6.0
+  - pip3 install gcovr
 script:
-  - make run_csv_test
+  - export CSV_TEST_ROOT=$PWD/tests
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
+  - make csv_coverage;
+  
+  # Memory leak check
   - if [ "$MAIN_BUILD" == "true" ]; then
-        make code_cov;
-        make valgrind;
+        make csv_stats;
+        valgrind --leak-check=full ./programs/csv_stats $PWD/tests/data/real_data/2016_Gaz_place_national.txt;
     fi;
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
-        cd test_results;
-        bash <(curl -s https://codecov.io/bash);
+        doxygen Doxyfile;
+        mv csv_coverage /docs;
     fi;
+deploy:
+  - provider: pages
+  - skip_cleanup: true
+  - github_token: $GITHUB_TOKEN
+  - keep_history: true
+  - local_dir: docs
+  - target_branch: gh-pages
+  - on:
+    - branch: master
