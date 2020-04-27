@@ -40,11 +40,11 @@ after_success:
         mv csv_coverage ./docs;
     fi;
 deploy:
-  - provider: pages:.git
-  - cleanup: false
-  - token: $GITHUB_TOKEN
-  - keep_history: true
-  - local_dir: docs
-  - target_branch: gh-pages
-  - on:
-    - branch: master
+  provider: pages:.git
+  cleanup: false
+  token: $GITHUB_TOKEN
+  keep_history: true
+  local_dir: docs
+  target_branch: gh-pages
+  on:
+    branch: master
