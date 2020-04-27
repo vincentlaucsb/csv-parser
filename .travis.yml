@@ -37,12 +37,12 @@ script:
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
         doxygen Doxyfile;
-        mv csv_coverage /docs;
+        mv csv_coverage ./docs;
     fi;
 deploy:
-  - provider: pages
-  - skip_cleanup: true
-  - github_token: $GITHUB_TOKEN
+  - provider: pages:.git
+  - cleanup: false
+  - token: $GITHUB_TOKEN
   - keep_history: true
   - local_dir: docs
   - target_branch: gh-pages
