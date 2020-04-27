@@ -31,7 +31,7 @@ script:
 after_success:
   - if [ "$MAIN_BUILD" == "true" ]; then
         doxygen Doxyfile;
-        mv coverage /docs;
+        mv csv_coverage /docs;
     fi;
 deploy:
   - provider: pages
