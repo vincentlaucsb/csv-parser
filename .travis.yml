@@ -1,3 +1,5 @@
+language:
+  - cpp
 matrix:
   include:
     - os: linux
@@ -6,28 +8,23 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'valgrind']
+          packages: ['g++-8', 'cmake', 'valgrind']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8']
+          packages: ['g++-8', 'cmake']
     #- os: linux
     #  env: CXX=clang++
 dist: trusty
 sudo: required
-language:
-  - cpp
+before_install:
+  - pyenv install 3.6.0
+  - pyenv global 3.6.0
+  - pip3 install gcovr
 script:
-  - make run_csv_test
-  - if [ "$MAIN_BUILD" == "true" ]; then
-        make code_cov;
-        make valgrind;
-    fi;
-after_success:
-  - if [ "$MAIN_BUILD" == "true" ]; then
-        cd test_results;
-        bash <(curl -s https://codecov.io/bash);
-    fi;
+  - export CSV_TEST_ROOT=$PWD/tests
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
+  - make csv_coverage;
