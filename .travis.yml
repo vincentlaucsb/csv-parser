@@ -48,4 +48,3 @@ deploy:
   - target_branch: gh-pages
   - on:
     - branch: master
-    - branch: cmake_apr_26_2020
