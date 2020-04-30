@@ -29,8 +29,6 @@ SOFTWARE.
 #ifndef CSV_HPP
 #define CSV_HPP
 
-
-#endif
 // Copyright 2017-2019 by Martin Moene
 //
 // string-view lite, a C++17-like string_view for C++98 and later.
@@ -6023,3 +6021,4 @@ namespace csv {
     }
 }
 
+#endif
