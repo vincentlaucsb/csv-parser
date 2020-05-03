@@ -143,6 +143,39 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     }
 }
 
+TEST_CASE("Test Whitespace Trimming w/ Empty Fields") {
+    CSVFormat format;
+    format.column_names({ "A", "B", "C" })
+        .trim({ ' ' });
+
+    std::stringstream csv_string;
+    csv_string << "1, two,3" << std::endl
+        << "4, ,5" << std::endl
+        << "6,7,8 " << std::endl;
+
+    auto rows = parse(csv_string.str(), format);
+    CSVRow row;
+
+    // First Row
+    rows.read_row(row);
+    REQUIRE(row[0].get<uint32_t>() == 1);
+    REQUIRE(row[1].get<std::string>() == "two");
+    REQUIRE(row[2].get<uint32_t>() == 3);
+
+    // Second Row
+    rows.read_row(row);
+
+    REQUIRE(row[0].get<uint32_t>() == 4);
+    REQUIRE(row[1].is_null());
+    REQUIRE(row[2].get<uint32_t>() == 5);
+
+    // Third Row
+    rows.read_row(row);
+    REQUIRE(row[0].get<uint32_t>() == 6);
+    REQUIRE(row[1].get<uint32_t>() == 7);
+    REQUIRE(row[2].get<uint32_t>() == 8);
+}
+
 TEST_CASE("Test Variable Row Length Handling", "[read_csv_var_len]") {
     string csv_string("A,B,C\r\n" // Header row
         "123,234,345\r\n"

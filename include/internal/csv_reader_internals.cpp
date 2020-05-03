@@ -15,8 +15,7 @@ namespace csv {
             text_buffer.reserve(data.in.size());
             split_buffer.reserve(data.in.size() / 10);
 
-            const size_t in_size = in.size();
-            for (size_t i = 0; i < in_size; i++) {
+            for (size_t i = 0; i < in.size(); i++) {
                 switch (parse_flags[data.in[i] + 128]) {
                 case ParseFlags::DELIMITER:
                     if (!data.quote_escape) {
@@ -28,7 +27,7 @@ namespace csv {
                 case ParseFlags::NEWLINE:
                     if (!data.quote_escape) {
                         // End of record -> Write record
-                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                        if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
                             ++i;
 
                         data.records.push_back(CSVRow(data.row_buffer));
@@ -41,25 +40,15 @@ namespace csv {
                 case ParseFlags::NOT_SPECIAL: {
                     size_t start, end;
 
-                    // Trim off leading whitespace
-                    while (i < in_size && ws_flags[in[i] + 128]) {
-                        i++;
-                    }
-
-                    start = i;
-
-                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-                    // sequences, use the loop below to avoid having to go through the outer
-                    // switch statement as much as possible
-                    while (i + 1 < in_size
-                        && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
-                        i++;
-                    }
-
-                    // Trim off trailing whitespace
-                    end = i;
-                    while (ws_flags[in[end] + 128]) {
-                        end--;
+                    if (!parse_not_special(
+                        in,
+                        parse_flags,
+                        ws_flags,
+                        i,
+                        start,
+                        end
+                    )) {
+                        break;
                     }
 
                     // Finally append text
