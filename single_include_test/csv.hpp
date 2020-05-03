@@ -29,8 +29,6 @@ SOFTWARE.
 #ifndef CSV_HPP
 #define CSV_HPP
 
-
-#endif
 // Copyright 2017-2019 by Martin Moene
 //
 // string-view lite, a C++17-like string_view for C++98 and later.
@@ -4707,7 +4705,7 @@ namespace csv {
         this->format = format;
         parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
-    };
+    }
 
     /** Allows reading a CSV file in chunks, using overlapped
      *  threads for simulatenously reading from disk and parsing.
@@ -6023,3 +6021,4 @@ namespace csv {
     }
 }
 
+#endif

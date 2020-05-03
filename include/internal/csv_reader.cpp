@@ -154,7 +154,7 @@ namespace csv {
         this->format = format;
         parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
-    };
+    }
 
     /** Allows reading a CSV file in chunks, using overlapped
      *  threads for simulatenously reading from disk and parsing.
