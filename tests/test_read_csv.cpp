@@ -143,6 +143,81 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     }
 }
 
+std::vector<std::string> make_whitespace_test_cases() {
+    std::vector<std::string> test_cases = {};
+    std::stringstream ss;
+
+    ss << "1, two,3" << std::endl
+        << "4, ,5" << std::endl
+        << " ,6, " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Lots of Whitespace
+    ss << "1, two,3" << std::endl
+        << "4,                    ,5" << std::endl
+        << "         ,6,       " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Same as above but there's whitespace around 6
+    ss << "1, two,3" << std::endl
+        << "4,                    ,5" << std::endl
+        << "         , 6 ,       " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Tabs
+    ss << "1, two,3" << std::endl
+        << "4, \t ,5" << std::endl
+        << "\t\t\t\t\t ,6, \t " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    return test_cases;
+}
+
+TEST_CASE("Test Whitespace Trimming w/ Empty Fields") {
+    auto csv_string = GENERATE(from_range(make_whitespace_test_cases()));
+
+    SECTION("Parse Test") {
+        CSVFormat format;
+        format.column_names({ "A", "B", "C" })
+            .trim({ ' ', '\t' });
+
+        auto rows = parse(csv_string, format);
+        CSVRow row;
+
+        // First Row
+        rows.read_row(row);
+        REQUIRE(row[0].get<uint32_t>() == 1);
+        REQUIRE(row[1].get<std::string>() == "two");
+        REQUIRE(row[2].get<uint32_t>() == 3);
+
+        // Second Row
+        rows.read_row(row);
+        REQUIRE(row[0].get<uint32_t>() == 4);
+        REQUIRE(row[1].is_null());
+        REQUIRE(row[2].get<uint32_t>() == 5);
+
+        // Third Row
+        rows.read_row(row);
+        REQUIRE(row[0].is_null());
+        REQUIRE(row[1].get<uint32_t>() == 6);
+        REQUIRE(row[2].is_null());
+
+        // Fourth Row
+        rows.read_row(row);
+        REQUIRE(row[0].get<uint32_t>() == 7);
+        REQUIRE(row[1].get<uint32_t>() == 8);
+        REQUIRE(row[2].get<uint32_t>() == 9);
+    }
+}
+
 TEST_CASE("Test Variable Row Length Handling", "[read_csv_var_len]") {
     string csv_string("A,B,C\r\n" // Header row
         "123,234,345\r\n"

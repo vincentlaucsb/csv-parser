@@ -70,6 +70,49 @@ namespace csv {
             return ret;
         }
 
+        /** Parse a CSV field until a delimiter is hit
+         *  @return A value indicating whether or not text to be
+         *          saved to the text buffer
+         */
+        CONSTEXPR bool parse_not_special(
+            csv::string_view in,
+            const csv::internals::ParseFlags* const parse_flags,
+            const bool* const ws_flags,
+            size_t& i,
+            size_t& start,
+            size_t& end) {
+            // Trim off leading whitespace
+            while (i < in.size() && ws_flags[in[i] + 128]) {
+                i++;
+            }
+
+            start = i;
+
+            // Case: This field is entirely whitespace
+            if (parse_flags[in[start] + 128] >= ParseFlags::DELIMITER) {
+                // Back the parser up one character so switch statement
+                // can process the delimiter or newline
+                i--;
+                return false;
+            }
+
+            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+            // sequences, use the loop below to avoid having to go through the outer
+            // switch statement as much as possible
+            while (i + 1 < in.size()
+                && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
+                i++;
+            }
+
+            // Trim off trailing whitespace
+            end = i;
+            while (ws_flags[in[end] + 128]) {
+                end--;
+            }
+
+            return true;
+        }
+
         struct ParseData {
             csv::string_view in;
             ParseFlagMap parse_flags;

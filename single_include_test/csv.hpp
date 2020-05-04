@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.3.0.1
+CSV for C++, version 1.3.1
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -4176,6 +4176,49 @@ namespace csv {
             return ret;
         }
 
+        /** Parse a CSV field until a delimiter is hit
+         *  @return A value indicating whether or not text to be
+         *          saved to the text buffer
+         */
+        CONSTEXPR bool parse_not_special(
+            csv::string_view in,
+            const csv::internals::ParseFlags* const parse_flags,
+            const bool* const ws_flags,
+            size_t& i,
+            size_t& start,
+            size_t& end) {
+            // Trim off leading whitespace
+            while (i < in.size() && ws_flags[in[i] + 128]) {
+                i++;
+            }
+
+            start = i;
+
+            // Case: This field is entirely whitespace
+            if (parse_flags[in[start] + 128] >= ParseFlags::DELIMITER) {
+                // Back the parser up one character so switch statement
+                // can process the delimiter or newline
+                i--;
+                return false;
+            }
+
+            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+            // sequences, use the loop below to avoid having to go through the outer
+            // switch statement as much as possible
+            while (i + 1 < in.size()
+                && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
+                i++;
+            }
+
+            // Trim off trailing whitespace
+            end = i;
+            while (ws_flags[in[end] + 128]) {
+                end--;
+            }
+
+            return true;
+        }
+
         struct ParseData {
             csv::string_view in;
             ParseFlagMap parse_flags;
@@ -5003,8 +5046,7 @@ namespace csv {
             text_buffer.reserve(data.in.size());
             split_buffer.reserve(data.in.size() / 10);
 
-            const size_t in_size = in.size();
-            for (size_t i = 0; i < in_size; i++) {
+            for (size_t i = 0; i < in.size(); i++) {
                 switch (parse_flags[data.in[i] + 128]) {
                 case ParseFlags::DELIMITER:
                     if (!data.quote_escape) {
@@ -5016,7 +5058,7 @@ namespace csv {
                 case ParseFlags::NEWLINE:
                     if (!data.quote_escape) {
                         // End of record -> Write record
-                        if (i + 1 < in_size && in[i + 1] == '\n') // Catches CRLF (or LFLF)
+                        if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
                             ++i;
 
                         data.records.push_back(CSVRow(data.row_buffer));
@@ -5029,25 +5071,15 @@ namespace csv {
                 case ParseFlags::NOT_SPECIAL: {
                     size_t start, end;
 
-                    // Trim off leading whitespace
-                    while (i < in_size && ws_flags[in[i] + 128]) {
-                        i++;
-                    }
-
-                    start = i;
-
-                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-                    // sequences, use the loop below to avoid having to go through the outer
-                    // switch statement as much as possible
-                    while (i + 1 < in_size
-                        && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
-                        i++;
-                    }
-
-                    // Trim off trailing whitespace
-                    end = i;
-                    while (ws_flags[in[end] + 128]) {
-                        end--;
+                    if (!parse_not_special(
+                        in,
+                        parse_flags,
+                        ws_flags,
+                        i,
+                        start,
+                        end
+                    )) {
+                        break;
                     }
 
                     // Finally append text
