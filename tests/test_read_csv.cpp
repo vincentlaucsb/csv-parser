@@ -154,16 +154,26 @@ std::vector<std::string> make_whitespace_test_cases() {
     test_cases.push_back(ss.str());
     ss.clear();
 
+    // Lots of Whitespace
     ss << "1, two,3" << std::endl
         << "4,                    ,5" << std::endl
-        << " ,6, " << std::endl
+        << "         ,6,       " << std::endl
         << "7,8,9 " << std::endl;
     test_cases.push_back(ss.str());
     ss.clear();
 
+    // Same as above but there's whitespace around 6
+    ss << "1, two,3" << std::endl
+        << "4,                    ,5" << std::endl
+        << "         , 6 ,       " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Tabs
     ss << "1, two,3" << std::endl
         << "4, \t ,5" << std::endl
-        << " ,6, " << std::endl
+        << "\t\t\t\t\t ,6, \t " << std::endl
         << "7,8,9 " << std::endl;
     test_cases.push_back(ss.str());
     ss.clear();
