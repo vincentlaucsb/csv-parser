@@ -51,6 +51,11 @@ add_subdirectory("programs")
 
 ## Developer settings
 if (CSV_DEVELOPER)
+    # Allow for performance profiling
+    if (MSVC)
+	    target_link_options(csv PUBLIC /PROFILE)
+    endif()
+
     # Generate a single header library
     find_package(Python3 QUIET)
     if(Python3_Interpreter_FOUND)
