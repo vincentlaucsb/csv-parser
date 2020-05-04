@@ -89,9 +89,9 @@ namespace csv {
             start = i;
 
             // Case: This field is entirely whitespace
-            if (parse_flags[in[start] + 128] == ParseFlags::DELIMITER) {
+            if (parse_flags[in[start] + 128] >= ParseFlags::DELIMITER) {
                 // Back the parser up one character so switch statement
-                // can process the delimiter
+                // can process the delimiter or newline
                 i--;
                 return false;
             }

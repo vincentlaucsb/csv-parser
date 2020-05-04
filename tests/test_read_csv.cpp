@@ -143,37 +143,69 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     }
 }
 
-TEST_CASE("Test Whitespace Trimming w/ Empty Fields") {
-    CSVFormat format;
-    format.column_names({ "A", "B", "C" })
-        .trim({ ' ' });
+std::vector<std::string> make_whitespace_test_cases() {
+    std::vector<std::string> test_cases = {};
+    std::stringstream ss;
 
-    std::stringstream csv_string;
-    csv_string << "1, two,3" << std::endl
+    ss << "1, two,3" << std::endl
         << "4, ,5" << std::endl
-        << "6,7,8 " << std::endl;
+        << " ,6, " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
 
-    auto rows = parse(csv_string.str(), format);
-    CSVRow row;
+    ss << "1, two,3" << std::endl
+        << "4,                    ,5" << std::endl
+        << " ,6, " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
 
-    // First Row
-    rows.read_row(row);
-    REQUIRE(row[0].get<uint32_t>() == 1);
-    REQUIRE(row[1].get<std::string>() == "two");
-    REQUIRE(row[2].get<uint32_t>() == 3);
+    ss << "1, two,3" << std::endl
+        << "4, \t ,5" << std::endl
+        << " ,6, " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
 
-    // Second Row
-    rows.read_row(row);
+    return test_cases;
+}
 
-    REQUIRE(row[0].get<uint32_t>() == 4);
-    REQUIRE(row[1].is_null());
-    REQUIRE(row[2].get<uint32_t>() == 5);
+TEST_CASE("Test Whitespace Trimming w/ Empty Fields") {
+    auto csv_string = GENERATE(from_range(make_whitespace_test_cases()));
 
-    // Third Row
-    rows.read_row(row);
-    REQUIRE(row[0].get<uint32_t>() == 6);
-    REQUIRE(row[1].get<uint32_t>() == 7);
-    REQUIRE(row[2].get<uint32_t>() == 8);
+    SECTION("Parse Test") {
+        CSVFormat format;
+        format.column_names({ "A", "B", "C" })
+            .trim({ ' ', '\t' });
+
+        auto rows = parse(csv_string, format);
+        CSVRow row;
+
+        // First Row
+        rows.read_row(row);
+        REQUIRE(row[0].get<uint32_t>() == 1);
+        REQUIRE(row[1].get<std::string>() == "two");
+        REQUIRE(row[2].get<uint32_t>() == 3);
+
+        // Second Row
+        rows.read_row(row);
+        REQUIRE(row[0].get<uint32_t>() == 4);
+        REQUIRE(row[1].is_null());
+        REQUIRE(row[2].get<uint32_t>() == 5);
+
+        // Third Row
+        rows.read_row(row);
+        REQUIRE(row[0].is_null());
+        REQUIRE(row[1].get<uint32_t>() == 6);
+        REQUIRE(row[2].is_null());
+
+        // Fourth Row
+        rows.read_row(row);
+        REQUIRE(row[0].get<uint32_t>() == 7);
+        REQUIRE(row[1].get<uint32_t>() == 8);
+        REQUIRE(row[2].get<uint32_t>() == 9);
+    }
 }
 
 TEST_CASE("Test Variable Row Length Handling", "[read_csv_var_len]") {
