@@ -48,7 +48,7 @@ var searchData=
   ['csvguessresult',['CSVGuessResult',['../structcsv_1_1CSVGuessResult.html',1,'csv']]],
   ['csvreader',['CSVReader',['../classcsv_1_1CSVReader.html',1,'csv']]],
   ['csvreader',['CSVReader',['../classcsv_1_1CSVReader.html#ac69d11b3a959b5f640915f78667de0cc',1,'csv::CSVReader::CSVReader(csv::string_view filename, CSVFormat format=CSVFormat::guess_csv())'],['../classcsv_1_1CSVReader.html#a22bc61934d3a278e786d62016e310f73',1,'csv::CSVReader::CSVReader(CSVFormat format=CSVFormat())']]],
-  ['csvrow',['CSVRow',['../classcsv_1_1CSVRow.html#a8131c7b028c334461d9a7ef28519844f',1,'csv::CSVRow::CSVRow(const internals::BufferPtr &amp;_buffer)'],['../classcsv_1_1CSVRow.html#aa2d47caeb0b5dd443d1104004a7f39ef',1,'csv::CSVRow::CSVRow(const std::string &amp;str, const std::vector&lt; unsigned short &gt; &amp;splits, const std::shared_ptr&lt; internals::ColNames &gt; &amp;col_names)']]],
+  ['csvrow',['CSVRow',['../classcsv_1_1CSVRow.html#a8131c7b028c334461d9a7ef28519844f',1,'csv::CSVRow::CSVRow(const internals::BufferPtr &amp;_buffer)'],['../classcsv_1_1CSVRow.html#ad89c159eba80602bee7a903a75c8f82f',1,'csv::CSVRow::CSVRow(const std::string &amp;str, const std::vector&lt; internals::StrBufferPos &gt; &amp;splits, const std::shared_ptr&lt; internals::ColNames &gt; &amp;col_names)']]],
   ['csvrow',['CSVRow',['../classcsv_1_1CSVRow.html',1,'csv']]],
   ['csvstat',['CSVStat',['../classcsv_1_1CSVStat.html#a2cec7de1953c190edb0afc5e53c44dff',1,'csv::CSVStat']]],
   ['csvstat',['CSVStat',['../classcsv_1_1CSVStat.html',1,'csv']]],

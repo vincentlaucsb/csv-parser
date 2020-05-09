@@ -107,6 +107,12 @@ $(document).ready(function(){initNavTree('md_docs_source_scientific_notation.htm
 <div class="line">    <span class="comment">// Test parsing e notation</span></div>
 <div class="line">    <span class="keywordtype">long</span> <span class="keywordtype">double</span> out;</div>
 <div class="line"></div>
+<div class="line">    REQUIRE(<a class="code" href="namespacecsv_1_1internals.html#a6e831b98e89648880f2f0f3513f0ac5e">data_type</a>(<span class="stringliteral">&quot;1E-06&quot;</span>, &amp;out) == <a class="code" href="namespacecsv.html#a1a3911f2387412df696be542923ef62dab3d65c9d92407cff831c0c74cc7dc544">CSV_DOUBLE</a>);</div>
+<div class="line">    REQUIRE(<a class="code" href="namespacecsv_1_1internals.html#a58c079eba0388b1aea5a260b2f426482">is_equal</a>(out, 0.000001L));</div>
+<div class="line"></div>
+<div class="line">    REQUIRE(<a class="code" href="namespacecsv_1_1internals.html#a6e831b98e89648880f2f0f3513f0ac5e">data_type</a>(<span class="stringliteral">&quot;1e-06&quot;</span>, &amp;out) == <a class="code" href="namespacecsv.html#a1a3911f2387412df696be542923ef62dab3d65c9d92407cff831c0c74cc7dc544">CSV_DOUBLE</a>);</div>
+<div class="line">    REQUIRE(<a class="code" href="namespacecsv_1_1internals.html#a58c079eba0388b1aea5a260b2f426482">is_equal</a>(out, 0.000001L));</div>
+<div class="line"></div>
 <div class="line">    REQUIRE(<a class="code" href="namespacecsv_1_1internals.html#a6e831b98e89648880f2f0f3513f0ac5e">data_type</a>(<span class="stringliteral">&quot;2.17222E+02&quot;</span>, &amp;out) == <a class="code" href="namespacecsv.html#a1a3911f2387412df696be542923ef62dab3d65c9d92407cff831c0c74cc7dc544">CSV_DOUBLE</a>);</div>
 <div class="line">    REQUIRE(<a class="code" href="namespacecsv_1_1internals.html#a58c079eba0388b1aea5a260b2f426482">is_equal</a>(out, 217.222L));</div>
 <div class="line"></div>

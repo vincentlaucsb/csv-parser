@@ -7,5 +7,5 @@ var row__buffer_8hpp =
     [ "BufferPtr", "row__buffer_8hpp.html#ae2ccb465f20eaa988d122ab6c9e844d3", null ],
     [ "ColNamesPtr", "row__buffer_8hpp.html#aee0535412f74c91fc545b34e395c6db0", null ],
     [ "SplitArray", "row__buffer_8hpp.html#aa49533811bdad3028b82f05e77d0dc07", null ],
-    [ "StrBufferPos", "row__buffer_8hpp.html#aba9d50fcb6a92d49717aaba1dec92567", null ]
+    [ "StrBufferPos", "row__buffer_8hpp.html#ada5af52fc28d4ffb1bfe9510a6cd6db5", null ]
 ];
