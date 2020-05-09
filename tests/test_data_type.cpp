@@ -109,6 +109,12 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     // Test parsing e notation
     long double out;
 
+    REQUIRE(data_type("1E-06", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.000001L));
+
+    REQUIRE(data_type("1e-06", &out) == CSV_DOUBLE);
+    REQUIRE(is_equal(out, 0.000001L));
+
     REQUIRE(data_type("2.17222E+02", &out) == CSV_DOUBLE);
     REQUIRE(is_equal(out, 217.222L));
 

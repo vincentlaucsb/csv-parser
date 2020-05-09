@@ -6,9 +6,6 @@ target_link_libraries(csv_stats csv)
 
 # Provide rudimentary benchmarks
 if(CSV_DEVELOPER)
-	add_executable(bug92 ${CMAKE_CURRENT_LIST_DIR}/bug92.cpp)
-	target_link_libraries(bug92 csv)
-
 	add_executable(csv_guess_bench ${CMAKE_CURRENT_LIST_DIR}/csv_guess_bench.cpp)
 	target_link_libraries(csv_guess_bench csv)
 
