@@ -58,8 +58,8 @@ namespace csv {
         {
             const size_t head_idx = this->current_split_idx,
                 new_split_idx = this->split_buffer.size();
-            unsigned short n_cols = (new_split_idx - head_idx > 0) ?
-                (unsigned short)(new_split_idx - head_idx + 1): 0;
+            StrBufferPos n_cols = (new_split_idx - head_idx > 0) ?
+                (StrBufferPos)(new_split_idx - head_idx + 1): 0;
 
             this->current_split_idx = new_split_idx;
             return ColumnPositions(head_idx, n_cols);
