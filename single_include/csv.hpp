@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.3.1
+CSV for C++, version 1.3.2
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -28,6 +28,7 @@ SOFTWARE.
 
 #ifndef CSV_HPP
 #define CSV_HPP
+
 
 // Copyright 2017-2019 by Martin Moene
 //
@@ -3427,7 +3428,8 @@ namespace csv {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT8 && result <= CSV_DOUBLE) {
+            // Exponents in scientific notation should not be decimal numbers
+            if (result >= CSV_INT8 && result < CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -3518,8 +3520,9 @@ namespace csv {
                 case 'e':
                 case 'E':
                     // Process scientific notation
-                    if (prob_float) {
+                    if (prob_float || isdigit(in[i - 1])) {
                         size_t exponent_start_idx = i + 1;
+                        prob_float = true;
 
                         // Strip out plus sign
                         if (in[i + 1] == '+') {
@@ -3677,7 +3680,7 @@ namespace csv {
         struct ColNames;
         using BufferPtr = std::shared_ptr<RawRowBuffer>;
         using ColNamesPtr = std::shared_ptr<ColNames>;
-        using StrBufferPos = unsigned short;
+        using StrBufferPos = size_t;
         using SplitArray = std::vector<StrBufferPos>;
 
         /** @struct ColNames
@@ -3767,7 +3770,7 @@ namespace csv {
 
         struct ColumnPositions {
             ColumnPositions() = default;
-            constexpr ColumnPositions(size_t _start, unsigned short _size) : start(_start), n_cols(_size) {};
+            constexpr ColumnPositions(size_t _start, StrBufferPos _size) : start(_start), n_cols(_size) {};
             size_t start;                /**< Where in split_buffer the array of column positions begins */
             size_t n_cols;               /**< Number of columns */
         };
@@ -3967,7 +3970,7 @@ namespace csv {
         CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
 
         /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<unsigned short>& splits,
+        CSVRow(const std::string& str, const std::vector<internals::StrBufferPos>& splits,
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
@@ -5050,7 +5053,7 @@ namespace csv {
                 switch (parse_flags[data.in[i] + 128]) {
                 case ParseFlags::DELIMITER:
                     if (!data.quote_escape) {
-                        split_buffer.push_back((unsigned short)row_buffer.size());
+                        split_buffer.push_back((internals::StrBufferPos)row_buffer.size());
                         break;
                     }
 
@@ -6013,8 +6016,8 @@ namespace csv {
         {
             const size_t head_idx = this->current_split_idx,
                 new_split_idx = this->split_buffer.size();
-            unsigned short n_cols = (new_split_idx - head_idx > 0) ?
-                (unsigned short)(new_split_idx - head_idx + 1): 0;
+            StrBufferPos n_cols = (new_split_idx - head_idx > 0) ?
+                (StrBufferPos)(new_split_idx - head_idx + 1): 0;
 
             this->current_split_idx = new_split_idx;
             return ColumnPositions(head_idx, n_cols);

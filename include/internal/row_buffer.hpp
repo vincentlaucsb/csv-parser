@@ -20,7 +20,7 @@ namespace csv {
         struct ColNames;
         using BufferPtr = std::shared_ptr<RawRowBuffer>;
         using ColNamesPtr = std::shared_ptr<ColNames>;
-        using StrBufferPos = unsigned short;
+        using StrBufferPos = size_t;
         using SplitArray = std::vector<StrBufferPos>;
 
         /** @struct ColNames
@@ -110,7 +110,7 @@ namespace csv {
 
         struct ColumnPositions {
             ColumnPositions() = default;
-            constexpr ColumnPositions(size_t _start, unsigned short _size) : start(_start), n_cols(_size) {};
+            constexpr ColumnPositions(size_t _start, StrBufferPos _size) : start(_start), n_cols(_size) {};
             size_t start;                /**< Where in split_buffer the array of column positions begins */
             size_t n_cols;               /**< Number of columns */
         };

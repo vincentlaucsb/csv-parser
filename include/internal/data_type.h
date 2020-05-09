@@ -194,7 +194,8 @@ namespace csv {
             long double exponent = 0;
             auto result = data_type(exponential_part, &exponent);
 
-            if (result >= CSV_INT8 && result <= CSV_DOUBLE) {
+            // Exponents in scientific notation should not be decimal numbers
+            if (result >= CSV_INT8 && result < CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
                 return CSV_DOUBLE;
             }
@@ -285,8 +286,9 @@ namespace csv {
                 case 'e':
                 case 'E':
                     // Process scientific notation
-                    if (prob_float) {
+                    if (prob_float || isdigit(in[i - 1])) {
                         size_t exponent_start_idx = i + 1;
+                        prob_float = true;
 
                         // Strip out plus sign
                         if (in[i + 1] == '+') {

@@ -19,7 +19,7 @@ namespace csv {
                 switch (parse_flags[data.in[i] + 128]) {
                 case ParseFlags::DELIMITER:
                     if (!data.quote_escape) {
-                        split_buffer.push_back((unsigned short)row_buffer.size());
+                        split_buffer.push_back((internals::StrBufferPos)row_buffer.size());
                         break;
                     }
 

@@ -190,7 +190,7 @@ namespace csv {
         CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
 
         /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<unsigned short>& splits,
+        CSVRow(const std::string& str, const std::vector<internals::StrBufferPos>& splits,
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 

@@ -375,4 +375,48 @@ timestamp,distance,angle,amplitude
 
     // Original issue: Leading comments appeared in column names
     REQUIRE(expected == reader.get_col_names());
+}   
+
+// Reported in: https://github.com/vincentlaucsb/csv-parser/issues/92
+TEST_CASE("Long Row Test", "[long_row_regression]") {
+    std::stringstream csv_string;
+    constexpr int n_cols = 100000;
+
+    // Make header row
+    for (int i = 0; i < n_cols; i++) {
+        csv_string << i;
+        if (i + 1 == n_cols) {
+            csv_string << std::endl;
+        }
+        else {
+            csv_string << ',';
+        }
+    }
+
+    // Make data row
+    for (int i = 0; i < n_cols; i++) {
+        csv_string << (double)i * 0.000001;
+        if (i + 1 == n_cols) {
+            csv_string << std::endl;
+        }
+        else {
+            csv_string << ',';
+        }
+    }
+
+    auto rows = parse(csv_string.str());
+    REQUIRE(rows.get_col_names().size() == n_cols);
+
+    CSVRow row;
+    rows.read_row(row);
+
+    int i = 0;
+
+    // Make sure all CSV fields are correct
+    for (auto& field : row) {
+        std::stringstream temp;
+        temp << (double)i * 0.000001;
+        REQUIRE(field.get<>() == temp.str());
+        i++;
+    }
 }

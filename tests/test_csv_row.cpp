@@ -16,7 +16,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
         "Col3"
         "Col4";
 
-    std::vector<unsigned short> splits = { 4, 8, 12 };
+    std::vector<internals::StrBufferPos> splits = { 4, 8, 12 };
 
     const CSVRow row(str, splits, col_names);
 
@@ -90,7 +90,7 @@ TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
         "3"
         "3.14";
 
-    std::vector<unsigned short> splits = { 1, 2, 3 };
+    std::vector<internals::StrBufferPos> splits = { 1, 2, 3 };
     CSVRow row(str, splits, col_names);
 
     REQUIRE(row["A"] == 1);
