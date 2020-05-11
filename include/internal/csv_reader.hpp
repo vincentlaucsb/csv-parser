@@ -28,7 +28,6 @@ namespace csv {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
 
         std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
-        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     }
 
     std::vector<std::string> get_col_names(

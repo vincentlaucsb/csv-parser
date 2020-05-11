@@ -15,7 +15,7 @@ namespace csv {
     /** Determines how to handle rows that are shorter or longer than the majority */
     enum class VariableColumnPolicy {
         THROW = -1,
-        IGNORE = 0,
+        IGNORE_ROW = 0,
         KEEP   = 1
     };
 
@@ -72,7 +72,7 @@ namespace csv {
         CSVFormat& header_row(int row);
 
         /** Tells the parser how to handle columns of a different length than the others */
-        CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE) {
+        CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE_ROW) {
             this->variable_column_policy = policy;
             return *this;
         }
@@ -142,7 +142,7 @@ namespace csv {
         std::vector<std::string> col_names = {};
 
         /**< Allow variable length columns? */
-        VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE;
+        VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE_ROW;
 
         /**< Detect and strip out Unicode byte order marks */
         bool unicode_detect = true;

@@ -70,6 +70,15 @@ namespace csv {
             return ret;
         }
 
+        struct GuessScore {
+            double score;
+            size_t header;
+        };
+
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
+
+        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
+
         /** Parse a CSV field until a delimiter is hit
          *  @return A value indicating whether or not text to be
          *          saved to the text buffer
