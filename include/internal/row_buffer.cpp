@@ -44,9 +44,9 @@ namespace csv {
         /** Get the current row in the buffer
          *  @note Has the side effect of updating the current end pointer
          */
-        CSV_INLINE csv::string_view RawRowBuffer::get_row_string() {
-            csv::string_view ret(
-                this->buffer.c_str() + this->current_end, // Beginning of string
+        CSV_INLINE std::pair<size_t, size_t> RawRowBuffer::get_row_string() {
+            auto ret = std::make_pair(
+                this->current_end, // Beginning of string
                 (this->buffer.size() - this->current_end) // Count
             );
 

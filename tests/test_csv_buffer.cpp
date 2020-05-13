@@ -8,6 +8,7 @@ size_t split_at(BufferPtr buffer, ColumnPositions pos, int n) {
     return buffer->split_buffer[pos.start + n];
 }
 
+/**
 TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {
     BufferPtr buffer = BufferPtr(new RawRowBuffer());
 
@@ -25,6 +26,7 @@ TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {
     REQUIRE(second_row == "5678");
     REQUIRE(third_row == "abcd");
 }
+*/
 
 TEST_CASE("GiantSplitBufferTest", "[test_giant_split_buffer]") {
     BufferPtr buffer = BufferPtr(new RawRowBuffer());

@@ -194,8 +194,13 @@ namespace csv {
             const std::shared_ptr<internals::ColNames>& col_names)
             : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
 
+        /** Retrieve a string view over this row's data */
+        CSV_INLINE csv::string_view row_str() const {
+            return csv::string_view(this->buffer->buffer.c_str() + this->data.row_str.first, this->data.row_str.second);
+        }
+
         /** Indicates whether row is empty or not */
-        CONSTEXPR bool empty() const { return this->data.row_str.empty(); }
+        CSV_INLINE bool empty() const { return this->row_str().empty(); }
 
         /** Return the number of fields in this row */
         CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
