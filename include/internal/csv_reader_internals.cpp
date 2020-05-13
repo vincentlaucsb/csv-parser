@@ -144,23 +144,22 @@ namespace csv {
                             // Case: Previous character was delimiter or newline
                             data.quote_escape = true;
                         }
-
-                        break;
                     }
+                    else if (i + 1 < in.size()) {
+                        auto next_ch = parse_flags[in[i + 1] + 128];
+                        if (next_ch >= ParseFlags::DELIMITER) {
+                            // Case: Delim or newline => end of field
+                            data.quote_escape = false;
+                            break;
+                        }
 
-                    auto next_ch = parse_flags[in[i + 1] + 128];
-                    if (next_ch >= ParseFlags::DELIMITER) {
-                        // Case: Delim or newline => end of field
-                        data.quote_escape = false;
-                        break;
+                        // Case: Escaped quote
+                        text_buffer += in[i];
+
+                        // Note: Unescaped single quotes can be handled by the parser
+                        if (next_ch == ParseFlags::QUOTE)
+                            ++i;  // Case: Two consecutive quotes
                     }
-
-                    // Case: Escaped quote
-                    text_buffer += in[i];
-
-                    // Note: Unescaped single quotes can be handled by the parser
-                    if (next_ch == ParseFlags::QUOTE)
-                        ++i;  // Case: Two consecutive quotes
 
                     break;
                 }

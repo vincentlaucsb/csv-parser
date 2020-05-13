@@ -83,6 +83,7 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
         "A,B,C\r\n" // Header row
         "123,\"234\"\"345\",456\r\n"
         "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
+        "123,\"234\"345\",\"456\"" // Quoted field at the end
     );
     
     auto rows = parse(csv_string);
@@ -94,6 +95,22 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     }
 }
 //! [Parse Example]
+
+TEST_CASE("Fragment Test", "[read_csv_fragments]") {
+    CSVReader reader;
+
+    reader.feed("A,B,C\r\n" // Header row
+        "123,\"234\"\"345\",456\r\n");
+    reader.feed("123,\"234\"345\",456\r\n"
+                "123,\"234\"345\",\"456\"");
+    reader.end_feed();
+
+    // Expected Results: Double " is an escape for a single "
+    vector<string> correct_row = { "123", "234\"345", "456" };
+    for (auto& row : reader) {
+        REQUIRE(vector<string>(row) == correct_row);
+    }
+}
 
 TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     auto row_str = GENERATE(as<std::string> {},

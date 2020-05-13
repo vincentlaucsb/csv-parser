@@ -286,7 +286,7 @@ namespace csv {
                 case 'e':
                 case 'E':
                     // Process scientific notation
-                    if (prob_float || isdigit(in[i - 1])) {
+                    if (prob_float || (i && i + 1 < ilen && isdigit(in[i - 1]))) {
                         size_t exponent_start_idx = i + 1;
                         prob_float = true;
 
