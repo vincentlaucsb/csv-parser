@@ -96,36 +96,6 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
 }
 //! [Parse Example]
 
-TEST_CASE("Test No Quote", "[read_no_quote]") {
-    string csv_string = (
-        "A,B,C\r\n" // Header row
-        "123,\"234\",456\r\n"
-    );
-
-    CSVFormat format;
-
-    SECTION("No Quote") {
-        format.no_quote();
-        auto rows = parse(csv_string, format);
-
-        // Expected Results: Double " is an escape for a single "
-        vector<string> correct_row = { "123", "\"234\"", "456" };
-        for (auto& row : rows) {
-            REQUIRE(vector<string>(row) == correct_row);
-        }
-    }
-
-    SECTION("With Quoting") {
-        format.quote('"');
-        auto rows = parse(csv_string, format);
-
-        vector<string> correct_row = { "123", "234", "456" };
-        for (auto& row : rows) {
-            REQUIRE(vector<string>(row) == correct_row);
-        }
-    }
-}
-
 TEST_CASE("Fragment Test", "[read_csv_fragments]") {
     CSVReader reader;
 

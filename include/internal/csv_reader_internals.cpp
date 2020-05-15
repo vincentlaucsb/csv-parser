@@ -17,7 +17,7 @@ namespace csv {
 
             internals::parse({
                 head,
-                internals::make_parse_flags({ format.get_delim(), '"' }),
+                internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags({}, 0),
                 buffer_ptr,
                 quote_escape,

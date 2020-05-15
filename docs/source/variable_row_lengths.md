@@ -1,17 +1,10 @@
-# Handling Variable Numbers of Columns
-Sometimes, the rows in a CSV are not all of the same length. Whether this was intentional or not, this library is built to handle all use cases.
+# Dealing with Variable Length CSV Rows
 
-```cpp
-CSVFormat format;
+`csv::CSVReader` generally assumes that most rows in a CSV are of the same length.
+If your CSV has important data stored in rows which may not be the same length
+as the others, then you may want to create your own subclass of CSVReader and
+override `bad_row_handler`.
 
-// Default: Silently ignoring rows with missing or extraneous columns
-format.variable_columns(false); // Short-hand
-format.variable_columns(VariableColumnPolicy::IGNORE_ROW);
-
-// Case 2: Keeping variable-length rows
-format.variable_columns(true); // Short-hand
-format.variable_columns(VariableColumnPolicy::KEEP);
-
-// Case 3: Throwing an error if variable-length rows are encountered
-format.variable_columns(VariableColumnPolicy::THROW);
-```
+## Examples
+ * csv::CSVReader::bad_row_handler
+ * csv::internals::CSVGuesser::Guesser::bad_row_handler()

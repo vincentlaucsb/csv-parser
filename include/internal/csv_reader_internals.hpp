@@ -26,26 +26,19 @@ namespace csv {
         using ParseFlagMap = std::array<ParseFlags, 256>;
         using WhitespaceMap = std::array<bool, 256>;
 
-        /** Options for generating parse flags */
-        struct ParseFlagOptions {
-            char delimiter;
-            char quote_char;
-            bool no_quote;
-        };
-
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(const ParseFlagOptions& opts) {
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
             std::array<ParseFlags, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
                 char ch = char(i);
 
-                if (ch == opts.delimiter)
+                if (ch == delimiter)
                     ret[arr_idx] = DELIMITER;
-                else if (!opts.no_quote && ch == opts.quote_char)
+                else if (ch == quote_char)
                     ret[arr_idx] = QUOTE;
                 else if (ch == '\r' || ch == '\n')
                     ret[arr_idx] = NEWLINE;

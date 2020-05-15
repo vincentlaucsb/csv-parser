@@ -118,12 +118,7 @@ namespace csv {
         struct RowData {
             RowData() = default;
 
-            /** Information about how to construct a string_view for this row consisting of 
-             *  the index of beginning of the string and the character count
-             */
             std::pair<size_t, size_t> row_str;
-
-            /** Information about how to retrieve index positions for this row */
             ColumnPositions col_pos;
         };
     }

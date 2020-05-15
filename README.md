@@ -246,7 +246,7 @@ CSVFormat format;
 
 // Default: Silently ignoring rows with missing or extraneous columns
 format.variable_columns(false); // Short-hand
-format.variable_columns(VariableColumnPolicy::IGNORE_ROW);
+format.variable_columns(VariableColumnPolicy::IGNORE);
 
 // Case 2: Keeping variable-length rows
 format.variable_columns(true); // Short-hand

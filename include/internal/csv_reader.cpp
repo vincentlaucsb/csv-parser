@@ -41,7 +41,7 @@ namespace csv {
 
             internals::parse({
                 head,
-                internals::make_parse_flags({ format.get_delim(), '"' }),
+                internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
                 buffer_ptr,
                 quote_escape,
@@ -84,7 +84,7 @@ namespace csv {
         }
         
         this->format = format;
-        parse_flags = internals::make_parse_flags({ format.get_delim(), format.quote_char, format._no_quote });
+        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     }
 
@@ -120,7 +120,7 @@ namespace csv {
         }
 
         this->format = format;
-        parse_flags = internals::make_parse_flags({ format.get_delim(), format.quote_char, format._no_quote });
+        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
         ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
         this->fopen(filename);
