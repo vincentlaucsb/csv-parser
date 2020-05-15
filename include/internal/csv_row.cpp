@@ -20,7 +20,7 @@ namespace csv {
 
         // First assume that field comprises entire row, then adjust accordingly
         size_t beg = 0,
-            end = this->row_str().size(),
+            end = this->data.row_str.second,
             r_size = this->size();
 
         if (n >= r_size)
