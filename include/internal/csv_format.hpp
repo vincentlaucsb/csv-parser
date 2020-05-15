@@ -71,6 +71,12 @@ namespace csv {
          */
         CSVFormat& header_row(int row);
 
+        /** Turns off the quote character */
+        CONSTEXPR CSVFormat& no_quote() {
+            this->_no_quote = true;
+            return *this;
+        }
+
         /** Tells the parser how to handle columns of a different length than the others */
         CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE_ROW) {
             this->variable_column_policy = policy;
@@ -134,6 +140,9 @@ namespace csv {
 
         /**< Row number with columns (ignored if col_names is non-empty) */
         int header = 0;
+
+        /**< Don't use a quote character */
+        bool _no_quote = false;
 
         /**< Quote character */
         char quote_char = '"';
