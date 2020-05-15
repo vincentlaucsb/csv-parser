@@ -41,7 +41,7 @@ namespace csv {
 
             internals::parse({
                 head,
-                internals::make_parse_flags({ format.get_delim(), '"', format.is_no_quote() }),
+                internals::make_parse_flags({ format.get_delim(), '"' }),
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
                 buffer_ptr,
                 quote_escape,
