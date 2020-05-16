@@ -8,18 +8,36 @@ size_t split_at(BufferPtr buffer, ColumnPositions pos, int n) {
     return buffer->split_buffer[pos.start + n];
 }
 
+std::string get_string(
+    const std::string& buffer,
+    const std::pair<size_t, size_t>& row_str) {
+    return std::string(
+        buffer.c_str() + row_str.first, // Beginning
+        row_str.second // Count
+    );
+}
+
 TEST_CASE("GiantStringBufferTest", "[test_giant_string_buffer]") {
     BufferPtr buffer = BufferPtr(new RawRowBuffer());
 
     buffer->buffer.append("1234");
-    std::string first_row = std::string(buffer->get_row().row_str);
+    std::string first_row = get_string(
+        buffer->buffer,
+        buffer->get_row().row_str
+    );
 
     buffer->buffer.append("5678");
-    std::string second_row = std::string(buffer->get_row().row_str);
+    std::string second_row = get_string(
+        buffer->buffer,
+        buffer->get_row().row_str
+    );
 
     buffer = buffer->reset();
     buffer->buffer.append("abcd");
-    std::string third_row = std::string(buffer->get_row().row_str);
+    std::string third_row = get_string(
+        buffer->buffer,
+        buffer->get_row().row_str
+    );
 
     REQUIRE(first_row == "1234");
     REQUIRE(second_row == "5678");

@@ -101,7 +101,7 @@ namespace csv {
             ColNamesPtr col_names = nullptr; /**< Pointer to column names */
 
         private:
-            csv::string_view get_row_string();   /**< Return a string_view over the current_row */
+            std::pair<size_t, size_t> get_row_string();   /**< Return information needed to construct a string_view over the current_row */
             ColumnPositions get_splits();        /**< Return the field start positions for the current row */
 
             size_t current_end = 0;          /**< Where we are currently in the text buffer */
@@ -118,7 +118,7 @@ namespace csv {
         struct RowData {
             RowData() = default;
 
-            csv::string_view row_str;
+            std::pair<size_t, size_t> row_str;
             ColumnPositions col_pos;
         };
     }

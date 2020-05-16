@@ -22,7 +22,7 @@ namespace csv {
                 buffer_ptr,
                 quote_escape,
                 rows
-                });
+            });
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];
