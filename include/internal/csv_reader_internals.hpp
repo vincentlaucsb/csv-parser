@@ -30,7 +30,7 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter) {
             std::array<ParseFlags, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -38,14 +38,22 @@ namespace csv {
 
                 if (ch == delimiter)
                     ret[arr_idx] = DELIMITER;
-                else if (ch == quote_char)
-                    ret[arr_idx] = QUOTE;
                 else if (ch == '\r' || ch == '\n')
                     ret[arr_idx] = NEWLINE;
                 else
                     ret[arr_idx] = NOT_SPECIAL;
             }
 
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+            std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
+            ret[(size_t)quote_char + 128] = QUOTE;
             return ret;
         }
 

@@ -215,6 +215,7 @@ CSVFormat format;
 format.delimiter('\t')
       .quote('~')
       .header_row(2);  // Header is on 3rd row (zero-indexed)
+      // .quote(false)  Turn off quoting 
 
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out

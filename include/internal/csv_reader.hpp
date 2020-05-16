@@ -144,6 +144,7 @@ namespace csv {
         ///@}
 
         void close();
+
     protected:
         /**
          * \defgroup csv_internal CSV Parser Internals
@@ -223,5 +224,9 @@ namespace csv {
         ///@} 
 
         /**@}*/ // End of parser internals
+
+    private:
+        /** Set parse and whitespace flags */
+        void set_parse_flags(const CSVFormat& format);
     };
 }

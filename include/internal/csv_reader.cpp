@@ -32,6 +32,11 @@ namespace csv {
          *
          */
         CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
+            auto parse_flags = internals::make_parse_flags(format.get_delim());
+            if (format.is_quoting_enabled()) {
+                parse_flags = internals::make_parse_flags(format.get_delim(), format.get_quote_char());
+            }
+
             // Parse the CSV
             auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
             auto trim_chars = format.get_trim_chars();
@@ -41,7 +46,7 @@ namespace csv {
 
             internals::parse({
                 head,
-                internals::make_parse_flags(format.get_delim(), '"'),
+                parse_flags,
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
                 buffer_ptr,
                 quote_escape,
@@ -83,9 +88,7 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
         
-        this->format = format;
-        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-        ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+        this->set_parse_flags(format);
     }
 
     /** Allows reading a CSV file in chunks, using overlapped
@@ -119,10 +122,7 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
 
-        this->format = format;
-        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-        ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
-
+        this->set_parse_flags(format);
         this->fopen(filename);
     }
 
@@ -232,6 +232,19 @@ namespace csv {
             lock.unlock();      // Release lock
             this->feed(std::move(in));
         }
+    }
+
+    void CSVReader::set_parse_flags(const CSVFormat& format)
+    {
+        this->format = format;
+        if (format.no_quote) {
+            this->parse_flags = internals::make_parse_flags(format.get_delim());
+        }
+        else {
+            this->parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+        }
+
+        this->ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     }
 
     CSV_INLINE void CSVReader::fopen(csv::string_view filename) {

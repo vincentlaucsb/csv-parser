@@ -11,6 +11,10 @@ using namespace csv;
 using std::vector;
 using std::string;
 
+TEST_CASE( "Test Parse Flags", "[test_parse_flags]" ) {
+    REQUIRE(internals::make_parse_flags(',', '"')[162] == internals::ParseFlags::QUOTE);
+}
+
 // Test Main Functions
 TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     auto rows = "A,B,C\r\n" // Header row

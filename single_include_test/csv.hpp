@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.3.2
+CSV for C++, version 1.3.3
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -30,7 +30,6 @@ SOFTWARE.
 #define CSV_HPP
 
 
-#endif
 // Copyright 2017-2019 by Martin Moene
 //
 // string-view lite, a C++17-like string_view for C++98 and later.
@@ -2999,6 +2998,12 @@ namespace csv {
          */
         CSVFormat& header_row(int row);
 
+        /** Turn quoting on or off */
+        CSVFormat& quote(bool use_quote) {
+            this->no_quote = !use_quote;
+            return *this;
+        }
+
         /** Tells the parser how to handle columns of a different length than the others */
         CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE_ROW) {
             this->variable_column_policy = policy;
@@ -3027,6 +3032,8 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
+        CONSTEXPR bool is_quoting_enabled() const { return !this->no_quote; }
+        CONSTEXPR char get_quote_char() const { return this->quote_char; }
         CONSTEXPR int get_header() const { return this->header; }
         std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
         std::vector<char> get_trim_chars() const { return this->trim_chars; }
@@ -3062,6 +3069,9 @@ namespace csv {
 
         /**< Row number with columns (ignored if col_names is non-empty) */
         int header = 0;
+
+        /**< Whether or not to use quoting */
+        bool no_quote = false;
 
         /**< Quote character */
         char quote_char = '"';
@@ -4145,7 +4155,7 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter) {
             std::array<ParseFlags, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -4153,14 +4163,22 @@ namespace csv {
 
                 if (ch == delimiter)
                     ret[arr_idx] = DELIMITER;
-                else if (ch == quote_char)
-                    ret[arr_idx] = QUOTE;
                 else if (ch == '\r' || ch == '\n')
                     ret[arr_idx] = NEWLINE;
                 else
                     ret[arr_idx] = NOT_SPECIAL;
             }
 
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+            std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
+            ret[(size_t)quote_char + 128] = QUOTE;
             return ret;
         }
 
@@ -4391,6 +4409,7 @@ namespace csv {
         ///@}
 
         void close();
+
     protected:
         /**
          * \defgroup csv_internal CSV Parser Internals
@@ -4470,6 +4489,10 @@ namespace csv {
         ///@} 
 
         /**@}*/ // End of parser internals
+
+    private:
+        /** Set parse and whitespace flags */
+        void set_parse_flags(const CSVFormat& format);
     };
 }
 /** @file
@@ -4545,6 +4568,7 @@ namespace csv {
     }
 
     CSV_INLINE CSVFormat& CSVFormat::quote(char quote) {
+        this->no_quote = false;
         this->quote_char = quote;
         this->assert_no_char_overlap();
         return *this;
@@ -4643,6 +4667,11 @@ namespace csv {
          *
          */
         CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
+            auto parse_flags = internals::make_parse_flags(format.get_delim());
+            if (format.is_quoting_enabled()) {
+                parse_flags = internals::make_parse_flags(format.get_delim(), format.get_quote_char());
+            }
+
             // Parse the CSV
             auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
             auto trim_chars = format.get_trim_chars();
@@ -4652,7 +4681,7 @@ namespace csv {
 
             internals::parse({
                 head,
-                internals::make_parse_flags(format.get_delim(), '"'),
+                parse_flags,
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
                 buffer_ptr,
                 quote_escape,
@@ -4694,9 +4723,7 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
         
-        this->format = format;
-        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-        ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+        this->set_parse_flags(format);
     }
 
     /** Allows reading a CSV file in chunks, using overlapped
@@ -4730,10 +4757,7 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
 
-        this->format = format;
-        parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-        ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
-
+        this->set_parse_flags(format);
         this->fopen(filename);
     }
 
@@ -4843,6 +4867,19 @@ namespace csv {
             lock.unlock();      // Release lock
             this->feed(std::move(in));
         }
+    }
+
+    void CSVReader::set_parse_flags(const CSVFormat& format)
+    {
+        this->format = format;
+        if (format.no_quote) {
+            this->parse_flags = internals::make_parse_flags(format.get_delim());
+        }
+        else {
+            this->parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+        }
+
+        this->ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
     }
 
     CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
@@ -5002,7 +5039,7 @@ namespace csv {
                 buffer_ptr,
                 quote_escape,
                 rows
-                });
+            });
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];
@@ -6076,3 +6113,4 @@ namespace csv {
     }
 }
 
+#endif

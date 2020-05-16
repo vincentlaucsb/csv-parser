@@ -21,6 +21,7 @@ namespace csv {
     }
 
     CSV_INLINE CSVFormat& CSVFormat::quote(char quote) {
+        this->no_quote = false;
         this->quote_char = quote;
         this->assert_no_char_overlap();
         return *this;

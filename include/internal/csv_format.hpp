@@ -71,6 +71,12 @@ namespace csv {
          */
         CSVFormat& header_row(int row);
 
+        /** Turn quoting on or off */
+        CSVFormat& quote(bool use_quote) {
+            this->no_quote = !use_quote;
+            return *this;
+        }
+
         /** Tells the parser how to handle columns of a different length than the others */
         CONSTEXPR CSVFormat& variable_columns(VariableColumnPolicy policy = VariableColumnPolicy::IGNORE_ROW) {
             this->variable_column_policy = policy;
@@ -99,6 +105,8 @@ namespace csv {
             return this->possible_delimiters.at(0);
         }
 
+        CONSTEXPR bool is_quoting_enabled() const { return !this->no_quote; }
+        CONSTEXPR char get_quote_char() const { return this->quote_char; }
         CONSTEXPR int get_header() const { return this->header; }
         std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
         std::vector<char> get_trim_chars() const { return this->trim_chars; }
@@ -134,6 +142,9 @@ namespace csv {
 
         /**< Row number with columns (ignored if col_names is non-empty) */
         int header = 0;
+
+        /**< Whether or not to use quoting */
+        bool no_quote = false;
 
         /**< Quote character */
         char quote_char = '"';
