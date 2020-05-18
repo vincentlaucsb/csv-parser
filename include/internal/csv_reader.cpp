@@ -234,7 +234,7 @@ namespace csv {
         }
     }
 
-    void CSVReader::set_parse_flags(const CSVFormat& format)
+    CSV_INLINE void CSVReader::set_parse_flags(const CSVFormat& format)
     {
         this->format = format;
         if (format.no_quote) {
