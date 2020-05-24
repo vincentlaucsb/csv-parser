@@ -17,6 +17,11 @@
 
 namespace csv {
     namespace internals {
+        // PAGE_SIZE macro could be already defined by the host system.
+        #if defined(PAGE_SIZE)
+        #undef PAGE_SIZE
+        #endif
+
         // Get operating system specific details
         #if defined(_WIN32)
             inline int getpagesize() {

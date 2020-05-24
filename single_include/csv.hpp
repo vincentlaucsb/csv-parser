@@ -30,6 +30,7 @@ SOFTWARE.
 #define CSV_HPP
 
 
+#endif
 // Copyright 2017-2019 by Martin Moene
 //
 // string-view lite, a C++17-like string_view for C++98 and later.
@@ -3604,6 +3605,11 @@ namespace csv {
 
 namespace csv {
     namespace internals {
+        // PAGE_SIZE macro could be already defined by the host system.
+        #if defined(PAGE_SIZE)
+        #undef PAGE_SIZE
+        #endif
+
         // Get operating system specific details
         #if defined(_WIN32)
             inline int getpagesize() {
@@ -4546,6 +4552,67 @@ namespace csv {
     };
 }
 
+#include <vector>
+
+
+namespace csv {
+    /** Shorthand function for parsing an in-memory CSV string,
+     *  a collection of CSVRow objects
+     *
+     *  @snippet tests/test_read_csv.cpp Parse Example
+     */
+    CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
+        CSVReader parser(format);
+        parser.feed(in);
+        parser.end_feed();
+        return parser;
+    }
+
+    /** Parse a RFC 4180 CSV string, returning a collection
+     *  of CSVRow objects
+     *
+     *  @par Example
+     *  @snippet tests/test_read_csv.cpp Escaped Comma
+     *
+     */
+    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
+        return parse(csv::string_view(in, n));
+    }
+
+    /**
+     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] col_name  Column whose position we should resolve
+     *  @param[in] format    Format of the CSV file
+     */
+    CSV_INLINE int get_col_pos(
+        const std::string filename,
+        const std::string col_name,
+        const CSVFormat format) {
+        CSVReader reader(filename, format);
+        return reader.index_of(col_name);
+    }
+
+    /** Get basic information about a CSV file
+     *  @include programs/csv_info.cpp
+     */
+    CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
+        CSVReader reader(filename);
+        CSVFormat format = reader.get_format();
+        for (auto it = reader.begin(); it != reader.end(); ++it);
+
+        CSVFileInfo info = {
+            filename,
+            reader.get_col_names(),
+            format.get_delim(),
+            reader.num_rows,
+            (int)reader.get_col_names().size()
+        };
+
+        return info;
+    }
+}
 /** @file
  *  Defines an object used to store CSV format settings
  */
@@ -4633,6 +4700,342 @@ namespace csv {
 
             throw std::runtime_error(err_msg + '.');
         }
+    }
+}
+/** @file
+ *  Defines an object which can store CSV data in
+ *  continuous regions of memory
+ */
+
+
+namespace csv {
+    namespace internals {
+        //////////////
+        // ColNames //
+        //////////////
+        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
+            return this->col_names;
+        }
+
+        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
+            this->col_names = cnames;
+
+            for (size_t i = 0; i < cnames.size(); i++) {
+                this->col_pos[cnames[i]] = i;
+            }
+        }
+
+        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
+            auto pos = this->col_pos.find(col_name.data());
+            if (pos != this->col_pos.end())
+                return (int)pos->second;
+
+            return CSV_NOT_FOUND;
+        }
+
+        CSV_INLINE size_t ColNames::size() const {
+            return this->col_names.size();
+        }
+
+        CSV_INLINE RowData RawRowBuffer::get_row() {
+            return {
+                this->get_row_string(),
+                this->get_splits()
+            };
+        }
+
+        /** Get the current row in the buffer
+         *  @note Has the side effect of updating the current end pointer
+         */
+        CSV_INLINE std::pair<size_t, size_t> RawRowBuffer::get_row_string() {
+            auto ret = std::make_pair(
+                this->current_end, // Beginning of string
+                (this->buffer.size() - this->current_end) // Count
+            );
+
+            this->current_end = this->buffer.size();
+            return ret;
+        }
+
+        CSV_INLINE ColumnPositions RawRowBuffer::get_splits()
+        {
+            const size_t head_idx = this->current_split_idx,
+                new_split_idx = this->split_buffer.size();
+            StrBufferPos n_cols = (new_split_idx - head_idx > 0) ?
+                (StrBufferPos)(new_split_idx - head_idx + 1): 0;
+
+            this->current_split_idx = new_split_idx;
+            return ColumnPositions(head_idx, n_cols);
+        }
+
+        CSV_INLINE size_t RawRowBuffer::size() const {
+            return this->buffer.size() - this->current_end;
+        }
+
+        CSV_INLINE size_t RawRowBuffer::splits_size() const {
+            return this->split_buffer.size() - this->current_split_idx;
+        }
+        
+        HEDLEY_WARN_UNUSED_RESULT CSV_INLINE
+        BufferPtr RawRowBuffer::reset() const {
+            // Save current row in progress
+            auto new_buff = BufferPtr(new RawRowBuffer());
+
+            // Save text
+            new_buff->buffer = this->buffer.substr(
+                this->current_end,   // Position
+                (this->buffer.size() - this->current_end) // Count
+            );
+
+            // Save split buffer in progress
+            for (size_t i = this->current_split_idx; i < this->split_buffer.size(); i++) {
+                new_buff->split_buffer.push_back(this->split_buffer[i]);
+            }
+
+            new_buff->col_names = this->col_names;
+
+            // No need to remove unnecessary bits from this buffer
+            // (memory savings would be marginal anyways)
+            return new_buff;
+        }
+    }
+}
+/** @file
+ *  Defines the data type used for storing information about a CSV row
+ */
+
+#include <cassert>
+#include <functional>
+
+namespace csv {
+    /** Return a string view of the nth field
+     *
+     *  @complexity
+     *  Constant
+     *
+     *  @throws
+     *  std::runtime_error If n is out of bounds
+     */
+    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
+        csv::string_view ret(this->row_str());
+
+        // First assume that field comprises entire row, then adjust accordingly
+        size_t beg = 0,
+            end = this->row_str().size(),
+            r_size = this->size();
+
+        if (n >= r_size)
+            throw std::runtime_error("Index out of bounds.");
+
+        if (r_size > 1) {
+            if (n == 0) {
+                end = this->split_at(0);
+            }
+            else if (r_size == 2) {
+                beg = this->split_at(0);
+            }
+            else {
+                beg = this->split_at(n - 1);
+                if (n != r_size - 1) end = this->split_at(n);
+            }
+        }
+        
+        return ret.substr(
+            beg,
+            end - beg // Number of characters
+        );
+    }
+
+    /** Return a CSVField object corrsponding to the nth value in the row.
+     *
+     *  @note This method performs bounds checking, and will throw an
+     *        `std::runtime_error` if n is invalid.
+     *
+     *  @complexity
+     *  Constant, by calling csv::CSVRow::get_csv::string_view()
+     *
+     */
+    CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
+        return CSVField(this->get_string_view(n));
+    }
+
+    /** Retrieve a value by its associated column name. If the column
+     *  specified can't be round, a runtime error is thrown.
+     *
+     *  @complexity
+     *  Constant. This calls the other CSVRow::operator[]() after
+     *  converting column names into indices using a hash table.
+     *
+     *  @param[in] col_name The column to look for
+     */
+    CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
+        auto & col_names = this->buffer->col_names;
+        auto col_pos = col_names->index_of(col_name);
+        if (col_pos > -1) {
+            return this->operator[](col_pos);
+        }
+
+        throw std::runtime_error("Can't find a column named " + col_name);
+    }
+
+    CSV_INLINE CSVRow::operator std::vector<std::string>() const {
+
+        std::vector<std::string> ret;
+        for (size_t i = 0; i < size(); i++)
+            ret.push_back(std::string(this->get_string_view(i)));
+
+        return ret;
+    }
+
+#pragma region CSVRow Iterator
+    /** Return an iterator pointing to the first field. */
+    CSV_INLINE CSVRow::iterator CSVRow::begin() const {
+        return CSVRow::iterator(this, 0);
+    }
+
+    /** Return an iterator pointing to just after the end of the CSVRow.
+     *
+     *  @warning Attempting to dereference the end iterator results
+     *           in dereferencing a null pointer.
+     */
+    CSV_INLINE CSVRow::iterator CSVRow::end() const {
+        return CSVRow::iterator(this, (int)this->size());
+    }
+
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const {
+        return std::reverse_iterator<CSVRow::iterator>(this->end());
+    }
+
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
+        return std::reverse_iterator<CSVRow::iterator>(this->begin());
+    }
+
+    CSV_INLINE size_t CSVRow::split_at(size_t n) const
+    {
+        return this->buffer->split_buffer[this->data.col_pos.start + n];
+    }
+
+    CSV_INLINE HEDLEY_NON_NULL(2)
+    CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
+        : daddy(_reader), i(_i) {
+        if (_i < (int)this->daddy->size())
+            this->field = std::make_shared<CSVField>(
+                this->daddy->operator[](_i));
+        else
+            this->field = nullptr;
+    }
+
+    CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
+        return *(this->field.get());
+    }
+
+    CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
+        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
+        #ifdef _MSC_BUILD
+        return this->field;
+        #else
+        return this->field.get();
+        #endif
+    }
+
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
+        // Pre-increment operator
+        this->i++;
+        if (this->i < (int)this->daddy->size())
+            this->field = std::make_shared<CSVField>(
+                this->daddy->operator[](i));
+        else // Reached the end of row
+            this->field = nullptr;
+        return *this;
+    }
+
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator++(int) {
+        // Post-increment operator
+        auto temp = *this;
+        this->operator++();
+        return temp;
+    }
+
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
+        // Pre-decrement operator
+        this->i--;
+        this->field = std::make_shared<CSVField>(
+            this->daddy->operator[](this->i));
+        return *this;
+    }
+
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator--(int) {
+        // Post-decrement operator
+        auto temp = *this;
+        this->operator--();
+        return temp;
+    }
+    
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
+        // Allows for iterator arithmetic
+        return CSVRow::iterator(this->daddy, i + (int)n);
+    }
+
+    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
+        // Allows for iterator arithmetic
+        return CSVRow::iterator::operator+(-n);
+    }
+#pragma endregion CSVRow Iterator
+}
+
+/** @file
+ *  Defines an input iterator for csv::CSVReader
+ */
+
+
+namespace csv {
+    /** Return an iterator to the first row in the reader */
+    CSV_INLINE CSVReader::iterator CSVReader::begin() {
+        if (this->records.empty()) {
+            this->read_csv();
+        }
+
+        CSVReader::iterator ret(this, std::move(this->records.front()));
+        this->records.pop_front();
+        return ret;
+    }
+
+    /** A placeholder for the imaginary past the end row in a CSV.
+     *  Attempting to deference this will lead to bad things.
+     */
+    CSV_INLINE HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
+        return CSVReader::iterator();
+    }
+
+    /////////////////////////
+    // CSVReader::iterator //
+    /////////////////////////
+
+    CSV_INLINE CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
+        daddy(_daddy) {
+        row = std::move(_row);
+    }
+
+    /** Advance the iterator by one row. If this CSVReader has an
+     *  associated file, then the iterator will lazily pull more data from
+     *  that file until EOF.
+     */
+    CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
+        if (!daddy->read_row(this->row)) {
+            this->daddy = nullptr; // this == end()
+        }
+
+        return *this;
+    }
+
+    /** Post-increment iterator */
+    CSV_INLINE CSVReader::iterator CSVReader::iterator::operator++(int) {
+        auto temp = *this;
+        if (!daddy->read_row(this->row)) {
+            this->daddy = nullptr; // this == end()
+        }
+
+        return temp;
     }
 }
 /** @file
@@ -5205,244 +5608,6 @@ namespace csv {
     }
 }
 /** @file
- *  Defines an input iterator for csv::CSVReader
- */
-
-
-namespace csv {
-    /** Return an iterator to the first row in the reader */
-    CSV_INLINE CSVReader::iterator CSVReader::begin() {
-        if (this->records.empty()) {
-            this->read_csv();
-        }
-
-        CSVReader::iterator ret(this, std::move(this->records.front()));
-        this->records.pop_front();
-        return ret;
-    }
-
-    /** A placeholder for the imaginary past the end row in a CSV.
-     *  Attempting to deference this will lead to bad things.
-     */
-    CSV_INLINE HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
-        return CSVReader::iterator();
-    }
-
-    /////////////////////////
-    // CSVReader::iterator //
-    /////////////////////////
-
-    CSV_INLINE CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
-        daddy(_daddy) {
-        row = std::move(_row);
-    }
-
-    /** Advance the iterator by one row. If this CSVReader has an
-     *  associated file, then the iterator will lazily pull more data from
-     *  that file until EOF.
-     */
-    CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
-        if (!daddy->read_row(this->row)) {
-            this->daddy = nullptr; // this == end()
-        }
-
-        return *this;
-    }
-
-    /** Post-increment iterator */
-    CSV_INLINE CSVReader::iterator CSVReader::iterator::operator++(int) {
-        auto temp = *this;
-        if (!daddy->read_row(this->row)) {
-            this->daddy = nullptr; // this == end()
-        }
-
-        return temp;
-    }
-}
-/** @file
- *  Defines the data type used for storing information about a CSV row
- */
-
-#include <cassert>
-#include <functional>
-
-namespace csv {
-    /** Return a string view of the nth field
-     *
-     *  @complexity
-     *  Constant
-     *
-     *  @throws
-     *  std::runtime_error If n is out of bounds
-     */
-    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str());
-
-        // First assume that field comprises entire row, then adjust accordingly
-        size_t beg = 0,
-            end = this->row_str().size(),
-            r_size = this->size();
-
-        if (n >= r_size)
-            throw std::runtime_error("Index out of bounds.");
-
-        if (r_size > 1) {
-            if (n == 0) {
-                end = this->split_at(0);
-            }
-            else if (r_size == 2) {
-                beg = this->split_at(0);
-            }
-            else {
-                beg = this->split_at(n - 1);
-                if (n != r_size - 1) end = this->split_at(n);
-            }
-        }
-        
-        return ret.substr(
-            beg,
-            end - beg // Number of characters
-        );
-    }
-
-    /** Return a CSVField object corrsponding to the nth value in the row.
-     *
-     *  @note This method performs bounds checking, and will throw an
-     *        `std::runtime_error` if n is invalid.
-     *
-     *  @complexity
-     *  Constant, by calling csv::CSVRow::get_csv::string_view()
-     *
-     */
-    CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
-        return CSVField(this->get_string_view(n));
-    }
-
-    /** Retrieve a value by its associated column name. If the column
-     *  specified can't be round, a runtime error is thrown.
-     *
-     *  @complexity
-     *  Constant. This calls the other CSVRow::operator[]() after
-     *  converting column names into indices using a hash table.
-     *
-     *  @param[in] col_name The column to look for
-     */
-    CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto & col_names = this->buffer->col_names;
-        auto col_pos = col_names->index_of(col_name);
-        if (col_pos > -1) {
-            return this->operator[](col_pos);
-        }
-
-        throw std::runtime_error("Can't find a column named " + col_name);
-    }
-
-    CSV_INLINE CSVRow::operator std::vector<std::string>() const {
-
-        std::vector<std::string> ret;
-        for (size_t i = 0; i < size(); i++)
-            ret.push_back(std::string(this->get_string_view(i)));
-
-        return ret;
-    }
-
-#pragma region CSVRow Iterator
-    /** Return an iterator pointing to the first field. */
-    CSV_INLINE CSVRow::iterator CSVRow::begin() const {
-        return CSVRow::iterator(this, 0);
-    }
-
-    /** Return an iterator pointing to just after the end of the CSVRow.
-     *
-     *  @warning Attempting to dereference the end iterator results
-     *           in dereferencing a null pointer.
-     */
-    CSV_INLINE CSVRow::iterator CSVRow::end() const {
-        return CSVRow::iterator(this, (int)this->size());
-    }
-
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const {
-        return std::reverse_iterator<CSVRow::iterator>(this->end());
-    }
-
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
-        return std::reverse_iterator<CSVRow::iterator>(this->begin());
-    }
-
-    CSV_INLINE size_t CSVRow::split_at(size_t n) const
-    {
-        return this->buffer->split_buffer[this->data.col_pos.start + n];
-    }
-
-    CSV_INLINE HEDLEY_NON_NULL(2)
-    CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), i(_i) {
-        if (_i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](_i));
-        else
-            this->field = nullptr;
-    }
-
-    CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
-        return *(this->field.get());
-    }
-
-    CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-        #ifdef _MSC_BUILD
-        return this->field;
-        #else
-        return this->field.get();
-        #endif
-    }
-
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
-        // Pre-increment operator
-        this->i++;
-        if (this->i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](i));
-        else // Reached the end of row
-            this->field = nullptr;
-        return *this;
-    }
-
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator++(int) {
-        // Post-increment operator
-        auto temp = *this;
-        this->operator++();
-        return temp;
-    }
-
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
-        // Pre-decrement operator
-        this->i--;
-        this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
-        return *this;
-    }
-
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator--(int) {
-        // Post-decrement operator
-        auto temp = *this;
-        this->operator--();
-        return temp;
-    }
-    
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
-        // Allows for iterator arithmetic
-        return CSVRow::iterator(this->daddy, i + (int)n);
-    }
-
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
-        // Allows for iterator arithmetic
-        return CSVRow::iterator::operator+(-n);
-    }
-#pragma endregion CSVRow Iterator
-}
-
-/** @file
  *  Implements JSON serialization abilities
  */
 
@@ -5953,164 +6118,4 @@ namespace csv {
         return csv_dtypes;
     }
 }
-#include <vector>
 
-
-namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string,
-     *  a collection of CSVRow objects
-     *
-     *  @snippet tests/test_read_csv.cpp Parse Example
-     */
-    CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        CSVReader parser(format);
-        parser.feed(in);
-        parser.end_feed();
-        return parser;
-    }
-
-    /** Parse a RFC 4180 CSV string, returning a collection
-     *  of CSVRow objects
-     *
-     *  @par Example
-     *  @snippet tests/test_read_csv.cpp Escaped Comma
-     *
-     */
-    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
-        return parse(csv::string_view(in, n));
-    }
-
-    /**
-     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] col_name  Column whose position we should resolve
-     *  @param[in] format    Format of the CSV file
-     */
-    CSV_INLINE int get_col_pos(
-        const std::string filename,
-        const std::string col_name,
-        const CSVFormat format) {
-        CSVReader reader(filename, format);
-        return reader.index_of(col_name);
-    }
-
-    /** Get basic information about a CSV file
-     *  @include programs/csv_info.cpp
-     */
-    CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
-        CSVReader reader(filename);
-        CSVFormat format = reader.get_format();
-        for (auto it = reader.begin(); it != reader.end(); ++it);
-
-        CSVFileInfo info = {
-            filename,
-            reader.get_col_names(),
-            format.get_delim(),
-            reader.num_rows,
-            (int)reader.get_col_names().size()
-        };
-
-        return info;
-    }
-}
-/** @file
- *  Defines an object which can store CSV data in
- *  continuous regions of memory
- */
-
-
-namespace csv {
-    namespace internals {
-        //////////////
-        // ColNames //
-        //////////////
-        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
-        }
-
-        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
-            this->col_names = cnames;
-
-            for (size_t i = 0; i < cnames.size(); i++) {
-                this->col_pos[cnames[i]] = i;
-            }
-        }
-
-        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
-            auto pos = this->col_pos.find(col_name.data());
-            if (pos != this->col_pos.end())
-                return (int)pos->second;
-
-            return CSV_NOT_FOUND;
-        }
-
-        CSV_INLINE size_t ColNames::size() const {
-            return this->col_names.size();
-        }
-
-        CSV_INLINE RowData RawRowBuffer::get_row() {
-            return {
-                this->get_row_string(),
-                this->get_splits()
-            };
-        }
-
-        /** Get the current row in the buffer
-         *  @note Has the side effect of updating the current end pointer
-         */
-        CSV_INLINE std::pair<size_t, size_t> RawRowBuffer::get_row_string() {
-            auto ret = std::make_pair(
-                this->current_end, // Beginning of string
-                (this->buffer.size() - this->current_end) // Count
-            );
-
-            this->current_end = this->buffer.size();
-            return ret;
-        }
-
-        CSV_INLINE ColumnPositions RawRowBuffer::get_splits()
-        {
-            const size_t head_idx = this->current_split_idx,
-                new_split_idx = this->split_buffer.size();
-            StrBufferPos n_cols = (new_split_idx - head_idx > 0) ?
-                (StrBufferPos)(new_split_idx - head_idx + 1): 0;
-
-            this->current_split_idx = new_split_idx;
-            return ColumnPositions(head_idx, n_cols);
-        }
-
-        CSV_INLINE size_t RawRowBuffer::size() const {
-            return this->buffer.size() - this->current_end;
-        }
-
-        CSV_INLINE size_t RawRowBuffer::splits_size() const {
-            return this->split_buffer.size() - this->current_split_idx;
-        }
-        
-        HEDLEY_WARN_UNUSED_RESULT CSV_INLINE
-        BufferPtr RawRowBuffer::reset() const {
-            // Save current row in progress
-            auto new_buff = BufferPtr(new RawRowBuffer());
-
-            // Save text
-            new_buff->buffer = this->buffer.substr(
-                this->current_end,   // Position
-                (this->buffer.size() - this->current_end) // Count
-            );
-
-            // Save split buffer in progress
-            for (size_t i = this->current_split_idx; i < this->split_buffer.size(); i++) {
-                new_buff->split_buffer.push_back(this->split_buffer[i]);
-            }
-
-            new_buff->col_names = this->col_names;
-
-            // No need to remove unnecessary bits from this buffer
-            // (memory savings would be marginal anyways)
-            return new_buff;
-        }
-    }
-}
-
-#endif
