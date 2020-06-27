@@ -290,7 +290,9 @@ namespace csv {
         internals::RowData data;               /**< Contains row string and column positions. */
     };
 
+#ifdef _MSC_VER
 #pragma region CSVField::get Specializations
+#endif
     /** Retrieve this field's original string */
     template<>
     inline std::string CSVField::get<std::string>() {
@@ -315,7 +317,9 @@ namespace csv {
 
         return this->value;
     }
+#ifdef _MSC_VER
 #pragma endregion CSVField::get Specializations
+#endif
 
     /** Compares the contents of this field to a string */
     template<>
