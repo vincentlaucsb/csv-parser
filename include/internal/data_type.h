@@ -3,7 +3,7 @@
  */
 
 #pragma once
-#include <math.h>
+#include <cmath>
 #include <cctype>
 #include <string>
 #include <cassert>

@@ -3250,7 +3250,7 @@ namespace csv {
  *  @brief Implements data type parsing functionality
  */
 
-#include <math.h>
+#include <cmath>
 #include <cctype>
 #include <string>
 #include <cassert>
@@ -3804,7 +3804,7 @@ namespace csv {
  *  Defines the data type used for storing information about a CSV row
  */
 
-#include <math.h>
+#include <cmath>
 #include <vector>
 #include <string>
 #include <iterator>
