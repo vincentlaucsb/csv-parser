@@ -10,6 +10,7 @@
 #include <unordered_map> // For ColNames
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#include <sstream>
 
 #include "data_type.h"
 #include "compatibility.hpp"
