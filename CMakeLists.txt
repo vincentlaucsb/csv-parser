@@ -57,8 +57,12 @@ if (CSV_DEVELOPER)
     endif()
 
     # Generate a single header library
-    find_package(Python3 QUIET)
-    if(Python3_Interpreter_FOUND)
+    if(CMAKE_VERSION VERSION_LESS "3.12" OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+      find_package(PythonInterp 3 QUIET)
+    else()
+      find_package(Python3 COMPONENTS Interpreter)
+    endif()
+    if(Python3_Interpreter_FOUND OR PYTHONINTERP_FOUND)
       add_custom_target(generate_single_header
           COMMAND ${Python3_EXECUTABLE} single_header.py > single_include/csv.hpp
           COMMAND ${Python3_EXECUTABLE} single_header.py > single_include_test/csv.hpp
