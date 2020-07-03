@@ -86,7 +86,9 @@ namespace csv {
         return ret;
     }
 
+#ifdef _MSC_VER
 #pragma region CSVRow Iterator
+#endif
     /** Return an iterator pointing to the first field. */
     CSV_INLINE CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
@@ -179,5 +181,7 @@ namespace csv {
         // Allows for iterator arithmetic
         return CSVRow::iterator::operator+(-n);
     }
+#ifdef _MSC_VER
 #pragma endregion CSVRow Iterator
+#endif
 }
