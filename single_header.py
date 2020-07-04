@@ -3,7 +3,7 @@ import os
 import re
 
 CPP_SEP = '/'
-Include = namedtuple('Include', ['path', 'line_no']);
+Include = namedtuple('Include', ['path', 'line_no'])
 
 ''' Represents a file path '''
 class Path(list):
@@ -112,7 +112,7 @@ def get_dependencies(file: Path) -> dict:
 
     return headers
 
-''' Strip local include statements and #pragma once declarations from header files '''
+''' Strip local include statements and #pragma once declarations from source files '''
 def file_strip(file: Path) -> str:
     new_file = ''
     strip_these = ['#include "(?P<file>.*)"', '#pragma once' ]
@@ -130,7 +130,70 @@ def file_strip(file: Path) -> str:
                 new_file += line
 
     return new_file
-       
+
+'''
+Collate header files by using this following algorithm:
+
+- Given a list of header files (HEADERS) ordered such that the first file
+    has no internal dependencies, and the last file is the most dependent
+    - Reverse the list
+- Maintain these data structures:
+    - A set of header files (PROCESSED) that were processed
+    - A set of header files (MISSING_INCLUDES) that we are looking for
+    - The collation of header source code (HEADER_CONCAT)
+- Go through each FILE in list of headers in reverse order (starting with
+  the headers at the highest level of the dependency tree)
+    - If FILE is not in MISSING_INCLUDES, then concatenate source verbatim to HEADER_CONCAT
+    - Otherwise, there is one or more #include statements in HEADER_CONCAT which references FILE 
+        - Replace the first #include statement with the source of FILE, and remove the rest
+'''
+def header_collate(headers: list):
+    headers.reverse()
+
+    # Placeholder for includes to be inserted
+    splice_template = "__INSERT_HEADER_HERE__({})\n"
+    header_concat = ''
+    processed = set()
+    missing_includes = set()
+
+    def process_file(path: Path):
+        source = ''
+
+        with open(str(path), mode='r') as infile:
+            for line in infile:
+                # Add local includes to MISSING_INCLUDES
+                local_include = re.search('#include "(?P<file>.*)"', line)
+                if local_include:
+                    dir = Path(path[:-1])
+                    include_path = dir.join(local_include.group('file'))
+
+                    if str(include_path) not in processed:
+                        missing_includes.add(str(include_path))
+                        source += splice_template.format(str(include_path))
+                elif '#pragma once' in line:
+                    continue
+                else:
+                    source += line
+
+        return source
+
+    for path in headers:
+        processed.add(str(path))
+
+        if str(path) in missing_includes:
+            source = process_file(path)
+            splice_phrase = splice_template.format(str(path))
+            header_concat = header_concat.replace(
+                splice_phrase,
+                source + '\n', 1)
+            header_concat = header_concat.replace(splice_phrase, '')
+
+            missing_includes.remove(str(path))
+        else:
+            header_concat += process_file(path)
+
+    return header_concat
+
 if __name__ == "__main__":
     ''' Iterate over every .cpp and .hpp file '''
     headers = []
@@ -157,75 +220,8 @@ if __name__ == "__main__":
         for include in get_dependencies(file)['system']:
             system_includes.add(include.path)
 
-    '''
-    Collate header files by using this following algorithm:
-
-     - Maintain these data structures:
-        - A set of header files (PROCESSED) that were processed
-        - A set of header files (MISSING_INCLUDES) that we are looking for
-        - The collation of header source code (HEADER_CONCAT)
-     - Go through each FILE in list of headers in reverse order
-       (starting with the headers at the highest level of the dependency tree)
-        - If FILE is not in MISSING_INCLUDES, then concatenate source verbatim to HEADER_CONCAT
-        - Otherwise, there is one or more #include statements in HEADER_CONCAT which references FILE 
-            - Replace the first #include statement with the source of FILE
-    '''
-    header_concat = ''
-    processed = set()
-    missing_includes = set()
-
-    headers.reverse()
-    
-    for path in headers:
-        if str(path) in missing_includes:
-            source = ''
-            with open(str(path), mode='r') as infile:
-                for line in infile:
-                    # Add local includes to MISSING_INCLUDES
-                    local_include = re.search('#include "(?P<file>.*)"', line)
-                    if local_include:
-                        dir = Path(path[:-1])
-                        include_path = dir.join(local_include.group('file'))
-
-                        if str(include_path) not in processed:
-                            missing_includes.add(str(include_path))
-                            source += "__INSERT_HEADER_HERE__({})\n".format(str(include_path))
-                    elif '#pragma once' in line:
-                        continue
-                    else:
-                        source += line
-
-            splice_phrase = '__INSERT_HEADER_HERE__({})\n'.format(str(path))
-
-            header_concat = header_concat.replace(
-                splice_phrase,
-                source + '\n', 1)
-
-            header_concat = header_concat.replace(splice_phrase, '')
-
-            processed.add(str(path))
-            missing_includes.remove(str(path))
-
-        else:
-            with open(str(path), mode='r') as infile:
-                for line in infile:
-                    # Add local includes to MISSING_INCLUDES
-                    local_include = re.search('#include "(?P<file>.*)"', line)
-                    if local_include:
-                        dir = Path(path[:-1])
-                        include_path = dir.join(local_include.group('file'))
-
-                        if str(include_path) not in processed:
-                            missing_includes.add(str(include_path))
-                            header_concat += "__INSERT_HEADER_HERE__({})\n".format(str(include_path))
-                    elif '#pragma once' in line:
-                        continue
-                    else:
-                        header_concat += line
-
-            processed.add(str(path))
-
     # Collate header and source files
+    header_concat = header_collate(headers)
     source_collate = ''
 
     for cpp in sources:
@@ -233,4 +229,6 @@ if __name__ == "__main__":
     
     # Generate hpp file
     print("#pragma once")
-    print(header_concat.replace("#define CSV_INLINE", "#define CSV_INLINE inline").replace("/** INSERT_CSV_SOURCES **/", source_collate))
+    print(header_concat.replace(
+        "#define CSV_INLINE", "#define CSV_INLINE inline").replace(
+            "/** INSERT_CSV_SOURCES **/", source_collate))
