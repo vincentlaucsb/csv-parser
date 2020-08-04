@@ -5955,8 +5955,8 @@ namespace csv {
             counts.push_back({});
             rolling_means.push_back(0);
             rolling_vars.push_back(0);
-            mins.push_back(NAN);
-            maxes.push_back(NAN);
+            mins.push_back(std::nanl(""));
+            maxes.push_back(std::nanl(""));
             n.push_back(0);
         }
 
@@ -6047,9 +6047,9 @@ namespace csv {
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
          */
-        if (isnan(this->mins[i]))
+        if (std::isnan(this->mins[i]))
             this->mins[i] = x_n;
-        if (isnan(this->maxes[i]))
+        if (std::isnan(this->maxes[i]))
             this->maxes[i] = x_n;
         
         if (x_n < this->mins[i])
