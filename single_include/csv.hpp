@@ -3530,7 +3530,7 @@ namespace csv {
      *  @brief Convienience functions for parsing small strings
      */
      ///@{
-    CSVReader operator ""_csv(const char*, size_t);
+    CSVReader operator "" _csv(const char*, size_t);
     CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
     ///@}
 
@@ -3911,11 +3911,11 @@ namespace csv {
             iterator operator-(difference_type n) const;
 
             /** Two iterators are equal if they point to the same field */
-            constexpr bool operator==(const iterator& other) const {
+            const bool operator==(const iterator& other) const {
                 return this->i == other.i;
             };
 
-            constexpr bool operator!=(const iterator& other) const { return !operator==(other); }
+            const bool operator!=(const iterator& other) const { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;
@@ -5990,7 +5990,7 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
-    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
+    CSV_INLINE CSVReader operator "" _csv(const char* in, size_t n) {
         return parse(csv::string_view(in, n));
     }
 
