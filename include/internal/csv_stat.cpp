@@ -179,9 +179,9 @@ namespace csv {
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
          */
-        if (isnan(this->mins[i]))
+        if (std::isnan(this->mins[i]))
             this->mins[i] = x_n;
-        if (isnan(this->maxes[i]))
+        if (std::isnan(this->maxes[i]))
             this->maxes[i] = x_n;
         
         if (x_n < this->mins[i])
