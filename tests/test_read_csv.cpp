@@ -83,19 +83,31 @@ TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
 //! [Parse Example]
 TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     // Per RFC 1480, escaped quotes should be doubled up
-    string csv_string = (
-        "A,B,C\r\n" // Header row
-        "123,\"234\"\"345\",456\r\n"
-        "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
-        "123,\"234\"345\",\"456\"" // Quoted field at the end
+    auto csv_string = GENERATE(as<std::string> {}, 
+        (
+            "A,B,C\r\n" // Header row
+            "123,\"234\"\"345\",456\r\n"
+            "123,\"234\"345\",456\r\n"  // Unescaped single quote (not strictly valid)
+            "123,\"234\"345\",\"456\"" // Quoted field at the end
+        ),
+        (
+            "\"A\",\"B\",\"C\"\r\n" // Header row
+            "123,\"234\"\"345\",456\r\n"
+            "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
+            "123,\"234\"345\",\"456\"" // Quoted field at the end
+        )
     );
     
-    auto rows = parse(csv_string);
-   
-    // Expected Results: Double " is an escape for a single "
-    vector<string> correct_row = {"123", "234\"345", "456"};
-    for (auto& row : rows) {
-        REQUIRE(vector<string>(row) == correct_row);
+    SECTION("Escaped Quote") {
+        auto rows = parse(csv_string);
+
+        REQUIRE(rows.get_col_names() == vector<string>({ "A", "B", "C" }));
+
+        // Expected Results: Double " is an escape for a single "
+        vector<string> correct_row = { "123", "234\"345", "456" };
+        for (auto& row : rows) {
+            REQUIRE(vector<string>(row) == correct_row);
+        }
     }
 }
 //! [Parse Example]

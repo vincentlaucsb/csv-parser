@@ -22,7 +22,7 @@ target_sources(csv
 		data_type.h
 		row_buffer.hpp
 		row_buffer.cpp
-)
+ "raw_csv_data.hpp" "raw_csv_data.cpp")
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(csv PRIVATE Threads::Threads)

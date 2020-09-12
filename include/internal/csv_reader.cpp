@@ -159,7 +159,7 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    CSV_INLINE void CSVReader::feed(WorkItem&& buff) {
+    CSV_INLINE void CSVReader::feed(internals::WorkItem&& buff) {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 

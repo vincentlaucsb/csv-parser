@@ -138,6 +138,7 @@ namespace csv {
                     break;
                 }
                 default: // Quote
+                    // Does this handle CSVs that begin with a quote???
                     if (!data.quote_escape) {
                         // Don't deref past beginning
                         if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {

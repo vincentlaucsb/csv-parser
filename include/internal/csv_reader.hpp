@@ -19,6 +19,7 @@
 #include "csv_reader_internals.hpp"
 #include "csv_row.hpp"
 #include "compatibility.hpp"
+#include "raw_csv_data.hpp"
 #include "row_buffer.hpp"
 
 /** The all encompassing namespace */
@@ -153,12 +154,10 @@ namespace csv {
          * @{
          */
 
-        /** A string buffer and its size. Consumed by read_csv_worker(). */
-        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
 
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
-            std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
+            std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
             std::mutex feed_lock;                /**< Allow only one worker to write */
             std::condition_variable feed_cond;   /**< Wake up worker */
         };
@@ -211,7 +210,7 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
+        void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
         void read_csv_worker();
         ///@}
