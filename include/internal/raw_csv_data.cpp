@@ -2,9 +2,9 @@
 
 namespace csv {
     bool BasicCSVParser::parse(
+        internals::WorkItem&& data,
         internals::ParseFlagMap _parse_flags,
         internals::WhitespaceMap _ws_flags,
-        bool& quote_escape,
         std::deque<RawCSVRow>& records
     ) {
         using internals::ParseFlags;
@@ -12,29 +12,33 @@ namespace csv {
         // Optimizations
         auto* HEDLEY_RESTRICT parse_flags = _parse_flags.data();
         auto* HEDLEY_RESTRICT ws_flags = _ws_flags.data();
-        auto in = this->get_string();
 
-        // Parser state
-        this->current_row = RawCSVRow(this->raw_data);
+        // Local parser state
+        RawCSVDataPtr raw_data = std::make_shared<RawCSVData>();
+        raw_data->data_ptr = std::move(data);
+        csv::string_view in = raw_data->data_ptr.first.get();
+
+        // Check for previous fragments
+
+        size_t start_offset = 0;
+        this->current_row = RawCSVRow(raw_data);
 
         // TODO: End of fragment handling
-        for (size_t i = 0; i < in.size(); ) {
+        for (size_t i = start_offset; i < in.size(); ) {
+            using internals::ParseFlags;
             switch (parse_flags[in[i] + 128]) {
             case ParseFlags::NOT_SPECIAL:
-                // TODO: Simplify this?
-                if (!quote_escape) {
-                    this->raw_data->fields.push_back(
-                        this->parse_field(in, parse_flags, i)
-                    );
-                    break;
-                }
+                raw_data->fields.push_back(
+                    this->parse_field(in, parse_flags, i)
+                );
+                break;
 
                 HEDLEY_FALL_THROUGH;
 
             case ParseFlags::QUOTE:
                 i++;
                 quote_escape = true;
-                this->raw_data->fields.push_back(
+                raw_data->fields.push_back(
                     this->parse_quoted_field(in, parse_flags, i, quote_escape)
                 );
 
@@ -55,8 +59,8 @@ namespace csv {
                     i++;
 
                 records.push_back(std::move(current_row));
-                current_row = RawCSVRow(this->raw_data);
-                current_row.data_start = this->raw_data->fields.size();
+                current_row = RawCSVRow(raw_data);
+                current_row.data_start = raw_data->fields.size();
                 break;
             }
         }
@@ -82,11 +86,7 @@ namespace csv {
                         // Case: Delim or newline => end of field
                         quote_escape = false;
                         i++;
-                        return {
-                            start,
-                            length,
-                            has_double_quote
-                        };
+                        break;
                     }
                     else if (next_ch == ParseFlags::QUOTE) {
                         // Case: Escaped quote
@@ -101,9 +101,7 @@ namespace csv {
             length++;
         }
 
-        // Reached end of CSV fragment before completing
-        // => rewind to start of field
-        i = start;
+        return { start, length, has_double_quote };
     }
 
     RawCSVField BasicCSVParser::parse_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t& i) {
