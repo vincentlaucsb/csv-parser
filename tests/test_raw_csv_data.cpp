@@ -89,7 +89,7 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
     rows.pop_front();
     row = rows.front();
     REQUIRE(row.get_field(0) == "1");
-    // REQUIRE(row.get_field(1) == "2\"3");
+    REQUIRE(row.get_field(1) == "2\"3");
     REQUIRE(row.get_field(2) == "4");
     REQUIRE(row.row_length == 3);
 }
@@ -108,15 +108,13 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
             "123,234,", "345\r\n",
             "1,2,3\r\n"
             "1,2,3\r\n"
-        })
-        
-        /**
+        }),
         std::vector<std::string>({
             "\"A\",\"B\",\"C\"\r\n"
             "123,234,", "345\r\n",
             "1,\"2", "\",3\r\n"     // Fragment in middle of quoted field
             "1,2,3\r\n"
-        })**/
+        })
     );
 
     SECTION("Fragment Stitching") {

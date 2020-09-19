@@ -10,68 +10,42 @@ namespace csv {
         using internals::ParseFlags;
 
         size_t part_of_previous_fragment = 0;
+        ParseLoopData main_loop_data;
+        main_loop_data.raw_data = std::make_shared<RawCSVData>();
+        main_loop_data.parse_flags = _parse_flags;
+        main_loop_data.ws_flags = _ws_flags;
 
         // Check for previous fragments
         if (this->current_row.row_length > 0) {
             // Make a separate data buffer for the fragment row
-            auto temp_str = this->current_row.get_raw_data();
-            auto temp_fields = this->current_row.get_raw_fields();
+            auto temp_str = this->current_row.data->data.substr(
+                this->current_row.data_start
+            );
+            // auto temp_fields = this->current_row.get_raw_fields();
             auto temp_row_length = this->current_row.row_length;
 
             this->current_row.data = std::make_shared<RawCSVData>();
-            auto& fragment_data = this->current_row.data;
-            fragment_data->data = temp_str;
-            fragment_data->fields = temp_fields;
-
-            ParseLoopData stitch_data;
-            stitch_data.in = in;
-            stitch_data.parse_flags = _parse_flags;
-            stitch_data.ws_flags = _ws_flags;
-            stitch_data.raw_data = fragment_data;
-            stitch_data.records = &records;
-            stitch_data.start_offset = this->current_row.data->data.length();
-
-            // Parse until newline
-            this->current_row = RawCSVRow(stitch_data.raw_data);
             this->current_row.data_start = 0;
-            this->current_row.row_length = temp_row_length;
+            this->current_row.row_length = 0;
+            this->current_row.field_bounds_index = 0;
 
-            size_t new_stuff_length = this->parse_loop(stitch_data);
+            this->field_start = 0;
+            this->field_length = 0;
+            this->quote_escape = false;
 
-            // Copy data over
-            fragment_data->data += in.substr(0, new_stuff_length);
+            auto& fragment_data = this->current_row.data;
+            fragment_data->data = temp_str + in.data();
+            // fragment_data->fields = temp_fields;
 
-            // Merge pre-stitch fields (if necessary)
-            if ((fragment_data->fields[temp_row_length - 1].start
-                + fragment_data->fields[temp_row_length - 1].length)
-                == fragment_data->fields[temp_row_length].start) {
-                fragment_data->fields[temp_row_length - 1].length +=
-                    fragment_data->fields[temp_row_length].length;
-
-                std::vector<RawCSVField> new_fields = {};
-                for (size_t i = 0; i < this->current_row.row_length - 1; i++) {
-                    if (i != temp_row_length) {
-                        new_fields.push_back(fragment_data->fields[i]);
-                    }
-                }
-            }
-
-            part_of_previous_fragment = new_stuff_length;
-
+            in = csv::string_view(fragment_data->data);
         }
-
-        // Local parser state
-        in.remove_prefix(part_of_previous_fragment);
-
-        ParseLoopData main_loop_data;
+        else {
+            this->current_row = RawCSVRow(main_loop_data.raw_data);
+        }
+        
         main_loop_data.in = in;
-        main_loop_data.parse_flags = _parse_flags;
-        main_loop_data.ws_flags = _ws_flags;
-        main_loop_data.raw_data = std::make_shared<RawCSVData>();
         main_loop_data.raw_data->data.assign(in.data(), in.size());
         main_loop_data.records = &records;
-
-        this->current_row = RawCSVRow(main_loop_data.raw_data);
 
         this->parse_loop(main_loop_data);
 
@@ -80,14 +54,12 @@ namespace csv {
         return this->current_row.row_length == 0;
     }
 
-    RawCSVField BasicCSVParser::parse_quoted_field(
+    void BasicCSVParser::parse_quoted_field(
         csv::string_view in, internals::ParseFlags parse_flags[],
-        size_t row_start,
-        size_t& i,
-        bool& quote_escape) {
+        size_t& i) {
         using internals::ParseFlags;
         bool has_double_quote = false;
-        size_t start = i - row_start;
+        this->field_start = i - this->current_row_start;
         size_t length = 0;
 
         for (; i < in.size(); i++) {
@@ -113,13 +85,34 @@ namespace csv {
             length++;
         }
 
-        return { start, length, has_double_quote };
+        this->field_length += length;
+
+        // TODO: Double check this
+        this->field_has_double_quote = has_double_quote;
     }
 
-    RawCSVField BasicCSVParser::parse_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t row_start, size_t& i) {
+    void BasicCSVParser::push_field()
+    {
+        // Push field
+        this->current_row.row_length++;
+        this->current_row.data->fields.push_back({
+            this->field_start,
+            this->field_length,
+            this->field_has_double_quote
+        });
+
+        // Reset field state
+        this->field_start = 0;
+        this->field_length = 0;
+        this->field_has_double_quote = false;
+    }
+
+    void BasicCSVParser::parse_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t& i) {
         using internals::ParseFlags;
 
-        size_t start = i - row_start;
+        this->field_start = i - this->current_row_start;
+        this->field_has_double_quote = false;
+
         size_t length = 0;
 
         // We'll allow unescaped quotes...
@@ -127,7 +120,7 @@ namespace csv {
             length++;
         }
 
-        return { start, length, false };
+        this->field_length += length;
     }
 
     size_t BasicCSVParser::parse_loop(ParseLoopData& data)
@@ -137,41 +130,40 @@ namespace csv {
         auto* HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
 
         // Parser state
+        this->current_row_start = 0;
         auto start_offset = data.start_offset;
-        size_t current_row_start = 0;
 
         for (size_t i = 0; i < data.in.size(); ) {
             using internals::ParseFlags;
             switch (parse_flags[data.in[i] + 128]) {
             case ParseFlags::NOT_SPECIAL:
-                data.raw_data->fields.push_back(
-                    this->parse_field(data.in, parse_flags,
-                        current_row_start,
-                        i)
-                );
-                data.raw_data->fields.back().start += start_offset;
-                break;
+                if (!this->quote_escape) {
+                    this->parse_field(data.in, parse_flags, i);
+                    this->field_start += start_offset;
+                    break;
+                }
 
                 HEDLEY_FALL_THROUGH;
 
             case ParseFlags::QUOTE:
-                i++;
-                quote_escape = true;
-                data.raw_data->fields.push_back(
-                    this->parse_quoted_field(data.in, parse_flags, current_row_start, i, quote_escape)
-                );
-                data.raw_data->fields.back().start += start_offset;
+                if (!this->quote_escape) {
+                    i++;
+                    this->quote_escape = true;
+                }
+
+                this->parse_quoted_field(data.in, parse_flags, i);
+                this->field_start += start_offset;
 
                 break;
 
             case ParseFlags::DELIMITER:
-                current_row.row_length++;
+                this->push_field();
                 i++;
                 break;
 
             default: // Newline
                 // End of record -> Write record
-                current_row.row_length++;
+                this->push_field();
                 i++;
 
                 // Catches CRLF (or LFLF)
@@ -200,28 +192,34 @@ namespace csv {
             this->field_bounds_index + index
         ];
 
-        auto csv_field = this->data->data.substr(
-            this->data_start + raw_field.start,
-            raw_field.length
-        );
+        auto csv_field = this->data->data.substr(this->data_start + raw_field.start);
 
         if (raw_field.has_doubled_quote) {
             std::string ret = "";
-            for (size_t i = 0; i < csv_field.size(); i++) {
+            bool prev_ch_quote = false;
+
+            for (size_t i = 0;
+                (i < csv_field.size())
+                && (ret.size() < this->row_length);
+                i++) {
                 // TODO: Use parse flags
                 if (csv_field[i] == '"') {
-                    if (i + 1 < csv_field.size() && csv_field[i + 1] == '"') {
-                        i++;
+                    if (prev_ch_quote) {
+                        prev_ch_quote = false;
                         continue;
                     }
-
-                    ret += csv_field[i];
+                    else {
+                        prev_ch_quote = true;
+                    }
                 }
+
+                ret += csv_field[i];
             }
 
             return ret;
         }
 
+        csv_field = csv_field.substr(0, raw_field.length);
         return std::string(csv_field);
     }
 

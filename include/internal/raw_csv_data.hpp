@@ -11,15 +11,6 @@ namespace csv {
         bool has_doubled_quote;
     };
 
-    /**
-    union RawCSVString {
-        RawCSVString() { this->csv_string = ""; }
-
-        internals::WorkItem csv_string_ptr;
-        std::string csv_string;
-    };
-    **/
-
     /** A class for storing raw CSV data and associated metadata */
     struct RawCSVData {
         std::string data = "";
@@ -57,10 +48,6 @@ namespace csv {
         
         bool parse(csv::string_view in, internals::ParseFlagMap _parse_flags, internals::WhitespaceMap _ws_flags, std::deque<RawCSVRow>& records);
 
-        RawCSVField parse_quoted_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t row_start, size_t& i, bool& quote_escape);
-
-        size_t stitch(csv::string_view in, internals::ParseFlags parse_flags[], bool WhitespaceFlags[], std::deque<RawCSVRow>& records);
-
     private:
         struct ParseLoopData {
             csv::string_view in;
@@ -72,11 +59,17 @@ namespace csv {
             size_t start_offset = 0;
         };
 
-        RawCSVField parse_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t row_start, size_t& i);
+        void parse_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t& i);
+        void parse_quoted_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t& i);
+        void push_field();
 
         size_t parse_loop(ParseLoopData& data);
 
         RawCSVRow current_row;
         bool quote_escape = false;
+        size_t current_row_start = 0;
+        size_t field_start = 0;
+        size_t field_length = 0;
+        bool field_has_double_quote = false;
     };
 }
