@@ -88,11 +88,11 @@ namespace csv {
         internals::ColNamesPtr col_names = nullptr;
 
         CSVRow current_row;
-        bool quote_escape = false;
-        size_t current_row_start = 0;
         int field_start = -1;
         unsigned int field_length = 0;
         bool field_has_double_quote = false;
+
+        size_t suggested_capacity = 0;
 
         RawCSVDataPtr data_ptr = nullptr;
         std::vector<RawCSVField>* fields = nullptr;

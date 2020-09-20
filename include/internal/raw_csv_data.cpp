@@ -1,4 +1,5 @@
 #include "raw_csv_data.hpp"
+//#include <iostream>
 
 namespace csv {
     bool BasicCSVParser::parse(
@@ -9,6 +10,11 @@ namespace csv {
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
         this->data_ptr->col_names = this->col_names;
+
+        if (this->suggested_capacity > 0) {
+            this->fields->reserve(this->suggested_capacity);
+        }
+
         this->records = &records;
 
         size_t part_of_previous_fragment = 0;
@@ -28,7 +34,6 @@ namespace csv {
 
             this->field_start = 0;
             this->field_length = 0;
-            this->quote_escape = false;
 
             auto& fragment_data = this->current_row.data;
             fragment_data->col_names = this->col_names;
@@ -43,6 +48,7 @@ namespace csv {
         }
 
         this->parse_loop(in, 0);
+        this->suggested_capacity = std::max(this->suggested_capacity, this->data_ptr->fields.size());
 
         // Return True if we are done parsing and there are no
         // incomplete rows or fields
@@ -68,32 +74,73 @@ namespace csv {
 
     void BasicCSVParser::parse_loop(csv::string_view in, size_t start_offset)
     {
-        // Optimizations
-        auto* HEDLEY_RESTRICT ws_flags = this->ws_flags.data();
-
         // Parser state
-        this->current_row_start = 0;
-        this->quote_escape = false;
+        size_t current_row_start = 0;
+        bool quote_escape = false;
 
         size_t in_size = in.size();
         for (size_t i = 0; i < in_size; ) {
             using internals::ParseFlags;
-            switch(parse_flag(in[i])) {
-            case ParseFlags::DELIMITER:
-                if (!this->quote_escape) {
+            if (quote_escape) {
+                switch (parse_flag(in[i])) {
+                case ParseFlags::DELIMITER:
+                case ParseFlags::NEWLINE:
+                case ParseFlags::NOT_SPECIAL:
+                    // Trim off leading whitespace
+                    while (i < in.size() && ws_flag(in[i])) i++;
+
+                    if (this->field_start < 0) {
+                        this->field_start = i - current_row_start;
+                    }
+
+                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                    // sequences, use the loop below to avoid having to go through the outer
+                    // switch statement as much as possible
+                    while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) {
+                        i++;
+                        this->field_length++;
+                    }
+
+                    // Trim off trailing whitespace
+                    while (i < in.size() && ws_flag(in[i])) i++;
+                default:
+                    if (i + 1 < in.size()) {
+                        if (parse_flag(in[i + 1]) >= ParseFlags::DELIMITER) {
+                            quote_escape = false;
+                            this->field_has_double_quote = false;
+                            i++;
+                            break;
+                        }
+
+                        // Case: Escaped quote
+                        i++;
+                        this->field_length++;
+
+                        // Note: Unescaped single quotes can be handled by the parser
+                        if (parse_flag(in[i + 1]) == ParseFlags::QUOTE) {
+                            i++;
+                            this->field_length++;
+                            this->field_has_double_quote = true;
+                        }
+                    }
+                    else {
+                        i++;
+                    }
+                }
+
+            }
+            else {
+                switch (parse_flag(in[i])) {
+                case ParseFlags::DELIMITER:
                     this->push_field();
                     i++;
                     break;
-                }
 
-                HEDLEY_FALL_THROUGH;
-
-            case ParseFlags::NEWLINE:
-                if (!this->quote_escape) {
-                    ++i;
+                case ParseFlags::NEWLINE:
+                    i++;
 
                     if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) // Catches CRLF (or LFLF)
-                        ++i;
+                        i++;
 
                     // End of record -> Write record
                     this->push_field();
@@ -101,70 +148,41 @@ namespace csv {
                     this->current_row = CSVRow(this->data_ptr);
                     this->current_row.data_start = i;
                     this->current_row.field_bounds_index = this->data_ptr->fields.size();
-                    this->current_row_start = i;
+                    current_row_start = i;
                     break;
-                }
 
-                // Treat as regular character
-                this->field_length++;
-                i++;
-                break;
-
-            case ParseFlags::NOT_SPECIAL:
-                // Trim off leading whitespace
-                while (i < in.size() && ws_flag(in[i])) {
-                    i++;
-                }
-
-                if (this->field_start < 0) {
-                    this->field_start = i - this->current_row_start;
-                }
-
-                // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-                // sequences, use the loop below to avoid having to go through the outer
-                // switch statement as much as possible
-                while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) {
-                    i++;
-                    this->field_length++;
-                }
-
-                // Trim off trailing whitespace
-                while (i < in.size() && ws_flag(in[i])) {
-                    i++;
-                }
-
-                break;
-            default: // Quote
-                if (!this->quote_escape) {
-                    if (this->field_length == 0) {
-                        this->quote_escape = true;
+                case ParseFlags::NOT_SPECIAL:
+                    // Trim off leading whitespace
+                    while (i < in.size() && ws_flag(in[i])) {
                         i++;
                     }
-                }
-                else if (i + 1 < in.size()) {
-                    if (parse_flag(in[i + 1]) >= ParseFlags::DELIMITER) {
-                        this->quote_escape = false;
-                        this->field_has_double_quote = false;
-                        i++;
-                        break;
+
+                    if (this->field_start < 0) {
+                        this->field_start = i - current_row_start;
                     }
 
-                    // Case: Escaped quote
-                    i++;
-                    this->field_length++;
-
-                    // Note: Unescaped single quotes can be handled by the parser
-                    if (parse_flag(in[i + 1]) == ParseFlags::QUOTE) {
+                    // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                    // sequences, use the loop below to avoid having to go through the outer
+                    // switch statement as much as possible
+                    while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) {
                         i++;
                         this->field_length++;
-                        this->field_has_double_quote = true;
                     }
-                }
-                else {
-                    i++;
-                }
 
-                break;
+                    // Trim off trailing whitespace
+                    while (i < in.size() && ws_flag(in[i])) {
+                        i++;
+                    }
+
+                    break;
+                default: // Quote
+                    if (this->field_length == 0) {
+                        quote_escape = true;
+                        i++;
+                    }
+
+                    break;
+                }
             }
         }
     }
