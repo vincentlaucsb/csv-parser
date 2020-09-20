@@ -7,44 +7,6 @@
 #include "csv_row.hpp"
 
 namespace csv {
-    /** Return a string view of the nth field
-     *
-     *  @complexity
-     *  Constant
-     *
-     *  @throws
-     *  std::runtime_error If n is out of bounds
-     */
-    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str());
-
-        // First assume that field comprises entire row, then adjust accordingly
-        size_t beg = 0,
-            end = this->row_str().size(),
-            r_size = this->size();
-
-        if (n >= r_size)
-            throw std::runtime_error("Index out of bounds.");
-
-        if (r_size > 1) {
-            if (n == 0) {
-                end = this->split_at(0);
-            }
-            else if (r_size == 2) {
-                beg = this->split_at(0);
-            }
-            else {
-                beg = this->split_at(n - 1);
-                if (n != r_size - 1) end = this->split_at(n);
-            }
-        }
-        
-        return ret.substr(
-            beg,
-            end - beg // Number of characters
-        );
-    }
-
     /** Return a CSVField object corrsponding to the nth value in the row.
      *
      *  @note This method performs bounds checking, and will throw an
@@ -55,7 +17,7 @@ namespace csv {
      *
      */
     CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
-        return CSVField(this->get_string_view(n));
+        return CSVField(this->get_field(n));
     }
 
     /** Retrieve a value by its associated column name. If the column
@@ -68,7 +30,7 @@ namespace csv {
      *  @param[in] col_name The column to look for
      */
     CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto & col_names = this->buffer->col_names;
+        auto & col_names = this->data->col_names;
         auto col_pos = col_names->index_of(col_name);
         if (col_pos > -1) {
             return this->operator[](col_pos);
@@ -81,9 +43,46 @@ namespace csv {
 
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
-            ret.push_back(std::string(this->get_string_view(i)));
+            ret.push_back(std::string(this->get_field(i)));
 
         return ret;
+    }
+
+
+    csv::string_view CSVRow::get_field(size_t index) const
+    {
+        size_t field_index = this->field_bounds_index + index;
+        RawCSVField raw_field = this->data->fields[field_index];
+        bool has_doubled_quote = this->data->double_quote_fields.find(field_index) != this->data->double_quote_fields.end();
+
+        csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
+
+        if (has_doubled_quote) {
+            std::string& ret = this->data->double_quote_fields[field_index];
+            bool prev_ch_quote = false;
+
+            for (size_t i = 0;
+                (i < csv_field.size())
+                && (ret.size() < this->row_length);
+                i++) {
+                // TODO: Use parse flags
+                if (csv_field[i] == '"') {
+                    if (prev_ch_quote) {
+                        prev_ch_quote = false;
+                        continue;
+                    }
+                    else {
+                        prev_ch_quote = true;
+                    }
+                }
+
+                ret += csv_field[i];
+            }
+
+            return csv::string_view(ret);
+        }
+
+        return csv_field.substr(0, raw_field.length);
     }
 
 #ifdef _MSC_VER
@@ -109,11 +108,6 @@ namespace csv {
 
     CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
-    }
-
-    CSV_INLINE size_t CSVRow::split_at(size_t n) const
-    {
-        return this->buffer->split_buffer[this->data.col_pos.start + n];
     }
 
     CSV_INLINE HEDLEY_NON_NULL(2)

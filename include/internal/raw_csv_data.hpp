@@ -1,77 +1,92 @@
+#pragma once
+#include <array>
+#include <deque>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#include "col_names.hpp"
 #include "compatibility.hpp"
-#include "csv_reader_internals.hpp"
+#include "csv_row.hpp"
 
 namespace csv {
-    struct RawCSVField {
-        size_t start;
-        size_t length;
-        bool has_doubled_quote;
-    };
+    namespace internals {
+        /**  @typedef ParseFlags
+         *   An enum used for describing the significance of each character
+         *   with respect to CSV parsing
+         */
+        enum ParseFlags {
+            NOT_SPECIAL, /**< Characters with no special meaning */
+            QUOTE,       /**< Characters which may signify a quote escape */
+            DELIMITER,   /**< Characters which may signify a new field */
+            NEWLINE      /**< Characters which may signify a new row */
+        };
 
-    /** A class for storing raw CSV data and associated metadata */
-    struct RawCSVData {
-        std::string data = "";
-        std::vector<RawCSVField> fields = {};
-    };
-
-    using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
-
-    struct RawCSVRow {
-        RawCSVRow() = default;
-        RawCSVRow(RawCSVDataPtr _data) : data(_data) {}
-
-        std::string get_field(size_t index);
-        std::string get_raw_data();
-        size_t get_raw_data_length();
-        std::vector<RawCSVField> get_raw_fields();
-        size_t size() { return row_length;  }
-
-        RawCSVDataPtr data;
-
-        /** Where in RawCSVData.data we start */
-        size_t data_start = 0;
-
-        /** Where in the RawCSVDataPtr.fields array we start */
-        size_t field_bounds_index = 0;
-
-        /** How many columns this row spans */
-        size_t row_length = 0;
-    };
+        using ParseFlagMap = std::array<ParseFlags, 256>;
+        using WhitespaceMap = std::array<bool, 256>;
+    }
 
     /** A class for parsing raw CSV data */
     class BasicCSVParser {
     public:
+        BasicCSVParser() = default;
+        BasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
         BasicCSVParser(internals::ParseFlagMap _parse_flags, internals::WhitespaceMap _ws_flags) :
             parse_flags(_parse_flags), ws_flags(_ws_flags) {};
 
-        bool parse(csv::string_view in, std::deque<RawCSVRow>& records);
+        bool parse(csv::string_view in, std::deque<CSVRow>& records);
+        void end_feed(std::deque<CSVRow>& records) {
+            if (this->field_length > 0) {
+                this->push_field();
+            }
+
+            if (this->current_row.size() > 0) {
+                this->push_row(records);
+            }
+        }
+
+        void set_parse_flags(internals::ParseFlagMap parse_flags) {
+            this->parse_flags = parse_flags;
+        }
+
+        void set_ws_flags(internals::WhitespaceMap ws_flags) {
+            this->ws_flags = ws_flags;
+        }
 
     private:
         struct ParseLoopData {
             csv::string_view in;
             csv::RawCSVDataPtr raw_data;
-            std::deque<RawCSVRow> * records;
+            std::deque<CSVRow> * records;
             bool is_stitching = false;
             size_t start_offset = 0;
         };
 
-        void parse_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t& i);
-        void parse_quoted_field(csv::string_view in, internals::ParseFlags parse_flags[], size_t& i);
+        void parse_field(csv::string_view in, size_t& i);
+        void parse_quoted_field(csv::string_view in, size_t& i);
         void push_field();
+        void push_row(std::deque<CSVRow>& records) {
+            records.push_back(std::move(current_row));
+        };
 
         size_t parse_loop(ParseLoopData& data);
 
-        RawCSVRow current_row;
+        /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+        internals::ParseFlagMap parse_flags;
+
+        /** An array where the (i + 128)th slot determines whether ASCII character i should
+         *  be trimmed
+         */
+        internals::WhitespaceMap ws_flags;
+
+        internals::ColNamesPtr col_names = nullptr;
+
+        CSVRow current_row;
         bool quote_escape = false;
         size_t current_row_start = 0;
         size_t field_start = 0;
         size_t field_length = 0;
         bool field_has_double_quote = false;
-
-        internals::ParseFlagMap parse_flags;
-        internals::WhitespaceMap ws_flags;
     };
 }

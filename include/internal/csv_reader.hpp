@@ -20,7 +20,6 @@
 #include "csv_row.hpp"
 #include "compatibility.hpp"
 #include "raw_csv_data.hpp"
-#include "row_buffer.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
@@ -174,14 +173,6 @@ namespace csv {
         /** @name CSV Settings **/
         ///@{
         CSVFormat format;
-
-        /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        internals::ParseFlagMap parse_flags;
-
-        /** An array where the (i + 128)th slot determines whether ASCII character i should
-         *  be trimmed
-         */
-        internals::WhitespaceMap ws_flags;
         ///@}
 
         /** @name Parser State */
@@ -189,14 +180,12 @@ namespace csv {
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
+        // TODO: Update description
         /** Buffer for current row being parsed */
-        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer(this->col_names));
+        BasicCSVParser parser = BasicCSVParser(this->col_names);
 
         /** Queue of parsed CSV rows */
         std::deque<CSVRow> records;
-
-        /** Whether or not we are in a quote-escaped field */
-        bool quote_escape = false;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;

@@ -1,5 +1,4 @@
 #include "csv_reader_internals.hpp"
-#include "raw_csv_data.hpp"
 
 #include <iostream>
 
@@ -13,13 +12,12 @@ namespace csv {
             std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
             // Parse the CSV
-            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
             BasicCSVParser parser(
                 internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags({}, 0)
             );
 
-            std::deque<RawCSVRow> rows;
+            std::deque<CSVRow> rows;
             parser.parse(head, rows);
 
             for (size_t i = 0; i < rows.size(); i++) {
@@ -73,98 +71,6 @@ namespace csv {
             }
 
             return { current_delim, (int)header };
-        }
-
-        CSV_INLINE BufferPtr parse(const ParseData& data) {
-            using internals::ParseFlags;
-
-            // Optimizations
-            auto * HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
-            auto * HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
-            auto& in = data.in;
-            auto& row_buffer = *(data.row_buffer.get());
-            auto& text_buffer = row_buffer.buffer;
-            auto& split_buffer = row_buffer.split_buffer;
-            text_buffer.reserve(data.in.size());
-            split_buffer.reserve(data.in.size() / 10);
-
-            for (size_t i = 0; i < in.size(); i++) {
-                switch (parse_flags[data.in[i] + 128]) {
-                case ParseFlags::DELIMITER:
-                    if (!data.quote_escape) {
-                        split_buffer.push_back((internals::StrBufferPos)row_buffer.size());
-                        break;
-                    }
-
-                    HEDLEY_FALL_THROUGH;
-                case ParseFlags::NEWLINE:
-                    if (!data.quote_escape) {
-                        // End of record -> Write record
-                        if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
-                            ++i;
-
-                        data.records.push_back(CSVRow(data.row_buffer));
-                        break;
-                    }
-
-                    // Treat as regular character
-                    text_buffer += in[i];
-                    break;
-                case ParseFlags::NOT_SPECIAL: {
-                    size_t start, end;
-
-                    if (!parse_not_special(
-                        in,
-                        parse_flags,
-                        ws_flags,
-                        i,
-                        start,
-                        end
-                    )) {
-                        break;
-                    }
-
-                    // Finally append text
-#ifdef CSV_HAS_CXX17
-                    text_buffer += in.substr(start, end - start + 1);
-#else
-                    for (; start < end + 1; start++) {
-                        text_buffer += in[start];
-                    }
-#endif
-
-                    break;
-                }
-                default: // Quote
-                    // Does this handle CSVs that begin with a quote???
-                    if (!data.quote_escape) {
-                        // Don't deref past beginning
-                        if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
-                            // Case: Previous character was delimiter or newline
-                            data.quote_escape = true;
-                        }
-                    }
-                    else if (i + 1 < in.size()) {
-                        auto next_ch = parse_flags[in[i + 1] + 128];
-                        if (next_ch >= ParseFlags::DELIMITER) {
-                            // Case: Delim or newline => end of field
-                            data.quote_escape = false;
-                            break;
-                        }
-
-                        // Case: Escaped quote
-                        text_buffer += in[i];
-
-                        // Note: Unescaped single quotes can be handled by the parser
-                        if (next_ch == ParseFlags::QUOTE)
-                            ++i;  // Case: Two consecutive quotes
-                    }
-
-                    break;
-                }
-            }
-
-            return row_buffer.reset();
         }
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename) {

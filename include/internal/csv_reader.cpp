@@ -38,22 +38,17 @@ namespace csv {
             }
 
             // Parse the CSV
-            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
             auto trim_chars = format.get_trim_chars();
 
-            std::deque<CSVRow> rows;
-            bool quote_escape = false;
-
-            internals::parse({
-                head,
+            BasicCSVParser parser(
                 parse_flags,
-                internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
-                buffer_ptr,
-                quote_escape,
-                rows
-            });
+                internals::make_ws_flags(trim_chars.data(), trim_chars.size())
+            );
 
-            return rows[format.get_header()];
+            std::deque<CSVRow> rows;
+            parser.parse(head, rows);
+
+            return CSVRow(std::move(rows[format.get_header()]));
         }
     }
 
@@ -83,7 +78,7 @@ namespace csv {
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
-        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
+        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -182,19 +177,12 @@ namespace csv {
             this->unicode_bom_scan = true;
         }
 
-        this->record_buffer = internals::parse({
-            in,
-            this->parse_flags,
-            this->ws_flags,
-            this->record_buffer,
-            this->quote_escape,
-            this->records
-        });
+        this->parser.parse(in, this->records);
 
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->format.header && !this->records.empty(); i++) {
                 if (i == this->format.header && this->col_names->empty()) {
-                    this->set_col_names(this->records.front());
+                    this->set_col_names(CSVRow(std::move(this->records.front())));
                 }
 
                 this->records.pop_front();
@@ -208,9 +196,7 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        if (this->record_buffer->size() > 0) {
-            this->records.push_back(CSVRow(this->record_buffer));
-        }
+        this->parser.end_feed(this->records);
     }
 
     /** Worker thread for read_csv() which parses CSV rows (while the main
@@ -238,13 +224,13 @@ namespace csv {
     {
         this->format = format;
         if (format.no_quote) {
-            this->parse_flags = internals::make_parse_flags(format.get_delim());
+            this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim()));
         }
         else {
-            this->parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+            this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim(), format.quote_char));
         }
 
-        this->ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+        this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
     }
 
     CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
@@ -360,11 +346,13 @@ namespace csv {
             if (this->records.front().size() != this->n_cols &&
                 this->format.variable_column_policy != VariableColumnPolicy::KEEP) {
                 if (this->format.variable_column_policy == VariableColumnPolicy::THROW) {
+                    auto row = CSVRow(std::move(this->records.front()));
+
                     if (this->records.front().size() < this->n_cols) {
-                        throw std::runtime_error("Line too short " + internals::format_row(this->records.front()));
+                        throw std::runtime_error("Line too short " + internals::format_row(row));
                     }
 
-                    throw std::runtime_error("Line too long " + internals::format_row(this->records.front()));
+                    throw std::runtime_error("Line too long " + internals::format_row(row));
                 }
 
                 // Silently drop row (default)
@@ -372,6 +360,7 @@ namespace csv {
             }
             else {
                 row = std::move(this->records.front());
+
                 this->num_rows++;
                 this->records.pop_front();
                 return true;

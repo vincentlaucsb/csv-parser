@@ -5,14 +5,14 @@ target_sources(csv_test
         catch.hpp
         main.cpp
         
-        #test_csv_field.cpp
-        #test_csv_format.cpp
+        test_csv_field.cpp
+        test_csv_format.cpp
         #test_csv_iterator.cpp
         #test_csv_row.cpp
         #test_csv_row_json.cpp
         #test_csv_stat.cpp
         test_guess_csv.cpp
-        #test_read_csv.cpp
+        test_read_csv.cpp
         #test_read_csv_file.cpp
         #test_write_csv.cpp
         #test_data_type.cpp

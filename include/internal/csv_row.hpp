@@ -8,6 +8,7 @@
 #include <string>
 #include <iterator>
 #include <unordered_map> // For ColNames
+#include <unordered_set>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
 #include <sstream>
@@ -15,9 +16,11 @@
 #include "data_type.h"
 #include "compatibility.hpp"
 #include "csv_utility.hpp"
-#include "row_buffer.hpp"
+#include "col_names.hpp"
 
 namespace csv {
+    class BasicCSVParser;
+
     namespace internals {
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -27,6 +30,22 @@ namespace csv {
     
         std::string json_escape_string(csv::string_view s) noexcept;
     }
+
+    struct RawCSVField {
+        size_t start;
+        size_t length;
+    };
+
+    /** A class for storing raw CSV data and associated metadata */
+    struct RawCSVData {
+        std::string data = "";
+        std::vector<RawCSVField> fields = {};
+        std::unordered_set<size_t> has_double_quotes = {};
+        std::unordered_map<size_t, std::string> double_quote_fields = {};
+        internals::ColNamesPtr col_names = nullptr;
+    };
+
+    using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
 
     /**
     * @class CSVField
@@ -185,34 +204,35 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
+        friend BasicCSVParser;
+
         CSVRow() = default;
         
-        /** Construct a CSVRow from a RawRowBuffer */
-        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
+        /** Construct a CSVRow from a RawCSVDataPtr */
+        CSVRow(RawCSVDataPtr _data) : data(_data) {}
 
-        /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<internals::StrBufferPos>& splits,
-            const std::shared_ptr<internals::ColNames>& col_names)
-            : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
-
-        /** Retrieve a string view over this row's data */
+        /** Retrieve a string view over this row's data 
         CSV_INLINE csv::string_view row_str() const {
             return csv::string_view(this->buffer->buffer.c_str() + this->data.row_str.first, this->data.row_str.second);
         }
+        */
 
         /** Indicates whether row is empty or not */
-        CSV_INLINE bool empty() const { return this->row_str().empty(); }
+        CONSTEXPR bool empty() const { return this->size() == 0; }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
+        CONSTEXPR size_t size() const { return row_length; }
 
         /** @name Value Retrieval */
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
-        csv::string_view get_string_view(size_t n) const;
+        csv::string_view get_field(size_t index) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+        std::vector<std::string> get_col_names() const {
+            return this->data->col_names->get_col_names();
+        }
 
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
@@ -284,11 +304,16 @@ namespace csv {
         ///@}
 
     private:
-        /** Get the index in CSVRow's text buffer where the n-th field begins */
-        size_t split_at(size_t n) const;
+        RawCSVDataPtr data;
 
-        internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
-        internals::RowData data;               /**< Contains row string and column positions. */
+        /** Where in RawCSVData.data we start */
+        size_t data_start = 0;
+
+        /** Where in the RawCSVDataPtr.fields array we start */
+        size_t field_bounds_index = 0;
+
+        /** How many columns this row spans */
+        size_t row_length = 0;
     };
 
 #ifdef _MSC_VER

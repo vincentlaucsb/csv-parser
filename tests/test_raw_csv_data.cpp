@@ -21,7 +21,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    std::deque<RawCSVRow> rows;
+    std::deque<CSVRow> rows;
     bool quote_escape = false;
     
     parser.parse(
@@ -33,28 +33,28 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     REQUIRE(row.get_field(0) == "A");
     REQUIRE(row.get_field(1) == "B");
     REQUIRE(row.get_field(2) == "C");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
     REQUIRE(row.get_field(0) == "123");
     REQUIRE(row.get_field(1) == "234");
     REQUIRE(row.get_field(2) == "345");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
     REQUIRE(row.get_field(0) == "1");
     REQUIRE(row.get_field(1) == "2");
     REQUIRE(row.get_field(2) == "3");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
     REQUIRE(row.get_field(0) == "1");
     REQUIRE(row.get_field(1) == "2");
     REQUIRE(row.get_field(2) == "3");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 }
 
 TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
@@ -69,28 +69,28 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
         internals::WhitespaceMap()
     );
 
-    std::deque<RawCSVRow> rows;
+    std::deque<CSVRow> rows;
     parser.parse(csv, rows);
 
     auto row = rows.front();
     REQUIRE(row.get_field(0) == "A");
     REQUIRE(row.get_field(1) == "B");
     REQUIRE(row.get_field(2) == "C");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
     REQUIRE(row.get_field(0) == "123");
     REQUIRE(row.get_field(1) == "234,345");
     REQUIRE(row.get_field(2) == "456");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
     REQUIRE(row.get_field(0) == "1");
     REQUIRE(row.get_field(1) == "2\"3");
     REQUIRE(row.get_field(2) == "4");
-    REQUIRE(row.row_length == 3);
+    REQUIRE(row.size() == 3);
 }
 
 TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
@@ -121,7 +121,7 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
             internals::make_parse_flags(',', '"'),
             internals::WhitespaceMap()
         );
-        std::deque<RawCSVRow> rows;
+        std::deque<CSVRow> rows;
         
         for (auto& frag : csv_fragments) {
             parser.parse(frag, rows);
@@ -131,27 +131,27 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
         REQUIRE(row.get_field(0) == "A");
         REQUIRE(row.get_field(1) == "B");
         REQUIRE(row.get_field(2) == "C");
-        REQUIRE(row.row_length == 3);
+        REQUIRE(row.size() == 3);
 
         rows.pop_front();
         row = rows.front();
         REQUIRE(row.get_field(0) == "123");
         REQUIRE(row.get_field(1) == "234");
         REQUIRE(row.get_field(2) == "345");
-        REQUIRE(row.row_length == 3);
+        REQUIRE(row.size() == 3);
 
         rows.pop_front();
         row = rows.front();
         REQUIRE(row.get_field(0) == "1");
         REQUIRE(row.get_field(1) == "2");
         REQUIRE(row.get_field(2) == "3");
-        REQUIRE(row.row_length == 3);
+        REQUIRE(row.size() == 3);
 
         rows.pop_front();
         row = rows.front();
         REQUIRE(row.get_field(0) == "1");
         REQUIRE(row.get_field(1) == "2");
         REQUIRE(row.get_field(2) == "3");
-        REQUIRE(row.row_length == 3);
+        REQUIRE(row.size() == 3);
     }
 }

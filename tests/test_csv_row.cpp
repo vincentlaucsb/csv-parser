@@ -18,7 +18,7 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
 
     std::vector<internals::StrBufferPos> splits = { 4, 8, 12 };
 
-    const CSVRow row(str, splits, col_names);
+    const CSVRow row(data);
 
     bool error_caught = false;
 
