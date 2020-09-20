@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "../external/mio.hpp"
 #include "constants.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
@@ -164,11 +165,15 @@ namespace csv {
         /** Open a file for reading. Implementation is compiler specific. */
         void fopen(csv::string_view filename);
 
+        mio::mmap_source csv_mmap;
+
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return !(this->infile); };
+        bool eof() { return this->csv_mmap_eof; };
+
+        bool csv_mmap_eof = false;
 
         /** @name CSV Settings **/
         ///@{
@@ -201,6 +206,7 @@ namespace csv {
         ///@{
         void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
+        size_t csv_mmap_pos = 0;
         void read_csv_worker();
         ///@}
 

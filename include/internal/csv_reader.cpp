@@ -246,6 +246,14 @@ namespace csv {
                 throw std::runtime_error("Cannot open file " + std::string(filename));
 #endif
         }
+
+        if (!this->csv_mmap.is_open()) {
+            std::error_code error;
+            this->csv_mmap = mio::make_mmap_source(filename, 0, mio::map_entire_file, error);
+            if (error) {
+                throw error;
+            }
+        }
     }
 
     /**
@@ -273,25 +281,30 @@ namespace csv {
 
         std::thread worker(&CSVReader::read_csv_worker, this);
 
-        // TODO: Possible race condition???
-        for (size_t processed = 0; processed < bytes; ) {
-            char * HEDLEY_RESTRICT result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
-            if (result == NULL) break;
-            line_buffer += std::strlen(line_buffer);
-            size_t current_strlen = line_buffer - buffer.get();
+        size_t strlen = 0;
+        for (; this->csv_mmap_pos < this->csv_mmap.length(); this->csv_mmap_pos++) {
+            line_buffer[strlen] = this->csv_mmap[this->csv_mmap_pos];
 
-            if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
-                processed += (line_buffer - buffer.get());
+            strlen++;
+            if (strlen >= BUFFER_UPPER_LIMIT - 1) {
+                line_buffer[strlen] = '\0';
+
                 std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
 
-                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
+                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
                 line_buffer[0] = '\0';
 
                 this->feed_state->feed_cond.notify_one();
+
+                break;
             }
+        }
+
+        if (this->csv_mmap_pos == this->csv_mmap.length()) {
+            this->csv_mmap_eof = true;
         }
 
         // Feed remaining bits
@@ -302,10 +315,10 @@ namespace csv {
         lock.unlock();
         worker.join();
 
-        if (std::feof(this->infile)) {
+        //if (std::feof(this->infile)) {
             this->end_feed();
             this->close();
-        }
+        //}
     }
 
     /** Close the open file handle.
