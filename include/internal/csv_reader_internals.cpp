@@ -1,4 +1,6 @@
 #include "csv_reader_internals.hpp"
+#include "raw_csv_data.hpp"
+
 #include <iostream>
 
 namespace csv {
@@ -12,17 +14,13 @@ namespace csv {
 
             // Parse the CSV
             auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
-            std::deque<CSVRow> rows;
-            bool quote_escape = false;
-
-            internals::parse({
-                head,
+            BasicCSVParser parser(
                 internals::make_parse_flags(format.get_delim(), '"'),
-                internals::make_ws_flags({}, 0),
-                buffer_ptr,
-                quote_escape,
-                rows
-            });
+                internals::make_ws_flags({}, 0)
+            );
+
+            std::deque<RawCSVRow> rows;
+            parser.parse(head, rows);
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];

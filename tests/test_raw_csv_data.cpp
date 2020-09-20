@@ -17,14 +17,15 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
         "1,2,3\r\n"
         "1,2,3\r\n";
 
-    BasicCSVParser parser;
+    BasicCSVParser parser(
+        internals::make_parse_flags(',', '"'),
+        internals::WhitespaceMap()
+    );
     std::deque<RawCSVRow> rows;
     bool quote_escape = false;
     
     parser.parse(
         csv,
-        internals::make_parse_flags(',', '"'),
-        internals::WhitespaceMap(),
         rows
     );
 
@@ -63,15 +64,13 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
         "1,\"2\"\"3\",4\r\n"      // Escaped quote
         "1,2,3\r\n";
 
-    BasicCSVParser parser;
-    std::deque<RawCSVRow> rows;
-
-    parser.parse(
-        csv,
+    BasicCSVParser parser(
         internals::make_parse_flags(',', '"'),
-        internals::WhitespaceMap(),
-        rows
+        internals::WhitespaceMap()
     );
+
+    std::deque<RawCSVRow> rows;
+    parser.parse(csv, rows);
 
     auto row = rows.front();
     REQUIRE(row.get_field(0) == "A");
@@ -118,16 +117,14 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
     );
 
     SECTION("Fragment Stitching") {
-        BasicCSVParser parser;
+        BasicCSVParser parser(
+            internals::make_parse_flags(',', '"'),
+            internals::WhitespaceMap()
+        );
         std::deque<RawCSVRow> rows;
         
         for (auto& frag : csv_fragments) {
-            parser.parse(
-                frag,
-                internals::make_parse_flags(',', '"'),
-                internals::WhitespaceMap(),
-                rows
-            );
+            parser.parse(frag, rows);
         }
 
         auto row = rows.front();

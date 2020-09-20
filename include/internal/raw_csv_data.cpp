@@ -3,8 +3,6 @@
 namespace csv {
     bool BasicCSVParser::parse(
         csv::string_view in,
-        internals::ParseFlagMap _parse_flags,
-        internals::WhitespaceMap _ws_flags,
         std::deque<RawCSVRow>& records
     ) {
         using internals::ParseFlags;
@@ -12,8 +10,6 @@ namespace csv {
         size_t part_of_previous_fragment = 0;
         ParseLoopData main_loop_data;
         main_loop_data.raw_data = std::make_shared<RawCSVData>();
-        main_loop_data.parse_flags = _parse_flags;
-        main_loop_data.ws_flags = _ws_flags;
 
         // Check for previous fragments
         if (this->current_row.row_length > 0) {
@@ -126,8 +122,8 @@ namespace csv {
     size_t BasicCSVParser::parse_loop(ParseLoopData& data)
     {
         // Optimizations
-        auto* HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
-        auto* HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
+        auto* HEDLEY_RESTRICT parse_flags = this->parse_flags.data();
+        auto* HEDLEY_RESTRICT ws_flags = this->ws_flags.data();
 
         // Parser state
         this->current_row_start = 0;

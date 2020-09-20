@@ -27,6 +27,7 @@ namespace csv {
         std::string get_raw_data();
         size_t get_raw_data_length();
         std::vector<RawCSVField> get_raw_fields();
+        size_t size() { return row_length;  }
 
         RawCSVDataPtr data;
 
@@ -43,16 +44,14 @@ namespace csv {
     /** A class for parsing raw CSV data */
     class BasicCSVParser {
     public:
-        // NOTE/TODO: Fill out this method first
-        // It'll give you clues on the rest
-        
-        bool parse(csv::string_view in, internals::ParseFlagMap _parse_flags, internals::WhitespaceMap _ws_flags, std::deque<RawCSVRow>& records);
+        BasicCSVParser(internals::ParseFlagMap _parse_flags, internals::WhitespaceMap _ws_flags) :
+            parse_flags(_parse_flags), ws_flags(_ws_flags) {};
+
+        bool parse(csv::string_view in, std::deque<RawCSVRow>& records);
 
     private:
         struct ParseLoopData {
             csv::string_view in;
-            internals::ParseFlagMap parse_flags;
-            internals::WhitespaceMap ws_flags;
             csv::RawCSVDataPtr raw_data;
             std::deque<RawCSVRow> * records;
             bool is_stitching = false;
@@ -71,5 +70,8 @@ namespace csv {
         size_t field_start = 0;
         size_t field_length = 0;
         bool field_has_double_quote = false;
+
+        internals::ParseFlagMap parse_flags;
+        internals::WhitespaceMap ws_flags;
     };
 }
