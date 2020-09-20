@@ -2,23 +2,17 @@
 //#include <iostream>
 
 namespace csv {
-    bool BasicCSVParser::parse(
-        csv::string_view in,
-        std::deque<CSVRow>& records
-    ) {
+    bool BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
         using internals::ParseFlags;
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
         this->data_ptr->col_names = this->col_names;
-
         if (this->suggested_capacity > 0) {
             this->fields->reserve(this->suggested_capacity);
         }
 
         this->records = &records;
 
-        size_t part_of_previous_fragment = 0;
-        
         // Check for previous fragments
         if (this->current_row.data && this->current_row.data->fields.size() - this->current_row.field_bounds_index > 0) {
             // Make a separate data buffer for the fragment row
@@ -140,8 +134,8 @@ namespace csv {
                 case ParseFlags::NEWLINE:
                     i++;
 
-                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) // Catches CRLF (or LFLF)
-                        i++;
+                    // Catches CRLF (or LFLF)
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) i++;
 
                     // End of record -> Write record
                     this->push_field();
