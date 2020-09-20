@@ -36,10 +36,8 @@ namespace csv {
             this->field_length = 0;
 
             auto& fragment_data = this->current_row.data;
-            fragment_data->col_names = this->col_names;
             fragment_data->data = temp_str + in.data();
-            // fragment_data->fields = temp_fields;
-
+            
             in = csv::string_view(fragment_data->data);
         }
         else {
@@ -59,12 +57,13 @@ namespace csv {
     {
         // Push field
         this->fields->push_back({
-            (unsigned int)this->field_start,
+            this->field_start > 0 ? (unsigned int)this->field_start : 0,
             this->field_length
         });
 
         if (this->field_has_double_quote) {
-            this->current_row.data->has_double_quotes.insert(this->current_row.field_bounds_index + this->current_row.row_length - 1);
+            this->current_row.data->has_double_quotes.insert(this->data_ptr->fields.size() - 1);
+            this->field_has_double_quote = false;
         }
 
         // Reset field state
@@ -96,10 +95,9 @@ namespace csv {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
-                    while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) {
-                        i++;
-                        this->field_length++;
-                    }
+                    while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
+
+                    this->field_length = i - (this->field_start + current_row_start);
 
                     // Trim off trailing whitespace
                     while (i < in.size() && ws_flag(in[i])) i++;
@@ -107,17 +105,16 @@ namespace csv {
                     if (i + 1 < in.size()) {
                         if (parse_flag(in[i + 1]) >= ParseFlags::DELIMITER) {
                             quote_escape = false;
-                            this->field_has_double_quote = false;
                             i++;
                             break;
                         }
 
                         // Case: Escaped quote
-                        i++;
                         this->field_length++;
+                        i++;
 
                         // Note: Unescaped single quotes can be handled by the parser
-                        if (parse_flag(in[i + 1]) == ParseFlags::QUOTE) {
+                        if (parse_flag(in[i]) == ParseFlags::QUOTE) {
                             i++;
                             this->field_length++;
                             this->field_has_double_quote = true;
@@ -153,9 +150,7 @@ namespace csv {
 
                 case ParseFlags::NOT_SPECIAL:
                     // Trim off leading whitespace
-                    while (i < in.size() && ws_flag(in[i])) {
-                        i++;
-                    }
+                    while (i < in.size() && ws_flag(in[i])) i++;
 
                     if (this->field_start < 0) {
                         this->field_start = i - current_row_start;
@@ -164,22 +159,24 @@ namespace csv {
                     // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                     // sequences, use the loop below to avoid having to go through the outer
                     // switch statement as much as possible
-                    while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) {
-                        i++;
-                        this->field_length++;
-                    }
+                    while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
+
+                    this->field_length = i - (this->field_start + current_row_start);
 
                     // Trim off trailing whitespace
-                    while (i < in.size() && ws_flag(in[i])) {
-                        i++;
-                    }
+                    while (i < in.size() && ws_flag(in[i])) i++;
 
                     break;
                 default: // Quote
                     if (this->field_length == 0) {
                         quote_escape = true;
                         i++;
+                        break;
                     }
+
+                    // Unescaped quote
+                    this->field_length++;
+                    i++;
 
                     break;
                 }

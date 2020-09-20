@@ -53,29 +53,30 @@ namespace csv {
     {
         size_t field_index = this->field_bounds_index + index;
         const RawCSVField& raw_field = this->data->fields[field_index];
-        bool has_doubled_quote = this->data->double_quote_fields.find(field_index) != this->data->double_quote_fields.end();
+        bool has_doubled_quote = this->data->has_double_quotes.find(field_index) != this->data->has_double_quotes.end();
 
         csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
 
         if (has_doubled_quote) {
             std::string& ret = this->data->double_quote_fields[field_index];
-            bool prev_ch_quote = false;
+            if (ret.empty()) {
+                bool prev_ch_quote = false;
+                for (size_t i = 0;
+                    (i < csv_field.size()) && (ret.size() < this->row_length);
+                    i++) {
+                    // TODO: Use parse flags
+                    if (csv_field[i] == '"') {
+                        if (prev_ch_quote) {
+                            prev_ch_quote = false;
+                            continue;
+                        }
+                        else {
+                            prev_ch_quote = true;
+                        }
+                    }
 
-            for (size_t i = 0;
-                 (i < csv_field.size()) && (ret.size() < this->row_length);
-                 i++) {
-                // TODO: Use parse flags
-                if (csv_field[i] == '"') {
-                    if (prev_ch_quote) {
-                        prev_ch_quote = false;
-                        continue;
-                    }
-                    else {
-                        prev_ch_quote = true;
-                    }
+                    ret += csv_field[i];
                 }
-
-                ret += csv_field[i];
             }
 
             return csv::string_view(ret);
