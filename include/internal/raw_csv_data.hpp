@@ -64,13 +64,13 @@ namespace csv {
         }
 
         void push_field();
+        CONSTEXPR void parse_field(csv::string_view in, size_t& i, const size_t& current_row_start, bool quote_escape = false);
         void push_row(std::deque<CSVRow>& records) {
             current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
             records.push_back(std::move(current_row));
         };
 
-        void parse_loop(csv::string_view in,
-        size_t start_offset = 0);
+        void parse_loop(csv::string_view in, size_t start_offset = 0);
 
         void set_data_ptr(RawCSVDataPtr ptr) {
             this->data_ptr = ptr;
