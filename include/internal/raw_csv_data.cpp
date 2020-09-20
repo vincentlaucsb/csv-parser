@@ -7,7 +7,7 @@ namespace csv {
     ) {
         using internals::ParseFlags;
 
-        this->data_ptr = std::make_shared<RawCSVData>();
+        this->set_data_ptr(std::make_shared<RawCSVData>());
         this->data_ptr->col_names = this->col_names;
         this->records = &records;
 
@@ -52,14 +52,13 @@ namespace csv {
     void BasicCSVParser::push_field()
     {
         // Push field
-        auto& current_row_data = this->current_row.data;
-        current_row_data->fields.push_back({
+        this->fields->push_back({
             (unsigned int)this->field_start,
             this->field_length
         });
 
         if (this->field_has_double_quote) {
-            current_row_data->has_double_quotes.insert(this->current_row.field_bounds_index + this->current_row.row_length - 1);
+            this->current_row.data->has_double_quotes.insert(this->current_row.field_bounds_index + this->current_row.row_length - 1);
         }
 
         // Reset field state

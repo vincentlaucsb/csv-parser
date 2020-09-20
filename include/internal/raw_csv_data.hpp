@@ -72,6 +72,11 @@ namespace csv {
         void parse_loop(csv::string_view in,
         size_t start_offset = 0);
 
+        void set_data_ptr(RawCSVDataPtr ptr) {
+            this->data_ptr = ptr;
+            this->fields = &(ptr->fields);
+        }
+
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
         internals::ParseFlagMap parse_flags;
 
@@ -90,6 +95,8 @@ namespace csv {
         bool field_has_double_quote = false;
 
         RawCSVDataPtr data_ptr = nullptr;
+        std::vector<RawCSVField>* fields = nullptr;
+
         std::deque<CSVRow>* records = nullptr;
     };
 }
