@@ -16,7 +16,7 @@ namespace csv {
          *   An enum used for describing the significance of each character
          *   with respect to CSV parsing
          */
-        enum ParseFlags {
+        enum class ParseFlags {
             NOT_SPECIAL, /**< Characters with no special meaning */
             QUOTE,       /**< Characters which may signify a quote escape */
             DELIMITER,   /**< Characters which may signify a new field */
@@ -55,22 +55,21 @@ namespace csv {
         }
 
     private:
-        struct ParseLoopData {
-            csv::string_view in;
-            csv::RawCSVDataPtr raw_data;
-            std::deque<CSVRow> * records;
-            bool is_stitching = false;
-            size_t start_offset = 0;
-        };
+        CONSTEXPR internals::ParseFlags parse_flag(const char ch) const {
+            return this->parse_flags.data()[ch + 128];
+        }
 
-        void parse_field(csv::string_view in, size_t& i);
-        void parse_quoted_field(csv::string_view in, size_t& i);
+        CONSTEXPR bool ws_flag(const char ch) const {
+            return this->ws_flags.data()[ch + 128];
+        }
+
         void push_field();
         void push_row(std::deque<CSVRow>& records) {
             records.push_back(std::move(current_row));
         };
 
-        size_t parse_loop(ParseLoopData& data);
+        void parse_loop(csv::string_view in,
+        size_t start_offset = 0);
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
         internals::ParseFlagMap parse_flags;
@@ -85,8 +84,11 @@ namespace csv {
         CSVRow current_row;
         bool quote_escape = false;
         size_t current_row_start = 0;
-        size_t field_start = 0;
-        size_t field_length = 0;
+        int field_start = -1;
+        unsigned short field_length = 0;
         bool field_has_double_quote = false;
+
+        RawCSVDataPtr data_ptr = nullptr;
+        std::deque<CSVRow>* records = nullptr;
     };
 }

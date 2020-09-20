@@ -7,11 +7,12 @@ namespace csv {
     ) {
         using internals::ParseFlags;
 
-        size_t part_of_previous_fragment = 0;
-        ParseLoopData main_loop_data;
-        main_loop_data.raw_data = std::make_shared<RawCSVData>();
-        main_loop_data.raw_data->col_names = this->col_names;
+        this->data_ptr = std::make_shared<RawCSVData>();
+        this->data_ptr->col_names = this->col_names;
+        this->records = &records;
 
+        size_t part_of_previous_fragment = 0;
+        
         // Check for previous fragments
         if (this->current_row.row_length > 0) {
             // Make a separate data buffer for the fragment row
@@ -20,7 +21,7 @@ namespace csv {
             );
             auto temp_row_length = this->current_row.row_length;
 
-            this->current_row.data = std::make_shared<RawCSVData>();
+            this->current_row.data = this->data_ptr;
             this->current_row.data_start = 0;
             this->current_row.row_length = 0;
             this->current_row.field_bounds_index = 0;
@@ -37,48 +38,15 @@ namespace csv {
             in = csv::string_view(fragment_data->data);
         }
         else {
-            this->current_row = CSVRow(main_loop_data.raw_data);
+            this->data_ptr->data.assign(in.data(), in.size());
+            this->current_row = CSVRow(this->data_ptr);
         }
 
-        main_loop_data.in = in;
-        main_loop_data.raw_data->data.assign(in.data(), in.size());
-        main_loop_data.records = &records;
-
-        this->parse_loop(main_loop_data);
+        this->parse_loop(in, 0);
 
         // Return True if we are done parsing and there are no
         // incomplete rows or fields
         return this->current_row.row_length == 0;
-    }
-
-    void BasicCSVParser::parse_quoted_field(csv::string_view in, size_t& i) {
-        using internals::ParseFlags;
-        this->field_start = i - this->current_row_start;
-
-        auto* HEDLEY_RESTRICT parse_flags = this->parse_flags.data();
-
-        for (; i < in.size(); i++) {
-            if (parse_flags[in[i] + 128] == ParseFlags::QUOTE) {
-                if (i + 1 < in.size()) {
-                    auto next_ch = parse_flags[in[i + 1] + 128];
-                    if (next_ch >= ParseFlags::DELIMITER) {
-                        // Case: Delim or newline => end of field
-                        quote_escape = false;
-                        i++;
-                        break;
-                    }
-                    else if (next_ch == ParseFlags::QUOTE) {
-                        // Case: Escaped quote
-                        this->field_has_double_quote = true;
-                        i++;
-                    }
-
-                    // Fallthrough
-                }
-            }
-
-            this->field_length++;
-        }        
     }
 
     void BasicCSVParser::push_field()
@@ -86,8 +54,8 @@ namespace csv {
         // Push field
         this->current_row.row_length++;
         this->current_row.data->fields.push_back({
-            this->field_start,
-            this->field_length,
+            (size_t)this->field_start,
+            this->field_length
         });
 
         if (this->field_has_double_quote) {
@@ -95,85 +63,108 @@ namespace csv {
         }
 
         // Reset field state
-        this->field_start = 0;
+        this->quote_escape = false;
+        this->field_start = -1;
         this->field_length = 0;
         this->field_has_double_quote = false;
     }
 
-    void BasicCSVParser::parse_field(csv::string_view in, size_t& i) {
-        using internals::ParseFlags;
-        auto* HEDLEY_RESTRICT parse_flags = this->parse_flags.data();
-
-        this->field_start = i - this->current_row_start;
-        this->field_has_double_quote = false;
-
-        size_t length = 0;
-
-        // We'll allow unescaped quotes...
-        for (; i < in.size() && parse_flags[in[i] + 128] <= ParseFlags::QUOTE; i++) {
-            length++;
-        }
-
-        this->field_length += length;
-    }
-
-    size_t BasicCSVParser::parse_loop(ParseLoopData& data)
+    void BasicCSVParser::parse_loop(csv::string_view in, size_t start_offset)
     {
         // Optimizations
-        auto* HEDLEY_RESTRICT parse_flags = this->parse_flags.data();
         auto* HEDLEY_RESTRICT ws_flags = this->ws_flags.data();
 
         // Parser state
         this->current_row_start = 0;
-        auto start_offset = data.start_offset;
+        this->quote_escape = false;
 
-        for (size_t i = 0; i < data.in.size(); ) {
+        size_t in_size = in.size();
+        for (size_t i = 0; i < in_size; ) {
             using internals::ParseFlags;
-            switch (parse_flags[data.in[i] + 128]) {
-            case ParseFlags::NOT_SPECIAL:
+            switch(parse_flag(in[i])) {
+            case ParseFlags::DELIMITER:
                 if (!this->quote_escape) {
-                    this->parse_field(data.in, i);
-                    this->field_start += start_offset;
+                    this->push_field();
+                    i++;
                     break;
                 }
 
                 HEDLEY_FALL_THROUGH;
 
-            case ParseFlags::QUOTE:
+            case ParseFlags::NEWLINE:
                 if (!this->quote_escape) {
-                    i++;
-                    this->quote_escape = true;
+                    ++i;
+
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) // Catches CRLF (or LFLF)
+                        ++i;
+
+                    // End of record -> Write record
+                    this->push_field();
+                    this->push_row(*records);
+                    this->current_row = CSVRow(this->data_ptr);
+                    this->current_row.data_start = i;
+                    this->current_row.field_bounds_index = this->data_ptr->fields.size();
+                    this->current_row_start = i;
+                    break;
                 }
 
-                this->parse_quoted_field(data.in, i);
-                this->field_start += start_offset;
-
-                break;
-
-            case ParseFlags::DELIMITER:
-                this->push_field();
+                // Treat as regular character
+                this->field_length++;
                 i++;
                 break;
 
-            default: // Newline
-                // End of record -> Write record
-                this->push_field();
-                i++;
-
-                // Catches CRLF (or LFLF)
-                if (i < data.in.size() && data.in[i] == '\n')
+            case ParseFlags::NOT_SPECIAL:
+                // Trim off leading whitespace
+                while (i < in.size() && ws_flag(in[i])) {
                     i++;
-
-                this->push_row(*(data.records));
-
-                if (data.is_stitching) {
-                    return i;
                 }
 
-                current_row = CSVRow(data.raw_data);
-                current_row.data_start = i;
-                current_row.field_bounds_index = data.raw_data->fields.size();
-                current_row_start = i;
+                if (this->field_start < 0) {
+                    this->field_start = i - this->current_row_start;
+                }
+
+                // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+                // sequences, use the loop below to avoid having to go through the outer
+                // switch statement as much as possible
+                while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) {
+                    i++;
+                    this->field_length++;
+                }
+
+                // Trim off trailing whitespace
+                while (i < in.size() && ws_flag(in[i])) {
+                    i++;
+                }
+
+                break;
+            default: // Quote
+                if (!this->quote_escape) {
+                    if (this->field_length == 0) {
+                        this->quote_escape = true;
+                        i++;
+                    }
+                }
+                else if (i + 1 < in.size()) {
+                    if (parse_flag(in[i + 1]) >= ParseFlags::DELIMITER) {
+                        this->quote_escape = false;
+                        i++;
+                        break;
+                    }
+
+                    // Case: Escaped quote
+                    i++;
+                    this->field_length++;
+
+                    // Note: Unescaped single quotes can be handled by the parser
+                    if (parse_flag(in[i + 1]) == ParseFlags::QUOTE) {
+                        i++;
+                        this->field_length++;
+                        this->field_has_double_quote = true;
+                    }
+                }
+                else {
+                    i++;
+                }
 
                 break;
             }

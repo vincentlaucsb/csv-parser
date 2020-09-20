@@ -26,11 +26,11 @@ namespace csv {
                 char ch = char(i);
 
                 if (ch == delimiter)
-                    ret[arr_idx] = DELIMITER;
+                    ret[arr_idx] = ParseFlags::DELIMITER;
                 else if (ch == '\r' || ch == '\n')
-                    ret[arr_idx] = NEWLINE;
+                    ret[arr_idx] = ParseFlags::NEWLINE;
                 else
-                    ret[arr_idx] = NOT_SPECIAL;
+                    ret[arr_idx] = ParseFlags::NOT_SPECIAL;
             }
 
             return ret;
@@ -42,7 +42,7 @@ namespace csv {
          */
         HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
             std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
-            ret[(size_t)quote_char + 128] = QUOTE;
+            ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
             return ret;
         }
 

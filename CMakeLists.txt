@@ -23,7 +23,7 @@ if(MSVC)
 	# Make Visual Studio report accurate C++ version
 	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
   # /Wall emits warnings about the C++ standard library
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /Zc:__cplusplus /W4")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4")
 else()
 	# Ignore Visual Studio pragma regions
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")

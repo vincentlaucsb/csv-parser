@@ -33,13 +33,14 @@ namespace csv {
 
     struct RawCSVField {
         size_t start;
-        size_t length;
+        unsigned short length;
     };
 
     /** A class for storing raw CSV data and associated metadata */
     struct RawCSVData {
         std::string data = "";
         std::vector<RawCSVField> fields = {};
+
         std::unordered_set<size_t> has_double_quotes = {};
         std::unordered_map<size_t, std::string> double_quote_fields = {};
         internals::ColNamesPtr col_names = nullptr;
@@ -210,12 +211,6 @@ namespace csv {
         
         /** Construct a CSVRow from a RawCSVDataPtr */
         CSVRow(RawCSVDataPtr _data) : data(_data) {}
-
-        /** Retrieve a string view over this row's data 
-        CSV_INLINE csv::string_view row_str() const {
-            return csv::string_view(this->buffer->buffer.c_str() + this->data.row_str.first, this->data.row_str.second);
-        }
-        */
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const { return this->size() == 0; }

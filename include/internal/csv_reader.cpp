@@ -266,7 +266,7 @@ namespace csv {
      * @see CSVReader::read_row()
      */
     CSV_INLINE void CSVReader::read_csv(const size_t& bytes) {
-        const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
+        const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)internals::PAGE_SIZE);// (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto * HEDLEY_RESTRICT line_buffer = buffer.get();
         line_buffer[0] = '\0';

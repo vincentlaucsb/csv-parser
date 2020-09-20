@@ -52,7 +52,7 @@ namespace csv {
     csv::string_view CSVRow::get_field(size_t index) const
     {
         size_t field_index = this->field_bounds_index + index;
-        RawCSVField raw_field = this->data->fields[field_index];
+        const RawCSVField& raw_field = this->data->fields[field_index];
         bool has_doubled_quote = this->data->double_quote_fields.find(field_index) != this->data->double_quote_fields.end();
 
         csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
@@ -62,9 +62,8 @@ namespace csv {
             bool prev_ch_quote = false;
 
             for (size_t i = 0;
-                (i < csv_field.size())
-                && (ret.size() < this->row_length);
-                i++) {
+                 (i < csv_field.size()) && (ret.size() < this->row_length);
+                 i++) {
                 // TODO: Use parse flags
                 if (csv_field[i] == '"') {
                     if (prev_ch_quote) {

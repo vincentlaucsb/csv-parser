@@ -4286,7 +4286,7 @@ namespace csv {
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return !(this->infile); };
+        bool eof() { return !(this->file_ptr); };
 
         /** @name CSV Settings **/
         ///@{
@@ -4335,7 +4335,7 @@ namespace csv {
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
         /** Current file handle. Destroyed by ~CSVReader(). */
-        std::FILE* HEDLEY_RESTRICT infile = nullptr;
+        std::FILE* HEDLEY_RESTRICT file_ptr = nullptr;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 
@@ -4893,10 +4893,10 @@ namespace csv {
     }
 
     CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
-        if (!this->infile) {
+        if (!this->file_ptr) {
 #ifdef _MSC_BUILD
             // Silence compiler warnings in Microsoft Visual C++
-            size_t err = fopen_s(&(this->infile), filename.data(), "rb");
+            size_t err = fopen_s(&(this->file_ptr), filename.data(), "rb");
             if (err)
                 throw std::runtime_error("Cannot open file " + std::string(filename));
 #else
@@ -4933,7 +4933,7 @@ namespace csv {
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         for (size_t processed = 0; processed < bytes; ) {
-            char * HEDLEY_RESTRICT result = std::fgets(line_buffer, internals::PAGE_SIZE, this->infile);
+            char * HEDLEY_RESTRICT result = std::fgets(line_buffer, internals::PAGE_SIZE, this->file_ptr);
             if (result == NULL) break;
             line_buffer += std::strlen(line_buffer);
             size_t current_strlen = line_buffer - buffer.get();
@@ -4960,7 +4960,7 @@ namespace csv {
         lock.unlock();
         worker.join();
 
-        if (std::feof(this->infile)) {
+        if (std::feof(this->file_ptr)) {
             this->end_feed();
             this->close();
         }
@@ -4971,9 +4971,9 @@ namespace csv {
      *  @note Automatically called by ~CSVReader().
      */
     CSV_INLINE void CSVReader::close() {
-        if (this->infile) {
-            std::fclose(this->infile);
-            this->infile = nullptr;
+        if (this->file_ptr) {
+            std::fclose(this->file_ptr);
+            this->file_ptr = nullptr;
         }
     }
 
