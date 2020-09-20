@@ -14,7 +14,7 @@ namespace csv {
         size_t part_of_previous_fragment = 0;
         
         // Check for previous fragments
-        if (this->current_row.row_length > 0) {
+        if (this->current_row.data && this->current_row.data->fields.size() - this->current_row.field_bounds_index > 0) {
             // Make a separate data buffer for the fragment row
             auto temp_str = this->current_row.data->data.substr(
                 this->current_row.data_start
@@ -52,21 +52,19 @@ namespace csv {
     void BasicCSVParser::push_field()
     {
         // Push field
-        this->current_row.row_length++;
-        this->current_row.data->fields.push_back({
-            (size_t)this->field_start,
+        auto& current_row_data = this->current_row.data;
+        current_row_data->fields.push_back({
+            (unsigned int)this->field_start,
             this->field_length
         });
 
         if (this->field_has_double_quote) {
-            this->current_row.data->has_double_quotes.insert(this->current_row.data->fields.size() - 1);
+            current_row_data->has_double_quotes.insert(this->current_row.field_bounds_index + this->current_row.row_length - 1);
         }
 
         // Reset field state
-        this->quote_escape = false;
         this->field_start = -1;
         this->field_length = 0;
-        this->field_has_double_quote = false;
     }
 
     void BasicCSVParser::parse_loop(csv::string_view in, size_t start_offset)
@@ -147,6 +145,7 @@ namespace csv {
                 else if (i + 1 < in.size()) {
                     if (parse_flag(in[i + 1]) >= ParseFlags::DELIMITER) {
                         this->quote_escape = false;
+                        this->field_has_double_quote = false;
                         i++;
                         break;
                     }

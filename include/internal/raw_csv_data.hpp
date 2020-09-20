@@ -65,6 +65,7 @@ namespace csv {
 
         void push_field();
         void push_row(std::deque<CSVRow>& records) {
+            current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
             records.push_back(std::move(current_row));
         };
 
@@ -85,7 +86,7 @@ namespace csv {
         bool quote_escape = false;
         size_t current_row_start = 0;
         int field_start = -1;
-        unsigned short field_length = 0;
+        unsigned int field_length = 0;
         bool field_has_double_quote = false;
 
         RawCSVDataPtr data_ptr = nullptr;

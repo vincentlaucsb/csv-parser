@@ -32,8 +32,8 @@ namespace csv {
     }
 
     struct RawCSVField {
-        size_t start;
-        unsigned short length;
+        unsigned int start;
+        unsigned int length;
     };
 
     /** A class for storing raw CSV data and associated metadata */
