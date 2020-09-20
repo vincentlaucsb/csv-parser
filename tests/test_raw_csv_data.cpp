@@ -62,6 +62,7 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
         "\"A\",\"B\",\"C\"\r\n"   // Quoted fields w/ no escapes
         "123,\"234,345\",456\r\n" // Escaped comma
         "1,\"2\"\"3\",4\r\n"      // Escaped quote
+        "1,\"23\"\"34\",5\r\n"      // Another escaped quote
         "1,\"\",2\r\n";           // Empty Field
 
     BasicCSVParser parser(
@@ -90,6 +91,13 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
     REQUIRE(row.get_field(0) == "1");
     REQUIRE(row.get_field(1) == "2\"3");
     REQUIRE(row.get_field(2) == "4");
+    REQUIRE(row.size() == 3);
+
+    rows.pop_front();
+    row = rows.front();
+    REQUIRE(row.get_field(0) == "1");
+    REQUIRE(row.get_field(1) == "23\"34");
+    REQUIRE(row.get_field(2) == "5");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();

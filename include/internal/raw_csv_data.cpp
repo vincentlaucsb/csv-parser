@@ -113,7 +113,6 @@ namespace csv {
                         this->field_length++;
                         i++;
 
-                        // Note: Unescaped single quotes can be handled by the parser
                         if (parse_flag(in[i]) == ParseFlags::QUOTE) {
                             i++;
                             this->field_length++;

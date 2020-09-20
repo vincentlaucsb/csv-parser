@@ -61,9 +61,7 @@ namespace csv {
             std::string& ret = this->data->double_quote_fields[field_index];
             if (ret.empty()) {
                 bool prev_ch_quote = false;
-                for (size_t i = 0;
-                    (i < csv_field.size()) && (ret.size() < this->row_length);
-                    i++) {
+                for (size_t i = 0; i < raw_field.length; i++) {
                     // TODO: Use parse flags
                     if (csv_field[i] == '"') {
                         if (prev_ch_quote) {
