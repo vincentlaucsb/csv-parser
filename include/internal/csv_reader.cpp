@@ -281,12 +281,13 @@ namespace csv {
 
         std::thread worker(&CSVReader::read_csv_worker, this);
 
+        size_t processed = 0;
         size_t strlen = 0;
         for (; this->csv_mmap_pos < this->csv_mmap.length(); this->csv_mmap_pos++) {
             line_buffer[strlen] = this->csv_mmap[this->csv_mmap_pos];
-
             strlen++;
-            if (strlen >= BUFFER_UPPER_LIMIT - 1) {
+
+            if (strlen == BUFFER_UPPER_LIMIT - 1) {
                 line_buffer[strlen] = '\0';
 
                 std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
@@ -296,15 +297,13 @@ namespace csv {
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
                 line_buffer[0] = '\0';
+                strlen = 0;
 
                 this->feed_state->feed_cond.notify_one();
-
+            }
+            else if (processed > bytes) {
                 break;
             }
-        }
-
-        if (this->csv_mmap_pos == this->csv_mmap.length()) {
-            this->csv_mmap_eof = true;
         }
 
         // Feed remaining bits
@@ -315,20 +314,9 @@ namespace csv {
         lock.unlock();
         worker.join();
 
-        //if (std::feof(this->infile)) {
+        if (this->csv_mmap_pos == this->csv_mmap.length()) {
+            this->csv_mmap_eof = true;
             this->end_feed();
-            this->close();
-        //}
-    }
-
-    /** Close the open file handle.
-     *
-     *  @note Automatically called by ~CSVReader().
-     */
-    CSV_INLINE void CSVReader::close() {
-        if (this->infile) {
-            std::fclose(this->infile);
-            this->infile = nullptr;
         }
     }
 
@@ -349,8 +337,6 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
-                // TODO/Suggestion: Make this call non-blocking, 
-                // i.e. move to it another thread
                 this->read_csv(internals::ITERATION_CHUNK_SIZE);
             }
             else return false; // Stop reading

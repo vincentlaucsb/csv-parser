@@ -108,7 +108,6 @@ namespace csv {
         CSVReader(CSVReader&&) = default;     // Move constructor
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
-        ~CSVReader() { this->close(); }
 
         /** @name Reading In-Memory Strings
          *  You can piece together incomplete CSV fragments by calling feed() on them
@@ -143,8 +142,6 @@ namespace csv {
                                    */
         bool utf8_bom = false;   /**< Set to true if UTF-8 BOM was detected */
         ///@}
-
-        void close();
 
     protected:
         /**
