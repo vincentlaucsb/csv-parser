@@ -344,12 +344,12 @@ namespace csv {
             if (this->records.front().size() != this->n_cols &&
                 this->format.variable_column_policy != VariableColumnPolicy::KEEP) {
                 if (this->format.variable_column_policy == VariableColumnPolicy::THROW) {
-                    auto row = std::move(this->records.front());
+                    auto errored_row = std::move(this->records.front());
                     if (this->records.front().size() < this->n_cols) {
-                        throw std::runtime_error("Line too short " + internals::format_row(row));
+                        throw std::runtime_error("Line too short " + internals::format_row(errored_row));
                     }
 
-                    throw std::runtime_error("Line too long " + internals::format_row(row));
+                    throw std::runtime_error("Line too long " + internals::format_row(errored_row));
                 }
 
                 // Silently drop row (default)

@@ -1,5 +1,7 @@
 #include "catch.hpp"
 #include "csv.hpp"
+
+#include <sstream>
 using namespace csv;
 
 /** Construct a CSVRow object for testing given column names and CSV fields */
@@ -7,15 +9,19 @@ CSVRow make_csv_row(std::vector<std::string> data, std::vector<std::string> col_
     // Concatenate vector or strings into one large string
     using namespace csv::internals;
 
-    std::string concat;
-    SplitArray splits = {};
+    std::stringstream raw_csv;
+    auto writer = make_csv_writer(raw_csv);
+    writer << col_names;
+    writer << data;
 
-    for (auto& field : data) {
-        concat += field;
-        splits.push_back((StrBufferPos)concat.size());
-    }
+    CSVReader reader;
+    reader.feed(raw_csv.str());
+    reader.end_feed();
 
-    return CSVRow(concat, splits, std::make_shared<internals::ColNames>(col_names));
+    CSVRow row;
+    reader.read_row(row);
+
+    return row;
 }
 
 TEST_CASE("json_escape_string() Test", "[json_escape_string]") {

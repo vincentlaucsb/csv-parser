@@ -58,6 +58,10 @@ namespace csv {
 
     csv::string_view CSVRow::get_field(size_t index) const
     {
+        if (index >= this->size()) {
+            throw std::runtime_error("Index out of bounds.");
+        }
+
         size_t field_index = this->field_bounds_index + index;
         const RawCSVField& raw_field = this->data->fields[field_index];
         bool has_doubled_quote = this->data->has_double_quotes.find(field_index) != this->data->has_double_quotes.end();
