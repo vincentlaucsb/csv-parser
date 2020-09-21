@@ -85,8 +85,9 @@ namespace csv {
 
         this->field_length = i - (this->field_start + current_row_start);
 
-        // Trim off trailing whitespace
-        while (i < in.size() && ws_flag(in[i])) this->field_length--;
+        // Trim off trailing whitespace, this->field_length constraint matters
+        // when field is entirely whitespace
+        for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
     }
 
     void BasicCSVParser::parse_loop(csv::string_view in, size_t start_offset)
@@ -100,8 +101,9 @@ namespace csv {
         size_t in_size = in.size();
         for (size_t i = 0; i < in_size; ) {
             if (quote_escape) {
+                // TODO: Clean up these conditions
                 if (parse_flag(in[i]) == ParseFlags::QUOTE) {
-                    if (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER) {
+                    if (i + 1 == in.size() || (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER)) {
                         quote_escape = false;
                         i++;
                         continue;

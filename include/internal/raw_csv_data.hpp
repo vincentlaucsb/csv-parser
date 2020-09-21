@@ -37,11 +37,16 @@ namespace csv {
 
         bool parse(csv::string_view in, std::deque<CSVRow>& records);
         void end_feed(std::deque<CSVRow>& records) {
-            if (this->field_length > 0) {
+            using internals::ParseFlags;
+
+            bool empty_last_field = !this->current_row.data->data.empty()
+                && parse_flag(this->current_row.data->data.back()) == ParseFlags::DELIMITER;
+
+            if (this->field_length > 0 || empty_last_field) {
                 this->push_field();
             }
 
-            if (this->current_row.size() > 0) {
+            if (this->fields->size() > this->current_row.field_bounds_index) {
                 this->push_row(records);
             }
         }

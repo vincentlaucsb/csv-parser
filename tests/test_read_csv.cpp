@@ -176,7 +176,7 @@ TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     }
 }
 
-std::vector<std::string> make_whitespace_test_cases() {
+inline std::vector<std::string> make_whitespace_test_cases() {
     std::vector<std::string> test_cases = {};
     std::stringstream ss;
 

@@ -1,6 +1,8 @@
 #include "catch.hpp"
 #include "csv.hpp"
 
+#include <sstream>
+
 using namespace csv;
 
 internals::WorkItem make_work_item(csv::string_view in) {
@@ -15,7 +17,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     std::string csv = "A,B,C\r\n" // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
-        "1,2,3\r\n";
+        "1,2,3";
 
     BasicCSVParser parser(
         internals::make_parse_flags(',', '"'),
@@ -24,10 +26,8 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     std::deque<CSVRow> rows;
     bool quote_escape = false;
     
-    parser.parse(
-        csv,
-        rows
-    );
+    parser.parse(csv, rows);
+    parser.end_feed(rows);
 
     auto row = rows.front();
     REQUIRE(row.get_field(0) == "A");
@@ -168,5 +168,144 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
         REQUIRE(row.get_field(1) == "2");
         REQUIRE(row.get_field(2) == "3");
         REQUIRE(row.size() == 3);
+    }
+}
+
+inline std::vector<std::string> make_whitespace_test_cases() {
+    std::vector<std::string> test_cases = {};
+    std::stringstream ss;
+
+    ss << "1, two,3" << std::endl
+        << "4, ,5" << std::endl
+        << " ,6, " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Lots of Whitespace
+    ss << "1, two,3" << std::endl
+        << "4,                    ,5" << std::endl
+        << "         ,6,       " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Same as above but there's whitespace around 6
+    ss << "1, two,3" << std::endl
+        << "4,                    ,5" << std::endl
+        << "         , 6 ,       " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    // Tabs
+    ss << "1, two,3" << std::endl
+        << "4, \t ,5" << std::endl
+        << "\t\t\t\t\t ,6, \t " << std::endl
+        << "7,8,9 " << std::endl;
+    test_cases.push_back(ss.str());
+    ss.clear();
+
+    return test_cases;
+}
+
+TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
+    auto row_str = GENERATE(as<std::string> {},
+        "A,B,C\r\n" // Header row
+        "123,\"234\n,345\",456\r\n",
+
+        // Random spaces
+        "A,B,C\r\n"
+        "   123,\"234\n,345\",    456\r\n",
+
+        // Random spaces + tabs
+        "A,B,C\r\n"
+        "\t\t   123,\"234\n,345\",    456\r\n",
+
+        // Spaces in quote escaped field
+        "A,B,C\r\n"
+        "\t\t   123,\"   234\n,345  \t\",    456\r\n",
+
+        // Spaces in one header column
+        "A,B,        C\r\n"
+        "123,\"234\n,345\",456\r\n",
+
+        // Random spaces + tabs in header
+        "\t A,  B\t,     C\r\n"
+        "123,\"234\n,345\",456\r\n",
+
+        // Random spaces in header + data
+        "A,B,        C\r\n"
+        "123,\"234\n,345\",  456\r\n"
+    );
+
+    SECTION("Parse Test") {
+        using namespace std;
+
+        deque<CSVRow> rows = {};
+        char ws_chars[] = { ' ', '\t' };
+
+        BasicCSVParser parser(
+            internals::make_parse_flags(',', '"'),
+            internals::make_ws_flags(ws_chars, 2)
+        );
+        parser.parse(row_str, rows);
+
+        auto header = rows[0];
+        REQUIRE(vector<string>(header) == vector<string>(
+            { "A", "B", "C" }));
+
+        auto row = rows[1];
+        REQUIRE(vector<string>(row) ==
+            vector<string>({ "123", "234\n,345", "456" }));
+        REQUIRE(row[0] == "123");
+        REQUIRE(row[1] == "234\n,345");
+        REQUIRE(row[2] == "456");
+    }
+}
+
+TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]") {
+    auto csv_string = GENERATE(from_range(make_whitespace_test_cases()));
+
+    SECTION("Parse Test") {
+        std::deque<CSVRow> rows = {};
+        char ws_chars[] = { ' ', '\t' };
+
+        BasicCSVParser parser(
+            internals::make_parse_flags(',', '"'),
+            internals::make_ws_flags(ws_chars, 2)
+        );
+        parser.parse(csv_string, rows);
+
+        size_t row_no = 0;
+        for (auto& row : rows) {
+            switch (row_no) {
+            case 0:
+                REQUIRE(row[0].get<uint32_t>() == 1);
+                REQUIRE(row[1].get<std::string>() == "two");
+                REQUIRE(row[2].get<uint32_t>() == 3);
+                break;
+
+            case 1:
+                REQUIRE(row[0].get<uint32_t>() == 4);
+                REQUIRE(row[1].is_null());
+                REQUIRE(row[2].get<uint32_t>() == 5);
+                break;
+
+            case 2:
+                REQUIRE(row[0].is_null());
+                REQUIRE(row[1].get<uint32_t>() == 6);
+                REQUIRE(row[2].is_null());
+                break;
+
+            case 3:
+                REQUIRE(row[0].get<uint32_t>() == 7);
+                REQUIRE(row[1].get<uint32_t>() == 8);
+                REQUIRE(row[2].get<uint32_t>() == 9);
+                break;
+            }
+
+            row_no++;
+        }
     }
 }

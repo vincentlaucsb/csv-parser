@@ -309,7 +309,7 @@ namespace csv {
 
         // Feed remaining bits
         std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), line_buffer - buffer.get()));
+        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
         this->feed_state->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
         this->feed_state->feed_cond.notify_one();
         lock.unlock();
@@ -347,8 +347,7 @@ namespace csv {
             if (this->records.front().size() != this->n_cols &&
                 this->format.variable_column_policy != VariableColumnPolicy::KEEP) {
                 if (this->format.variable_column_policy == VariableColumnPolicy::THROW) {
-                    auto row = CSVRow(std::move(this->records.front()));
-
+                    auto row = std::move(this->records.front());
                     if (this->records.front().size() < this->n_cols) {
                         throw std::runtime_error("Line too short " + internals::format_row(row));
                     }

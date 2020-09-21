@@ -112,13 +112,10 @@ namespace csv {
          */
 
         auto current_record = this->records.begin();
-        auto csv_row = *current_record;
 
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            auto row = CSVRow(std::move(csv_row));
-
             if (current_record->size() == this->n_cols) {
-                auto current_field = row[i];
+                auto current_field = (*current_record)[i];
 
                 // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
                 if (processed < 1000 || this->counts[i].size() <= 500)
@@ -136,7 +133,7 @@ namespace csv {
                 }
             }
             else if (this->format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
-                throw std::runtime_error("Line has different length than the others " + internals::format_row(row));
+                throw std::runtime_error("Line has different length than the others " + internals::format_row(*current_record));
             }
 
             ++current_record;

@@ -56,7 +56,6 @@ namespace csv {
         return ret;
     }
 
-
     csv::string_view CSVRow::get_field(size_t index) const
     {
         size_t field_index = this->field_bounds_index + index;
