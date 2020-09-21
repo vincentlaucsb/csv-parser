@@ -1,7 +1,7 @@
 #include "raw_csv_data.hpp"
 
 namespace csv {
-    bool BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
+    void BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
         using internals::ParseFlags;
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
@@ -34,11 +34,6 @@ namespace csv {
         }
 
         this->parse_loop(in, 0);
-        this->suggested_capacity = std::max(this->suggested_capacity, this->data_ptr->fields.size());
-
-        // Return True if we are done parsing and there are no
-        // incomplete rows or fields
-        return this->current_row.row_length == 0;
     }
 
     void BasicCSVParser::push_field()

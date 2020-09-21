@@ -35,7 +35,7 @@ namespace csv {
         BasicCSVParser(internals::ParseFlagMap _parse_flags, internals::WhitespaceMap _ws_flags) :
             parse_flags(_parse_flags), ws_flags(_ws_flags) {};
 
-        bool parse(csv::string_view in, std::deque<CSVRow>& records);
+        void parse(csv::string_view in, std::deque<CSVRow>& records);
         void end_feed(std::deque<CSVRow>& records) {
             using internals::ParseFlags;
 
@@ -96,8 +96,6 @@ namespace csv {
         int field_start = -1;
         unsigned int field_length = 0;
         bool field_has_double_quote = false;
-
-        size_t suggested_capacity = 0;
 
         RawCSVDataPtr data_ptr = nullptr;
         internals::CSVFieldArray* fields = nullptr;

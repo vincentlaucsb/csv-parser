@@ -282,13 +282,13 @@ namespace csv {
 
         std::thread worker(&CSVReader::read_csv_worker, this);
 
-        size_t processed = 0;
         size_t strlen = 0;
-        for (; this->csv_mmap_pos < this->csv_mmap.length(); this->csv_mmap_pos++) {
+        for (size_t processed = 0; this->csv_mmap_pos < this->csv_mmap.length() && processed < bytes; this->csv_mmap_pos++) {
             line_buffer[strlen] = this->csv_mmap[this->csv_mmap_pos];
             strlen++;
 
             if (strlen == BUFFER_UPPER_LIMIT - 1) {
+                processed += strlen;
                 line_buffer[strlen] = '\0';
 
                 std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
@@ -301,9 +301,6 @@ namespace csv {
                 strlen = 0;
 
                 this->feed_state->feed_cond.notify_one();
-            }
-            else if (processed > bytes) {
-                break;
             }
         }
 
