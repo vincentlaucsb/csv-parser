@@ -35,15 +35,22 @@ namespace csv {
                 }
             }
 
-            // Most common numbers of columns
-            auto max = std::max_element(row_tally.begin(), row_tally.end(),
-                [](const std::pair<size_t, size_t>& x,
-                    const std::pair<size_t, size_t>& y) {
-                        return x.second < y.second; });
+            double final_score = 0;
+            size_t header_row = 0;
+
+            // Final score is equal to the largest 
+            // row size times rows of that size
+            for (auto& [row_size, row_count] : row_tally) {
+                double score = (double)(row_size * row_count);
+                if (score > final_score) {
+                    final_score = score;
+                    header_row = row_when[row_size];
+                }
+            }
 
             return {
-                (double)(max->first * max->second),
-                row_when[max->first]
+                final_score,
+                header_row
             };
         }
 
