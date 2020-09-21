@@ -1,5 +1,4 @@
 #include "raw_csv_data.hpp"
-//#include <iostream>
 
 namespace csv {
     bool BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
@@ -10,19 +9,16 @@ namespace csv {
         this->records = &records;
 
         // Check for previous fragments
-        if (this->current_row.data && this->current_row.data->fields.size() - this->current_row.field_bounds_index > 0) {
+        if (this->current_row.data && this->current_row.size() > 0 || this->field_length > 0) {
             // Make a separate data buffer for the fragment row
-            auto temp_str = this->current_row.data->data.substr(
-                this->current_row.data_start
-            );
-            auto temp_row_length = this->current_row.row_length;
+            auto temp_str = this->current_row.data->data.substr(this->current_row.data_start);
 
             this->current_row.data = this->data_ptr;
             this->current_row.data_start = 0;
             this->current_row.row_length = 0;
             this->current_row.field_bounds_index = 0;
 
-            this->field_start = 0;
+            this->field_start = -1;
             this->field_length = 0;
 
             auto& fragment_data = this->current_row.data;
@@ -52,6 +48,7 @@ namespace csv {
             this->field_start > 0 ? (unsigned int)this->field_start : 0,
             this->field_length
         });
+        this->current_row.row_length++;
 
         if (this->field_has_double_quote) {
             this->current_row.data->has_double_quotes.insert(this->data_ptr->fields.size() - 1);

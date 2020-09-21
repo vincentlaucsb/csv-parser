@@ -46,7 +46,7 @@ namespace csv {
                 this->push_field();
             }
 
-            if (this->fields->size() > this->current_row.field_bounds_index) {
+            if (this->current_row.size() > 0) {
                 this->push_row(records);
             }
         }
