@@ -174,7 +174,7 @@ namespace csv {
 
         /** @name CSV Settings **/
         ///@{
-        CSVFormat format;
+        CSVFormat _format;
         ///@}
 
         /** @name Parser State */

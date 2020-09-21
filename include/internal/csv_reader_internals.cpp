@@ -71,7 +71,7 @@ namespace csv {
                 auto result = calculate_score(head, format.delimiter(cand_delim));
 
                 if (result.score > max_score) {
-                    max_score = result.score;
+                    max_score = (size_t)result.score;
                     current_delim = cand_delim;
                     header = result.header;
                 }

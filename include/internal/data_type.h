@@ -17,7 +17,7 @@ namespace csv {
      *  @note Overflowing integers will be stored and classified as doubles.
      *  @note Unlike previous releases, integer enums here are platform agnostic.
      */
-    enum DataType {
+    enum class DataType {
         UNKNOWN = -1,
         CSV_NULL,   /**< Empty string */
         CSV_STRING, /**< Non-numeric string */
@@ -28,9 +28,9 @@ namespace csv {
         CSV_DOUBLE  /**< Floating point value */
     };
 
-    static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
-    static_assert(CSV_INT8 < CSV_INT64, "Smaller integer types should come before larger integer types.");
-    static_assert(CSV_INT64 < CSV_DOUBLE, "Integer types should come before floating point value types.");
+    static_assert(DataType::CSV_STRING < DataType::CSV_INT8, "String type should come before numeric types.");
+    static_assert(DataType::CSV_INT8 < DataType::CSV_INT64, "Smaller integer types should come before larger integer types.");
+    static_assert(DataType::CSV_INT64 < DataType::CSV_DOUBLE, "Integer types should come before floating point value types.");
 
     namespace internals {
         /** Compute 10 to the power of n */
@@ -67,14 +67,14 @@ namespace csv {
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
         /** Private site-indexed array mapping byte sizes to an integer size enum */
         constexpr DataType int_type_arr[8] = {
-            CSV_INT8,  // 1
-            CSV_INT16, // 2
-            UNKNOWN,
-            CSV_INT32, // 4
-            UNKNOWN,
-            UNKNOWN,
-            UNKNOWN,
-            CSV_INT64  // 8
+            DataType::CSV_INT8,  // 1
+            DataType::CSV_INT16, // 2
+            DataType::UNKNOWN,
+            DataType::CSV_INT32, // 4
+            DataType::UNKNOWN,
+            DataType::UNKNOWN,
+            DataType::UNKNOWN,
+            DataType::CSV_INT64  // 8
         };
 
         template<typename T>
@@ -84,11 +84,11 @@ namespace csv {
             return int_type_arr[sizeof(T) - 1];
         }
 
-        template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
-        template<> inline DataType type_num<std::string>() { return CSV_STRING; }
+        template<> inline DataType type_num<float>() { return DataType::CSV_DOUBLE; }
+        template<> inline DataType type_num<double>() { return DataType::CSV_DOUBLE; }
+        template<> inline DataType type_num<long double>() { return DataType::CSV_DOUBLE; }
+        template<> inline DataType type_num<std::nullptr_t>() { return DataType::CSV_NULL; }
+        template<> inline DataType type_num<std::string>() { return DataType::CSV_STRING; }
 
         CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
@@ -195,12 +195,12 @@ namespace csv {
             auto result = data_type(exponential_part, &exponent);
 
             // Exponents in scientific notation should not be decimal numbers
-            if (result >= CSV_INT8 && result < CSV_DOUBLE) {
+            if (result >= DataType::CSV_INT8 && result < DataType::CSV_DOUBLE) {
                 if (out) *out = coeff * pow10(exponent);
-                return CSV_DOUBLE;
+                return DataType::CSV_DOUBLE;
             }
 
-            return CSV_STRING;
+            return DataType::CSV_STRING;
         }
 
         /** Given the absolute value of an integer, determine what numeric type
@@ -212,15 +212,15 @@ namespace csv {
             assert(number >= 0);
 
             if (number <= internals::CSV_INT8_MAX)
-                return CSV_INT8;
+                return DataType::CSV_INT8;
             else if (number <= internals::CSV_INT16_MAX)
-                return CSV_INT16;
+                return DataType::CSV_INT16;
             else if (number <= internals::CSV_INT32_MAX)
-                return CSV_INT32;
+                return DataType::CSV_INT32;
             else if (number <= internals::CSV_INT64_MAX)
-                return CSV_INT64;
+                return DataType::CSV_INT64;
             else // Conversion to long long will cause an overflow
-                return CSV_DOUBLE;
+                return DataType::CSV_DOUBLE;
         }
 
         /** Distinguishes numeric from other text values. Used by various
@@ -238,7 +238,7 @@ namespace csv {
         DataType data_type(csv::string_view in, long double* const out) {
             // Empty string --> NULL
             if (in.size() == 0)
-                return CSV_NULL;
+                return DataType::CSV_NULL;
 
             bool ws_allowed = true,
                 neg_allowed = true,
@@ -263,21 +263,21 @@ namespace csv {
                         }
                         else {
                             // Ex: '510 123 4567'
-                            return CSV_STRING;
+                            return DataType::CSV_STRING;
                         }
                     }
                     break;
                 case '-':
                     if (!neg_allowed) {
                         // Ex: '510-123-4567'
-                        return CSV_STRING;
+                        return DataType::CSV_STRING;
                     }
 
                     neg_allowed = false;
                     break;
                 case '.':
                     if (!dot_allowed) {
-                        return CSV_STRING;
+                        return DataType::CSV_STRING;
                     }
 
                     dot_allowed = false;
@@ -302,7 +302,7 @@ namespace csv {
                         );
                     }
 
-                    return CSV_STRING;
+                    return DataType::CSV_STRING;
                     break;
                 default:
                     short digit = current - '0';
@@ -311,7 +311,7 @@ namespace csv {
                         has_digit = true;
 
                         if (!digit_allowed)
-                            return CSV_STRING;
+                            return DataType::CSV_STRING;
                         else if (ws_allowed) // Ex: '510 456'
                             ws_allowed = false;
 
@@ -322,7 +322,7 @@ namespace csv {
                             integral_part = (integral_part * 10) + digit;
                     }
                     else {
-                        return CSV_STRING;
+                        return DataType::CSV_STRING;
                     }
                 }
             }
@@ -334,11 +334,11 @@ namespace csv {
                     *out = neg_allowed ? number : -number;
                 }
 
-                return prob_float ? CSV_DOUBLE : _determine_integral_type(number);
+                return prob_float ? DataType::CSV_DOUBLE : _determine_integral_type(number);
             }
 
             // Just whitespace
-            return CSV_NULL;
+            return DataType::CSV_NULL;
         }
     }
 }

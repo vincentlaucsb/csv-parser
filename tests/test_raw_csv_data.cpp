@@ -24,8 +24,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
         internals::WhitespaceMap()
     );
     std::deque<CSVRow> rows;
-    bool quote_escape = false;
-    
+
     parser.parse(csv, rows);
     parser.end_feed(rows);
 

@@ -141,7 +141,7 @@ namespace csv {
         template<typename T = std::string> T get() {
             IF_CONSTEXPR(std::is_arithmetic<T>::value) {
                 // Note: this->type() also converts the CSV value to float
-                if (this->type() <= CSV_STRING) {
+                if (this->type() <= DataType::CSV_STRING) {
                     throw std::runtime_error(internals::ERROR_NAN);
                 }
             }
@@ -194,8 +194,8 @@ namespace csv {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
 
-            if (this->_type != UNKNOWN) {
-                if (this->_type == CSV_STRING) {
+            if (this->_type != DataType::UNKNOWN) {
+                if (this->_type == DataType::CSV_STRING) {
                     return false;
                 }
 
@@ -203,7 +203,7 @@ namespace csv {
             }
 
             long double out = 0;
-            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+            if (internals::data_type(this->sv, &out) == DataType::CSV_STRING) {
                 return false;
             }
 
@@ -214,21 +214,21 @@ namespace csv {
         CONSTEXPR csv::string_view get_sv() const { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        CONSTEXPR bool is_null() { return type() == CSV_NULL; }
+        CONSTEXPR bool is_null() { return type() == DataType::CSV_NULL; }
 
         /** Returns true if field is a non-numeric, non-empty string */
-        CONSTEXPR bool is_str() { return type() == CSV_STRING; }
+        CONSTEXPR bool is_str() { return type() == DataType::CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
+        CONSTEXPR bool is_num() { return type() >= DataType::CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
+            return (type() >= DataType::CSV_INT8) && (type() <= DataType::CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
+        CONSTEXPR bool is_float() { return type() == DataType::CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
@@ -239,12 +239,12 @@ namespace csv {
     private:
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
-        DataType _type = UNKNOWN; /**< Cached data type value */
+        DataType _type = DataType::UNKNOWN; /**< Cached data type value */
         CONSTEXPR void get_value() {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */
-            if (_type < 0) {
+            if ((int)_type < 0) {
                 this->_type = internals::data_type(this->sv, &this->value);
             }
         }

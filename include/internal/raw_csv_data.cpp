@@ -6,7 +6,7 @@ namespace csv {
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
         this->data_ptr->col_names = this->col_names;
-        this->records = &records;
+        this->_records = &records;
 
         // Check for previous fragments
         if (this->current_row.data && this->current_row.size() > 0 || this->field_length > 0) {
@@ -33,7 +33,7 @@ namespace csv {
             this->current_row = CSVRow(this->data_ptr);
         }
 
-        this->parse_loop(in, 0);
+        this->parse_loop(in);
     }
 
     void BasicCSVParser::push_field()
@@ -62,7 +62,7 @@ namespace csv {
         while (i < in.size() && ws_flag(in[i])) i++;
 
         if (this->field_start < 0) {
-            this->field_start = i - current_row_start;
+            this->field_start = (int)(i - current_row_start);
         }
 
         // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
@@ -82,7 +82,7 @@ namespace csv {
         for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
     }
 
-    void BasicCSVParser::parse_loop(csv::string_view in, size_t start_offset)
+    void BasicCSVParser::parse_loop(csv::string_view in)
     {
         using internals::ParseFlags;
 
@@ -131,7 +131,7 @@ namespace csv {
 
                     // End of record -> Write record
                     this->push_field();
-                    this->push_row(*records);
+                    this->push_row(*this->_records);
                     this->current_row = CSVRow(this->data_ptr);
                     this->current_row.data_start = i;
                     this->current_row.field_bounds_index = this->data_ptr->fields.size();

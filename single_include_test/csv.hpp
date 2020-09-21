@@ -4290,7 +4290,7 @@ namespace csv {
 
         /** @name CSV Settings **/
         ///@{
-        CSVFormat format;
+        CSVFormat _format;
 
         /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
         internals::ParseFlagMap parse_flags;
@@ -4773,13 +4773,13 @@ namespace csv {
 
     /** Return the format of the original raw CSV */
     CSV_INLINE CSVFormat CSVReader::get_format() const {
-        CSVFormat new_format = this->format;
+        CSVFormat new_format = this->_format;
 
         // Since users are normally not allowed to set 
         // column names and header row simulatenously,
         // we will set the backing variables directly here
         new_format.col_names = this->col_names->get_col_names();
-        new_format.header = this->format.header;
+        new_format.header = this->_format.header;
 
         return new_format;
     }
@@ -4837,8 +4837,8 @@ namespace csv {
         });
 
         if (!this->header_trimmed) {
-            for (int i = 0; i <= this->format.header && !this->records.empty(); i++) {
-                if (i == this->format.header && this->col_names->empty()) {
+            for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
+                if (i == this->_format.header && this->col_names->empty()) {
                     this->set_col_names(this->records.front());
                 }
 
@@ -4881,7 +4881,7 @@ namespace csv {
 
     CSV_INLINE void CSVReader::set_parse_flags(const CSVFormat& format)
     {
-        this->format = format;
+        this->_format = format;
         if (format.no_quote) {
             this->parse_flags = internals::make_parse_flags(format.get_delim());
         }
@@ -5003,8 +5003,8 @@ namespace csv {
 
         while (!this->records.empty()) {
             if (this->records.front().size() != this->n_cols &&
-                this->format.variable_column_policy != VariableColumnPolicy::KEEP) {
-                if (this->format.variable_column_policy == VariableColumnPolicy::THROW) {
+                this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
+                if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
                     if (this->records.front().size() < this->n_cols) {
                         throw std::runtime_error("Line too short " + internals::format_row(this->records.front()));
                     }
@@ -5848,7 +5848,7 @@ namespace csv {
                     this->min_max(x_n, i);
                 }
             }
-            else if (this->format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
+            else if (this->_format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
                 throw std::runtime_error("Line has different length than the others " + internals::format_row(*current_record));
             }
 
