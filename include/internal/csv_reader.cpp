@@ -249,7 +249,8 @@ namespace csv {
 
         if (!this->csv_mmap.is_open()) {
             std::error_code error;
-            this->csv_mmap = mio::make_mmap_source(filename, 0, mio::map_entire_file, error);
+            this->csv_mmap.map(filename, error);
+            //this->csv_mmap = mio::make_mmap_source(filename, 0, mio::map_entire_file, error);
             if (error) {
                 throw error;
             }

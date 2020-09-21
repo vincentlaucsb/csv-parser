@@ -7,10 +7,6 @@ namespace csv {
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
         this->data_ptr->col_names = this->col_names;
-        if (this->suggested_capacity > 0) {
-            this->fields->reserve(this->suggested_capacity);
-        }
-
         this->records = &records;
 
         // Check for previous fragments
@@ -115,7 +111,7 @@ namespace csv {
                     this->field_length++;
                     i++;
 
-                    if (parse_flag(in[i]) == ParseFlags::QUOTE) {
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::QUOTE) {
                         i++;
                         this->field_length++;
                         this->field_has_double_quote = true;

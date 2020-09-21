@@ -21,6 +21,11 @@
 namespace csv {
     class BasicCSVParser;
 
+    struct RawCSVField {
+        size_t start;
+        size_t length;
+    };
+
     namespace internals {
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -29,17 +34,60 @@ namespace csv {
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
         std::string json_escape_string(csv::string_view s) noexcept;
-    }
 
-    struct RawCSVField {
-        unsigned int start;
-        unsigned int length;
-    };
+        /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
+        class CSVFieldArray {
+        public:
+            CSVFieldArray() {
+                this->allocate();
+            }
+
+            RawCSVField& operator[](size_t n) {
+                if (n > this->size()) {
+                    throw std::runtime_error("Index out of bounds.");
+                }
+
+                size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
+                size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+                return this->buffers[page_no][buffer_idx];
+            }
+
+            void push_back(RawCSVField&& field) {
+                if (this->_current_buffer_size == this->single_buffer_capacity) {
+                    this->allocate();
+                }
+
+                this->buffers.back()[this->_current_buffer_size] = std::move(field);
+                this->_current_buffer_size++;
+                this->_size++;
+            }
+
+            ~CSVFieldArray() {
+                for (auto& buffer : buffers) {
+                    delete[] buffer;
+                }
+            }
+
+            CONSTEXPR size_t size() const noexcept {
+                return this->_size;
+            }
+
+        private:
+            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
+
+            std::vector<RawCSVField*> buffers = {};
+            size_t _current_buffer_size = 0;
+            size_t _size = 0;
+
+            /** Allocate a new page of memory */
+            void allocate();
+        };
+    }
 
     /** A class for storing raw CSV data and associated metadata */
     struct RawCSVData {
         std::string data = "";
-        std::vector<RawCSVField> fields = {};
+        internals::CSVFieldArray fields;
 
         std::unordered_set<size_t> has_double_quotes = {};
         std::unordered_map<size_t, std::string> double_quote_fields = {};

@@ -95,8 +95,7 @@ namespace csv {
         size_t suggested_capacity = 0;
 
         RawCSVDataPtr data_ptr = nullptr;
-        std::vector<RawCSVField>* fields = nullptr;
-
+        internals::CSVFieldArray* fields = nullptr;
         std::deque<CSVRow>* records = nullptr;
     };
 }

@@ -7,6 +7,14 @@
 #include "csv_row.hpp"
 
 namespace csv {
+    namespace internals {
+        void CSVFieldArray::allocate() {
+            RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
+            buffers.push_back(buffer);
+            _current_buffer_size = 0;
+        }
+    }
+
     /** Return a CSVField object corrsponding to the nth value in the row.
      *
      *  @note This method performs bounds checking, and will throw an
