@@ -13,13 +13,13 @@
 #include <string>
 #include <vector>
 
+#include "../external/mio.hpp"
 #include "constants.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
 #include "csv_reader_internals.hpp"
-#include "csv_row.hpp"
 #include "compatibility.hpp"
-#include "row_buffer.hpp"
+#include "raw_csv_data.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
@@ -107,7 +107,6 @@ namespace csv {
         CSVReader(CSVReader&&) = default;     // Move constructor
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
-        ~CSVReader() { this->close(); }
 
         /** @name Reading In-Memory Strings
          *  You can piece together incomplete CSV fragments by calling feed() on them
@@ -137,13 +136,10 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount num_rows = 0;   /**< How many rows (minus header)
-                                   *   have been parsed so far
-                                   */
-        bool utf8_bom = false;   /**< Set to true if UTF-8 BOM was detected */
+        bool empty() const { return this->size() == 0; }
+        RowCount size() const { return this->num_rows; }
+        bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
-
-        void close();
 
     protected:
         /**
@@ -153,36 +149,27 @@ namespace csv {
          * @{
          */
 
-        /** A string buffer and its size. Consumed by read_csv_worker(). */
-        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
-
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
-            std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
+            std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
             std::mutex feed_lock;                /**< Allow only one worker to write */
             std::condition_variable feed_cond;   /**< Wake up worker */
         };
 
-        /** Open a file for reading. Implementation is compiler specific. */
+        /** Open a file for reading. */
         void fopen(csv::string_view filename);
+
+        size_t file_size;
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return !(this->infile); };
+        bool eof() { return this->csv_mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{
-        CSVFormat format;
-
-        /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        internals::ParseFlagMap parse_flags;
-
-        /** An array where the (i + 128)th slot determines whether ASCII character i should
-         *  be trimmed
-         */
-        internals::WhitespaceMap ws_flags;
+        CSVFormat _format;
         ///@}
 
         /** @name Parser State */
@@ -190,14 +177,12 @@ namespace csv {
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
+        // TODO: Update description
         /** Buffer for current row being parsed */
-        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer(this->col_names));
+        BasicCSVParser parser = BasicCSVParser(this->col_names);
 
         /** Queue of parsed CSV rows */
         std::deque<CSVRow> records;
-
-        /** Whether or not we are in a quote-escaped field */
-        bool quote_escape = false;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
@@ -207,19 +192,30 @@ namespace csv {
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
+
+        /** How many rows (minus header) have been parsed so far */
+        RowCount num_rows = 0;
+
+        /** Set to true if UTF-8 BOM was detected */
+        bool _utf8_bom = false;
         ///@}
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
+        void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
+
+        size_t relative_mmap_pos = 0;
+
         void read_csv_worker();
+        std::string _filename = "";
         ///@}
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        /** Current file handle. Destroyed by ~CSVReader(). */
-        std::FILE* HEDLEY_RESTRICT infile = nullptr;
+        mio::mmap_source csv_mmap;
+        bool csv_mmap_eof = true;
+        size_t csv_mmap_pos = 0;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 

@@ -6,20 +6,12 @@ using namespace csv;
 
 // Construct a CSVRow and assert that its interface works as expected
 TEST_CASE("CSVRow Test", "[test_csv_row]") {
-    // Create a row of size 4
-    auto col_names = std::make_shared<internals::ColNames>(
-        std::vector<std::string>({ "A", "B", "C", "D" })
-        );
+    auto reader = "A,B,C,D\r\n"
+                  "Col1,Col2,Col3,Col4"_csv;
 
-    std::string str = "Col1"
-        "Col2"
-        "Col3"
-        "Col4";
-
-    std::vector<internals::StrBufferPos> splits = { 4, 8, 12 };
-
-    const CSVRow row(str, splits, col_names);
-
+    CSVRow row;
+    reader.read_row(row);
+    
     bool error_caught = false;
 
     SECTION("size() Check") {
@@ -80,18 +72,11 @@ TEST_CASE("CSVRow Test", "[test_csv_row]") {
 
 // Integration test for CSVRow/CSVField
 TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
-    auto col_names = std::make_shared<internals::ColNames>(
-        std::vector<std::string>({ "A", "B", "C", "D" })
-        );
+    auto reader = "A,B,C,D\r\n"
+                  "1,2,3,3.14"_csv;
 
-    std::string str;
-    str += "1"
-        "2"
-        "3"
-        "3.14";
-
-    std::vector<internals::StrBufferPos> splits = { 1, 2, 3 };
-    CSVRow row(str, splits, col_names);
+    CSVRow row;
+    reader.read_row(row);
 
     REQUIRE(row["A"] == 1);
     REQUIRE(row["B"] == 2);

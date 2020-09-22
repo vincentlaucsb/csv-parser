@@ -101,8 +101,8 @@ def get_dependencies(file: Path) -> dict:
 
     with open(str(file), mode='r') as infile:
         for i, line in enumerate(infile):
-            sys_include = re.search('#include <(?P<file>.*)>', line)
-            local_include = re.search('#include "(?P<file>.*)"', line)
+            sys_include = re.search('^#include <(?P<file>.*)>', line)
+            local_include = re.search('^#include "(?P<file>.*)"', line)
             if sys_include:
                 headers["system"].append(
                     Include(path=sys_include.group('file'), line_no=i))
@@ -162,7 +162,7 @@ def header_collate(headers: list):
         with open(str(path), mode='r') as infile:
             for line in infile:
                 # Add local includes to MISSING_INCLUDES
-                local_include = re.search('#include "(?P<file>.*)"', line)
+                local_include = re.search('^#include "(?P<file>.*)"', line)
                 if local_include:
                     dir = Path(path[:-1])
                     include_path = dir.join(local_include.group('file'))

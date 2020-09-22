@@ -112,6 +112,7 @@ namespace csv {
          */
 
         auto current_record = this->records.begin();
+
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
             if (current_record->size() == this->n_cols) {
                 auto current_field = (*current_record)[i];
@@ -131,7 +132,7 @@ namespace csv {
                     this->min_max(x_n, i);
                 }
             }
-            else if (this->format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
+            else if (this->_format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
                 throw std::runtime_error("Line has different length than the others " + internals::format_row(*current_record));
             }
 
@@ -233,18 +234,18 @@ namespace csv {
             auto& col = temp[i];
             auto& col_name = col_names[i];
 
-            if (col[CSV_STRING])
-                csv_dtypes[col_name] = CSV_STRING;
-            else if (col[CSV_INT64])
-                csv_dtypes[col_name] = CSV_INT64;
-            else if (col[CSV_INT32])
-                csv_dtypes[col_name] = CSV_INT32;
-            else if (col[CSV_INT16])
-                csv_dtypes[col_name] = CSV_INT16;
-            else if (col[CSV_INT8])
-                csv_dtypes[col_name] = CSV_INT8;
+            if (col[DataType::CSV_STRING])
+                csv_dtypes[col_name] = DataType::CSV_STRING;
+            else if (col[DataType::CSV_INT64])
+                csv_dtypes[col_name] = DataType::CSV_INT64;
+            else if (col[DataType::CSV_INT32])
+                csv_dtypes[col_name] = DataType::CSV_INT32;
+            else if (col[DataType::CSV_INT16])
+                csv_dtypes[col_name] = DataType::CSV_INT16;
+            else if (col[DataType::CSV_INT8])
+                csv_dtypes[col_name] = DataType::CSV_INT8;
             else
-                csv_dtypes[col_name] = CSV_DOUBLE;
+                csv_dtypes[col_name] = DataType::CSV_DOUBLE;
         }
 
         return csv_dtypes;

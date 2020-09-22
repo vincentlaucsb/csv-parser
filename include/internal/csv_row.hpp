@@ -8,16 +8,24 @@
 #include <string>
 #include <iterator>
 #include <unordered_map> // For ColNames
+#include <unordered_set>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
 #include <sstream>
 
-#include "data_type.h"
 #include "compatibility.hpp"
-#include "csv_utility.hpp"
-#include "row_buffer.hpp"
+#include "constants.hpp"
+#include "data_type.h"
+#include "col_names.hpp"
 
 namespace csv {
+    class BasicCSVParser;
+
+    struct RawCSVField {
+        size_t start;
+        size_t length;
+    };
+
     namespace internals {
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -26,7 +34,67 @@ namespace csv {
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
         std::string json_escape_string(csv::string_view s) noexcept;
+
+        /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
+        class CSVFieldArray {
+        public:
+            CSVFieldArray() {
+                this->allocate();
+            }
+
+            RawCSVField& operator[](size_t n) {
+                if (n > this->size()) {
+                    throw std::runtime_error("Index out of bounds.");
+                }
+
+                size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
+                size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+                return this->buffers[page_no][buffer_idx];
+            }
+
+            void push_back(RawCSVField&& field) {
+                if (this->_current_buffer_size == this->single_buffer_capacity) {
+                    this->allocate();
+                }
+
+                this->buffers.back()[this->_current_buffer_size] = std::move(field);
+                this->_current_buffer_size++;
+                this->_size++;
+            }
+
+            ~CSVFieldArray() {
+                for (auto& buffer : buffers) {
+                    delete[] buffer;
+                }
+            }
+
+            CONSTEXPR size_t size() const noexcept {
+                return this->_size;
+            }
+
+        private:
+            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
+
+            std::vector<RawCSVField*> buffers = {};
+            size_t _current_buffer_size = 0;
+            size_t _size = 0;
+
+            /** Allocate a new page of memory */
+            void allocate();
+        };
     }
+
+    /** A class for storing raw CSV data and associated metadata */
+    struct RawCSVData {
+        std::string data = "";
+        internals::CSVFieldArray fields;
+
+        std::unordered_set<size_t> has_double_quotes = {};
+        std::unordered_map<size_t, std::string> double_quote_fields = {};
+        internals::ColNamesPtr col_names = nullptr;
+    };
+
+    using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
 
     /**
     * @class CSVField
@@ -73,7 +141,7 @@ namespace csv {
         template<typename T = std::string> T get() {
             IF_CONSTEXPR(std::is_arithmetic<T>::value) {
                 // Note: this->type() also converts the CSV value to float
-                if (this->type() <= CSV_STRING) {
+                if (this->type() <= DataType::CSV_STRING) {
                     throw std::runtime_error(internals::ERROR_NAN);
                 }
             }
@@ -126,8 +194,8 @@ namespace csv {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
 
-            if (this->_type != UNKNOWN) {
-                if (this->_type == CSV_STRING) {
+            if (this->_type != DataType::UNKNOWN) {
+                if (this->_type == DataType::CSV_STRING) {
                     return false;
                 }
 
@@ -135,7 +203,7 @@ namespace csv {
             }
 
             long double out = 0;
-            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+            if (internals::data_type(this->sv, &out) == DataType::CSV_STRING) {
                 return false;
             }
 
@@ -146,21 +214,21 @@ namespace csv {
         CONSTEXPR csv::string_view get_sv() const { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        CONSTEXPR bool is_null() { return type() == CSV_NULL; }
+        CONSTEXPR bool is_null() { return type() == DataType::CSV_NULL; }
 
         /** Returns true if field is a non-numeric, non-empty string */
-        CONSTEXPR bool is_str() { return type() == CSV_STRING; }
+        CONSTEXPR bool is_str() { return type() == DataType::CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
+        CONSTEXPR bool is_num() { return type() >= DataType::CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
+            return (type() >= DataType::CSV_INT8) && (type() <= DataType::CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
+        CONSTEXPR bool is_float() { return type() == DataType::CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
@@ -171,12 +239,12 @@ namespace csv {
     private:
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
-        DataType _type = UNKNOWN; /**< Cached data type value */
+        DataType _type = DataType::UNKNOWN; /**< Cached data type value */
         CONSTEXPR void get_value() {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */
-            if (_type < 0) {
+            if ((int)_type < 0) {
                 this->_type = internals::data_type(this->sv, &this->value);
             }
         }
@@ -185,34 +253,29 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
+        friend BasicCSVParser;
+
         CSVRow() = default;
         
-        /** Construct a CSVRow from a RawRowBuffer */
-        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
-
-        /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<internals::StrBufferPos>& splits,
-            const std::shared_ptr<internals::ColNames>& col_names)
-            : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
-
-        /** Retrieve a string view over this row's data */
-        CSV_INLINE csv::string_view row_str() const {
-            return csv::string_view(this->buffer->buffer.c_str() + this->data.row_str.first, this->data.row_str.second);
-        }
+        /** Construct a CSVRow from a RawCSVDataPtr */
+        CSVRow(RawCSVDataPtr _data) : data(_data) {}
 
         /** Indicates whether row is empty or not */
-        CSV_INLINE bool empty() const { return this->row_str().empty(); }
+        CONSTEXPR bool empty() const { return this->size() == 0; }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
+        CONSTEXPR size_t size() const { return row_length; }
 
         /** @name Value Retrieval */
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
-        csv::string_view get_string_view(size_t n) const;
+        csv::string_view get_field(size_t index) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+        std::vector<std::string> get_col_names() const {
+            return this->data->col_names->get_col_names();
+        }
 
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
@@ -284,11 +347,16 @@ namespace csv {
         ///@}
 
     private:
-        /** Get the index in CSVRow's text buffer where the n-th field begins */
-        size_t split_at(size_t n) const;
+        RawCSVDataPtr data;
 
-        internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
-        internals::RowData data;               /**< Contains row string and column positions. */
+        /** Where in RawCSVData.data we start */
+        size_t data_start = 0;
+
+        /** Where in the RawCSVDataPtr.fields array we start */
+        size_t field_bounds_index = 0;
+
+        /** How many columns this row spans */
+        size_t row_length = 0;
     };
 
 #ifdef _MSC_VER

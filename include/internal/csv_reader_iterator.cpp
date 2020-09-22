@@ -9,9 +9,15 @@ namespace csv {
     CSV_INLINE CSVReader::iterator CSVReader::begin() {
         if (this->records.empty()) {
             this->read_csv();
+
+            // Still empty => return end iterator
+            if (this->records.empty()) {
+                return this->end();
+            }
         }
 
         CSVReader::iterator ret(this, std::move(this->records.front()));
+
         this->records.pop_front();
         return ret;
     }
