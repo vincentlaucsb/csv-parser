@@ -1798,6 +1798,7 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
  *  Defines CSV global constants
  */
 
+#include <cstdlib>
 #include <deque>
 
 #if defined(_WIN32)

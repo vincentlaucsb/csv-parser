@@ -3,6 +3,7 @@
  */
 
 #pragma once
+#include <cstdlib>
 #include <deque>
 
 #if defined(_WIN32)
