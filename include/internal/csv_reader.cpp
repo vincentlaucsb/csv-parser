@@ -3,11 +3,9 @@
  */
 
 #include <algorithm>
-#include <cstdio>   // For read_csv()
 #include <cstring>  // For read_csv()
 #include <fstream>
 #include <sstream>
-
 #include "constants.hpp"
 #include "csv_reader.hpp"
 
@@ -171,7 +169,7 @@ namespace csv {
         if (!this->unicode_bom_scan) {
             if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
                 in.remove_prefix(3); // Remove BOM from input string
-                this->utf8_bom = true;
+                this->_utf8_bom = true;
             }
 
             this->unicode_bom_scan = true;
@@ -234,23 +232,28 @@ namespace csv {
     }
 
     CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
-        if (!this->infile) {
-#ifdef _MSC_BUILD
-            // Silence compiler warnings in Microsoft Visual C++
-            size_t err = fopen_s(&(this->infile), filename.data(), "rb");
-            if (err)
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-#else
-            this->infile = std::fopen(filename.data(), "rb");
-            if (!this->infile)
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-#endif
-        }
+        this->_filename = filename;
 
         if (!this->csv_mmap.is_open()) {
+            this->csv_mmap_eof = false;
+            std::ifstream infile(_filename, std::ios::binary);
+            const auto start = infile.tellg();
+            infile.seekg(0, std::ios::end);
+            const auto end = infile.tellg();
+            this->file_size = end - start;
+
             std::error_code error;
-            this->csv_mmap.map(filename, error);
-            //this->csv_mmap = mio::make_mmap_source(filename, 0, mio::map_entire_file, error);
+
+            if (internals::get_available_memory() > this->file_size * 2) {
+                this->csv_mmap.map(filename, error);
+            }
+            else {
+                this->csv_mmap.map(filename, 0,
+                    std::min((size_t)csv::internals::ITERATION_CHUNK_SIZE, this->file_size),
+                    error
+                );
+            }
+
             if (error) {
                 throw error;
             }
@@ -283,9 +286,26 @@ namespace csv {
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         size_t strlen = 0;
-        for (size_t processed = 0; this->csv_mmap_pos < this->csv_mmap.length() && processed < bytes; this->csv_mmap_pos++) {
-            line_buffer[strlen] = this->csv_mmap[this->csv_mmap_pos];
+        for (size_t processed = 0; this->csv_mmap_pos < this->file_size && processed < bytes; this->csv_mmap_pos++) {
+            if (this->relative_mmap_pos == this->csv_mmap.length()) {
+                std::error_code error;
+
+                size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+                this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
+                    length,
+                    error
+                );
+
+                if (error) {
+                    throw error;
+                }
+
+                this->relative_mmap_pos = 0;
+            }
+
+            line_buffer[strlen] = this->csv_mmap[this->relative_mmap_pos];
             strlen++;
+            this->relative_mmap_pos++;
 
             if (strlen == BUFFER_UPPER_LIMIT - 1) {
                 processed += strlen;

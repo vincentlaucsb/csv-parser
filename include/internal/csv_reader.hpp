@@ -137,10 +137,9 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount num_rows = 0;   /**< How many rows (minus header)
-                                   *   have been parsed so far
-                                   */
-        bool utf8_bom = false;   /**< Set to true if UTF-8 BOM was detected */
+        bool empty() const { return this->size() == 0; }
+        RowCount size() const { return this->num_rows; }
+        bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
 
     protected:
@@ -151,7 +150,6 @@ namespace csv {
          * @{
          */
 
-
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
             std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
@@ -159,18 +157,16 @@ namespace csv {
             std::condition_variable feed_cond;   /**< Wake up worker */
         };
 
-        /** Open a file for reading. Implementation is compiler specific. */
+        /** Open a file for reading. */
         void fopen(csv::string_view filename);
 
-        mio::mmap_source csv_mmap;
+        size_t file_size;
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
         bool eof() { return this->csv_mmap_eof; };
-
-        bool csv_mmap_eof = false;
 
         /** @name CSV Settings **/
         ///@{
@@ -197,20 +193,30 @@ namespace csv {
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
+
+        /** How many rows (minus header) have been parsed so far */
+        RowCount num_rows = 0;
+
+        /** Set to true if UTF-8 BOM was detected */
+        bool _utf8_bom = false;
         ///@}
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
-        size_t csv_mmap_pos = 0;
+
+        size_t relative_mmap_pos = 0;
+
         void read_csv_worker();
+        std::string _filename;
         ///@}
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        /** Current file handle. Destroyed by ~CSVReader(). */
-        std::FILE* HEDLEY_RESTRICT infile = nullptr;
+        mio::mmap_source csv_mmap;
+        bool csv_mmap_eof = true;
+        size_t csv_mmap_pos = 0;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 

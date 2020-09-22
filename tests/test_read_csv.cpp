@@ -408,7 +408,7 @@ timestamp,distance,angle,amplitude
 
     // Original issue: Leading comments appeared in column names
     REQUIRE(expected == reader.get_col_names());
-}   
+}
 
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/92
 TEST_CASE("Long Row Test", "[long_row_regression]") {
@@ -451,5 +451,56 @@ TEST_CASE("Long Row Test", "[long_row_regression]") {
         temp << (double)i * 0.000001;
         REQUIRE(field.get<>() == temp.str());
         i++;
+    }
+}
+
+// Reported in https://github.com/vincentlaucsb/csv-parser/issues/105
+TEST_CASE("Single Column CSV", "[read_single_col_direct]") {
+    auto rows = "A\r\n" // Header row
+        "123\r\n"
+        "1\r\n"
+        "4"_csv;
+
+    // Expected results
+    size_t i = 0;
+    for (auto& row : rows) {
+        switch (i) {
+        case 0:
+            REQUIRE(vector<string>(row) == vector<string>({ "123" }));
+            break;
+        case 1:
+            REQUIRE(vector<string>(row) == vector<string>({ "1" }));
+            break;
+        case 2:
+            REQUIRE(vector<string>(row) == vector<string>({ "4" }));
+            break;
+        }
+
+        i++;
+    }
+}
+
+/* Ensure reading empty CSVs does not cause errors
+ * 
+ * Reported in:
+ *  - https://github.com/vincentlaucsb/csv-parser/issues/116
+ *  - https://github.com/vincentlaucsb/csv-parser/issues/121
+ */
+TEST_CASE("Empty CSV", "[read_empty_csv]") {
+    auto csv_string = GENERATE(as<std::string>{},
+        "A,B,C,D\r\n", // Header row only
+        ""             // No content
+    );
+
+    SECTION("Read Empty CSV") {
+        CSVReader reader;
+        reader.feed(csv_string);
+        reader.end_feed();
+
+        for (auto& row : reader);
+
+        // We want to make sure that no exceptions are thrown
+        REQUIRE(reader.empty());
+        REQUIRE(reader.size() == 0);
     }
 }
