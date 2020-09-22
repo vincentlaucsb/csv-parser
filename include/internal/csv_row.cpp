@@ -8,7 +8,7 @@
 
 namespace csv {
     namespace internals {
-        void CSVFieldArray::allocate() {
+        CSV_INLINE void CSVFieldArray::allocate() {
             RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;
@@ -56,7 +56,7 @@ namespace csv {
         return ret;
     }
 
-    csv::string_view CSVRow::get_field(size_t index) const
+    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
     {
         if (index >= this->size()) {
             throw std::runtime_error("Index out of bounds.");

@@ -18,7 +18,6 @@
 #include "data_type.h"
 #include "csv_format.hpp"
 #include "csv_reader_internals.hpp"
-#include "csv_row.hpp"
 #include "compatibility.hpp"
 #include "raw_csv_data.hpp"
 

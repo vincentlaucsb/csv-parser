@@ -1,6 +1,8 @@
 #pragma once
 #include "compatibility.hpp"
 #include "constants.hpp"
+#include "csv_format.hpp"
+#include "csv_reader.hpp"
 #include "data_type.h"
 
 #include <string>
@@ -32,13 +34,4 @@ namespace csv {
     int get_col_pos(const std::string filename, const std::string col_name,
         const CSVFormat format = CSVFormat::guess_csv());
     ///@}
-
-    namespace internals {
-        template<typename T>
-        inline bool is_equal(T a, T b, T epsilon = 0.001) {
-            /** Returns true if two floating point values are about the same */
-            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
-            return std::abs(a - b) < epsilon;
-        }
-    }
 }

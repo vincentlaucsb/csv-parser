@@ -6,7 +6,6 @@
 #include <cstring>  // For read_csv()
 #include <fstream>
 #include <sstream>
-#include "constants.hpp"
 #include "csv_reader.hpp"
 
 namespace csv {

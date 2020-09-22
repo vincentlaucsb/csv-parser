@@ -13,9 +13,9 @@
 #include <limits> // For CSVField
 #include <sstream>
 
-#include "data_type.h"
 #include "compatibility.hpp"
-#include "csv_utility.hpp"
+#include "constants.hpp"
+#include "data_type.h"
 #include "col_names.hpp"
 
 namespace csv {

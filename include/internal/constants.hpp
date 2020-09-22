@@ -5,8 +5,6 @@
 #pragma once
 #include <deque>
 
-#include "csv_format.hpp"
-
 #if defined(_WIN32)
 #include <Windows.h>
 #define WIN32_LEAN_AND_MEAN
@@ -62,6 +60,14 @@ namespace csv {
          *  many bytes are read at a time
          */
         constexpr size_t ITERATION_CHUNK_SIZE = 250000000; // 250MB
+
+        // TODO: Move to another header file
+        template<typename T>
+        inline bool is_equal(T a, T b, T epsilon = 0.001) {
+            /** Returns true if two floating point values are about the same */
+            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
+            return std::abs(a - b) < epsilon;
+        }
     }
 
     /** Integer indicating a requested column wasn't found. */

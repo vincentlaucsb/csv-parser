@@ -1,7 +1,7 @@
 #include "raw_csv_data.hpp"
 
 namespace csv {
-    void BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
+    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
         using internals::ParseFlags;
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
@@ -36,7 +36,7 @@ namespace csv {
         this->parse_loop(in);
     }
 
-    void BasicCSVParser::push_field()
+    CSV_INLINE void BasicCSVParser::push_field()
     {
         // Push field
         this->fields->push_back({
@@ -82,7 +82,7 @@ namespace csv {
         for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
     }
 
-    void BasicCSVParser::parse_loop(csv::string_view in)
+    CSV_INLINE void BasicCSVParser::parse_loop(csv::string_view in)
     {
         using internals::ParseFlags;
 

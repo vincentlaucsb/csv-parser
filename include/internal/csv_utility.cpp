@@ -1,7 +1,6 @@
 #include <vector>
 
 #include "csv_utility.hpp"
-#include "csv_reader.hpp"
 
 namespace csv {
     /** Shorthand function for parsing an in-memory CSV string,

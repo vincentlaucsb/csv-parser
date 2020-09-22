@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 1.3.3
+CSV for C++, version 2.0.0, beta
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -43,19 +43,1842 @@ SOFTWARE.
 #include <string>
 #include <vector>
 
+/* Copyright 2017 https://github.com/mandreyel
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies
+ * or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef MIO_MMAP_HEADER
+#define MIO_MMAP_HEADER
+
+// #include "mio/page.hpp"
+/* Copyright 2017 https://github.com/mandreyel
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies
+ * or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef MIO_PAGE_HEADER
+#define MIO_PAGE_HEADER
+
+#ifdef _WIN32
+# include <windows.h>
+#else
+# include <unistd.h>
+#endif
+
+namespace mio {
+
+/**
+ * This is used by `basic_mmap` to determine whether to create a read-only or
+ * a read-write memory mapping.
+ */
+enum class access_mode
+{
+    read,
+    write
+};
+
+/**
+ * Determines the operating system's page allocation granularity.
+ *
+ * On the first call to this function, it invokes the operating system specific syscall
+ * to determine the page size, caches the value, and returns it. Any subsequent call to
+ * this function serves the cached value, so no further syscalls are made.
+ */
+inline size_t page_size()
+{
+    static const size_t page_size = []
+    {
+#ifdef _WIN32
+        SYSTEM_INFO SystemInfo;
+        GetSystemInfo(&SystemInfo);
+        return SystemInfo.dwAllocationGranularity;
+#else
+        return sysconf(_SC_PAGE_SIZE);
+#endif
+    }();
+    return page_size;
+}
+
+/**
+ * Alligns `offset` to the operating's system page size such that it subtracts the
+ * difference until the nearest page boundary before `offset`, or does nothing if
+ * `offset` is already page aligned.
+ */
+inline size_t make_offset_page_aligned(size_t offset) noexcept
+{
+    const size_t page_size_ = page_size();
+    // Use integer division to round down to the nearest page alignment.
+    return offset / page_size_ * page_size_;
+}
+
+} // namespace mio
+
+#endif // MIO_PAGE_HEADER
+
+
+#include <iterator>
+#include <string>
+#include <system_error>
+#include <cstdint>
+
+#ifdef _WIN32
+# ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+# endif // WIN32_LEAN_AND_MEAN
+# include <windows.h>
+#else // ifdef _WIN32
+# define INVALID_HANDLE_VALUE -1
+#endif // ifdef _WIN32
+
+namespace mio {
+
+// This value may be provided as the `length` parameter to the constructor or
+// `map`, in which case a memory mapping of the entire file is created.
+enum { map_entire_file = 0 };
+
+#ifdef _WIN32
+using file_handle_type = HANDLE;
+#else
+using file_handle_type = int;
+#endif
+
+// This value represents an invalid file handle type. This can be used to
+// determine whether `basic_mmap::file_handle` is valid, for example.
+const static file_handle_type invalid_handle = INVALID_HANDLE_VALUE;
+
+template<access_mode AccessMode, typename ByteT>
+struct basic_mmap
+{
+    using value_type = ByteT;
+    using size_type = size_t;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+    using pointer = value_type*;
+    using const_pointer = const value_type*;
+    using difference_type = std::ptrdiff_t;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+    using iterator_category = std::random_access_iterator_tag;
+    using handle_type = file_handle_type;
+
+    static_assert(sizeof(ByteT) == sizeof(char), "ByteT must be the same size as char.");
+
+private:
+    // Points to the first requested byte, and not to the actual start of the mapping.
+    pointer data_ = nullptr;
+
+    // Length--in bytes--requested by user (which may not be the length of the
+    // full mapping) and the length of the full mapping.
+    size_type length_ = 0;
+    size_type mapped_length_ = 0;
+
+    // Letting user map a file using both an existing file handle and a path
+    // introcudes some complexity (see `is_handle_internal_`).
+    // On POSIX, we only need a file handle to create a mapping, while on
+    // Windows systems the file handle is necessary to retrieve a file mapping
+    // handle, but any subsequent operations on the mapped region must be done
+    // through the latter.
+    handle_type file_handle_ = INVALID_HANDLE_VALUE;
+#ifdef _WIN32
+    handle_type file_mapping_handle_ = INVALID_HANDLE_VALUE;
+#endif
+
+    // Letting user map a file using both an existing file handle and a path
+    // introcudes some complexity in that we must not close the file handle if
+    // user provided it, but we must close it if we obtained it using the
+    // provided path. For this reason, this flag is used to determine when to
+    // close `file_handle_`.
+    bool is_handle_internal_;
+
+public:
+    /**
+     * The default constructed mmap object is in a non-mapped state, that is,
+     * any operation that attempts to access nonexistent underlying data will
+     * result in undefined behaviour/segmentation faults.
+     */
+    basic_mmap() = default;
+
+#ifdef __cpp_exceptions
+    /**
+     * The same as invoking the `map` function, except any error that may occur
+     * while establishing the mapping is wrapped in a `std::system_error` and is
+     * thrown.
+     */
+    template<typename String>
+    basic_mmap(const String& path, const size_type offset = 0, const size_type length = map_entire_file)
+    {
+        std::error_code error;
+        map(path, offset, length, error);
+        if(error) { throw std::system_error(error); }
+    }
+
+    /**
+     * The same as invoking the `map` function, except any error that may occur
+     * while establishing the mapping is wrapped in a `std::system_error` and is
+     * thrown.
+     */
+    basic_mmap(const handle_type handle, const size_type offset = 0, const size_type length = map_entire_file)
+    {
+        std::error_code error;
+        map(handle, offset, length, error);
+        if(error) { throw std::system_error(error); }
+    }
+#endif // __cpp_exceptions
+
+    /**
+     * `basic_mmap` has single-ownership semantics, so transferring ownership
+     * may only be accomplished by moving the object.
+     */
+    basic_mmap(const basic_mmap&) = delete;
+    basic_mmap(basic_mmap&&);
+    basic_mmap& operator=(const basic_mmap&) = delete;
+    basic_mmap& operator=(basic_mmap&&);
+
+    /**
+     * If this is a read-write mapping, the destructor invokes sync. Regardless
+     * of the access mode, unmap is invoked as a final step.
+     */
+    ~basic_mmap();
+
+    /**
+     * On UNIX systems 'file_handle' and 'mapping_handle' are the same. On Windows,
+     * however, a mapped region of a file gets its own handle, which is returned by
+     * 'mapping_handle'.
+     */
+    handle_type file_handle() const noexcept { return file_handle_; }
+    handle_type mapping_handle() const noexcept;
+
+    /** Returns whether a valid memory mapping has been created. */
+    bool is_open() const noexcept { return file_handle_ != invalid_handle; }
+
+    /**
+     * Returns true if no mapping was established, that is, conceptually the
+     * same as though the length that was mapped was 0. This function is
+     * provided so that this class has Container semantics.
+     */
+    bool empty() const noexcept { return length() == 0; }
+
+    /** Returns true if a mapping was established. */
+    bool is_mapped() const noexcept;
+
+    /**
+     * `size` and `length` both return the logical length, i.e. the number of bytes
+     * user requested to be mapped, while `mapped_length` returns the actual number of
+     * bytes that were mapped which is a multiple of the underlying operating system's
+     * page allocation granularity.
+     */
+    size_type size() const noexcept { return length(); }
+    size_type length() const noexcept { return length_; }
+    size_type mapped_length() const noexcept { return mapped_length_; }
+
+    /** Returns the offset relative to the start of the mapping. */
+    size_type mapping_offset() const noexcept
+    {
+        return mapped_length_ - length_;
+    }
+
+    /**
+     * Returns a pointer to the first requested byte, or `nullptr` if no memory mapping
+     * exists.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > pointer data() noexcept { return data_; }
+    const_pointer data() const noexcept { return data_; }
+
+    /**
+     * Returns an iterator to the first requested byte, if a valid memory mapping
+     * exists, otherwise this function call is undefined behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > iterator begin() noexcept { return data(); }
+    const_iterator begin() const noexcept { return data(); }
+    const_iterator cbegin() const noexcept { return data(); }
+
+    /**
+     * Returns an iterator one past the last requested byte, if a valid memory mapping
+     * exists, otherwise this function call is undefined behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > iterator end() noexcept { return data() + length(); }
+    const_iterator end() const noexcept { return data() + length(); }
+    const_iterator cend() const noexcept { return data() + length(); }
+
+    /**
+     * Returns a reverse iterator to the last memory mapped byte, if a valid
+     * memory mapping exists, otherwise this function call is undefined
+     * behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
+    const_reverse_iterator rbegin() const noexcept
+    { return const_reverse_iterator(end()); }
+    const_reverse_iterator crbegin() const noexcept
+    { return const_reverse_iterator(end()); }
+
+    /**
+     * Returns a reverse iterator past the first mapped byte, if a valid memory
+     * mapping exists, otherwise this function call is undefined behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
+    const_reverse_iterator rend() const noexcept
+    { return const_reverse_iterator(begin()); }
+    const_reverse_iterator crend() const noexcept
+    { return const_reverse_iterator(begin()); }
+
+    /**
+     * Returns a reference to the `i`th byte from the first requested byte (as returned
+     * by `data`). If this is invoked when no valid memory mapping has been created
+     * prior to this call, undefined behaviour ensues.
+     */
+    reference operator[](const size_type i) noexcept { return data_[i]; }
+    const_reference operator[](const size_type i) const noexcept { return data_[i]; }
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is unsuccesful, the
+     * reason is reported via `error` and the object remains in a state as if this
+     * function hadn't been called.
+     *
+     * `path`, which must be a path to an existing file, is used to retrieve a file
+     * handle (which is closed when the object destructs or `unmap` is called), which is
+     * then used to memory map the requested region. Upon failure, `error` is set to
+     * indicate the reason and the object remains in an unmapped state.
+     *
+     * `offset` is the number of bytes, relative to the start of the file, where the
+     * mapping should begin. When specifying it, there is no need to worry about
+     * providing a value that is aligned with the operating system's page allocation
+     * granularity. This is adjusted by the implementation such that the first requested
+     * byte (as returned by `data` or `begin`), so long as `offset` is valid, will be at
+     * `offset` from the start of the file.
+     *
+     * `length` is the number of bytes to map. It may be `map_entire_file`, in which
+     * case a mapping of the entire file is created.
+     */
+    template<typename String>
+    void map(const String& path, const size_type offset,
+            const size_type length, std::error_code& error);
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is unsuccesful, the
+     * reason is reported via `error` and the object remains in a state as if this
+     * function hadn't been called.
+     *
+     * `path`, which must be a path to an existing file, is used to retrieve a file
+     * handle (which is closed when the object destructs or `unmap` is called), which is
+     * then used to memory map the requested region. Upon failure, `error` is set to
+     * indicate the reason and the object remains in an unmapped state.
+     * 
+     * The entire file is mapped.
+     */
+    template<typename String>
+    void map(const String& path, std::error_code& error)
+    {
+        map(path, 0, map_entire_file, error);
+    }
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is
+     * unsuccesful, the reason is reported via `error` and the object remains in
+     * a state as if this function hadn't been called.
+     *
+     * `handle`, which must be a valid file handle, which is used to memory map the
+     * requested region. Upon failure, `error` is set to indicate the reason and the
+     * object remains in an unmapped state.
+     *
+     * `offset` is the number of bytes, relative to the start of the file, where the
+     * mapping should begin. When specifying it, there is no need to worry about
+     * providing a value that is aligned with the operating system's page allocation
+     * granularity. This is adjusted by the implementation such that the first requested
+     * byte (as returned by `data` or `begin`), so long as `offset` is valid, will be at
+     * `offset` from the start of the file.
+     *
+     * `length` is the number of bytes to map. It may be `map_entire_file`, in which
+     * case a mapping of the entire file is created.
+     */
+    void map(const handle_type handle, const size_type offset,
+            const size_type length, std::error_code& error);
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is
+     * unsuccesful, the reason is reported via `error` and the object remains in
+     * a state as if this function hadn't been called.
+     *
+     * `handle`, which must be a valid file handle, which is used to memory map the
+     * requested region. Upon failure, `error` is set to indicate the reason and the
+     * object remains in an unmapped state.
+     * 
+     * The entire file is mapped.
+     */
+    void map(const handle_type handle, std::error_code& error)
+    {
+        map(handle, 0, map_entire_file, error);
+    }
+
+    /**
+     * If a valid memory mapping has been created prior to this call, this call
+     * instructs the kernel to unmap the memory region and disassociate this object
+     * from the file.
+     *
+     * The file handle associated with the file that is mapped is only closed if the
+     * mapping was created using a file path. If, on the other hand, an existing
+     * file handle was used to create the mapping, the file handle is not closed.
+     */
+    void unmap();
+
+    void swap(basic_mmap& other);
+
+    /** Flushes the memory mapped page to disk. Errors are reported via `error`. */
+    template<access_mode A = AccessMode>
+    typename std::enable_if<A == access_mode::write, void>::type
+    sync(std::error_code& error);
+
+    /**
+     * All operators compare the address of the first byte and size of the two mapped
+     * regions.
+     */
+
+private:
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > pointer get_mapping_start() noexcept
+    {
+        return !data() ? nullptr : data() - mapping_offset();
+    }
+
+    const_pointer get_mapping_start() const noexcept
+    {
+        return !data() ? nullptr : data() - mapping_offset();
+    }
+
+    /**
+     * The destructor syncs changes to disk if `AccessMode` is `write`, but not
+     * if it's `read`, but since the destructor cannot be templated, we need to
+     * do SFINAE in a dedicated function, where one syncs and the other is a noop.
+     */
+    template<access_mode A = AccessMode>
+    typename std::enable_if<A == access_mode::write, void>::type
+    conditional_sync();
+    template<access_mode A = AccessMode>
+    typename std::enable_if<A == access_mode::read, void>::type conditional_sync();
+};
+
+template<access_mode AccessMode, typename ByteT>
+bool operator==(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b);
+
+template<access_mode AccessMode, typename ByteT>
+bool operator!=(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b);
+
+template<access_mode AccessMode, typename ByteT>
+bool operator<(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b);
+
+template<access_mode AccessMode, typename ByteT>
+bool operator<=(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b);
+
+template<access_mode AccessMode, typename ByteT>
+bool operator>(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b);
+
+template<access_mode AccessMode, typename ByteT>
+bool operator>=(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b);
+
+/**
+ * This is the basis for all read-only mmap objects and should be preferred over
+ * directly using `basic_mmap`.
+ */
+template<typename ByteT>
+using basic_mmap_source = basic_mmap<access_mode::read, ByteT>;
+
+/**
+ * This is the basis for all read-write mmap objects and should be preferred over
+ * directly using `basic_mmap`.
+ */
+template<typename ByteT>
+using basic_mmap_sink = basic_mmap<access_mode::write, ByteT>;
+
+/**
+ * These aliases cover the most common use cases, both representing a raw byte stream
+ * (either with a char or an unsigned char/uint8_t).
+ */
+using mmap_source = basic_mmap_source<char>;
+using ummap_source = basic_mmap_source<unsigned char>;
+
+using mmap_sink = basic_mmap_sink<char>;
+using ummap_sink = basic_mmap_sink<unsigned char>;
+
+/**
+ * Convenience factory method that constructs a mapping for any `basic_mmap` or
+ * `basic_mmap` type.
+ */
+template<
+    typename MMap,
+    typename MappingToken
+> MMap make_mmap(const MappingToken& token,
+        int64_t offset, int64_t length, std::error_code& error)
+{
+    MMap mmap;
+    mmap.map(token, offset, length, error);
+    return mmap;
+}
+
+/**
+ * Convenience factory method.
+ *
+ * MappingToken may be a String (`std::string`, `std::string_view`, `const char*`,
+ * `std::filesystem::path`, `std::vector<char>`, or similar), or a
+ * `mmap_source::handle_type`.
+ */
+template<typename MappingToken>
+mmap_source make_mmap_source(const MappingToken& token, mmap_source::size_type offset,
+        mmap_source::size_type length, std::error_code& error)
+{
+    return make_mmap<mmap_source>(token, offset, length, error);
+}
+
+template<typename MappingToken>
+mmap_source make_mmap_source(const MappingToken& token, std::error_code& error)
+{
+    return make_mmap_source(token, 0, map_entire_file, error);
+}
+
+/**
+ * Convenience factory method.
+ *
+ * MappingToken may be a String (`std::string`, `std::string_view`, `const char*`,
+ * `std::filesystem::path`, `std::vector<char>`, or similar), or a
+ * `mmap_sink::handle_type`.
+ */
+template<typename MappingToken>
+mmap_sink make_mmap_sink(const MappingToken& token, mmap_sink::size_type offset,
+        mmap_sink::size_type length, std::error_code& error)
+{
+    return make_mmap<mmap_sink>(token, offset, length, error);
+}
+
+template<typename MappingToken>
+mmap_sink make_mmap_sink(const MappingToken& token, std::error_code& error)
+{
+    return make_mmap_sink(token, 0, map_entire_file, error);
+}
+
+} // namespace mio
+
+// #include "detail/mmap.ipp"
+/* Copyright 2017 https://github.com/mandreyel
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies
+ * or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef MIO_BASIC_MMAP_IMPL
+#define MIO_BASIC_MMAP_IMPL
+
+// #include "mio/mmap.hpp"
+
+// #include "mio/page.hpp"
+
+// #include "mio/detail/string_util.hpp"
+/* Copyright 2017 https://github.com/mandreyel
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies
+ * or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef MIO_STRING_UTIL_HEADER
+#define MIO_STRING_UTIL_HEADER
+
+#include <type_traits>
+
+namespace mio {
+namespace detail {
+
+template<
+    typename S,
+    typename C = typename std::decay<S>::type,
+    typename = decltype(std::declval<C>().data()),
+    typename = typename std::enable_if<
+        std::is_same<typename C::value_type, char>::value
+#ifdef _WIN32
+        || std::is_same<typename C::value_type, wchar_t>::value
+#endif
+    >::type
+> struct char_type_helper {
+    using type = typename C::value_type;
+};
+
+template<class T>
+struct char_type {
+    using type = typename char_type_helper<T>::type;
+};
+
+// TODO: can we avoid this brute force approach?
+template<>
+struct char_type<char*> {
+    using type = char;
+};
+
+template<>
+struct char_type<const char*> {
+    using type = char;
+};
+
+template<size_t N>
+struct char_type<char[N]> {
+    using type = char;
+};
+
+template<size_t N>
+struct char_type<const char[N]> {
+    using type = char;
+};
+
+#ifdef _WIN32
+template<>
+struct char_type<wchar_t*> {
+    using type = wchar_t;
+};
+
+template<>
+struct char_type<const wchar_t*> {
+    using type = wchar_t;
+};
+
+template<size_t N>
+struct char_type<wchar_t[N]> {
+    using type = wchar_t;
+};
+
+template<size_t N>
+struct char_type<const wchar_t[N]> {
+    using type = wchar_t;
+};
+#endif // _WIN32
+
+template<typename CharT, typename S>
+struct is_c_str_helper
+{
+    static constexpr bool value = std::is_same<
+        CharT*,
+        // TODO: I'm so sorry for this... Can this be made cleaner?
+        typename std::add_pointer<
+            typename std::remove_cv<
+                typename std::remove_pointer<
+                    typename std::decay<
+                        S
+                    >::type
+                >::type
+            >::type
+        >::type
+    >::value;
+};
+
+template<typename S>
+struct is_c_str
+{
+    static constexpr bool value = is_c_str_helper<char, S>::value;
+};
+
+#ifdef _WIN32
+template<typename S>
+struct is_c_wstr
+{
+    static constexpr bool value = is_c_str_helper<wchar_t, S>::value;
+};
+#endif // _WIN32
+
+template<typename S>
+struct is_c_str_or_c_wstr
+{
+    static constexpr bool value = is_c_str<S>::value
+#ifdef _WIN32
+        || is_c_wstr<S>::value
+#endif
+        ;
+};
+
+template<
+    typename String,
+    typename = decltype(std::declval<String>().data()),
+    typename = typename std::enable_if<!is_c_str_or_c_wstr<String>::value>::type
+> const typename char_type<String>::type* c_str(const String& path)
+{
+    return path.data();
+}
+
+template<
+    typename String,
+    typename = decltype(std::declval<String>().empty()),
+    typename = typename std::enable_if<!is_c_str_or_c_wstr<String>::value>::type
+> bool empty(const String& path)
+{
+    return path.empty();
+}
+
+template<
+    typename String,
+    typename = typename std::enable_if<is_c_str_or_c_wstr<String>::value>::type
+> const typename char_type<String>::type* c_str(String path)
+{
+    return path;
+}
+
+template<
+    typename String,
+    typename = typename std::enable_if<is_c_str_or_c_wstr<String>::value>::type
+> bool empty(String path)
+{
+    return !path || (*path == 0);
+}
+
+} // namespace detail
+} // namespace mio
+
+#endif // MIO_STRING_UTIL_HEADER
+
+
+#include <algorithm>
+
+#ifndef _WIN32
+# include <unistd.h>
+# include <fcntl.h>
+# include <sys/mman.h>
+# include <sys/stat.h>
+#endif
+
+namespace mio {
+namespace detail {
+
+#ifdef _WIN32
+namespace win {
+
+/** Returns the 4 upper bytes of an 8-byte integer. */
+inline DWORD int64_high(int64_t n) noexcept
+{
+    return n >> 32;
+}
+
+/** Returns the 4 lower bytes of an 8-byte integer. */
+inline DWORD int64_low(int64_t n) noexcept
+{
+    return n & 0xffffffff;
+}
+
+template<
+    typename String,
+    typename = typename std::enable_if<
+        std::is_same<typename char_type<String>::type, char>::value
+    >::type
+> file_handle_type open_file_helper(const String& path, const access_mode mode)
+{
+    return ::CreateFileA(c_str(path),
+            mode == access_mode::read ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            0,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            0);
+}
+
+template<typename String>
+typename std::enable_if<
+    std::is_same<typename char_type<String>::type, wchar_t>::value,
+    file_handle_type
+>::type open_file_helper(const String& path, const access_mode mode)
+{
+    return ::CreateFileW(c_str(path),
+            mode == access_mode::read ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            0,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            0);
+}
+
+} // win
+#endif // _WIN32
+
+/**
+ * Returns the last platform specific system error (errno on POSIX and
+ * GetLastError on Win) as a `std::error_code`.
+ */
+inline std::error_code last_error() noexcept
+{
+    std::error_code error;
+#ifdef _WIN32
+    error.assign(GetLastError(), std::system_category());
+#else
+    error.assign(errno, std::system_category());
+#endif
+    return error;
+}
+
+template<typename String>
+file_handle_type open_file(const String& path, const access_mode mode,
+        std::error_code& error)
+{
+    error.clear();
+    if(detail::empty(path))
+    {
+        error = std::make_error_code(std::errc::invalid_argument);
+        return invalid_handle;
+    }
+#ifdef _WIN32
+    const auto handle = win::open_file_helper(path, mode);
+#else // POSIX
+    const auto handle = ::open(c_str(path),
+            mode == access_mode::read ? O_RDONLY : O_RDWR);
+#endif
+    if(handle == invalid_handle)
+    {
+        error = detail::last_error();
+    }
+    return handle;
+}
+
+inline size_t query_file_size(file_handle_type handle, std::error_code& error)
+{
+    error.clear();
+#ifdef _WIN32
+    LARGE_INTEGER file_size;
+    if(::GetFileSizeEx(handle, &file_size) == 0)
+    {
+        error = detail::last_error();
+        return 0;
+    }
+	return static_cast<int64_t>(file_size.QuadPart);
+#else // POSIX
+    struct stat sbuf;
+    if(::fstat(handle, &sbuf) == -1)
+    {
+        error = detail::last_error();
+        return 0;
+    }
+    return sbuf.st_size;
+#endif
+}
+
+struct mmap_context
+{
+    char* data;
+    int64_t length;
+    int64_t mapped_length;
+#ifdef _WIN32
+    file_handle_type file_mapping_handle;
+#endif
+};
+
+inline mmap_context memory_map(const file_handle_type file_handle, const int64_t offset,
+    const int64_t length, const access_mode mode, std::error_code& error)
+{
+    const int64_t aligned_offset = make_offset_page_aligned(offset);
+    const int64_t length_to_map = offset - aligned_offset + length;
+#ifdef _WIN32
+    const int64_t max_file_size = offset + length;
+    const auto file_mapping_handle = ::CreateFileMapping(
+            file_handle,
+            0,
+            mode == access_mode::read ? PAGE_READONLY : PAGE_READWRITE,
+            win::int64_high(max_file_size),
+            win::int64_low(max_file_size),
+            0);
+    if(file_mapping_handle == invalid_handle)
+    {
+        error = detail::last_error();
+        return {};
+    }
+    char* mapping_start = static_cast<char*>(::MapViewOfFile(
+            file_mapping_handle,
+            mode == access_mode::read ? FILE_MAP_READ : FILE_MAP_WRITE,
+            win::int64_high(aligned_offset),
+            win::int64_low(aligned_offset),
+            length_to_map));
+    if(mapping_start == nullptr)
+    {
+        // Close file handle if mapping it failed.
+        ::CloseHandle(file_mapping_handle);
+        error = detail::last_error();
+        return {};
+    }
+#else // POSIX
+    char* mapping_start = static_cast<char*>(::mmap(
+            0, // Don't give hint as to where to map.
+            length_to_map,
+            mode == access_mode::read ? PROT_READ : PROT_WRITE,
+            MAP_SHARED,
+            file_handle,
+            aligned_offset));
+    if(mapping_start == MAP_FAILED)
+    {
+        error = detail::last_error();
+        return {};
+    }
+#endif
+    mmap_context ctx;
+    ctx.data = mapping_start + offset - aligned_offset;
+    ctx.length = length;
+    ctx.mapped_length = length_to_map;
+#ifdef _WIN32
+    ctx.file_mapping_handle = file_mapping_handle;
+#endif
+    return ctx;
+}
+
+} // namespace detail
+
+// -- basic_mmap --
+
+template<access_mode AccessMode, typename ByteT>
+basic_mmap<AccessMode, ByteT>::~basic_mmap()
+{
+    conditional_sync();
+    unmap();
+}
+
+template<access_mode AccessMode, typename ByteT>
+basic_mmap<AccessMode, ByteT>::basic_mmap(basic_mmap&& other)
+    : data_(std::move(other.data_))
+    , length_(std::move(other.length_))
+    , mapped_length_(std::move(other.mapped_length_))
+    , file_handle_(std::move(other.file_handle_))
+#ifdef _WIN32
+    , file_mapping_handle_(std::move(other.file_mapping_handle_))
+#endif
+    , is_handle_internal_(std::move(other.is_handle_internal_))
+{
+    other.data_ = nullptr;
+    other.length_ = other.mapped_length_ = 0;
+    other.file_handle_ = invalid_handle;
+#ifdef _WIN32
+    other.file_mapping_handle_ = invalid_handle;
+#endif
+}
+
+template<access_mode AccessMode, typename ByteT>
+basic_mmap<AccessMode, ByteT>&
+basic_mmap<AccessMode, ByteT>::operator=(basic_mmap&& other)
+{
+    if(this != &other)
+    {
+        // First the existing mapping needs to be removed.
+        unmap();
+        data_ = std::move(other.data_);
+        length_ = std::move(other.length_);
+        mapped_length_ = std::move(other.mapped_length_);
+        file_handle_ = std::move(other.file_handle_);
+#ifdef _WIN32
+        file_mapping_handle_ = std::move(other.file_mapping_handle_);
+#endif
+        is_handle_internal_ = std::move(other.is_handle_internal_);
+
+        // The moved from basic_mmap's fields need to be reset, because
+        // otherwise other's destructor will unmap the same mapping that was
+        // just moved into this.
+        other.data_ = nullptr;
+        other.length_ = other.mapped_length_ = 0;
+        other.file_handle_ = invalid_handle;
+#ifdef _WIN32
+        other.file_mapping_handle_ = invalid_handle;
+#endif
+        other.is_handle_internal_ = false;
+    }
+    return *this;
+}
+
+template<access_mode AccessMode, typename ByteT>
+typename basic_mmap<AccessMode, ByteT>::handle_type
+basic_mmap<AccessMode, ByteT>::mapping_handle() const noexcept
+{
+#ifdef _WIN32
+    return file_mapping_handle_;
+#else
+    return file_handle_;
+#endif
+}
+
+template<access_mode AccessMode, typename ByteT>
+template<typename String>
+void basic_mmap<AccessMode, ByteT>::map(const String& path, const size_type offset,
+        const size_type length, std::error_code& error)
+{
+    error.clear();
+    if(detail::empty(path))
+    {
+        error = std::make_error_code(std::errc::invalid_argument);
+        return;
+    }
+    const auto handle = detail::open_file(path, AccessMode, error);
+    if(error)
+    {
+        return;
+    }
+
+    map(handle, offset, length, error);
+    // This MUST be after the call to map, as that sets this to true.
+    if(!error)
+    {
+        is_handle_internal_ = true;
+    }
+}
+
+template<access_mode AccessMode, typename ByteT>
+void basic_mmap<AccessMode, ByteT>::map(const handle_type handle,
+        const size_type offset, const size_type length, std::error_code& error)
+{
+    error.clear();
+    if(handle == invalid_handle)
+    {
+        error = std::make_error_code(std::errc::bad_file_descriptor);
+        return;
+    }
+
+    const auto file_size = detail::query_file_size(handle, error);
+    if(error)
+    {
+        return;
+    }
+
+    if(offset + length > file_size)
+    {
+        error = std::make_error_code(std::errc::invalid_argument);
+        return;
+    }
+
+    const auto ctx = detail::memory_map(handle, offset,
+            length == map_entire_file ? (file_size - offset) : length,
+            AccessMode, error);
+    if(!error)
+    {
+        // We must unmap the previous mapping that may have existed prior to this call.
+        // Note that this must only be invoked after a new mapping has been created in
+        // order to provide the strong guarantee that, should the new mapping fail, the
+        // `map` function leaves this instance in a state as though the function had
+        // never been invoked.
+        unmap();
+        file_handle_ = handle;
+        is_handle_internal_ = false;
+        data_ = reinterpret_cast<pointer>(ctx.data);
+        length_ = ctx.length;
+        mapped_length_ = ctx.mapped_length;
+#ifdef _WIN32
+        file_mapping_handle_ = ctx.file_mapping_handle;
+#endif
+    }
+}
+
+template<access_mode AccessMode, typename ByteT>
+template<access_mode A>
+typename std::enable_if<A == access_mode::write, void>::type
+basic_mmap<AccessMode, ByteT>::sync(std::error_code& error)
+{
+    error.clear();
+    if(!is_open())
+    {
+        error = std::make_error_code(std::errc::bad_file_descriptor);
+        return;
+    }
+
+    if(data())
+    {
+#ifdef _WIN32
+        if(::FlushViewOfFile(get_mapping_start(), mapped_length_) == 0
+           || ::FlushFileBuffers(file_handle_) == 0)
+#else // POSIX
+        if(::msync(get_mapping_start(), mapped_length_, MS_SYNC) != 0)
+#endif
+        {
+            error = detail::last_error();
+            return;
+        }
+    }
+#ifdef _WIN32
+    if(::FlushFileBuffers(file_handle_) == 0)
+    {
+        error = detail::last_error();
+    }
+#endif
+}
+
+template<access_mode AccessMode, typename ByteT>
+void basic_mmap<AccessMode, ByteT>::unmap()
+{
+    if(!is_open()) { return; }
+    // TODO do we care about errors here?
+#ifdef _WIN32
+    if(is_mapped())
+    {
+        ::UnmapViewOfFile(get_mapping_start());
+        ::CloseHandle(file_mapping_handle_);
+    }
+#else // POSIX
+    if(data_) { ::munmap(const_cast<pointer>(get_mapping_start()), mapped_length_); }
+#endif
+
+    // If `file_handle_` was obtained by our opening it (when map is called with
+    // a path, rather than an existing file handle), we need to close it,
+    // otherwise it must not be closed as it may still be used outside this
+    // instance.
+    if(is_handle_internal_)
+    {
+#ifdef _WIN32
+        ::CloseHandle(file_handle_);
+#else // POSIX
+        ::close(file_handle_);
+#endif
+    }
+
+    // Reset fields to their default values.
+    data_ = nullptr;
+    length_ = mapped_length_ = 0;
+    file_handle_ = invalid_handle;
+#ifdef _WIN32
+    file_mapping_handle_ = invalid_handle;
+#endif
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool basic_mmap<AccessMode, ByteT>::is_mapped() const noexcept
+{
+#ifdef _WIN32
+    return file_mapping_handle_ != invalid_handle;
+#else // POSIX
+    return is_open();
+#endif
+}
+
+template<access_mode AccessMode, typename ByteT>
+void basic_mmap<AccessMode, ByteT>::swap(basic_mmap& other)
+{
+    if(this != &other)
+    {
+        using std::swap;
+        swap(data_, other.data_);
+        swap(file_handle_, other.file_handle_);
+#ifdef _WIN32
+        swap(file_mapping_handle_, other.file_mapping_handle_);
+#endif
+        swap(length_, other.length_);
+        swap(mapped_length_, other.mapped_length_);
+        swap(is_handle_internal_, other.is_handle_internal_);
+    }
+}
+
+template<access_mode AccessMode, typename ByteT>
+template<access_mode A>
+typename std::enable_if<A == access_mode::write, void>::type
+basic_mmap<AccessMode, ByteT>::conditional_sync()
+{
+    // This is invoked from the destructor, so not much we can do about
+    // failures here.
+    std::error_code ec;
+    sync(ec);
+}
+
+template<access_mode AccessMode, typename ByteT>
+template<access_mode A>
+typename std::enable_if<A == access_mode::read, void>::type
+basic_mmap<AccessMode, ByteT>::conditional_sync()
+{
+    // noop
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool operator==(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b)
+{
+    return a.data() == b.data()
+        && a.size() == b.size();
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool operator!=(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b)
+{
+    return !(a == b);
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool operator<(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b)
+{
+    if(a.data() == b.data()) { return a.size() < b.size(); }
+    return a.data() < b.data();
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool operator<=(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b)
+{
+    return !(a > b);
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool operator>(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b)
+{
+    if(a.data() == b.data()) { return a.size() > b.size(); }
+    return a.data() > b.data();
+}
+
+template<access_mode AccessMode, typename ByteT>
+bool operator>=(const basic_mmap<AccessMode, ByteT>& a,
+        const basic_mmap<AccessMode, ByteT>& b)
+{
+    return !(a < b);
+}
+
+} // namespace mio
+
+#endif // MIO_BASIC_MMAP_IMPL
+
+
+#endif // MIO_MMAP_HEADER
+/* Copyright 2017 https://github.com/mandreyel
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies
+ * or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef MIO_PAGE_HEADER
+#define MIO_PAGE_HEADER
+
+#ifdef _WIN32
+# include <windows.h>
+#else
+# include <unistd.h>
+#endif
+
+namespace mio {
+
+/**
+ * This is used by `basic_mmap` to determine whether to create a read-only or
+ * a read-write memory mapping.
+ */
+enum class access_mode
+{
+    read,
+    write
+};
+
+/**
+ * Determines the operating system's page allocation granularity.
+ *
+ * On the first call to this function, it invokes the operating system specific syscall
+ * to determine the page size, caches the value, and returns it. Any subsequent call to
+ * this function serves the cached value, so no further syscalls are made.
+ */
+inline size_t page_size()
+{
+    static const size_t page_size = []
+    {
+#ifdef _WIN32
+        SYSTEM_INFO SystemInfo;
+        GetSystemInfo(&SystemInfo);
+        return SystemInfo.dwAllocationGranularity;
+#else
+        return sysconf(_SC_PAGE_SIZE);
+#endif
+    }();
+    return page_size;
+}
+
+/**
+ * Alligns `offset` to the operating's system page size such that it subtracts the
+ * difference until the nearest page boundary before `offset`, or does nothing if
+ * `offset` is already page aligned.
+ */
+inline size_t make_offset_page_aligned(size_t offset) noexcept
+{
+    const size_t page_size_ = page_size();
+    // Use integer division to round down to the nearest page alignment.
+    return offset / page_size_ * page_size_;
+}
+
+} // namespace mio
+
+#endif // MIO_PAGE_HEADER
+/* Copyright 2017 https://github.com/mandreyel
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies
+ * or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#ifndef MIO_SHARED_MMAP_HEADER
+#define MIO_SHARED_MMAP_HEADER
+
+// #include "mio/mmap.hpp"
+
+
+#include <system_error> // std::error_code
+#include <memory> // std::shared_ptr
+
+namespace mio {
+
+/**
+ * Exposes (nearly) the same interface as `basic_mmap`, but endowes it with
+ * `std::shared_ptr` semantics.
+ *
+ * This is not the default behaviour of `basic_mmap` to avoid allocating on the heap if
+ * shared semantics are not required.
+ */
+template<
+    access_mode AccessMode,
+    typename ByteT
+> class basic_shared_mmap
+{
+    using impl_type = basic_mmap<AccessMode, ByteT>;
+    std::shared_ptr<impl_type> pimpl_;
+
+public:
+    using value_type = typename impl_type::value_type;
+    using size_type = typename impl_type::size_type;
+    using reference = typename impl_type::reference;
+    using const_reference = typename impl_type::const_reference;
+    using pointer = typename impl_type::pointer;
+    using const_pointer = typename impl_type::const_pointer;
+    using difference_type = typename impl_type::difference_type;
+    using iterator = typename impl_type::iterator;
+    using const_iterator = typename impl_type::const_iterator;
+    using reverse_iterator = typename impl_type::reverse_iterator;
+    using const_reverse_iterator = typename impl_type::const_reverse_iterator;
+    using iterator_category = typename impl_type::iterator_category;
+    using handle_type = typename impl_type::handle_type;
+    using mmap_type = impl_type;
+
+    basic_shared_mmap() = default;
+    basic_shared_mmap(const basic_shared_mmap&) = default;
+    basic_shared_mmap& operator=(const basic_shared_mmap&) = default;
+    basic_shared_mmap(basic_shared_mmap&&) = default;
+    basic_shared_mmap& operator=(basic_shared_mmap&&) = default;
+
+    /** Takes ownership of an existing mmap object. */
+    basic_shared_mmap(mmap_type&& mmap)
+        : pimpl_(std::make_shared<mmap_type>(std::move(mmap)))
+    {}
+
+    /** Takes ownership of an existing mmap object. */
+    basic_shared_mmap& operator=(mmap_type&& mmap)
+    {
+        pimpl_ = std::make_shared<mmap_type>(std::move(mmap));
+        return *this;
+    }
+
+    /** Initializes this object with an already established shared mmap. */
+    basic_shared_mmap(std::shared_ptr<mmap_type> mmap) : pimpl_(std::move(mmap)) {}
+
+    /** Initializes this object with an already established shared mmap. */
+    basic_shared_mmap& operator=(std::shared_ptr<mmap_type> mmap)
+    {
+        pimpl_ = std::move(mmap);
+        return *this;
+    }
+
+#ifdef __cpp_exceptions
+    /**
+     * The same as invoking the `map` function, except any error that may occur
+     * while establishing the mapping is wrapped in a `std::system_error` and is
+     * thrown.
+     */
+    template<typename String>
+    basic_shared_mmap(const String& path, const size_type offset = 0, const size_type length = map_entire_file)
+    {
+        std::error_code error;
+        map(path, offset, length, error);
+        if(error) { throw std::system_error(error); }
+    }
+
+    /**
+     * The same as invoking the `map` function, except any error that may occur
+     * while establishing the mapping is wrapped in a `std::system_error` and is
+     * thrown.
+     */
+    basic_shared_mmap(const handle_type handle, const size_type offset = 0, const size_type length = map_entire_file)
+    {
+        std::error_code error;
+        map(handle, offset, length, error);
+        if(error) { throw std::system_error(error); }
+    }
+#endif // __cpp_exceptions
+
+    /**
+     * If this is a read-write mapping and the last reference to the mapping,
+     * the destructor invokes sync. Regardless of the access mode, unmap is
+     * invoked as a final step.
+     */
+    ~basic_shared_mmap() = default;
+
+    /** Returns the underlying `std::shared_ptr` instance that holds the mmap. */
+    std::shared_ptr<mmap_type> get_shared_ptr() { return pimpl_; }
+
+    /**
+     * On UNIX systems 'file_handle' and 'mapping_handle' are the same. On Windows,
+     * however, a mapped region of a file gets its own handle, which is returned by
+     * 'mapping_handle'.
+     */
+    handle_type file_handle() const noexcept
+    {
+        return pimpl_ ? pimpl_->file_handle() : invalid_handle;
+    }
+
+    handle_type mapping_handle() const noexcept
+    {
+        return pimpl_ ? pimpl_->mapping_handle() : invalid_handle;
+    }
+
+    /** Returns whether a valid memory mapping has been created. */
+    bool is_open() const noexcept { return pimpl_ && pimpl_->is_open(); }
+
+    /**
+     * Returns true if no mapping was established, that is, conceptually the
+     * same as though the length that was mapped was 0. This function is
+     * provided so that this class has Container semantics.
+     */
+    bool empty() const noexcept { return !pimpl_ || pimpl_->empty(); }
+
+    /**
+     * `size` and `length` both return the logical length, i.e. the number of bytes
+     * user requested to be mapped, while `mapped_length` returns the actual number of
+     * bytes that were mapped which is a multiple of the underlying operating system's
+     * page allocation granularity.
+     */
+    size_type size() const noexcept { return pimpl_ ? pimpl_->length() : 0; }
+    size_type length() const noexcept { return pimpl_ ? pimpl_->length() : 0; }
+    size_type mapped_length() const noexcept
+    {
+        return pimpl_ ? pimpl_->mapped_length() : 0;
+    }
+
+    /**
+     * Returns a pointer to the first requested byte, or `nullptr` if no memory mapping
+     * exists.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > pointer data() noexcept { return pimpl_->data(); }
+    const_pointer data() const noexcept { return pimpl_ ? pimpl_->data() : nullptr; }
+
+    /**
+     * Returns an iterator to the first requested byte, if a valid memory mapping
+     * exists, otherwise this function call is undefined behaviour.
+     */
+    iterator begin() noexcept { return pimpl_->begin(); }
+    const_iterator begin() const noexcept { return pimpl_->begin(); }
+    const_iterator cbegin() const noexcept { return pimpl_->cbegin(); }
+
+    /**
+     * Returns an iterator one past the last requested byte, if a valid memory mapping
+     * exists, otherwise this function call is undefined behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > iterator end() noexcept { return pimpl_->end(); }
+    const_iterator end() const noexcept { return pimpl_->end(); }
+    const_iterator cend() const noexcept { return pimpl_->cend(); }
+
+    /**
+     * Returns a reverse iterator to the last memory mapped byte, if a valid
+     * memory mapping exists, otherwise this function call is undefined
+     * behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > reverse_iterator rbegin() noexcept { return pimpl_->rbegin(); }
+    const_reverse_iterator rbegin() const noexcept { return pimpl_->rbegin(); }
+    const_reverse_iterator crbegin() const noexcept { return pimpl_->crbegin(); }
+
+    /**
+     * Returns a reverse iterator past the first mapped byte, if a valid memory
+     * mapping exists, otherwise this function call is undefined behaviour.
+     */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > reverse_iterator rend() noexcept { return pimpl_->rend(); }
+    const_reverse_iterator rend() const noexcept { return pimpl_->rend(); }
+    const_reverse_iterator crend() const noexcept { return pimpl_->crend(); }
+
+    /**
+     * Returns a reference to the `i`th byte from the first requested byte (as returned
+     * by `data`). If this is invoked when no valid memory mapping has been created
+     * prior to this call, undefined behaviour ensues.
+     */
+    reference operator[](const size_type i) noexcept { return (*pimpl_)[i]; }
+    const_reference operator[](const size_type i) const noexcept { return (*pimpl_)[i]; }
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is unsuccesful, the
+     * reason is reported via `error` and the object remains in a state as if this
+     * function hadn't been called.
+     *
+     * `path`, which must be a path to an existing file, is used to retrieve a file
+     * handle (which is closed when the object destructs or `unmap` is called), which is
+     * then used to memory map the requested region. Upon failure, `error` is set to
+     * indicate the reason and the object remains in an unmapped state.
+     *
+     * `offset` is the number of bytes, relative to the start of the file, where the
+     * mapping should begin. When specifying it, there is no need to worry about
+     * providing a value that is aligned with the operating system's page allocation
+     * granularity. This is adjusted by the implementation such that the first requested
+     * byte (as returned by `data` or `begin`), so long as `offset` is valid, will be at
+     * `offset` from the start of the file.
+     *
+     * `length` is the number of bytes to map. It may be `map_entire_file`, in which
+     * case a mapping of the entire file is created.
+     */
+    template<typename String>
+    void map(const String& path, const size_type offset,
+        const size_type length, std::error_code& error)
+    {
+        map_impl(path, offset, length, error);
+    }
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is unsuccesful, the
+     * reason is reported via `error` and the object remains in a state as if this
+     * function hadn't been called.
+     *
+     * `path`, which must be a path to an existing file, is used to retrieve a file
+     * handle (which is closed when the object destructs or `unmap` is called), which is
+     * then used to memory map the requested region. Upon failure, `error` is set to
+     * indicate the reason and the object remains in an unmapped state.
+     *
+     * The entire file is mapped.
+     */
+    template<typename String>
+    void map(const String& path, std::error_code& error)
+    {
+        map_impl(path, 0, map_entire_file, error);
+    }
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is unsuccesful, the
+     * reason is reported via `error` and the object remains in a state as if this
+     * function hadn't been called.
+     *
+     * `handle`, which must be a valid file handle, which is used to memory map the
+     * requested region. Upon failure, `error` is set to indicate the reason and the
+     * object remains in an unmapped state.
+     *
+     * `offset` is the number of bytes, relative to the start of the file, where the
+     * mapping should begin. When specifying it, there is no need to worry about
+     * providing a value that is aligned with the operating system's page allocation
+     * granularity. This is adjusted by the implementation such that the first requested
+     * byte (as returned by `data` or `begin`), so long as `offset` is valid, will be at
+     * `offset` from the start of the file.
+     *
+     * `length` is the number of bytes to map. It may be `map_entire_file`, in which
+     * case a mapping of the entire file is created.
+     */
+    void map(const handle_type handle, const size_type offset,
+        const size_type length, std::error_code& error)
+    {
+        map_impl(handle, offset, length, error);
+    }
+
+    /**
+     * Establishes a memory mapping with AccessMode. If the mapping is unsuccesful, the
+     * reason is reported via `error` and the object remains in a state as if this
+     * function hadn't been called.
+     *
+     * `handle`, which must be a valid file handle, which is used to memory map the
+     * requested region. Upon failure, `error` is set to indicate the reason and the
+     * object remains in an unmapped state.
+     *
+     * The entire file is mapped.
+     */
+    void map(const handle_type handle, std::error_code& error)
+    {
+        map_impl(handle, 0, map_entire_file, error);
+    }
+
+    /**
+     * If a valid memory mapping has been created prior to this call, this call
+     * instructs the kernel to unmap the memory region and disassociate this object
+     * from the file.
+     *
+     * The file handle associated with the file that is mapped is only closed if the
+     * mapping was created using a file path. If, on the other hand, an existing
+     * file handle was used to create the mapping, the file handle is not closed.
+     */
+    void unmap() { if(pimpl_) pimpl_->unmap(); }
+
+    void swap(basic_shared_mmap& other) { pimpl_.swap(other.pimpl_); }
+
+    /** Flushes the memory mapped page to disk. Errors are reported via `error`. */
+    template<
+        access_mode A = AccessMode,
+        typename = typename std::enable_if<A == access_mode::write>::type
+    > void sync(std::error_code& error) { if(pimpl_) pimpl_->sync(error); }
+
+    /** All operators compare the underlying `basic_mmap`'s addresses. */
+
+    friend bool operator==(const basic_shared_mmap& a, const basic_shared_mmap& b)
+    {
+        return a.pimpl_ == b.pimpl_;
+    }
+
+    friend bool operator!=(const basic_shared_mmap& a, const basic_shared_mmap& b)
+    {
+        return !(a == b);
+    }
+
+    friend bool operator<(const basic_shared_mmap& a, const basic_shared_mmap& b)
+    {
+        return a.pimpl_ < b.pimpl_;
+    }
+
+    friend bool operator<=(const basic_shared_mmap& a, const basic_shared_mmap& b)
+    {
+        return a.pimpl_ <= b.pimpl_;
+    }
+
+    friend bool operator>(const basic_shared_mmap& a, const basic_shared_mmap& b)
+    {
+        return a.pimpl_ > b.pimpl_;
+    }
+
+    friend bool operator>=(const basic_shared_mmap& a, const basic_shared_mmap& b)
+    {
+        return a.pimpl_ >= b.pimpl_;
+    }
+
+private:
+    template<typename MappingToken>
+    void map_impl(const MappingToken& token, const size_type offset,
+        const size_type length, std::error_code& error)
+    {
+        if(!pimpl_)
+        {
+            mmap_type mmap = make_mmap<mmap_type>(token, offset, length, error);
+            if(error) { return; }
+            pimpl_ = std::make_shared<mmap_type>(std::move(mmap));
+        }
+        else
+        {
+            pimpl_->map(token, offset, length, error);
+        }
+    }
+};
+
+/**
+ * This is the basis for all read-only mmap objects and should be preferred over
+ * directly using basic_shared_mmap.
+ */
+template<typename ByteT>
+using basic_shared_mmap_source = basic_shared_mmap<access_mode::read, ByteT>;
+
+/**
+ * This is the basis for all read-write mmap objects and should be preferred over
+ * directly using basic_shared_mmap.
+ */
+template<typename ByteT>
+using basic_shared_mmap_sink = basic_shared_mmap<access_mode::write, ByteT>;
+
+/**
+ * These aliases cover the most common use cases, both representing a raw byte stream
+ * (either with a char or an unsigned char/uint8_t).
+ */
+using shared_mmap_source = basic_shared_mmap_source<char>;
+using shared_ummap_source = basic_shared_mmap_source<unsigned char>;
+
+using shared_mmap_sink = basic_shared_mmap_sink<char>;
+using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
+
+} // namespace mio
+
+#endif // MIO_SHARED_MMAP_HEADER
+
 /** @file
  *  Defines CSV global constants
  */
 
 #include <deque>
 
+#if defined(_WIN32)
+#include <Windows.h>
+#define WIN32_LEAN_AND_MEAN
+#undef max
+#undef min
+#elif defined(__linux__)
+#include <unistd.h>
+#endif
+
+namespace csv {
+    namespace internals {
+        // PAGE_SIZE macro could be already defined by the host system.
+        #if defined(PAGE_SIZE)
+        #undef PAGE_SIZE
+        #endif
+
+        // Get operating system specific details
+        #if defined(_WIN32)
+            inline int getpagesize() {
+                _SYSTEM_INFO sys_info = {};
+                GetSystemInfo(&sys_info);
+                return sys_info.dwPageSize;
+            }
+
+            /** Size of a memory page in bytes */
+            const int PAGE_SIZE = getpagesize();
+
+            /** Returns the amount of available mmory */
+            inline unsigned long long get_available_memory()
+            {
+                MEMORYSTATUSEX status;
+                status.dwLength = sizeof(status);
+                GlobalMemoryStatusEx(&status);
+                return status.ullAvailPhys;
+            }
+        #elif defined(__linux__) 
+            // To be defined
+            inline unsigned long long get_available_memory() {
+                return 0;
+            }
+
+            const int PAGE_SIZE = getpagesize();
+        #else
+            // To be defined
+            inline unsigned long long get_available_memory() {
+                return 0;
+            }
+
+            const int PAGE_SIZE = 4096;
+        #endif
+
+        /** For functions that lazy load a large CSV, this determines how
+         *  many bytes are read at a time
+         */
+        constexpr size_t ITERATION_CHUNK_SIZE = 250000000; // 250MB
+
+        // TODO: Move to another header file
+        template<typename T>
+        inline bool is_equal(T a, T b, T epsilon = 0.001) {
+            /** Returns true if two floating point values are about the same */
+            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
+            return std::abs(a - b) < epsilon;
+        }
+    }
+
+    /** Integer indicating a requested column wasn't found. */
+    constexpr int CSV_NOT_FOUND = -1;
+
+    /** Used for counting number of rows */
+    using RowCount = long long int;
+}
 /** @file
- *  Defines an object used to store CSV format settings
+ *  @brief Implements data type parsing functionality
  */
 
-#include <stdexcept>
+#include <cmath>
+#include <cctype>
 #include <string>
-#include <vector>
+#include <cassert>
 
 /** @file
  *  Defines various compatibility macros
@@ -2956,6 +4779,347 @@ namespace csv {
 
 
 namespace csv {
+    /** Enumerates the different CSV field types that are
+     *  recognized by this library
+     *
+     *  @note Overflowing integers will be stored and classified as doubles.
+     *  @note Unlike previous releases, integer enums here are platform agnostic.
+     */
+    enum class DataType {
+        UNKNOWN = -1,
+        CSV_NULL,   /**< Empty string */
+        CSV_STRING, /**< Non-numeric string */
+        CSV_INT8,   /**< 8-bit integer */
+        CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
+        CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
+        CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
+        CSV_DOUBLE  /**< Floating point value */
+    };
+
+    static_assert(DataType::CSV_STRING < DataType::CSV_INT8, "String type should come before numeric types.");
+    static_assert(DataType::CSV_INT8 < DataType::CSV_INT64, "Smaller integer types should come before larger integer types.");
+    static_assert(DataType::CSV_INT64 < DataType::CSV_DOUBLE, "Integer types should come before floating point value types.");
+
+    namespace internals {
+        /** Compute 10 to the power of n */
+        template<typename T>
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const T& n) noexcept {
+            long double multiplicand = n > 0 ? 10 : 0.1,
+                ret = 1;
+
+            // Make all numbers positive
+            T iterations = n > 0 ? n : -n;
+            
+            for (T i = 0; i < iterations; i++) {
+                ret *= multiplicand;
+            }
+
+            return ret;
+        }
+
+        /** Compute 10 to the power of n */
+        template<>
+        HEDLEY_CONST CONSTEXPR
+        long double pow10(const unsigned& n) noexcept {
+            long double multiplicand = n > 0 ? 10 : 0.1,
+                ret = 1;
+
+            for (unsigned i = 0; i < n; i++) {
+                ret *= multiplicand;
+            }
+
+            return ret;
+        }
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+        /** Private site-indexed array mapping byte sizes to an integer size enum */
+        constexpr DataType int_type_arr[8] = {
+            DataType::CSV_INT8,  // 1
+            DataType::CSV_INT16, // 2
+            DataType::UNKNOWN,
+            DataType::CSV_INT32, // 4
+            DataType::UNKNOWN,
+            DataType::UNKNOWN,
+            DataType::UNKNOWN,
+            DataType::CSV_INT64  // 8
+        };
+
+        template<typename T>
+        inline DataType type_num() {
+            static_assert(std::is_integral<T>::value, "T should be an integral type.");
+            static_assert(sizeof(T) <= 8, "Byte size must be no greater than 8.");
+            return int_type_arr[sizeof(T) - 1];
+        }
+
+        template<> inline DataType type_num<float>() { return DataType::CSV_DOUBLE; }
+        template<> inline DataType type_num<double>() { return DataType::CSV_DOUBLE; }
+        template<> inline DataType type_num<long double>() { return DataType::CSV_DOUBLE; }
+        template<> inline DataType type_num<std::nullptr_t>() { return DataType::CSV_NULL; }
+        template<> inline DataType type_num<std::string>() { return DataType::CSV_STRING; }
+
+        CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
+#endif
+
+        /** Given a byte size, return the largest number than can be stored in
+         *  an integer of that size
+         *
+         *  Note: Provides a platform-agnostic way of mapping names like "long int" to
+         *  byte sizes
+         */
+        template<size_t Bytes>
+        CONSTEXPR long double get_int_max() {
+            static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
+                "Bytes must be a power of 2 below 8.");
+
+            IF_CONSTEXPR (sizeof(signed char) == Bytes) {
+                return (long double)std::numeric_limits<signed char>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(short) == Bytes) {
+                return (long double)std::numeric_limits<short>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(int) == Bytes) {
+                return (long double)std::numeric_limits<int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+                return (long double)std::numeric_limits<long int>::max();
+            }
+
+            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+                return (long double)std::numeric_limits<long long int>::max();
+            }
+
+            HEDLEY_UNREACHABLE();
+        }
+
+        /** Given a byte size, return the largest number than can be stored in
+         *  an unsigned integer of that size
+         */
+        template<size_t Bytes>
+        CONSTEXPR long double get_uint_max() {
+            static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
+                "Bytes must be a power of 2 below 8.");
+
+            IF_CONSTEXPR(sizeof(unsigned char) == Bytes) {
+                return (long double)std::numeric_limits<unsigned char>::max();
+            }
+
+            IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
+                return (long double)std::numeric_limits<unsigned short>::max();
+            }
+
+            IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
+                return (long double)std::numeric_limits<unsigned int>::max();
+            }
+
+            IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
+                return (long double)std::numeric_limits<unsigned long int>::max();
+            }
+
+            IF_CONSTEXPR(sizeof(unsigned long long int) == Bytes) {
+                return (long double)std::numeric_limits<unsigned long long int>::max();
+            }
+
+            HEDLEY_UNREACHABLE();
+        }
+
+        /** Largest number that can be stored in a 8-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
+
+        /** Largest number that can be stored in a 16-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
+
+        /** Largest number that can be stored in a 32-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
+
+        /** Largest number that can be stored in a 64-bit integer */
+        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
+
+        /** Largest number that can be stored in a 8-bit ungisned integer */
+        CONSTEXPR_VALUE long double CSV_UINT8_MAX = get_uint_max<1>();
+
+        /** Largest number that can be stored in a 16-bit unsigned integer */
+        CONSTEXPR_VALUE long double CSV_UINT16_MAX = get_uint_max<2>();
+
+        /** Largest number that can be stored in a 32-bit unsigned integer */
+        CONSTEXPR_VALUE long double CSV_UINT32_MAX = get_uint_max<4>();
+
+        /** Largest number that can be stored in a 64-bit unsigned integer */
+        CONSTEXPR_VALUE long double CSV_UINT64_MAX = get_uint_max<8>();
+
+        /** Given a pointer to the start of what is start of
+         *  the exponential part of a number written (possibly) in scientific notation
+         *  parse the exponent
+         */
+        HEDLEY_PRIVATE CONSTEXPR
+        DataType _process_potential_exponential(
+            csv::string_view exponential_part,
+            const long double& coeff,
+            long double * const out) {
+            long double exponent = 0;
+            auto result = data_type(exponential_part, &exponent);
+
+            // Exponents in scientific notation should not be decimal numbers
+            if (result >= DataType::CSV_INT8 && result < DataType::CSV_DOUBLE) {
+                if (out) *out = coeff * pow10(exponent);
+                return DataType::CSV_DOUBLE;
+            }
+
+            return DataType::CSV_STRING;
+        }
+
+        /** Given the absolute value of an integer, determine what numeric type
+         *  it fits in
+         */
+        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
+        DataType _determine_integral_type(const long double& number) noexcept {
+            // We can assume number is always non-negative
+            assert(number >= 0);
+
+            if (number <= internals::CSV_INT8_MAX)
+                return DataType::CSV_INT8;
+            else if (number <= internals::CSV_INT16_MAX)
+                return DataType::CSV_INT16;
+            else if (number <= internals::CSV_INT32_MAX)
+                return DataType::CSV_INT32;
+            else if (number <= internals::CSV_INT64_MAX)
+                return DataType::CSV_INT64;
+            else // Conversion to long long will cause an overflow
+                return DataType::CSV_DOUBLE;
+        }
+
+        /** Distinguishes numeric from other text values. Used by various
+         *  type casting functions, like csv_parser::CSVReader::read_row()
+         *
+         *  #### Rules
+         *   - Leading and trailing whitespace ("padding") ignored
+         *   - A string of just whitespace is NULL
+         *
+         *  @param[in]  in  String value to be examined
+         *  @param[out] out Pointer to long double where results of numeric parsing
+         *                  get stored
+         */
+        CONSTEXPR
+        DataType data_type(csv::string_view in, long double* const out) {
+            // Empty string --> NULL
+            if (in.size() == 0)
+                return DataType::CSV_NULL;
+
+            bool ws_allowed = true,
+                neg_allowed = true,
+                dot_allowed = true,
+                digit_allowed = true,
+                has_digit = false,
+                prob_float = false;
+
+            unsigned places_after_decimal = 0;
+            long double integral_part = 0,
+                decimal_part = 0;
+
+            for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
+                const char& current = in[i];
+
+                switch (current) {
+                case ' ':
+                    if (!ws_allowed) {
+                        if (isdigit(in[i - 1])) {
+                            digit_allowed = false;
+                            ws_allowed = true;
+                        }
+                        else {
+                            // Ex: '510 123 4567'
+                            return DataType::CSV_STRING;
+                        }
+                    }
+                    break;
+                case '-':
+                    if (!neg_allowed) {
+                        // Ex: '510-123-4567'
+                        return DataType::CSV_STRING;
+                    }
+
+                    neg_allowed = false;
+                    break;
+                case '.':
+                    if (!dot_allowed) {
+                        return DataType::CSV_STRING;
+                    }
+
+                    dot_allowed = false;
+                    prob_float = true;
+                    break;
+                case 'e':
+                case 'E':
+                    // Process scientific notation
+                    if (prob_float || (i && i + 1 < ilen && isdigit(in[i - 1]))) {
+                        size_t exponent_start_idx = i + 1;
+                        prob_float = true;
+
+                        // Strip out plus sign
+                        if (in[i + 1] == '+') {
+                            exponent_start_idx++;
+                        }
+
+                        return _process_potential_exponential(
+                            in.substr(exponent_start_idx),
+                            neg_allowed ? integral_part + decimal_part : -(integral_part + decimal_part),
+                            out
+                        );
+                    }
+
+                    return DataType::CSV_STRING;
+                    break;
+                default:
+                    short digit = current - '0';
+                    if (digit >= 0 && digit <= 9) {
+                        // Process digit
+                        has_digit = true;
+
+                        if (!digit_allowed)
+                            return DataType::CSV_STRING;
+                        else if (ws_allowed) // Ex: '510 456'
+                            ws_allowed = false;
+
+                        // Build current number
+                        if (prob_float)
+                            decimal_part += digit / pow10(++places_after_decimal);
+                        else
+                            integral_part = (integral_part * 10) + digit;
+                    }
+                    else {
+                        return DataType::CSV_STRING;
+                    }
+                }
+            }
+
+            // No non-numeric/non-whitespace characters found
+            if (has_digit) {
+                long double number = integral_part + decimal_part;
+                if (out) {
+                    *out = neg_allowed ? number : -number;
+                }
+
+                return prob_float ? DataType::CSV_DOUBLE : _determine_integral_type(number);
+            }
+
+            // Just whitespace
+            return DataType::CSV_NULL;
+        }
+    }
+}
+/** @file
+ *  Defines an object used to store CSV format settings
+ */
+
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+
+namespace csv {
     class CSVReader;
 
     /** Determines how to handle rows that are shorter or longer than the majority */
@@ -3105,481 +5269,38 @@ namespace csv {
         bool unicode_detect = true;
     };
 }
-
-#if defined(_WIN32)
-#include <Windows.h>
-#undef max
-#undef min
-#elif defined(__linux__)
-#include <unistd.h>
-#endif
-
-namespace csv {
-    namespace internals {
-        // PAGE_SIZE macro could be already defined by the host system.
-        #if defined(PAGE_SIZE)
-        #undef PAGE_SIZE
-        #endif
-
-        // Get operating system specific details
-        #if defined(_WIN32)
-            inline int getpagesize() {
-                _SYSTEM_INFO sys_info = {};
-                GetSystemInfo(&sys_info);
-                return sys_info.dwPageSize;
-            }
-
-            /** Size of a memory page in bytes */
-            const int PAGE_SIZE = getpagesize();
-        #elif defined(__linux__) 
-            const int PAGE_SIZE = getpagesize();
-        #else
-            const int PAGE_SIZE = 4096;
-        #endif
-
-        /** For functions that lazy load a large CSV, this determines how
-         *  many bytes are read at a time
-         */
-        constexpr size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
-    }
-
-    /** Integer indicating a requested column wasn't found. */
-    constexpr int CSV_NOT_FOUND = -1;
-
-    /** Used for counting number of rows */
-    using RowCount = long long int;
-}
-/** @file
- *  @brief Implements data type parsing functionality
- */
-
-#include <cmath>
-#include <cctype>
-#include <string>
-#include <cassert>
-
-
-namespace csv {
-    /** Enumerates the different CSV field types that are
-     *  recognized by this library
-     *
-     *  @note Overflowing integers will be stored and classified as doubles.
-     *  @note Unlike previous releases, integer enums here are platform agnostic.
-     */
-    enum DataType {
-        UNKNOWN = -1,
-        CSV_NULL,   /**< Empty string */
-        CSV_STRING, /**< Non-numeric string */
-        CSV_INT8,   /**< 8-bit integer */
-        CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
-        CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
-        CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
-        CSV_DOUBLE  /**< Floating point value */
-    };
-
-    static_assert(CSV_STRING < CSV_INT8, "String type should come before numeric types.");
-    static_assert(CSV_INT8 < CSV_INT64, "Smaller integer types should come before larger integer types.");
-    static_assert(CSV_INT64 < CSV_DOUBLE, "Integer types should come before floating point value types.");
-
-    namespace internals {
-        /** Compute 10 to the power of n */
-        template<typename T>
-        HEDLEY_CONST CONSTEXPR
-        long double pow10(const T& n) noexcept {
-            long double multiplicand = n > 0 ? 10 : 0.1,
-                ret = 1;
-
-            // Make all numbers positive
-            T iterations = n > 0 ? n : -n;
-            
-            for (T i = 0; i < iterations; i++) {
-                ret *= multiplicand;
-            }
-
-            return ret;
-        }
-
-        /** Compute 10 to the power of n */
-        template<>
-        HEDLEY_CONST CONSTEXPR
-        long double pow10(const unsigned& n) noexcept {
-            long double multiplicand = n > 0 ? 10 : 0.1,
-                ret = 1;
-
-            for (unsigned i = 0; i < n; i++) {
-                ret *= multiplicand;
-            }
-
-            return ret;
-        }
-
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
-        /** Private site-indexed array mapping byte sizes to an integer size enum */
-        constexpr DataType int_type_arr[8] = {
-            CSV_INT8,  // 1
-            CSV_INT16, // 2
-            UNKNOWN,
-            CSV_INT32, // 4
-            UNKNOWN,
-            UNKNOWN,
-            UNKNOWN,
-            CSV_INT64  // 8
-        };
-
-        template<typename T>
-        inline DataType type_num() {
-            static_assert(std::is_integral<T>::value, "T should be an integral type.");
-            static_assert(sizeof(T) <= 8, "Byte size must be no greater than 8.");
-            return int_type_arr[sizeof(T) - 1];
-        }
-
-        template<> inline DataType type_num<float>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<double>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<long double>() { return CSV_DOUBLE; }
-        template<> inline DataType type_num<std::nullptr_t>() { return CSV_NULL; }
-        template<> inline DataType type_num<std::string>() { return CSV_STRING; }
-
-        CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
-#endif
-
-        /** Given a byte size, return the largest number than can be stored in
-         *  an integer of that size
-         *
-         *  Note: Provides a platform-agnostic way of mapping names like "long int" to
-         *  byte sizes
-         */
-        template<size_t Bytes>
-        CONSTEXPR long double get_int_max() {
-            static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
-                "Bytes must be a power of 2 below 8.");
-
-            IF_CONSTEXPR (sizeof(signed char) == Bytes) {
-                return (long double)std::numeric_limits<signed char>::max();
-            }
-
-            IF_CONSTEXPR (sizeof(short) == Bytes) {
-                return (long double)std::numeric_limits<short>::max();
-            }
-
-            IF_CONSTEXPR (sizeof(int) == Bytes) {
-                return (long double)std::numeric_limits<int>::max();
-            }
-
-            IF_CONSTEXPR (sizeof(long int) == Bytes) {
-                return (long double)std::numeric_limits<long int>::max();
-            }
-
-            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
-                return (long double)std::numeric_limits<long long int>::max();
-            }
-
-            HEDLEY_UNREACHABLE();
-        }
-
-        /** Given a byte size, return the largest number than can be stored in
-         *  an unsigned integer of that size
-         */
-        template<size_t Bytes>
-        CONSTEXPR long double get_uint_max() {
-            static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
-                "Bytes must be a power of 2 below 8.");
-
-            IF_CONSTEXPR(sizeof(unsigned char) == Bytes) {
-                return (long double)std::numeric_limits<unsigned char>::max();
-            }
-
-            IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
-                return (long double)std::numeric_limits<unsigned short>::max();
-            }
-
-            IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
-                return (long double)std::numeric_limits<unsigned int>::max();
-            }
-
-            IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
-                return (long double)std::numeric_limits<unsigned long int>::max();
-            }
-
-            IF_CONSTEXPR(sizeof(unsigned long long int) == Bytes) {
-                return (long double)std::numeric_limits<unsigned long long int>::max();
-            }
-
-            HEDLEY_UNREACHABLE();
-        }
-
-        /** Largest number that can be stored in a 8-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
-
-        /** Largest number that can be stored in a 16-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
-
-        /** Largest number that can be stored in a 32-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
-
-        /** Largest number that can be stored in a 64-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
-
-        /** Largest number that can be stored in a 8-bit ungisned integer */
-        CONSTEXPR_VALUE long double CSV_UINT8_MAX = get_uint_max<1>();
-
-        /** Largest number that can be stored in a 16-bit unsigned integer */
-        CONSTEXPR_VALUE long double CSV_UINT16_MAX = get_uint_max<2>();
-
-        /** Largest number that can be stored in a 32-bit unsigned integer */
-        CONSTEXPR_VALUE long double CSV_UINT32_MAX = get_uint_max<4>();
-
-        /** Largest number that can be stored in a 64-bit unsigned integer */
-        CONSTEXPR_VALUE long double CSV_UINT64_MAX = get_uint_max<8>();
-
-        /** Given a pointer to the start of what is start of
-         *  the exponential part of a number written (possibly) in scientific notation
-         *  parse the exponent
-         */
-        HEDLEY_PRIVATE CONSTEXPR
-        DataType _process_potential_exponential(
-            csv::string_view exponential_part,
-            const long double& coeff,
-            long double * const out) {
-            long double exponent = 0;
-            auto result = data_type(exponential_part, &exponent);
-
-            // Exponents in scientific notation should not be decimal numbers
-            if (result >= CSV_INT8 && result < CSV_DOUBLE) {
-                if (out) *out = coeff * pow10(exponent);
-                return CSV_DOUBLE;
-            }
-
-            return CSV_STRING;
-        }
-
-        /** Given the absolute value of an integer, determine what numeric type
-         *  it fits in
-         */
-        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
-        DataType _determine_integral_type(const long double& number) noexcept {
-            // We can assume number is always non-negative
-            assert(number >= 0);
-
-            if (number <= internals::CSV_INT8_MAX)
-                return CSV_INT8;
-            else if (number <= internals::CSV_INT16_MAX)
-                return CSV_INT16;
-            else if (number <= internals::CSV_INT32_MAX)
-                return CSV_INT32;
-            else if (number <= internals::CSV_INT64_MAX)
-                return CSV_INT64;
-            else // Conversion to long long will cause an overflow
-                return CSV_DOUBLE;
-        }
-
-        /** Distinguishes numeric from other text values. Used by various
-         *  type casting functions, like csv_parser::CSVReader::read_row()
-         *
-         *  #### Rules
-         *   - Leading and trailing whitespace ("padding") ignored
-         *   - A string of just whitespace is NULL
-         *
-         *  @param[in]  in  String value to be examined
-         *  @param[out] out Pointer to long double where results of numeric parsing
-         *                  get stored
-         */
-        CONSTEXPR
-        DataType data_type(csv::string_view in, long double* const out) {
-            // Empty string --> NULL
-            if (in.size() == 0)
-                return CSV_NULL;
-
-            bool ws_allowed = true,
-                neg_allowed = true,
-                dot_allowed = true,
-                digit_allowed = true,
-                has_digit = false,
-                prob_float = false;
-
-            unsigned places_after_decimal = 0;
-            long double integral_part = 0,
-                decimal_part = 0;
-
-            for (size_t i = 0, ilen = in.size(); i < ilen; i++) {
-                const char& current = in[i];
-
-                switch (current) {
-                case ' ':
-                    if (!ws_allowed) {
-                        if (isdigit(in[i - 1])) {
-                            digit_allowed = false;
-                            ws_allowed = true;
-                        }
-                        else {
-                            // Ex: '510 123 4567'
-                            return CSV_STRING;
-                        }
-                    }
-                    break;
-                case '-':
-                    if (!neg_allowed) {
-                        // Ex: '510-123-4567'
-                        return CSV_STRING;
-                    }
-
-                    neg_allowed = false;
-                    break;
-                case '.':
-                    if (!dot_allowed) {
-                        return CSV_STRING;
-                    }
-
-                    dot_allowed = false;
-                    prob_float = true;
-                    break;
-                case 'e':
-                case 'E':
-                    // Process scientific notation
-                    if (prob_float || (i && i + 1 < ilen && isdigit(in[i - 1]))) {
-                        size_t exponent_start_idx = i + 1;
-                        prob_float = true;
-
-                        // Strip out plus sign
-                        if (in[i + 1] == '+') {
-                            exponent_start_idx++;
-                        }
-
-                        return _process_potential_exponential(
-                            in.substr(exponent_start_idx),
-                            neg_allowed ? integral_part + decimal_part : -(integral_part + decimal_part),
-                            out
-                        );
-                    }
-
-                    return CSV_STRING;
-                    break;
-                default:
-                    short digit = current - '0';
-                    if (digit >= 0 && digit <= 9) {
-                        // Process digit
-                        has_digit = true;
-
-                        if (!digit_allowed)
-                            return CSV_STRING;
-                        else if (ws_allowed) // Ex: '510 456'
-                            ws_allowed = false;
-
-                        // Build current number
-                        if (prob_float)
-                            decimal_part += digit / pow10(++places_after_decimal);
-                        else
-                            integral_part = (integral_part * 10) + digit;
-                    }
-                    else {
-                        return CSV_STRING;
-                    }
-                }
-            }
-
-            // No non-numeric/non-whitespace characters found
-            if (has_digit) {
-                long double number = integral_part + decimal_part;
-                if (out) {
-                    *out = neg_allowed ? number : -number;
-                }
-
-                return prob_float ? CSV_DOUBLE : _determine_integral_type(number);
-            }
-
-            // Just whitespace
-            return CSV_NULL;
-        }
-    }
-}
-#include <array>
 #include <deque>
 #include <functional>
 #include <fstream>
 #include <memory>
 #include <string>
-
-/** @file
- *  Defines the data type used for storing information about a CSV row
- */
-
-#include <cmath>
 #include <vector>
-#include <string>
-#include <iterator>
-#include <unordered_map> // For ColNames
-#include <memory> // For CSVField
-#include <limits> // For CSVField
-#include <sstream>
 
-
-#include <string>
-#include <type_traits>
+#include <array>
+#include <deque>
+#include <memory>
 #include <unordered_map>
-
-namespace csv {
-    /** Returned by get_file_info() */
-    struct CSVFileInfo {
-        std::string filename;               /**< Filename */
-        std::vector<std::string> col_names; /**< CSV column names */
-        char delim;                         /**< Delimiting character */
-        RowCount n_rows;                    /**< Number of rows in a file */
-        int n_cols;                         /**< Number of columns in a CSV */
-    };
-
-    /** @name Shorthand Parsing Functions
-     *  @brief Convienience functions for parsing small strings
-     */
-     ///@{
-    CSVReader operator ""_csv(const char*, size_t);
-    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
-    ///@}
-
-    /** @name Utility Functions */
-    ///@{
-    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
-    CSVFileInfo get_file_info(const std::string& filename);
-    int get_col_pos(const std::string filename, const std::string col_name,
-        const CSVFormat format = CSVFormat::guess_csv());
-    ///@}
-
-    namespace internals {
-        template<typename T>
-        inline bool is_equal(T a, T b, T epsilon = 0.001) {
-            /** Returns true if two floating point values are about the same */
-            static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
-            return std::abs(a - b) < epsilon;
-        }
-    }
-}
-/** @file
- *  Defines an object which can store CSV data in
- *  continuous regions of memory
- */
+#include <unordered_set>
+#include <vector>
 
 #include <memory>
-#include <vector>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 
 namespace csv {
     namespace internals {
-        class RawRowBuffer;
-        struct RowData;
-        struct ColumnPositions;
         struct ColNames;
-        using BufferPtr = std::shared_ptr<RawRowBuffer>;
         using ColNamesPtr = std::shared_ptr<ColNames>;
-        using StrBufferPos = size_t;
-        using SplitArray = std::vector<StrBufferPos>;
 
         /** @struct ColNames
-         *  A data structure for handling column name information.
-         *
-         *  These are created by CSVReader and passed (via smart pointer)
-         *  to CSVRow objects it creates, thus
-         *  allowing for indexing by column name.
-         */
+             *  A data structure for handling column name information.
+             *
+             *  These are created by CSVReader and passed (via smart pointer)
+             *  to CSVRow objects it creates, thus
+             *  allowing for indexing by column name.
+             */
         struct ColNames {
         public:
             ColNames() = default;
@@ -3598,83 +5319,31 @@ namespace csv {
             std::vector<std::string> col_names;
             std::unordered_map<std::string, size_t> col_pos;
         };
-
-        /** Class for reducing number of new string and new vector
-         *  and malloc calls
-         *
-         *  @par Motivation
-         *  By storing CSV strings in a giant string (as opposed to an
-         *  `std::vector` of smaller strings), we vastly reduce the number
-         *  of calls to `malloc()`, thus speeding up the program.
-         *  However, by doing so we will need a way to tell where different
-         *  fields are located within this giant string.
-         *  Hence, an array of indices is also maintained.
-         *
-         *  @warning
-         *  `reset()` should be called somewhat often in the code. Since each
-         *  `csv::CSVRow` contains an `std::shared_ptr` to a RawRowBuffer,
-         *  the buffers do not get deleted until every CSVRow referencing it gets
-         *  deleted. If RawRowBuffers get very large, then so will memory consumption.
-         *  Currently, `reset()` is called by `csv::CSVReader::feed()` at the end of 
-         *  every sequence of bytes parsed.
-         *  
-         */
-        class RawRowBuffer {
-        public:
-            RawRowBuffer() = default;
-            RawRowBuffer(const std::shared_ptr<ColNames>& _col_names) : col_names(_col_names) {};
-
-            /** Constructor mainly used for testing
-             *  @param[in] _buffer    CSV text without delimiters or newlines
-             *  @param[in] _splits    Positions in buffer where CSV fields begin
-             *  @param[in] _col_names Pointer to a vector of column names
-             */
-            RawRowBuffer(const std::string& _buffer, const std::vector<StrBufferPos>& _splits,
-                const std::shared_ptr<ColNames>& _col_names) :
-                buffer(_buffer), split_buffer(_splits), col_names(_col_names) {};
-
-            /** Return necessary information to construct a CSV row */
-            RowData get_row();
-            size_t size() const;             /**< Return size of current row */
-            size_t splits_size() const;      /**< Return (num columns - 1) for current row */
-            BufferPtr reset() const;         /**< Create a new RawRowBuffer with this buffer's unfinished work */
-
-            /*
-             * TODO: Investigate performance benefits by storing a row's text right next to its 
-             * split_buffer. This would take greater advantage of locality, but would require a reworking
-             * of this data structure.
-             */
-
-            std::string buffer;              /**< Buffer for storing text */
-            SplitArray split_buffer = {};    /**< Array for storing indices (in buffer)
-                                                  of where CSV fields start */
-            ColNamesPtr col_names = nullptr; /**< Pointer to column names */
-
-        private:
-            std::pair<size_t, size_t> get_row_string();   /**< Return information needed to construct a string_view over the current_row */
-            ColumnPositions get_splits();        /**< Return the field start positions for the current row */
-
-            size_t current_end = 0;          /**< Where we are currently in the text buffer */
-            size_t current_split_idx = 0;    /**< Where we are currently in the split buffer */
-        };
-
-        struct ColumnPositions {
-            ColumnPositions() = default;
-            constexpr ColumnPositions(size_t _start, StrBufferPos _size) : start(_start), n_cols(_size) {};
-            size_t start;                /**< Where in split_buffer the array of column positions begins */
-            size_t n_cols;               /**< Number of columns */
-        };
-
-        struct RowData {
-            RowData() = default;
-
-            std::pair<size_t, size_t> row_str;
-            ColumnPositions col_pos;
-        };
     }
 }
+/** @file
+ *  Defines the data type used for storing information about a CSV row
+ */
+
+#include <cmath>
+#include <vector>
+#include <string>
+#include <iterator>
+#include <unordered_map> // For ColNames
+#include <unordered_set>
+#include <memory> // For CSVField
+#include <limits> // For CSVField
+#include <sstream>
+
 
 namespace csv {
+    class BasicCSVParser;
+
+    struct RawCSVField {
+        size_t start;
+        size_t length;
+    };
+
     namespace internals {
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -3683,7 +5352,67 @@ namespace csv {
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
         std::string json_escape_string(csv::string_view s) noexcept;
+
+        /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
+        class CSVFieldArray {
+        public:
+            CSVFieldArray() {
+                this->allocate();
+            }
+
+            RawCSVField& operator[](size_t n) {
+                if (n > this->size()) {
+                    throw std::runtime_error("Index out of bounds.");
+                }
+
+                size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
+                size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+                return this->buffers[page_no][buffer_idx];
+            }
+
+            void push_back(RawCSVField&& field) {
+                if (this->_current_buffer_size == this->single_buffer_capacity) {
+                    this->allocate();
+                }
+
+                this->buffers.back()[this->_current_buffer_size] = std::move(field);
+                this->_current_buffer_size++;
+                this->_size++;
+            }
+
+            ~CSVFieldArray() {
+                for (auto& buffer : buffers) {
+                    delete[] buffer;
+                }
+            }
+
+            CONSTEXPR size_t size() const noexcept {
+                return this->_size;
+            }
+
+        private:
+            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
+
+            std::vector<RawCSVField*> buffers = {};
+            size_t _current_buffer_size = 0;
+            size_t _size = 0;
+
+            /** Allocate a new page of memory */
+            void allocate();
+        };
     }
+
+    /** A class for storing raw CSV data and associated metadata */
+    struct RawCSVData {
+        std::string data = "";
+        internals::CSVFieldArray fields;
+
+        std::unordered_set<size_t> has_double_quotes = {};
+        std::unordered_map<size_t, std::string> double_quote_fields = {};
+        internals::ColNamesPtr col_names = nullptr;
+    };
+
+    using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
 
     /**
     * @class CSVField
@@ -3730,7 +5459,7 @@ namespace csv {
         template<typename T = std::string> T get() {
             IF_CONSTEXPR(std::is_arithmetic<T>::value) {
                 // Note: this->type() also converts the CSV value to float
-                if (this->type() <= CSV_STRING) {
+                if (this->type() <= DataType::CSV_STRING) {
                     throw std::runtime_error(internals::ERROR_NAN);
                 }
             }
@@ -3783,8 +5512,8 @@ namespace csv {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
 
-            if (this->_type != UNKNOWN) {
-                if (this->_type == CSV_STRING) {
+            if (this->_type != DataType::UNKNOWN) {
+                if (this->_type == DataType::CSV_STRING) {
                     return false;
                 }
 
@@ -3792,7 +5521,7 @@ namespace csv {
             }
 
             long double out = 0;
-            if (internals::data_type(this->sv, &out) == CSV_STRING) {
+            if (internals::data_type(this->sv, &out) == DataType::CSV_STRING) {
                 return false;
             }
 
@@ -3803,21 +5532,21 @@ namespace csv {
         CONSTEXPR csv::string_view get_sv() const { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        CONSTEXPR bool is_null() { return type() == CSV_NULL; }
+        CONSTEXPR bool is_null() { return type() == DataType::CSV_NULL; }
 
         /** Returns true if field is a non-numeric, non-empty string */
-        CONSTEXPR bool is_str() { return type() == CSV_STRING; }
+        CONSTEXPR bool is_str() { return type() == DataType::CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= CSV_INT8; }
+        CONSTEXPR bool is_num() { return type() >= DataType::CSV_INT8; }
 
         /** Returns true if field is an integer */
         CONSTEXPR bool is_int() {
-            return (type() >= CSV_INT8) && (type() <= CSV_INT64);
+            return (type() >= DataType::CSV_INT8) && (type() <= DataType::CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR bool is_float() { return type() == CSV_DOUBLE; };
+        CONSTEXPR bool is_float() { return type() == DataType::CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR DataType type() {
@@ -3828,12 +5557,12 @@ namespace csv {
     private:
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
-        DataType _type = UNKNOWN; /**< Cached data type value */
+        DataType _type = DataType::UNKNOWN; /**< Cached data type value */
         CONSTEXPR void get_value() {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */
-            if (_type < 0) {
+            if ((int)_type < 0) {
                 this->_type = internals::data_type(this->sv, &this->value);
             }
         }
@@ -3842,34 +5571,29 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
+        friend BasicCSVParser;
+
         CSVRow() = default;
         
-        /** Construct a CSVRow from a RawRowBuffer */
-        CSVRow(const internals::BufferPtr& _buffer) : buffer(_buffer), data(_buffer->get_row()) {};
-
-        /** Constructor for testing */
-        CSVRow(const std::string& str, const std::vector<internals::StrBufferPos>& splits,
-            const std::shared_ptr<internals::ColNames>& col_names)
-            : CSVRow(internals::BufferPtr(new internals::RawRowBuffer(str, splits, col_names))) {};
-
-        /** Retrieve a string view over this row's data */
-        CSV_INLINE csv::string_view row_str() const {
-            return csv::string_view(this->buffer->buffer.c_str() + this->data.row_str.first, this->data.row_str.second);
-        }
+        /** Construct a CSVRow from a RawCSVDataPtr */
+        CSVRow(RawCSVDataPtr _data) : data(_data) {}
 
         /** Indicates whether row is empty or not */
-        CSV_INLINE bool empty() const { return this->row_str().empty(); }
+        CONSTEXPR bool empty() const { return this->size() == 0; }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return this->data.col_pos.n_cols; }
+        CONSTEXPR size_t size() const { return row_length; }
 
         /** @name Value Retrieval */
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
-        csv::string_view get_string_view(size_t n) const;
+        csv::string_view get_field(size_t index) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+        std::vector<std::string> get_col_names() const {
+            return this->data->col_names->get_col_names();
+        }
 
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
@@ -3941,11 +5665,16 @@ namespace csv {
         ///@}
 
     private:
-        /** Get the index in CSVRow's text buffer where the n-th field begins */
-        size_t split_at(size_t n) const;
+        RawCSVDataPtr data;
 
-        internals::BufferPtr buffer = nullptr; /**< Memory buffer containing data for this row. */
-        internals::RowData data;               /**< Contains row string and column positions. */
+        /** Where in RawCSVData.data we start */
+        size_t data_start = 0;
+
+        /** Where in the RawCSVDataPtr.fields array we start */
+        size_t field_bounds_index = 0;
+
+        /** How many columns this row spans */
+        size_t row_length = 0;
     };
 
 #ifdef _MSC_VER
@@ -4006,7 +5735,7 @@ namespace csv {
          *   An enum used for describing the significance of each character
          *   with respect to CSV parsing
          */
-        enum ParseFlags {
+        enum class ParseFlags {
             NOT_SPECIAL, /**< Characters with no special meaning */
             QUOTE,       /**< Characters which may signify a quote escape */
             DELIMITER,   /**< Characters which may signify a new field */
@@ -4015,6 +5744,91 @@ namespace csv {
 
         using ParseFlagMap = std::array<ParseFlags, 256>;
         using WhitespaceMap = std::array<bool, 256>;
+    }
+
+    /** A class for parsing raw CSV data */
+    class BasicCSVParser {
+    public:
+        BasicCSVParser() = default;
+        BasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
+        BasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
+            _parse_flags(parse_flags), _ws_flags(ws_flags) {};
+
+        void parse(csv::string_view in, std::deque<CSVRow>& records);
+        void end_feed(std::deque<CSVRow>& records) {
+            using internals::ParseFlags;
+
+            bool empty_last_field = this->current_row.data
+                && !this->current_row.data->data.empty()
+                && parse_flag(this->current_row.data->data.back()) == ParseFlags::DELIMITER;
+
+            if (this->field_length > 0 || empty_last_field) {
+                this->push_field();
+            }
+
+            if (this->current_row.size() > 0) {
+                this->push_row(records);
+            }
+        }
+
+        void set_parse_flags(internals::ParseFlagMap parse_flags) {
+            _parse_flags = parse_flags;
+        }
+
+        void set_ws_flags(internals::WhitespaceMap ws_flags) {
+            _ws_flags = ws_flags;
+        }
+
+    private:
+        CONSTEXPR internals::ParseFlags parse_flag(const char ch) const {
+            return _parse_flags.data()[ch + 128];
+        }
+
+        CONSTEXPR bool ws_flag(const char ch) const {
+            return _ws_flags.data()[ch + 128];
+        }
+
+        void push_field();
+        CONSTEXPR void parse_field(csv::string_view in, size_t& i, const size_t& current_row_start, bool quote_escape = false);
+
+        void parse_loop(csv::string_view in);
+
+        void push_row(std::deque<CSVRow>& records) {
+            current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
+            records.push_back(std::move(current_row));
+        };
+
+        void set_data_ptr(RawCSVDataPtr ptr) {
+            this->data_ptr = ptr;
+            this->fields = &(ptr->fields);
+        }
+
+        /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+        internals::ParseFlagMap _parse_flags;
+
+        /** An array where the (i + 128)th slot determines whether ASCII character i should
+         *  be trimmed
+         */
+        internals::WhitespaceMap _ws_flags;
+
+        internals::ColNamesPtr col_names = nullptr;
+
+        CSVRow current_row;
+        int field_start = -1;
+        size_t field_length = 0;
+        bool field_has_double_quote = false;
+
+        RawCSVDataPtr data_ptr = nullptr;
+        internals::CSVFieldArray* fields = nullptr;
+        
+        std::deque<CSVRow>* _records = nullptr;
+    };
+}
+
+namespace csv {
+    namespace internals {
+        /** A string buffer and its size. Consumed by read_csv_worker(). */
+        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
 
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
@@ -4027,11 +5841,11 @@ namespace csv {
                 char ch = char(i);
 
                 if (ch == delimiter)
-                    ret[arr_idx] = DELIMITER;
+                    ret[arr_idx] = ParseFlags::DELIMITER;
                 else if (ch == '\r' || ch == '\n')
-                    ret[arr_idx] = NEWLINE;
+                    ret[arr_idx] = ParseFlags::NEWLINE;
                 else
-                    ret[arr_idx] = NOT_SPECIAL;
+                    ret[arr_idx] = ParseFlags::NOT_SPECIAL;
             }
 
             return ret;
@@ -4043,7 +5857,7 @@ namespace csv {
          */
         HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
             std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
-            ret[(size_t)quote_char + 128] = QUOTE;
+            ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
             return ret;
         }
 
@@ -4076,61 +5890,6 @@ namespace csv {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
-
-        /** Parse a CSV field until a delimiter is hit
-         *  @return A value indicating whether or not text to be
-         *          saved to the text buffer
-         */
-        CONSTEXPR bool parse_not_special(
-            csv::string_view in,
-            const csv::internals::ParseFlags* const parse_flags,
-            const bool* const ws_flags,
-            size_t& i,
-            size_t& start,
-            size_t& end) {
-            // Trim off leading whitespace
-            while (i < in.size() && ws_flags[in[i] + 128]) {
-                i++;
-            }
-
-            start = i;
-
-            // Case: This field is entirely whitespace
-            if (parse_flags[in[start] + 128] >= ParseFlags::DELIMITER) {
-                // Back the parser up one character so switch statement
-                // can process the delimiter or newline
-                i--;
-                return false;
-            }
-
-            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-            // sequences, use the loop below to avoid having to go through the outer
-            // switch statement as much as possible
-            while (i + 1 < in.size()
-                && parse_flags[in[i + 1] + 128] == ParseFlags::NOT_SPECIAL) {
-                i++;
-            }
-
-            // Trim off trailing whitespace
-            end = i;
-            while (ws_flags[in[end] + 128]) {
-                end--;
-            }
-
-            return true;
-        }
-
-        struct ParseData {
-            csv::string_view in;
-            ParseFlagMap parse_flags;
-            WhitespaceMap ws_flags;
-            BufferPtr row_buffer;
-            bool& quote_escape; /*< Whether or not we are currently in a quote escaped field */
-            std::deque<CSVRow>& records;
-        };
-
-        CSV_INLINE BufferPtr parse(const ParseData& data);
-        CSV_INLINE void write_record(const ParseData& data);
 
         /** Read the first 500KB of a CSV file */
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
@@ -4223,7 +5982,6 @@ namespace csv {
         CSVReader(CSVReader&&) = default;     // Move constructor
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
-        ~CSVReader() { this->close(); }
 
         /** @name Reading In-Memory Strings
          *  You can piece together incomplete CSV fragments by calling feed() on them
@@ -4253,13 +6011,10 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        RowCount num_rows = 0;   /**< How many rows (minus header)
-                                   *   have been parsed so far
-                                   */
-        bool utf8_bom = false;   /**< Set to true if UTF-8 BOM was detected */
+        bool empty() const { return this->size() == 0; }
+        RowCount size() const { return this->num_rows; }
+        bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
-
-        void close();
 
     protected:
         /**
@@ -4269,36 +6024,27 @@ namespace csv {
          * @{
          */
 
-        /** A string buffer and its size. Consumed by read_csv_worker(). */
-        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
-
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
-            std::deque<WorkItem> feed_buffer;    /**< Message queue for worker */
+            std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
             std::mutex feed_lock;                /**< Allow only one worker to write */
             std::condition_variable feed_cond;   /**< Wake up worker */
         };
 
-        /** Open a file for reading. Implementation is compiler specific. */
+        /** Open a file for reading. */
         void fopen(csv::string_view filename);
+
+        size_t file_size;
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return !(this->file_ptr); };
+        bool eof() { return this->csv_mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{
         CSVFormat _format;
-
-        /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-        internals::ParseFlagMap parse_flags;
-
-        /** An array where the (i + 128)th slot determines whether ASCII character i should
-         *  be trimmed
-         */
-        internals::WhitespaceMap ws_flags;
         ///@}
 
         /** @name Parser State */
@@ -4306,14 +6052,12 @@ namespace csv {
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
+        // TODO: Update description
         /** Buffer for current row being parsed */
-        internals::BufferPtr record_buffer = internals::BufferPtr(new internals::RawRowBuffer(this->col_names));
+        BasicCSVParser parser = BasicCSVParser(this->col_names);
 
         /** Queue of parsed CSV rows */
         std::deque<CSVRow> records;
-
-        /** Whether or not we are in a quote-escaped field */
-        bool quote_escape = false;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
@@ -4323,19 +6067,30 @@ namespace csv {
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
+
+        /** How many rows (minus header) have been parsed so far */
+        RowCount num_rows = 0;
+
+        /** Set to true if UTF-8 BOM was detected */
+        bool _utf8_bom = false;
         ///@}
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed(WorkItem&&); /**< @brief Helper for read_csv_worker() */
+        void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
+
+        size_t relative_mmap_pos = 0;
+
         void read_csv_worker();
+        std::string _filename = "";
         ///@}
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        /** Current file handle. Destroyed by ~CSVReader(). */
-        std::FILE* HEDLEY_RESTRICT file_ptr = nullptr;
+        mio::mmap_source csv_mmap;
+        bool csv_mmap_eof = true;
+        size_t csv_mmap_pos = 0;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 
@@ -4395,6 +6150,37 @@ namespace csv {
         void calc();
         void calc_worker(const size_t&);
     };
+}
+
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+
+namespace csv {
+    /** Returned by get_file_info() */
+    struct CSVFileInfo {
+        std::string filename;               /**< Filename */
+        std::vector<std::string> col_names; /**< CSV column names */
+        char delim;                         /**< Delimiting character */
+        RowCount n_rows;                    /**< Number of rows in a file */
+        int n_cols;                         /**< Number of columns in a CSV */
+    };
+
+    /** @name Shorthand Parsing Functions
+     *  @brief Convienience functions for parsing small strings
+     */
+     ///@{
+    CSVReader operator ""_csv(const char*, size_t);
+    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+    ///@}
+
+    /** @name Utility Functions */
+    ///@{
+    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
+    CSVFileInfo get_file_info(const std::string& filename);
+    int get_col_pos(const std::string filename, const std::string col_name,
+        const CSVFormat format = CSVFormat::guess_csv());
+    ///@}
 }
 /** @file
   *  A standalone header file for writing delimiter-separated files
@@ -4556,6 +6342,35 @@ namespace csv {
     ///@}
 }
 
+
+namespace csv {
+    namespace internals {
+        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
+            return this->col_names;
+        }
+
+        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
+            this->col_names = cnames;
+
+            for (size_t i = 0; i < cnames.size(); i++) {
+                this->col_pos[cnames[i]] = i;
+            }
+        }
+
+        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
+            auto pos = this->col_pos.find(col_name.data());
+            if (pos != this->col_pos.end())
+                return (int)pos->second;
+
+            return CSV_NOT_FOUND;
+        }
+
+        CSV_INLINE size_t ColNames::size() const {
+            return this->col_names.size();
+        }
+
+    }
+}
 /** @file
  *  Defines an object used to store CSV format settings
  */
@@ -4650,11 +6465,9 @@ namespace csv {
  */
 
 #include <algorithm>
-#include <cstdio>   // For read_csv()
 #include <cstring>  // For read_csv()
 #include <fstream>
 #include <sstream>
-
 
 namespace csv {
     namespace internals {
@@ -4683,22 +6496,17 @@ namespace csv {
             }
 
             // Parse the CSV
-            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
             auto trim_chars = format.get_trim_chars();
 
-            std::deque<CSVRow> rows;
-            bool quote_escape = false;
-
-            internals::parse({
-                head,
+            BasicCSVParser parser(
                 parse_flags,
-                internals::make_ws_flags(trim_chars.data(), trim_chars.size()),
-                buffer_ptr,
-                quote_escape,
-                rows
-            });
+                internals::make_ws_flags(trim_chars.data(), trim_chars.size())
+            );
 
-            return rows[format.get_header()];
+            std::deque<CSVRow> rows;
+            parser.parse(head, rows);
+
+            return CSVRow(std::move(rows[format.get_header()]));
         }
     }
 
@@ -4728,7 +6536,7 @@ namespace csv {
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
-        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState)  {
+        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -4804,7 +6612,7 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    CSV_INLINE void CSVReader::feed(WorkItem&& buff) {
+    CSV_INLINE void CSVReader::feed(internals::WorkItem&& buff) {
         this->feed( csv::string_view(buff.first.get(), buff.second) );
     }
 
@@ -4817,29 +6625,24 @@ namespace csv {
      *  `end_feed()` should be called after the last string.
      */
     CSV_INLINE void CSVReader::feed(csv::string_view in) {
+        if (in.empty()) return;
+
         /** Handle possible Unicode byte order mark */
         if (!this->unicode_bom_scan) {
             if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
                 in.remove_prefix(3); // Remove BOM from input string
-                this->utf8_bom = true;
+                this->_utf8_bom = true;
             }
 
             this->unicode_bom_scan = true;
         }
 
-        this->record_buffer = internals::parse({
-            in,
-            this->parse_flags,
-            this->ws_flags,
-            this->record_buffer,
-            this->quote_escape,
-            this->records
-        });
+        this->parser.parse(in, this->records);
 
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
                 if (i == this->_format.header && this->col_names->empty()) {
-                    this->set_col_names(this->records.front());
+                    this->set_col_names(CSVRow(std::move(this->records.front())));
                 }
 
                 this->records.pop_front();
@@ -4853,9 +6656,7 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        if (this->record_buffer->size() > 0) {
-            this->records.push_back(CSVRow(this->record_buffer));
-        }
+        this->parser.end_feed(this->records);
     }
 
     /** Worker thread for read_csv() which parses CSV rows (while the main
@@ -4883,27 +6684,41 @@ namespace csv {
     {
         this->_format = format;
         if (format.no_quote) {
-            this->parse_flags = internals::make_parse_flags(format.get_delim());
+            this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim()));
         }
         else {
-            this->parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+            this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim(), format.quote_char));
         }
 
-        this->ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+        this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
     }
 
     CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
-        if (!this->file_ptr) {
-#ifdef _MSC_BUILD
-            // Silence compiler warnings in Microsoft Visual C++
-            size_t err = fopen_s(&(this->file_ptr), filename.data(), "rb");
-            if (err)
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-#else
-            this->infile = std::fopen(filename.data(), "rb");
-            if (!this->infile)
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-#endif
+        this->_filename = filename;
+
+        if (!this->csv_mmap.is_open()) {
+            this->csv_mmap_eof = false;
+            std::ifstream infile(_filename, std::ios::binary);
+            const auto start = infile.tellg();
+            infile.seekg(0, std::ios::end);
+            const auto end = infile.tellg();
+            this->file_size = end - start;
+
+            std::error_code error;
+
+            if (internals::get_available_memory() > this->file_size * 2) {
+                this->csv_mmap.map(filename, error);
+            }
+            else {
+                this->csv_mmap.map(filename, 0,
+                    std::min((size_t)csv::internals::ITERATION_CHUNK_SIZE, this->file_size),
+                    error
+                );
+            }
+
+            if (error) {
+                throw error;
+            }
         }
     }
 
@@ -4925,6 +6740,10 @@ namespace csv {
      * @see CSVReader::read_row()
      */
     CSV_INLINE void CSVReader::read_csv(const size_t& bytes) {
+        if (this->_filename.empty()) {
+            return;
+        }
+
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto * HEDLEY_RESTRICT line_buffer = buffer.get();
@@ -4932,21 +6751,40 @@ namespace csv {
 
         std::thread worker(&CSVReader::read_csv_worker, this);
 
-        for (size_t processed = 0; processed < bytes; ) {
-            char * HEDLEY_RESTRICT result = std::fgets(line_buffer, internals::PAGE_SIZE, this->file_ptr);
-            if (result == NULL) break;
-            line_buffer += std::strlen(line_buffer);
-            size_t current_strlen = line_buffer - buffer.get();
+        size_t strlen = 0;
+        for (size_t processed = 0; this->csv_mmap_pos < this->file_size && processed < bytes; this->csv_mmap_pos++) {
+            if (this->relative_mmap_pos == this->csv_mmap.length()) {
+                std::error_code error;
 
-            if (current_strlen >= 0.9 * BUFFER_UPPER_LIMIT) {
-                processed += (line_buffer - buffer.get());
+                size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+                this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
+                    length,
+                    error
+                );
+
+                if (error) {
+                    throw error;
+                }
+
+                this->relative_mmap_pos = 0;
+            }
+
+            line_buffer[strlen] = this->csv_mmap[this->relative_mmap_pos];
+            strlen++;
+            this->relative_mmap_pos++;
+
+            if (strlen == BUFFER_UPPER_LIMIT - 1) {
+                processed += strlen;
+                line_buffer[strlen] = '\0';
+
                 std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
 
-                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), current_strlen));
+                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
 
                 buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
                 line_buffer = buffer.get();
                 line_buffer[0] = '\0';
+                strlen = 0;
 
                 this->feed_state->feed_cond.notify_one();
             }
@@ -4954,26 +6792,15 @@ namespace csv {
 
         // Feed remaining bits
         std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), line_buffer - buffer.get()));
+        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
         this->feed_state->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
         this->feed_state->feed_cond.notify_one();
         lock.unlock();
         worker.join();
 
-        if (std::feof(this->file_ptr)) {
+        if (this->csv_mmap_pos == this->csv_mmap.length()) {
+            this->csv_mmap_eof = true;
             this->end_feed();
-            this->close();
-        }
-    }
-
-    /** Close the open file handle.
-     *
-     *  @note Automatically called by ~CSVReader().
-     */
-    CSV_INLINE void CSVReader::close() {
-        if (this->file_ptr) {
-            std::fclose(this->file_ptr);
-            this->file_ptr = nullptr;
         }
     }
 
@@ -4994,8 +6821,6 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
-                // TODO/Suggestion: Make this call non-blocking, 
-                // i.e. move to it another thread
                 this->read_csv(internals::ITERATION_CHUNK_SIZE);
             }
             else return false; // Stop reading
@@ -5005,11 +6830,12 @@ namespace csv {
             if (this->records.front().size() != this->n_cols &&
                 this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
                 if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
+                    auto errored_row = std::move(this->records.front());
                     if (this->records.front().size() < this->n_cols) {
-                        throw std::runtime_error("Line too short " + internals::format_row(this->records.front()));
+                        throw std::runtime_error("Line too short " + internals::format_row(errored_row));
                     }
 
-                    throw std::runtime_error("Line too long " + internals::format_row(this->records.front()));
+                    throw std::runtime_error("Line too long " + internals::format_row(errored_row));
                 }
 
                 // Silently drop row (default)
@@ -5017,6 +6843,7 @@ namespace csv {
             }
             else {
                 row = std::move(this->records.front());
+
                 this->num_rows++;
                 this->records.pop_front();
                 return true;
@@ -5026,6 +6853,7 @@ namespace csv {
         return false;
     }
 }
+
 #include <iostream>
 
 namespace csv {
@@ -5038,18 +6866,13 @@ namespace csv {
             std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
             // Parse the CSV
-            auto buffer_ptr = internals::BufferPtr(new internals::RawRowBuffer());
-            std::deque<CSVRow> rows;
-            bool quote_escape = false;
-
-            internals::parse({
-                head,
+            BasicCSVParser parser(
                 internals::make_parse_flags(format.get_delim(), '"'),
-                internals::make_ws_flags({}, 0),
-                buffer_ptr,
-                quote_escape,
-                rows
-            });
+                internals::make_ws_flags({}, 0)
+            );
+
+            std::deque<CSVRow> rows;
+            parser.parse(head, rows);
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];
@@ -5066,15 +6889,22 @@ namespace csv {
                 }
             }
 
-            // Most common numbers of columns
-            auto max = std::max_element(row_tally.begin(), row_tally.end(),
-                [](const std::pair<size_t, size_t>& x,
-                    const std::pair<size_t, size_t>& y) {
-                        return x.second < y.second; });
+            double final_score = 0;
+            size_t header_row = 0;
+
+            // Final score is equal to the largest 
+            // row size times rows of that size
+            for (auto& [row_size, row_count] : row_tally) {
+                double score = (double)(row_size * row_count);
+                if (score > final_score) {
+                    final_score = score;
+                    header_row = row_when[row_size];
+                }
+            }
 
             return {
-                (double)(max->first * max->second),
-                row_when[max->first]
+                final_score,
+                header_row
             };
         }
 
@@ -5095,104 +6925,13 @@ namespace csv {
                 auto result = calculate_score(head, format.delimiter(cand_delim));
 
                 if (result.score > max_score) {
-                    max_score = result.score;
+                    max_score = (size_t)result.score;
                     current_delim = cand_delim;
                     header = result.header;
                 }
             }
 
             return { current_delim, (int)header };
-        }
-
-        CSV_INLINE BufferPtr parse(const ParseData& data) {
-            using internals::ParseFlags;
-
-            // Optimizations
-            auto * HEDLEY_RESTRICT parse_flags = data.parse_flags.data();
-            auto * HEDLEY_RESTRICT ws_flags = data.ws_flags.data();
-            auto& in = data.in;
-            auto& row_buffer = *(data.row_buffer.get());
-            auto& text_buffer = row_buffer.buffer;
-            auto& split_buffer = row_buffer.split_buffer;
-            text_buffer.reserve(data.in.size());
-            split_buffer.reserve(data.in.size() / 10);
-
-            for (size_t i = 0; i < in.size(); i++) {
-                switch (parse_flags[data.in[i] + 128]) {
-                case ParseFlags::DELIMITER:
-                    if (!data.quote_escape) {
-                        split_buffer.push_back((internals::StrBufferPos)row_buffer.size());
-                        break;
-                    }
-
-                    HEDLEY_FALL_THROUGH;
-                case ParseFlags::NEWLINE:
-                    if (!data.quote_escape) {
-                        // End of record -> Write record
-                        if (i + 1 < in.size() && in[i + 1] == '\n') // Catches CRLF (or LFLF)
-                            ++i;
-
-                        data.records.push_back(CSVRow(data.row_buffer));
-                        break;
-                    }
-
-                    // Treat as regular character
-                    text_buffer += in[i];
-                    break;
-                case ParseFlags::NOT_SPECIAL: {
-                    size_t start, end;
-
-                    if (!parse_not_special(
-                        in,
-                        parse_flags,
-                        ws_flags,
-                        i,
-                        start,
-                        end
-                    )) {
-                        break;
-                    }
-
-                    // Finally append text
-#ifdef CSV_HAS_CXX17
-                    text_buffer += in.substr(start, end - start + 1);
-#else
-                    for (; start < end + 1; start++) {
-                        text_buffer += in[start];
-                    }
-#endif
-
-                    break;
-                }
-                default: // Quote
-                    if (!data.quote_escape) {
-                        // Don't deref past beginning
-                        if (i && parse_flags[in[i - 1] + 128] >= ParseFlags::DELIMITER) {
-                            // Case: Previous character was delimiter or newline
-                            data.quote_escape = true;
-                        }
-                    }
-                    else if (i + 1 < in.size()) {
-                        auto next_ch = parse_flags[in[i + 1] + 128];
-                        if (next_ch >= ParseFlags::DELIMITER) {
-                            // Case: Delim or newline => end of field
-                            data.quote_escape = false;
-                            break;
-                        }
-
-                        // Case: Escaped quote
-                        text_buffer += in[i];
-
-                        // Note: Unescaped single quotes can be handled by the parser
-                        if (next_ch == ParseFlags::QUOTE)
-                            ++i;  // Case: Two consecutive quotes
-                    }
-
-                    break;
-                }
-            }
-
-            return row_buffer.reset();
         }
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename) {
@@ -5224,9 +6963,15 @@ namespace csv {
     CSV_INLINE CSVReader::iterator CSVReader::begin() {
         if (this->records.empty()) {
             this->read_csv();
+
+            // Still empty => return end iterator
+            if (this->records.empty()) {
+                return this->end();
+            }
         }
 
         CSVReader::iterator ret(this, std::move(this->records.front()));
+
         this->records.pop_front();
         return ret;
     }
@@ -5277,42 +7022,12 @@ namespace csv {
 #include <functional>
 
 namespace csv {
-    /** Return a string view of the nth field
-     *
-     *  @complexity
-     *  Constant
-     *
-     *  @throws
-     *  std::runtime_error If n is out of bounds
-     */
-    CSV_INLINE csv::string_view CSVRow::get_string_view(size_t n) const {
-        csv::string_view ret(this->row_str());
-
-        // First assume that field comprises entire row, then adjust accordingly
-        size_t beg = 0,
-            end = this->row_str().size(),
-            r_size = this->size();
-
-        if (n >= r_size)
-            throw std::runtime_error("Index out of bounds.");
-
-        if (r_size > 1) {
-            if (n == 0) {
-                end = this->split_at(0);
-            }
-            else if (r_size == 2) {
-                beg = this->split_at(0);
-            }
-            else {
-                beg = this->split_at(n - 1);
-                if (n != r_size - 1) end = this->split_at(n);
-            }
+    namespace internals {
+        CSV_INLINE void CSVFieldArray::allocate() {
+            RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
+            buffers.push_back(buffer);
+            _current_buffer_size = 0;
         }
-        
-        return ret.substr(
-            beg,
-            end - beg // Number of characters
-        );
     }
 
     /** Return a CSVField object corrsponding to the nth value in the row.
@@ -5325,7 +7040,7 @@ namespace csv {
      *
      */
     CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
-        return CSVField(this->get_string_view(n));
+        return CSVField(this->get_field(n));
     }
 
     /** Retrieve a value by its associated column name. If the column
@@ -5338,7 +7053,7 @@ namespace csv {
      *  @param[in] col_name The column to look for
      */
     CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
-        auto & col_names = this->buffer->col_names;
+        auto & col_names = this->data->col_names;
         auto col_pos = col_names->index_of(col_name);
         if (col_pos > -1) {
             return this->operator[](col_pos);
@@ -5351,9 +7066,47 @@ namespace csv {
 
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
-            ret.push_back(std::string(this->get_string_view(i)));
+            ret.push_back(std::string(this->get_field(i)));
 
         return ret;
+    }
+
+    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
+    {
+        if (index >= this->size()) {
+            throw std::runtime_error("Index out of bounds.");
+        }
+
+        size_t field_index = this->field_bounds_index + index;
+        const RawCSVField& raw_field = this->data->fields[field_index];
+        bool has_doubled_quote = this->data->has_double_quotes.find(field_index) != this->data->has_double_quotes.end();
+
+        csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
+
+        if (has_doubled_quote) {
+            std::string& ret = this->data->double_quote_fields[field_index];
+            if (ret.empty()) {
+                bool prev_ch_quote = false;
+                for (size_t i = 0; i < raw_field.length; i++) {
+                    // TODO: Use parse flags
+                    if (csv_field[i] == '"') {
+                        if (prev_ch_quote) {
+                            prev_ch_quote = false;
+                            continue;
+                        }
+                        else {
+                            prev_ch_quote = true;
+                        }
+                    }
+
+                    ret += csv_field[i];
+                }
+            }
+
+            return csv::string_view(ret);
+        }
+
+        return csv_field.substr(0, raw_field.length);
     }
 
 #ifdef _MSC_VER
@@ -5379,11 +7132,6 @@ namespace csv {
 
     CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
-    }
-
-    CSV_INLINE size_t CSVRow::split_at(size_t n) const
-    {
-        return this->buffer->split_buffer[this->data.col_pos.start + n];
     }
 
     CSV_INLINE HEDLEY_NON_NULL(2)
@@ -5655,7 +7403,7 @@ namespace csv {
     CSV_INLINE std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
         if (subset.empty()) {
-            col_names = this->buffer ? this->buffer->col_names->get_col_names() : std::vector<std::string>();
+            col_names = this->data ? this->get_col_names() : std::vector<std::string>({});
         }
 
         const size_t _n_cols = col_names.size();
@@ -5693,7 +7441,7 @@ namespace csv {
     CSV_INLINE std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
         if (subset.empty())
-            col_names = this->buffer ? this->buffer->col_names->get_col_names() : std::vector<std::string>();
+            col_names = this->data ? this->get_col_names() : std::vector<std::string>({});
 
         const size_t _n_cols = col_names.size();
         std::string ret = "[";
@@ -5829,6 +7577,7 @@ namespace csv {
          */
 
         auto current_record = this->records.begin();
+
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
             if (current_record->size() == this->n_cols) {
                 auto current_field = (*current_record)[i];
@@ -5896,9 +7645,9 @@ namespace csv {
          *  @param[in]  x_n Data observation
          *  @param[out] i   The column index that should be updated
          */
-        if (isnan(this->mins[i]))
+        if (std::isnan(this->mins[i]))
             this->mins[i] = x_n;
-        if (isnan(this->maxes[i]))
+        if (std::isnan(this->maxes[i]))
             this->maxes[i] = x_n;
         
         if (x_n < this->mins[i])
@@ -5950,18 +7699,18 @@ namespace csv {
             auto& col = temp[i];
             auto& col_name = col_names[i];
 
-            if (col[CSV_STRING])
-                csv_dtypes[col_name] = CSV_STRING;
-            else if (col[CSV_INT64])
-                csv_dtypes[col_name] = CSV_INT64;
-            else if (col[CSV_INT32])
-                csv_dtypes[col_name] = CSV_INT32;
-            else if (col[CSV_INT16])
-                csv_dtypes[col_name] = CSV_INT16;
-            else if (col[CSV_INT8])
-                csv_dtypes[col_name] = CSV_INT8;
+            if (col[DataType::CSV_STRING])
+                csv_dtypes[col_name] = DataType::CSV_STRING;
+            else if (col[DataType::CSV_INT64])
+                csv_dtypes[col_name] = DataType::CSV_INT64;
+            else if (col[DataType::CSV_INT32])
+                csv_dtypes[col_name] = DataType::CSV_INT32;
+            else if (col[DataType::CSV_INT16])
+                csv_dtypes[col_name] = DataType::CSV_INT16;
+            else if (col[DataType::CSV_INT8])
+                csv_dtypes[col_name] = DataType::CSV_INT8;
             else
-                csv_dtypes[col_name] = CSV_DOUBLE;
+                csv_dtypes[col_name] = DataType::CSV_DOUBLE;
         }
 
         return csv_dtypes;
@@ -6021,108 +7770,169 @@ namespace csv {
             filename,
             reader.get_col_names(),
             format.get_delim(),
-            reader.num_rows,
+            reader.size(),
             (int)reader.get_col_names().size()
         };
 
         return info;
     }
 }
-/** @file
- *  Defines an object which can store CSV data in
- *  continuous regions of memory
- */
-
 
 namespace csv {
-    namespace internals {
-        //////////////
-        // ColNames //
-        //////////////
-        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
+    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
+        using internals::ParseFlags;
+
+        this->set_data_ptr(std::make_shared<RawCSVData>());
+        this->data_ptr->col_names = this->col_names;
+        this->_records = &records;
+
+        // Check for previous fragments
+        if (this->current_row.data && this->current_row.size() > 0 || this->field_length > 0) {
+            // Make a separate data buffer for the fragment row
+            auto temp_str = this->current_row.data->data.substr(this->current_row.data_start);
+
+            this->current_row.data = this->data_ptr;
+            this->current_row.data_start = 0;
+            this->current_row.row_length = 0;
+            this->current_row.field_bounds_index = 0;
+
+            this->field_start = -1;
+            this->field_length = 0;
+
+            auto& fragment_data = this->current_row.data;
+            fragment_data->data.reserve(temp_str.size() + in.size());
+            fragment_data->data = temp_str;
+            fragment_data->data += in;
+            
+            in = csv::string_view(fragment_data->data);
+        }
+        else {
+            this->data_ptr->data.assign(in.data(), in.size());
+            this->current_row = CSVRow(this->data_ptr);
         }
 
-        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
-            this->col_names = cnames;
+        this->parse_loop(in);
+    }
 
-            for (size_t i = 0; i < cnames.size(); i++) {
-                this->col_pos[cnames[i]] = i;
+    CSV_INLINE void BasicCSVParser::push_field()
+    {
+        // Push field
+        this->fields->push_back({
+            this->field_start > 0 ? (unsigned int)this->field_start : 0,
+            this->field_length
+        });
+        this->current_row.row_length++;
+
+        if (this->field_has_double_quote) {
+            this->current_row.data->has_double_quotes.insert(this->data_ptr->fields.size() - 1);
+            this->field_has_double_quote = false;
+        }
+
+        // Reset field state
+        this->field_start = -1;
+        this->field_length = 0;
+    }
+
+    CONSTEXPR void BasicCSVParser::parse_field(csv::string_view in, size_t& i, const size_t& current_row_start, bool quote_escape) {
+        using internals::ParseFlags;
+
+        // Trim off leading whitespace
+        while (i < in.size() && ws_flag(in[i])) i++;
+
+        if (this->field_start < 0) {
+            this->field_start = (int)(i - current_row_start);
+        }
+
+        // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+        // sequences, use the loop below to avoid having to go through the outer
+        // switch statement as much as possible
+        if (quote_escape) {
+            while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
+        }
+        else {
+            while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
+        }
+
+        this->field_length = i - (this->field_start + current_row_start);
+
+        // Trim off trailing whitespace, this->field_length constraint matters
+        // when field is entirely whitespace
+        for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
+    }
+
+    CSV_INLINE void BasicCSVParser::parse_loop(csv::string_view in)
+    {
+        using internals::ParseFlags;
+
+        // Parser state
+        size_t current_row_start = 0;
+        bool quote_escape = false;
+
+        size_t in_size = in.size();
+        for (size_t i = 0; i < in_size; ) {
+            if (quote_escape) {
+                // TODO: Clean up these conditions
+                if (parse_flag(in[i]) == ParseFlags::QUOTE) {
+                    if (i + 1 == in.size() || (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER)) {
+                        quote_escape = false;
+                        i++;
+                        continue;
+                    }
+
+                    // Case: Escaped quote
+                    this->field_length++;
+                    i++;
+
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::QUOTE) {
+                        i++;
+                        this->field_length++;
+                        this->field_has_double_quote = true;
+                    }
+
+                    continue;
+                }
+                
+                this->parse_field(in, i, current_row_start, quote_escape);
             }
-        }
+            else {
+                switch (parse_flag(in[i])) {
+                case ParseFlags::DELIMITER:
+                    this->push_field();
+                    i++;
+                    break;
 
-        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
-            auto pos = this->col_pos.find(col_name.data());
-            if (pos != this->col_pos.end())
-                return (int)pos->second;
+                case ParseFlags::NEWLINE:
+                    i++;
 
-            return CSV_NOT_FOUND;
-        }
+                    // Catches CRLF (or LFLF)
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) i++;
 
-        CSV_INLINE size_t ColNames::size() const {
-            return this->col_names.size();
-        }
+                    // End of record -> Write record
+                    this->push_field();
+                    this->push_row(*this->_records);
+                    this->current_row = CSVRow(this->data_ptr);
+                    this->current_row.data_start = i;
+                    this->current_row.field_bounds_index = this->data_ptr->fields.size();
+                    current_row_start = i;
+                    break;
 
-        CSV_INLINE RowData RawRowBuffer::get_row() {
-            return {
-                this->get_row_string(),
-                this->get_splits()
-            };
-        }
+                case ParseFlags::NOT_SPECIAL:
+                    this->parse_field(in, i, current_row_start, quote_escape);
+                    break;
+                default: // Quote
+                    if (this->field_length == 0) {
+                        quote_escape = true;
+                        i++;
+                        break;
+                    }
 
-        /** Get the current row in the buffer
-         *  @note Has the side effect of updating the current end pointer
-         */
-        CSV_INLINE std::pair<size_t, size_t> RawRowBuffer::get_row_string() {
-            auto ret = std::make_pair(
-                this->current_end, // Beginning of string
-                (this->buffer.size() - this->current_end) // Count
-            );
+                    // Unescaped quote
+                    this->field_length++;
+                    i++;
 
-            this->current_end = this->buffer.size();
-            return ret;
-        }
-
-        CSV_INLINE ColumnPositions RawRowBuffer::get_splits()
-        {
-            const size_t head_idx = this->current_split_idx,
-                new_split_idx = this->split_buffer.size();
-            StrBufferPos n_cols = (new_split_idx - head_idx > 0) ?
-                (StrBufferPos)(new_split_idx - head_idx + 1): 0;
-
-            this->current_split_idx = new_split_idx;
-            return ColumnPositions(head_idx, n_cols);
-        }
-
-        CSV_INLINE size_t RawRowBuffer::size() const {
-            return this->buffer.size() - this->current_end;
-        }
-
-        CSV_INLINE size_t RawRowBuffer::splits_size() const {
-            return this->split_buffer.size() - this->current_split_idx;
-        }
-        
-        HEDLEY_WARN_UNUSED_RESULT CSV_INLINE
-        BufferPtr RawRowBuffer::reset() const {
-            // Save current row in progress
-            auto new_buff = BufferPtr(new RawRowBuffer());
-
-            // Save text
-            new_buff->buffer = this->buffer.substr(
-                this->current_end,   // Position
-                (this->buffer.size() - this->current_end) // Count
-            );
-
-            // Save split buffer in progress
-            for (size_t i = this->current_split_idx; i < this->split_buffer.size(); i++) {
-                new_buff->split_buffer.push_back(this->split_buffer[i]);
+                    break;
+                }
             }
-
-            new_buff->col_names = this->col_names;
-
-            // No need to remove unnecessary bits from this buffer
-            // (memory savings would be marginal anyways)
-            return new_buff;
         }
     }
 }
