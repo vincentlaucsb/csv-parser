@@ -165,6 +165,8 @@ namespace csv {
      *  `end_feed()` should be called after the last string.
      */
     CSV_INLINE void CSVReader::feed(csv::string_view in) {
+        if (in.empty()) return;
+
         /** Handle possible Unicode byte order mark */
         if (!this->unicode_bom_scan) {
             if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
@@ -278,6 +280,10 @@ namespace csv {
      * @see CSVReader::read_row()
      */
     CSV_INLINE void CSVReader::read_csv(const size_t& bytes) {
+        if (this->_filename.empty()) {
+            return;
+        }
+
         const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
         std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
         auto * HEDLEY_RESTRICT line_buffer = buffer.get();

@@ -209,7 +209,7 @@ namespace csv {
         size_t relative_mmap_pos = 0;
 
         void read_csv_worker();
-        std::string _filename;
+        std::string _filename = "";
         ///@}
 
         /** @name Multi-Threaded File Reading: Flags and State */

@@ -39,7 +39,8 @@ namespace csv {
         void end_feed(std::deque<CSVRow>& records) {
             using internals::ParseFlags;
 
-            bool empty_last_field = !this->current_row.data->data.empty()
+            bool empty_last_field = this->current_row.data
+                && !this->current_row.data->data.empty()
                 && parse_flag(this->current_row.data->data.back()) == ParseFlags::DELIMITER;
 
             if (this->field_length > 0 || empty_last_field) {
