@@ -24,12 +24,13 @@
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
 
 ### Performance
-This CSV parser uses multiple threads to simulatenously pull data from disk and parse it. Furthermore, it is capable of incremental streaming (parsing larger than RAM files), and quickly parsing data types.
+This CSV parser uses multiple threads to simulatenously pull and parse data from disks, memory mapped IO, and 
+efficient data structures. Furthermore, it is capable of incremental streaming (parsing larger than RAM files), and quickly parsing data types.
 
 #### Show me the numbers
-*(To be expanded)*
-
-On my computer (Intel Core i7-8550U @ 1.80GHz/Toshiba XG5 SSD), it is capable of parsing the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.33 seconds.
+On my computer (Intel Core i7-8550U @ 1.80GHz/Toshiba XG5 SSD), this parser can read
+ * the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.26 seconds (269 MBps)
+ * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 4 seconds (350 MBps)
 
 ### Robust Yet Flexible
 #### RFC 4180 and Beyond
