@@ -288,15 +288,7 @@ namespace csv {
             throw error;
         }
 
-        std::thread worker(&CSVReader::read_csv_worker, this);
-        std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(this->csv_mmap.data(), (size_t)this->csv_mmap.length()));
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
-        this->feed_state->feed_cond.notify_one();
-
-        lock.unlock();
-        worker.join();
+        this->feed(std::make_pair<>(this->csv_mmap.data(), (size_t)this->csv_mmap.length()));
 
         if (this->csv_mmap_pos == this->file_size) {
             this->csv_mmap_eof = true;
@@ -321,6 +313,7 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         if (this->records.empty()) {
             if (!this->eof()) {
+                // TODO: Make this non-blocking
                 this->read_csv(internals::ITERATION_CHUNK_SIZE);
             }
             else return false; // Stop reading
