@@ -152,7 +152,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVReader::feed(internals::WorkItem&& buff) {
-        this->feed( csv::string_view(buff.first.get(), buff.second) );
+        this->feed( csv::string_view(buff.first, buff.second) );
     }
 
     /** Parse a CSV-formatted string.
@@ -245,15 +245,10 @@ namespace csv {
 
             std::error_code error;
 
-            if (internals::get_available_memory() > this->file_size * 2) {
-                this->csv_mmap.map(filename, error);
-            }
-            else {
-                this->csv_mmap.map(filename, 0,
-                    std::min((size_t)csv::internals::ITERATION_CHUNK_SIZE, this->file_size),
-                    error
-                );
-            }
+            this->csv_mmap.map(filename, 0,
+                std::min((size_t)csv::internals::ITERATION_CHUNK_SIZE, this->file_size),
+                error
+            );
 
             if (error) {
                 throw error;
@@ -283,61 +278,27 @@ namespace csv {
             return;
         }
 
-        const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
-        std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
-        auto * HEDLEY_RESTRICT line_buffer = buffer.get();
-        line_buffer[0] = '\0';
+        std::error_code error;
+        size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+        this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
+            length, error);
+        this->csv_mmap_pos += length;
 
-        std::thread worker(&CSVReader::read_csv_worker, this);
-
-        size_t strlen = 0;
-        for (size_t processed = 0; this->csv_mmap_pos < this->file_size && processed < bytes; this->csv_mmap_pos++) {
-            if (this->relative_mmap_pos == this->csv_mmap.length()) {
-                std::error_code error;
-
-                size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-                this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
-                    length,
-                    error
-                );
-
-                if (error) {
-                    throw error;
-                }
-
-                this->relative_mmap_pos = 0;
-            }
-
-            line_buffer[strlen] = this->csv_mmap[this->relative_mmap_pos];
-            strlen++;
-            this->relative_mmap_pos++;
-
-            if (strlen == BUFFER_UPPER_LIMIT - 1) {
-                processed += strlen;
-                line_buffer[strlen] = '\0';
-
-                std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-
-                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
-
-                buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
-                line_buffer = buffer.get();
-                line_buffer[0] = '\0';
-                strlen = 0;
-
-                this->feed_state->feed_cond.notify_one();
-            }
+        if (error) {
+            throw error;
         }
 
-        // Feed remaining bits
+        std::thread worker(&CSVReader::read_csv_worker, this);
         std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
+
+        this->feed_state->feed_buffer.push_back(std::make_pair<>(this->csv_mmap.data(), (size_t)this->csv_mmap.length()));
         this->feed_state->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
         this->feed_state->feed_cond.notify_one();
+
         lock.unlock();
         worker.join();
 
-        if (this->csv_mmap_pos == this->csv_mmap.length()) {
+        if (this->csv_mmap_pos == this->file_size) {
             this->csv_mmap_eof = true;
             this->end_feed();
         }

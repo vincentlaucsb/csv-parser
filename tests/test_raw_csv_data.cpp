@@ -6,11 +6,7 @@
 using namespace csv;
 
 internals::WorkItem make_work_item(csv::string_view in) {
-    std::unique_ptr<char[]> str(new char[in.size()]);
-    auto* buffer = str.get();
-    in.copy(buffer, in.size());
-
-    return std::make_pair<>(std::move(str), in.length());
+    return std::make_pair<>(in.data(), in.length());
 }
 
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
