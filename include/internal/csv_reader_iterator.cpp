@@ -36,7 +36,10 @@ namespace csv {
 
     /** Advance the iterator by one row. If this CSVReader has an
      *  associated file, then the iterator will lazily pull more data from
-     *  that file until EOF.
+     *  that file until the end of file is reached.
+     *
+     *  @note This iterator does **not** block the thread responsible for parsing CSV.
+     *
      */
     CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
         if (!daddy->read_row(this->row)) {

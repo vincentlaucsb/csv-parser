@@ -2,12 +2,6 @@
  *  @brief Defines functionality needed for basic CSV parsing
  */
 
-#include <algorithm>
-#include <future>
-#include <cstring>  // For read_csv()
-#include <fstream>
-#include <sstream>
-#include <iostream>
 #include "csv_reader.hpp"
 
 namespace csv {

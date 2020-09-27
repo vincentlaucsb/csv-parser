@@ -4,14 +4,14 @@
 
 #pragma once
 #include <cmath>
-#include <vector>
-#include <string>
 #include <iterator>
-#include <unordered_map> // For ColNames
-#include <unordered_set>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#include <unordered_map>
+#include <unordered_set>
+#include <string>
 #include <sstream>
+#include <vector>
 
 #include "compatibility.hpp"
 #include "constants.hpp"
@@ -249,7 +249,6 @@ namespace csv {
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
-        csv::string_view get_field(size_t index) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
         std::vector<std::string> get_col_names() const {
@@ -326,6 +325,9 @@ namespace csv {
         ///@}
 
     private:
+        /** Retrieve a string view corresponding to the specified index */
+        csv::string_view get_field(size_t index) const;
+
         internals::RawCSVDataPtr data;
 
         /** Where in RawCSVData.data we start */

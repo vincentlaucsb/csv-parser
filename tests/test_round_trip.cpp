@@ -19,8 +19,7 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
 
     for (int i = 0; i <= n_rows; i++) {
         auto str = std::to_string(i);
-        std::array<std::string, 5> ints = { str, str, str, str, str };
-        writer << ints;
+        writer << std::array<std::string, 5>({ str, str, str, str, str });
     }
 
     CSVReader reader(filename);

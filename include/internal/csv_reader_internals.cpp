@@ -1,7 +1,5 @@
 #include "csv_reader_internals.hpp"
 
-#include <iostream>
-
 namespace csv {
     namespace internals {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format) {

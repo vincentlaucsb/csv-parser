@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.0.0, beta
+CSV for C++, version 2.0.0
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -34,13 +34,14 @@ SOFTWARE.
  */
 
 
+#include <algorithm>
 #include <deque>
-#include <future>
+#include <fstream>
 #include <iterator>
 #include <memory>
-#include <thread>
 #include <mutex>
-#include <condition_variable>
+#include <thread>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -5323,14 +5324,14 @@ namespace csv {
  */
 
 #include <cmath>
-#include <vector>
-#include <string>
 #include <iterator>
-#include <unordered_map> // For ColNames
-#include <unordered_set>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#include <unordered_map>
+#include <unordered_set>
+#include <string>
 #include <sstream>
+#include <vector>
 
 
 namespace csv {
@@ -5564,7 +5565,6 @@ namespace csv {
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](const std::string&) const;
-        csv::string_view get_field(size_t index) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
         std::vector<std::string> get_col_names() const {
@@ -5641,6 +5641,9 @@ namespace csv {
         ///@}
 
     private:
+        /** Retrieve a string view corresponding to the specified index */
+        csv::string_view get_field(size_t index) const;
+
         internals::RawCSVDataPtr data;
 
         /** Where in RawCSVData.data we start */
@@ -6117,6 +6120,8 @@ namespace csv {
         ///@{
         constexpr bool empty() const noexcept { return this->size() == 0; }
         constexpr size_t size() const noexcept { return this->n_rows; }
+
+        /** Returns true if the CSV was prefixed with a UTF-8 bom */
         constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
         ///@}
 
@@ -6578,12 +6583,6 @@ namespace csv {
  *  @brief Defines functionality needed for basic CSV parsing
  */
 
-#include <algorithm>
-#include <future>
-#include <cstring>  // For read_csv()
-#include <fstream>
-#include <sstream>
-#include <iostream>
 
 namespace csv {
     namespace internals {
@@ -6896,8 +6895,6 @@ namespace csv {
     }
 }
 
-#include <iostream>
-
 namespace csv {
     namespace internals {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format) {
@@ -7041,7 +7038,10 @@ namespace csv {
 
     /** Advance the iterator by one row. If this CSVReader has an
      *  associated file, then the iterator will lazily pull more data from
-     *  that file until EOF.
+     *  that file until the end of file is reached.
+     *
+     *  @note This iterator does **not** block the thread responsible for parsing CSV.
+     *
      */
     CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
         if (!daddy->read_row(this->row)) {

@@ -4,13 +4,14 @@
 
 #pragma once
 
+#include <algorithm>
 #include <deque>
-#include <future>
+#include <fstream>
 #include <iterator>
 #include <memory>
-#include <thread>
 #include <mutex>
-#include <condition_variable>
+#include <thread>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -146,6 +147,8 @@ namespace csv {
         ///@{
         constexpr bool empty() const noexcept { return this->size() == 0; }
         constexpr size_t size() const noexcept { return this->n_rows; }
+
+        /** Returns true if the CSV was prefixed with a UTF-8 bom */
         constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
         ///@}
 
