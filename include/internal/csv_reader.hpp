@@ -5,6 +5,7 @@
 #pragma once
 
 #include <deque>
+#include <future>
 #include <iterator>
 #include <memory>
 #include <thread>
@@ -108,6 +109,8 @@ namespace csv {
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
 
+
+
         /** @name Reading In-Memory Strings
          *  You can piece together incomplete CSV fragments by calling feed() on them
          *  before finally calling end_feed().
@@ -142,6 +145,8 @@ namespace csv {
         ///@}
 
     protected:
+        using RowCollection = ThreadSafeDeque<CSVRow>;
+
         /**
          * \defgroup csv_internal CSV Parser Internals
          * @brief Internals of CSVReader. Only maintainers and those looking to
@@ -149,8 +154,11 @@ namespace csv {
          * @{
          */
 
+        std::future<bool> read_rows;
+
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
+            std::future<bool> worker;
             std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
             std::mutex feed_lock;                /**< Allow only one worker to write */
             std::condition_variable feed_cond;   /**< Wake up worker */
@@ -182,7 +190,7 @@ namespace csv {
         BasicCSVParser parser = BasicCSVParser(this->col_names);
 
         /** Queue of parsed CSV rows */
-        std::deque<CSVRow> records;
+        RowCollection records;
 
         /** Whether or not an attempt to find Unicode BOM has been made */
         bool unicode_bom_scan = false;
@@ -203,8 +211,10 @@ namespace csv {
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
-        void read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
+        CSV_INLINE void feed_map(mio::mmap_source&& source);
+        bool read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
 
+        bool worker_finished = false;
         size_t relative_mmap_pos = 0;
 
         void read_csv_worker();

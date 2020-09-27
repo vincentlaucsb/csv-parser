@@ -1,7 +1,7 @@
 #include "raw_csv_data.hpp"
 
 namespace csv {
-    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
+    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, RowCollection& records) {
         using internals::ParseFlags;
 
         this->set_data_ptr(std::make_shared<RawCSVData>());

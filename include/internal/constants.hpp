@@ -60,7 +60,7 @@ namespace csv {
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
          */
-        constexpr size_t ITERATION_CHUNK_SIZE = 250000000; // 250MB
+        constexpr size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
 
         // TODO: Move to another header file
         template<typename T>

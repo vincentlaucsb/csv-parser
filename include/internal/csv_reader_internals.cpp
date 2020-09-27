@@ -17,7 +17,7 @@ namespace csv {
                 internals::make_ws_flags({}, 0)
             );
 
-            std::deque<CSVRow> rows;
+            ThreadSafeDeque<CSVRow> rows;
             parser.parse(head, rows);
 
             for (size_t i = 0; i < rows.size(); i++) {

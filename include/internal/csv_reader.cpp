@@ -3,9 +3,11 @@
  */
 
 #include <algorithm>
+#include <future>
 #include <cstring>  // For read_csv()
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include "csv_reader.hpp"
 
 namespace csv {
@@ -42,7 +44,7 @@ namespace csv {
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size())
             );
 
-            std::deque<CSVRow> rows;
+            ThreadSafeDeque<CSVRow> rows;
             parser.parse(head, rows);
 
             return CSVRow(std::move(rows[format.get_header()]));
@@ -152,7 +154,13 @@ namespace csv {
     }
 
     CSV_INLINE void CSVReader::feed(internals::WorkItem&& buff) {
+        
         this->feed( csv::string_view(buff.first, buff.second) );
+    }
+
+    CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
+        this->parser.data_source = std::move(source);
+        this->feed(csv::string_view(this->parser.data_source.data(), this->parser.data_source.length()));
     }
 
     /** Parse a CSV-formatted string.
@@ -181,10 +189,11 @@ namespace csv {
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
                 if (i == this->_format.header && this->col_names->empty()) {
-                    this->set_col_names(CSVRow(std::move(this->records.front())));
+                    this->set_col_names(this->records.pop_front());
                 }
-
-                this->records.pop_front();
+                else {
+                    this->records.pop_front();
+                }
             }
 
             this->header_trimmed = true;
@@ -242,17 +251,6 @@ namespace csv {
             infile.seekg(0, std::ios::end);
             const auto end = infile.tellg();
             this->file_size = end - start;
-
-            std::error_code error;
-
-            this->csv_mmap.map(filename, 0,
-                std::min((size_t)csv::internals::ITERATION_CHUNK_SIZE, this->file_size),
-                error
-            );
-
-            if (error) {
-                throw error;
-            }
         }
     }
 
@@ -273,14 +271,15 @@ namespace csv {
      * @param[in] bytes Number of bytes to read.
      * @see CSVReader::read_row()
      */
-    CSV_INLINE void CSVReader::read_csv(const size_t& bytes) {
+    CSV_INLINE bool CSVReader::read_csv(const size_t& bytes) {
         if (this->_filename.empty()) {
-            return;
+            return false;
         }
 
         std::error_code error;
+
         size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-        this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
+        auto _csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
             length, error);
         this->csv_mmap_pos += length;
 
@@ -288,12 +287,17 @@ namespace csv {
             throw error;
         }
 
-        this->feed(std::make_pair<>(this->csv_mmap.data(), (size_t)this->csv_mmap.length()));
+        this->records.start_waiters();
+        this->feed_map(std::move(_csv_mmap));
 
         if (this->csv_mmap_pos == this->file_size) {
             this->csv_mmap_eof = true;
             this->end_feed();
         }
+
+        this->records.stop_waiters();
+
+        return true;
     }
 
     /**
@@ -311,35 +315,48 @@ namespace csv {
      *
      */
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
-        if (this->records.empty()) {
-            if (!this->eof()) {
-                // TODO: Make this non-blocking
-                this->read_csv(internals::ITERATION_CHUNK_SIZE);
-            }
-            else return false; // Stop reading
-        }
-
-        while (!this->records.empty()) {
-            if (this->records.front().size() != this->n_cols &&
-                this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
-                if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
-                    auto errored_row = std::move(this->records.front());
-                    if (this->records.front().size() < this->n_cols) {
-                        throw std::runtime_error("Line too short " + internals::format_row(errored_row));
+        while (true) {
+            if (this->records.empty()) {
+                if (read_rows.valid() && !this->records.stop_waiting) {
+                    if (this->records.stop_waiting) {
+                        this->read_rows.get();
+                    }
+                    else {
+                        this->records.wait_for_data();
+                    }
+                    
+                }
+                else {
+                    if (this->eof()) {
+                        return false;
                     }
 
-                    throw std::runtime_error("Line too long " + internals::format_row(errored_row));
-                }
+                    if (this->read_rows.valid()) {
+                        this->read_rows.get();
+                    }
 
-                // Silently drop row (default)
-                this->records.pop_front();
+                    read_rows = std::async(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                }
             }
             else {
-                row = std::move(this->records.front());
+                if (this->records.front().size() != this->n_cols &&
+                    this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
+                    auto errored_row = this->records.pop_front();
 
-                this->num_rows++;
-                this->records.pop_front();
-                return true;
+                    if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
+                        if (errored_row.size() < this->n_cols) {
+                            throw std::runtime_error("Line too short " + internals::format_row(errored_row));
+                        }
+
+                        throw std::runtime_error("Line too long " + internals::format_row(errored_row));
+                    }
+                }
+                else {
+                    row = std::move(this->records.pop_front());
+
+                    this->num_rows++;
+                    return true;
+                }
             }
         }
     

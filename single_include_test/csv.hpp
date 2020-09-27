@@ -5781,6 +5781,8 @@ namespace csv {
         }
 
     private:
+        using RowCollection = ThreadSafeDeque<CSVROw>;
+
         CONSTEXPR internals::ParseFlags parse_flag(const char ch) const {
             return _parse_flags.data()[ch + 128];
         }
@@ -7780,7 +7782,7 @@ namespace csv {
 }
 
 namespace csv {
-    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, std::deque<CSVRow>& records) {
+    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, RowCollection& records) {
         using internals::ParseFlags;
 
         this->set_data_ptr(std::make_shared<RawCSVData>());

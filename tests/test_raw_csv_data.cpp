@@ -4,6 +4,7 @@
 #include <sstream>
 
 using namespace csv;
+using RowCollection = ThreadSafeDeque<CSVRow>;
 
 internals::WorkItem make_work_item(csv::string_view in) {
     return std::make_pair<>(in.data(), in.length());
@@ -19,7 +20,8 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    std::deque<CSVRow> rows;
+
+    RowCollection rows;
 
     parser.parse(csv, rows);
     parser.end_feed(rows);
@@ -65,7 +67,7 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
         internals::WhitespaceMap()
     );
 
-    std::deque<CSVRow> rows;
+    RowCollection rows;
     parser.parse(csv, rows);
 
     auto row = rows.front();
@@ -131,7 +133,7 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
             internals::make_parse_flags(',', '"'),
             internals::WhitespaceMap()
         );
-        std::deque<CSVRow> rows;
+        RowCollection rows;
         
         for (auto& frag : csv_fragments) {
             parser.parse(frag, rows);
@@ -237,7 +239,7 @@ TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
     SECTION("Parse Test") {
         using namespace std;
 
-        deque<CSVRow> rows = {};
+        RowCollection rows;
         char ws_chars[] = { ' ', '\t' };
 
         BasicCSVParser parser(
@@ -263,7 +265,7 @@ TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]
     auto csv_string = GENERATE(from_range(make_whitespace_test_cases()));
 
     SECTION("Parse Test") {
-        std::deque<CSVRow> rows = {};
+        RowCollection rows;
         char ws_chars[] = { ' ', '\t' };
 
         BasicCSVParser parser(
