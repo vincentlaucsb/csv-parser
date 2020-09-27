@@ -15,7 +15,7 @@ namespace csv {
         std::string filename;               /**< Filename */
         std::vector<std::string> col_names; /**< CSV column names */
         char delim;                         /**< Delimiting character */
-        RowCount n_rows;                    /**< Number of rows in a file */
+        size_t n_rows;                      /**< Number of rows in a file */
         int n_cols;                         /**< Number of columns in a CSV */
     };
 

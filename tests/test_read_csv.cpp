@@ -119,7 +119,6 @@ TEST_CASE("Fragment Test", "[read_csv_fragments]") {
         "123,\"234\"\"345\",456\r\n");
     reader.feed("123,\"234\"345\",456\r\n"
                 "123,\"234\"345\",\"456\"");
-    reader.end_feed();
 
     // Expected Results: Double " is an escape for a single "
     vector<string> correct_row = { "123", "234\"345", "456" };
@@ -352,7 +351,6 @@ bar-category,,bar-project
     auto format = csv::CSVFormat();
     csv::CSVReader reader(format);
     reader.feed(csv_string);
-    reader.end_feed();
     
     CSVRow first_row, second_row;
     REQUIRE(reader.read_row(first_row));
@@ -374,7 +372,6 @@ TEST_CASE("Test Parsing CSV with Dummy Column", "[read_csv_dummy]") {
     auto format = csv::CSVFormat();
     csv::CSVReader reader(format);
     reader.feed(csv_string);
-    reader.end_feed();
 
     CSVRow first_row;
 
@@ -400,7 +397,6 @@ timestamp,distance,angle,amplitude
 
     csv::CSVReader reader(format);
     reader.feed(csv_string);
-    reader.end_feed();
 
     std::vector<std::string> expected = {
         "timestamp", "distance", "angle", "amplitude"
@@ -495,7 +491,6 @@ TEST_CASE("Empty CSV", "[read_empty_csv]") {
     SECTION("Read Empty CSV") {
         CSVReader reader;
         reader.feed(csv_string);
-        reader.end_feed();
 
         for (auto& row : reader);
 

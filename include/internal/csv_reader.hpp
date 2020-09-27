@@ -93,7 +93,7 @@ namespace csv {
         private:
             CSVReader * daddy = nullptr;  // Pointer to parent
             CSVRow row;                   // Current row
-            RowCount i = 0;               // Index of current row
+            size_t i = 0;                 // Index of current row
         };
 
         /** @name Constructors
@@ -109,18 +109,13 @@ namespace csv {
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
 
+        ~CSVReader() {
+            if (this->read_rows_worker.joinable()) this->read_rows_worker.join();
+        }
 
-
-        /** @name Reading In-Memory Strings
-         *  You can piece together incomplete CSV fragments by calling feed() on them
-         *  before finally calling end_feed().
-         *
-         *  Alternatively, you can also use the parse() shorthand function for
-         *  smaller strings.
-         */
+        /** @name Reading In-Memory Strings */
          ///@{
-        void feed(csv::string_view in);
-        void end_feed();
+        size_t feed(csv::string_view in, bool last_block=true);
         ///@}
 
         /** @name Retrieving CSV Rows */
@@ -140,7 +135,7 @@ namespace csv {
         /** @name CSV Metadata: Attributes */
         ///@{
         bool empty() const { return this->size() == 0; }
-        RowCount size() const { return this->num_rows; }
+        size_t size() const { return this->n_rows; }
         bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
 
@@ -154,26 +149,11 @@ namespace csv {
          * @{
          */
 
-        std::thread read_rows;
-
-        /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
-        struct ThreadedReadingState {
-            std::future<bool> worker;
-            std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
-            std::mutex feed_lock;                /**< Allow only one worker to write */
-            std::condition_variable feed_cond;   /**< Wake up worker */
-        };
-
-        /** Open a file for reading. */
-        void fopen(csv::string_view filename);
-
-        size_t file_size;
-
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return this->csv_mmap_eof; };
+        bool eof() { return this->mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{
@@ -185,24 +165,14 @@ namespace csv {
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
-        // TODO: Update description
-        /** Buffer for current row being parsed */
-        BasicCSVParser parser = BasicCSVParser(this->col_names);
-
         /** Queue of parsed CSV rows */
         RowCollection records;
-
-        /** Whether or not an attempt to find Unicode BOM has been made */
-        bool unicode_bom_scan = false;
-
-        /** Whether or not rows before header were trimmed */
-        bool header_trimmed = false;
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
 
         /** How many rows (minus header) have been parsed so far */
-        RowCount num_rows = 0;
+        size_t n_rows = 0;
 
         /** Set to true if UTF-8 BOM was detected */
         bool _utf8_bom = false;
@@ -210,28 +180,33 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
-        CSV_INLINE void feed_map(mio::mmap_source&& source);
+        size_t feed_map(mio::mmap_source&& source, bool last_block);
         bool read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
 
         bool worker_finished = false;
-        size_t relative_mmap_pos = 0;
-
-        void read_csv_worker();
         std::string _filename = "";
         ///@}
-
-        /** @name Multi-Threaded File Reading: Flags and State */
-        ///@{
-        mio::mmap_source csv_mmap;
-        bool csv_mmap_eof = true;
-        size_t csv_mmap_pos = 0;
-        std::unique_ptr<ThreadedReadingState> feed_state;
-        ///@} 
 
         /**@}*/ // End of parser internals
 
     private:
+        /** Helper class which does the actual parsing */
+        BasicCSVParser parser = BasicCSVParser(this->col_names);
+
+        /** Whether or not an attempt to find Unicode BOM has been made */
+        bool unicode_bom_scan = false;
+
+        /** Whether or not rows before header were trimmed */
+        bool header_trimmed = false;
+
+        /** @name Multi-Threaded File Reading: Flags and State */
+        ///@{
+        size_t file_size;
+        bool mmap_eof = true;      /*< Whether or not we have reached EOF */
+        size_t mmap_pos = 0;       /*< Index of current position in file */
+        std::thread read_rows_worker;
+        ///@} 
+
         /** Set parse and whitespace flags */
         void set_parse_flags(const CSVFormat& format);
     };

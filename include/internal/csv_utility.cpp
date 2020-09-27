@@ -11,7 +11,6 @@ namespace csv {
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
         CSVReader parser(format);
         parser.feed(in);
-        parser.end_feed();
         return parser;
     }
 

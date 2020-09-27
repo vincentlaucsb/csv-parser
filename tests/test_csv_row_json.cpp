@@ -16,7 +16,6 @@ CSVRow make_csv_row(std::vector<std::string> data, std::vector<std::string> col_
 
     CSVReader reader;
     reader.feed(raw_csv.str());
-    reader.end_feed();
 
     CSVRow row;
     reader.read_row(row);
@@ -107,7 +106,6 @@ TEST_CASE("CSVRow to_json() with Wrong Columns", "[csv_json_wrong_cols]") {
 
     csv::CSVReader reader(format);
     reader.feed(csv_string);
-    reader.end_feed();
 
     CSVRow first_row;
     reader.read_row(first_row);
