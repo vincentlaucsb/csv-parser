@@ -102,7 +102,8 @@ namespace csv {
         void clear() noexcept {
             this->data.clear();
         }
-        bool stop_waiting = false;
+
+        bool stop_waiting = true;
     private:
         
         std::mutex _lock;

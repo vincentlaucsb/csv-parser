@@ -154,7 +154,7 @@ namespace csv {
          * @{
          */
 
-        std::future<bool> read_rows;
+        std::thread read_rows;
 
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {

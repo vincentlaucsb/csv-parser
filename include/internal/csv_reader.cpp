@@ -100,7 +100,15 @@ namespace csv {
      *
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
-        auto head = internals::get_csv_head(filename);
+        this->_filename = filename;
+        this->csv_mmap_eof = false;
+        std::ifstream infile(std::string(filename), std::ios::binary);
+        const auto start = infile.tellg();
+        infile.seekg(0, std::ios::end);
+        const auto end = infile.tellg();
+        this->file_size = end - start;
+
+        auto head = internals::get_csv_head(filename, this->file_size);
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
@@ -117,7 +125,6 @@ namespace csv {
         }
 
         this->set_parse_flags(format);
-        this->fopen(filename);
     }
 
     /** Return the format of the original raw CSV */
@@ -317,25 +324,24 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         while (true) {
             if (this->records.empty()) {
-                if (read_rows.valid() && !this->records.stop_waiting) {
-                    if (this->records.stop_waiting) {
-                        this->read_rows.get();
-                    }
-                    else {
-                        this->records.wait_for_data();
-                    }
+                if (!this->records.stop_waiting) {
+                    this->records.wait_for_data();
                     
                 }
                 else {
                     if (this->eof()) {
+                        if (this->read_rows.joinable()) {
+                            this->read_rows.join();
+                        }
+
                         return false;
                     }
 
-                    if (this->read_rows.valid()) {
-                        this->read_rows.get();
+                    if (this->read_rows.joinable()) {
+                        this->read_rows.join();
                     }
 
-                    read_rows = std::async(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                    read_rows = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
                 }
             }
             else {
