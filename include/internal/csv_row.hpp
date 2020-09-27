@@ -296,11 +296,11 @@ namespace csv {
             iterator operator-(difference_type n) const;
 
             /** Two iterators are equal if they point to the same field */
-            constexpr bool operator==(const iterator& other) const {
+            constexpr bool operator==(const iterator& other) const noexcept {
                 return this->i == other.i;
             };
 
-            constexpr bool operator!=(const iterator& other) const { return !operator==(other); }
+            constexpr bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;
@@ -371,14 +371,14 @@ namespace csv {
 
     /** Compares the contents of this field to a string */
     template<>
-    inline bool CSVField::operator==(const char * other) const
+    CONSTEXPR bool CSVField::operator==(const char * other) const noexcept
     {
         return this->sv == other;
     }
 
     /** Compares the contents of this field to a string */
     template<>
-    inline bool CSVField::operator==(csv::string_view other) const
+    CONSTEXPR bool CSVField::operator==(csv::string_view other) const noexcept
     {
         return this->sv == other;
     }

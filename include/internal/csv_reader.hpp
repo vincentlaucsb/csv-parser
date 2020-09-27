@@ -158,12 +158,11 @@ namespace csv {
          *        extend the parser should read this.
          * @{
          */
+         /** Returns true if we have reached end of file */
+        constexpr bool eof() const noexcept { return this->mmap_eof; };
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
-
-        /** Returns true if we have reached end of file */
-        constexpr bool eof() const noexcept { return this->mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{
@@ -181,12 +180,6 @@ namespace csv {
         /** Queue of parsed CSV rows */
         RowCollection records;
 
-        /** Whether or not an attempt to find Unicode BOM has been made */
-        bool unicode_bom_scan = false;
-
-        /** Whether or not rows before header were trimmed */
-        bool header_trimmed = false;
-
         /** The number of columns in this CSV */
         size_t n_cols = 0;
 
@@ -199,21 +192,30 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        CSV_INLINE void feed_map(mio::mmap_source&& source);
-        bool read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
+        void feed_map(mio::mmap_source&& source);
+        bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
         /**@}*/ // End of parser internals
 
     private:
+        /** Whether or not an attempt to find Unicode BOM has been made */
+        bool unicode_bom_scan = false;
+
+        /** Whether or not rows before header were trimmed */
+        bool header_trimmed = false;
+
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::thread read_csv_worker;
         std::string _filename = "";
         size_t file_size;
         bool mmap_eof = true;
         size_t mmap_pos = 0;
+        std::thread read_csv_worker;
         ///@}
+
+        void trim_utf8_bom(csv::string_view in);
+        void trim_header();
 
         /** Set parse and whitespace flags */
         void set_parse_flags(const CSVFormat& format);

@@ -99,9 +99,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
-        this->_filename = filename;
-        this->mmap_eof = false;
+    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _filename(filename), mmap_eof(false) {
         this->file_size = internals::get_file_size(filename);
         auto head = internals::get_csv_head(filename, this->file_size);
 
@@ -155,11 +153,6 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
-        this->parser.data_source = std::move(source);
-        this->feed(csv::string_view(this->parser.data_source.data(), this->parser.data_source.length()));
-    }
-
     /** Parse a CSV-formatted string.
      *
      *  @par Usage
@@ -171,6 +164,26 @@ namespace csv {
     CSV_INLINE void CSVReader::feed(csv::string_view in) {
         if (in.empty()) return;
 
+        this->trim_utf8_bom(in);
+        this->parser.parse(in, this->records);
+        this->trim_header();
+    }
+
+    CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
+        this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
+        this->parser.set_output(this->records);
+        this->parser.parse(std::move(source));
+        this->trim_header();
+    }
+
+    CSV_INLINE void CSVReader::end_feed() {
+        /** Indicate that there is no more data to receive,
+         *  and handle the last row
+         */
+        this->parser.end_feed();
+    }
+
+    CSV_INLINE void CSVReader::trim_utf8_bom(csv::string_view in) {
         /** Handle possible Unicode byte order mark */
         if (!this->unicode_bom_scan) {
             if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
@@ -180,9 +193,9 @@ namespace csv {
 
             this->unicode_bom_scan = true;
         }
+    }
 
-        this->parser.parse(in, this->records);
-
+    CSV_INLINE void CSVReader::trim_header() {
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
                 if (i == this->_format.header && this->col_names->empty()) {
@@ -195,13 +208,6 @@ namespace csv {
 
             this->header_trimmed = true;
         }
-    }
-
-    CSV_INLINE void CSVReader::end_feed() {
-        /** Indicate that there is no more data to receive,
-         *  and handle the last row
-         */
-        this->parser.end_feed();
     }
 
     CSV_INLINE void CSVReader::set_parse_flags(const CSVFormat& format)
@@ -234,23 +240,21 @@ namespace csv {
      * @param[in] bytes Number of bytes to read.
      * @see CSVReader::read_row()
      */
-    CSV_INLINE bool CSVReader::read_csv(const size_t& bytes) {
-        if (this->_filename.empty()) {
-            return false;
-        }
-
-        std::error_code error;
+    CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
+        if (this->_filename.empty()) return false;
 
         size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+        std::error_code error;
         auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos,
             length, error);
+
+        if (error) throw error;
+
         this->mmap_pos += length;
 
-        if (error) {
-            throw error;
-        }
+        // Tell read_row() to listen for CSV rows
+        this->records.notify_all();
 
-        this->records.start_waiters();
         this->feed_map(std::move(_csv_mmap));
 
         if (this->mmap_pos == this->file_size) {
@@ -258,7 +262,8 @@ namespace csv {
             this->end_feed();
         }
 
-        this->records.stop_waiters();
+        // Tell read_row() to stop waiting
+        this->records.kill_all();
 
         return true;
     }
@@ -280,45 +285,35 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         while (true) {
             if (this->records.empty()) {
-                if (!this->records.stop_waiting) {
-                    this->records.wait_for_data();
-                    
-                }
+                if (this->records.is_waitable())
+                    // Reading thread is currently active => wait for it to populate records
+                    this->records.wait();
+                else if (this->eof())
+                    // End of file and no more records
+                    return false;
                 else {
-                    if (this->eof()) {
-                        if (this->read_csv_worker.joinable()) {
-                            this->read_csv_worker.join();
-                        }
-
-                        return false;
-                    }
-
-                    if (this->read_csv_worker.joinable()) {
+                    // Reading thread is not active => start another one
+                    if (this->read_csv_worker.joinable())
                         this->read_csv_worker.join();
-                    }
 
-                    read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                    this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                }
+            }
+            else if (this->records.front().size() != this->n_cols &&
+                this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
+                auto errored_row = this->records.pop_front();
+
+                if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
+                    if (errored_row.size() < this->n_cols)
+                        throw std::runtime_error("Line too short " + internals::format_row(errored_row));
+
+                    throw std::runtime_error("Line too long " + internals::format_row(errored_row));
                 }
             }
             else {
-                if (this->records.front().size() != this->n_cols &&
-                    this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
-                    auto errored_row = this->records.pop_front();
-
-                    if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
-                        if (errored_row.size() < this->n_cols) {
-                            throw std::runtime_error("Line too short " + internals::format_row(errored_row));
-                        }
-
-                        throw std::runtime_error("Line too long " + internals::format_row(errored_row));
-                    }
-                }
-                else {
-                    row = std::move(this->records.pop_front());
-
-                    this->n_rows++;
-                    return true;
-                }
+                row = std::move(this->records.pop_front());
+                this->n_rows++;
+                return true;
             }
         }
     

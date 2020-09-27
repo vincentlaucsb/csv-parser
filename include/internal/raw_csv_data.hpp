@@ -15,6 +15,10 @@
 
 namespace csv {
     namespace internals {
+        /** A std::deque wrapper which allows multiple read and write threads to concurrently
+         *  access it along with providing read threads the ability to wait for the deque
+         *  to become populated
+         */
         template<typename T>
         class ThreadSafeDeque {
         public:
@@ -26,6 +30,8 @@ namespace csv {
             ThreadSafeDeque(const std::deque<T>& source) {
                 this->data = source;
             }
+
+            void clear() noexcept { this->data.clear(); }
 
             bool empty() const noexcept {
                 return this->data.empty();
@@ -46,13 +52,6 @@ namespace csv {
                 lock.unlock();
             }
 
-            bool wait_for_data() {
-                std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_cond.wait(lock, [this] { return !this->empty() || this->stop_waiting == true; });
-                lock.unlock();
-                return true;
-            }
-
             T pop_front() noexcept {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 T item = std::move(data.front());
@@ -62,32 +61,44 @@ namespace csv {
 
             size_t size() const noexcept { return this->data.size(); }
 
-            std::deque<CSVRow>::iterator begin() noexcept {
+            /** Returns true if a thread is actively pushing items to this deque */
+            constexpr bool is_waitable() const noexcept { return this->_is_waitable; }
+            
+            /** Wait for an item to become available */
+            void wait() {
+                if (!is_waitable()) {
+                    return;
+                }
+
+                std::unique_lock<std::mutex> lock{ this->_lock };
+                this->_cond.wait(lock, [this] { return !this->empty() || !this->is_waitable(); });
+                lock.unlock();
+            }
+
+            typename std::deque<T>::iterator begin() noexcept {
                 return this->data.begin();
             }
 
-            std::deque<CSVRow>::iterator end() noexcept {
+            typename std::deque<T>::iterator end() noexcept {
                 return this->data.end();
             }
 
-            void start_waiters() {
+            /** Tell listeners that this deque is actively being pushed to */
+            void notify_all() {
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->stop_waiting = false;
+                this->_is_waitable = true;
                 this->_cond.notify_all();
             }
 
-            void stop_waiters() {
+            /** Tell all listeners to stop */
+            void kill_all() {
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->stop_waiting = true;
+                this->_is_waitable = false;
                 this->_cond.notify_all();
             }
 
-            void clear() noexcept {
-                this->data.clear();
-            }
-
-            bool stop_waiting = true;
         private:
+            bool _is_waitable = false;
             std::mutex _lock;
             std::condition_variable _cond;
             std::deque<T> data;
@@ -103,10 +114,12 @@ namespace csv {
             BasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            mio::mmap_source  data_source;
+            void parse(mio::mmap_source&& source) {
+                this->data_source = std::move(source);
+                this->parse(csv::string_view(this->data_source.data(), this->data_source.length()));
+            }
 
             void parse(csv::string_view in);
-
             void parse(csv::string_view in, RowCollection& records) {
                 this->set_output(records);
                 this->parse(in);
@@ -140,6 +153,25 @@ namespace csv {
             }
 
         private:
+            /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+            internals::ParseFlagMap _parse_flags;
+
+            /** An array where the (i + 128)th slot determines whether ASCII character i should
+             *  be trimmed
+             */
+            internals::WhitespaceMap _ws_flags;
+
+            CSVRow current_row;
+            int field_start = -1;
+            size_t field_length = 0;
+            bool field_has_double_quote = false;
+            mio::mmap_source data_source;
+
+            internals::ColNamesPtr col_names = nullptr;
+            RawCSVDataPtr data_ptr = nullptr;
+            internals::CSVFieldArray* fields = nullptr;
+            RowCollection* _records = nullptr;
+
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
             }
@@ -190,24 +222,6 @@ namespace csv {
                 this->data_ptr->parse_flags = this->_parse_flags;
                 this->fields = &(ptr->fields);
             }
-
-            /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-            internals::ParseFlagMap _parse_flags;
-
-            /** An array where the (i + 128)th slot determines whether ASCII character i should
-             *  be trimmed
-             */
-            internals::WhitespaceMap _ws_flags;
-
-            CSVRow current_row;
-            int field_start = -1;
-            size_t field_length = 0;
-            bool field_has_double_quote = false;
-        
-            internals::ColNamesPtr col_names = nullptr;
-            RawCSVDataPtr data_ptr = nullptr;
-            internals::CSVFieldArray* fields = nullptr;
-            RowCollection* _records = nullptr;
         };
     }
 }

@@ -8,7 +8,7 @@
 
 namespace csv {
     namespace internals {
-        RawCSVField& CSVFieldArray::operator[](size_t n) const {
+        CSV_INLINE RawCSVField& CSVFieldArray::operator[](size_t n) const {
             if (n > this->size()) {
                 throw std::runtime_error("Index out of bounds.");
             }
