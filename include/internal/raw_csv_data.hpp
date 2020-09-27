@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <condition_variable>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -105,7 +106,6 @@ namespace csv {
 
         bool stop_waiting = true;
     private:
-        
         std::mutex _lock;
         std::condition_variable _cond;
         std::deque<T> data;
@@ -159,7 +159,34 @@ namespace csv {
         }
 
         void push_field();
-        CONSTEXPR void parse_field(csv::string_view in, size_t& i, const size_t& current_row_start, bool quote_escape = false);
+
+        template<bool QuoteEscape=false>
+        CONSTEXPR void parse_field(string_view in, size_t& i, const size_t& current_row_start) {
+            using internals::ParseFlags;
+
+            // Trim off leading whitespace
+            while (i < in.size() && ws_flag(in[i])) i++;
+
+            if (this->field_start < 0) {
+                this->field_start = (int)(i - current_row_start);
+            }
+
+            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+            // sequences, use the loop below to avoid having to go through the outer
+            // switch statement as much as possible
+            IF_CONSTEXPR(QuoteEscape) {
+                while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
+            }
+            else {
+                while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
+            }
+
+            this->field_length = i - (this->field_start + current_row_start);
+
+            // Trim off trailing whitespace, this->field_length constraint matters
+            // when field is entirely whitespace
+            for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
+        }
 
         void parse_loop(csv::string_view in);
 

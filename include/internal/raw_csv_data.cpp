@@ -55,33 +55,6 @@ namespace csv {
         this->field_length = 0;
     }
 
-    CONSTEXPR void BasicCSVParser::parse_field(csv::string_view in, size_t& i, const size_t& current_row_start, bool quote_escape) {
-        using internals::ParseFlags;
-
-        // Trim off leading whitespace
-        while (i < in.size() && ws_flag(in[i])) i++;
-
-        if (this->field_start < 0) {
-            this->field_start = (int)(i - current_row_start);
-        }
-
-        // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-        // sequences, use the loop below to avoid having to go through the outer
-        // switch statement as much as possible
-        if (quote_escape) {
-            while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
-        }
-        else {
-            while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
-        }
-
-        this->field_length = i - (this->field_start + current_row_start);
-
-        // Trim off trailing whitespace, this->field_length constraint matters
-        // when field is entirely whitespace
-        for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
-    }
-
     CSV_INLINE void BasicCSVParser::parse_loop(csv::string_view in)
     {
         using internals::ParseFlags;
@@ -93,9 +66,9 @@ namespace csv {
         size_t in_size = in.size();
         for (size_t i = 0; i < in_size; ) {
             if (quote_escape) {
-                // TODO: Clean up these conditions
                 if (parse_flag(in[i]) == ParseFlags::QUOTE) {
-                    if (i + 1 == in.size() || (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER)) {
+                    if (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER
+                       || i + 1 == in.size()) {
                         quote_escape = false;
                         i++;
                         continue;
@@ -114,7 +87,7 @@ namespace csv {
                     continue;
                 }
                 
-                this->parse_field(in, i, current_row_start, quote_escape);
+                this->parse_field<true>(in, i, current_row_start);
             }
             else {
                 switch (parse_flag(in[i])) {
@@ -139,7 +112,7 @@ namespace csv {
                     break;
 
                 case ParseFlags::NOT_SPECIAL:
-                    this->parse_field(in, i, current_row_start, quote_escape);
+                    this->parse_field<false>(in, i, current_row_start);
                     break;
                 default: // Quote
                     if (this->field_length == 0) {

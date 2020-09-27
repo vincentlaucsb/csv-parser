@@ -3,6 +3,7 @@
  */
 
 #pragma once
+#include <algorithm>
 #include <cstdlib>
 #include <deque>
 
@@ -27,7 +28,7 @@ namespace csv {
             inline int getpagesize() {
                 _SYSTEM_INFO sys_info = {};
                 GetSystemInfo(&sys_info);
-                return sys_info.dwPageSize;
+                return std::max(sys_info.dwPageSize, sys_info.dwAllocationGranularity);
             }
 
             /** Size of a memory page in bytes */
@@ -60,7 +61,7 @@ namespace csv {
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
          */
-        constexpr size_t ITERATION_CHUNK_SIZE = 50000000; // 50MB
+        constexpr size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
         // TODO: Move to another header file
         template<typename T>
