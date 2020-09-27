@@ -28,30 +28,30 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     parser.end_feed();
 
     auto row = rows.front();
-    REQUIRE(row.get_field(0) == "A");
-    REQUIRE(row.get_field(1) == "B");
-    REQUIRE(row.get_field(2) == "C");
+    REQUIRE(row[0] == "A");
+    REQUIRE(row[1] == "B");
+    REQUIRE(row[2] == "C");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "123");
-    REQUIRE(row.get_field(1) == "234");
-    REQUIRE(row.get_field(2) == "345");
+    REQUIRE(row[0] == "123");
+    REQUIRE(row[1] == "234");
+    REQUIRE(row[2] == "345");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "1");
-    REQUIRE(row.get_field(1) == "2");
-    REQUIRE(row.get_field(2) == "3");
+    REQUIRE(row[0] == "1");
+    REQUIRE(row[1] == "2");
+    REQUIRE(row[2] == "3");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "1");
-    REQUIRE(row.get_field(1) == "2");
-    REQUIRE(row.get_field(2) == "3");
+    REQUIRE(row[0] == "1");
+    REQUIRE(row[1] == "2");
+    REQUIRE(row[2] == "3");
     REQUIRE(row.size() == 3);
 }
 
@@ -72,37 +72,37 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
     parser.parse(csv, rows);
 
     auto row = rows.front();
-    REQUIRE(row.get_field(0) == "A");
-    REQUIRE(row.get_field(1) == "B");
-    REQUIRE(row.get_field(2) == "C");
+    REQUIRE(row[0] == "A");
+    REQUIRE(row[1] == "B");
+    REQUIRE(row[2] == "C");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "123");
-    REQUIRE(row.get_field(1) == "234,345");
-    REQUIRE(row.get_field(2) == "456");
+    REQUIRE(row[0] == "123");
+    REQUIRE(row[1] == "234,345");
+    REQUIRE(row[2] == "456");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "1");
-    REQUIRE(row.get_field(1) == "2\"3");
-    REQUIRE(row.get_field(2) == "4");
+    REQUIRE(row[0] == "1");
+    REQUIRE(row[1] == "2\"3");
+    REQUIRE(row[2] == "4");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "1");
-    REQUIRE(row.get_field(1) == "23\"34");
-    REQUIRE(row.get_field(2) == "5");
+    REQUIRE(row[0] == "1");
+    REQUIRE(row[1] == "23\"34");
+    REQUIRE(row[2] == "5");
     REQUIRE(row.size() == 3);
 
     rows.pop_front();
     row = rows.front();
-    REQUIRE(row.get_field(0) == "1");
-    REQUIRE(row.get_field(1) == "");
-    REQUIRE(row.get_field(2) == "2");
+    REQUIRE(row[0] == "1");
+    REQUIRE(row[1] == "");
+    REQUIRE(row[2] == "2");
     REQUIRE(row.size() == 3);
 }
 
@@ -141,30 +141,30 @@ TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
         }
 
         auto row = rows.front();
-        REQUIRE(row.get_field(0) == "A");
-        REQUIRE(row.get_field(1) == "B");
-        REQUIRE(row.get_field(2) == "C");
+        REQUIRE(row[0] == "A");
+        REQUIRE(row[1] == "B");
+        REQUIRE(row[2] == "C");
         REQUIRE(row.size() == 3);
 
         rows.pop_front();
         row = rows.front();
-        REQUIRE(row.get_field(0) == "123");
-        REQUIRE(row.get_field(1) == "234");
-        REQUIRE(row.get_field(2) == "345");
+        REQUIRE(row[0] == "123");
+        REQUIRE(row[1] == "234");
+        REQUIRE(row[2] == "345");
         REQUIRE(row.size() == 3);
 
         rows.pop_front();
         row = rows.front();
-        REQUIRE(row.get_field(0) == "1");
-        REQUIRE(row.get_field(1) == "2");
-        REQUIRE(row.get_field(2) == "3");
+        REQUIRE(row[0] == "1");
+        REQUIRE(row[1] == "2");
+        REQUIRE(row[2] == "3");
         REQUIRE(row.size() == 3);
 
         rows.pop_front();
         row = rows.front();
-        REQUIRE(row.get_field(0) == "1");
-        REQUIRE(row.get_field(1) == "2");
-        REQUIRE(row.get_field(2) == "3");
+        REQUIRE(row[0] == "1");
+        REQUIRE(row[1] == "2");
+        REQUIRE(row[2] == "3");
         REQUIRE(row.size() == 3);
     }
 }
