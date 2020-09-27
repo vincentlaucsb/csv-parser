@@ -30,8 +30,8 @@ namespace csv {
             void set_col_names(const std::vector<std::string>&);
             int index_of(csv::string_view) const;
 
-            bool empty() const { return this->col_names.empty(); }
-            size_t size() const;
+            bool empty() const noexcept { return this->col_names.empty(); }
+            size_t size() const noexcept;
 
         private:
             std::vector<std::string> col_names;

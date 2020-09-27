@@ -85,11 +85,11 @@ namespace csv {
             /** Returns true if iterators were constructed from the same CSVReader
              *  and point to the same row
              */
-            CONSTEXPR bool operator==(const iterator& other) const {
+            CONSTEXPR bool operator==(const iterator& other) const noexcept {
                 return (this->daddy == other.daddy) && (this->i == other.i);
             }
 
-            CONSTEXPR bool operator!=(const iterator& other) const { return !operator==(other); }
+            CONSTEXPR bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
         private:
             CSVReader * daddy = nullptr;  // Pointer to parent
             CSVRow row;                   // Current row
@@ -144,9 +144,9 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        bool empty() const { return this->size() == 0; }
-        size_t size() const { return this->n_rows; }
-        bool utf8_bom() const { return this->_utf8_bom; }
+        constexpr bool empty() const noexcept { return this->size() == 0; }
+        constexpr size_t size() const noexcept { return this->n_rows; }
+        constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
         ///@}
 
     protected:
@@ -163,7 +163,7 @@ namespace csv {
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return this->mmap_eof; };
+        constexpr bool eof() const noexcept { return this->mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{

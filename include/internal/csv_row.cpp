@@ -8,7 +8,7 @@
 
 namespace csv {
     namespace internals {
-        RawCSVField& CSVFieldArray::operator[](size_t n) {
+        RawCSVField& CSVFieldArray::operator[](size_t n) const {
             if (n > this->size()) {
                 throw std::runtime_error("Index out of bounds.");
             }
@@ -128,11 +128,11 @@ namespace csv {
      *  @warning Attempting to dereference the end iterator results
      *           in dereferencing a null pointer.
      */
-    CSV_INLINE CSVRow::iterator CSVRow::end() const {
+    CSV_INLINE CSVRow::iterator CSVRow::end() const noexcept {
         return CSVRow::iterator(this, (int)this->size());
     }
 
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const {
+    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const noexcept {
         return std::reverse_iterator<CSVRow::iterator>(this->end());
     }
 

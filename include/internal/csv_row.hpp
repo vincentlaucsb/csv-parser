@@ -47,7 +47,7 @@ namespace csv {
 
             void push_back(RawCSVField&& field);
             constexpr size_t size() const noexcept { return this->_size; }
-            RawCSVField& operator[](size_t n);
+            RawCSVField& operator[](size_t n) const;
 
         private:
             const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
@@ -320,8 +320,8 @@ namespace csv {
          */
          ///@{
         iterator begin() const;
-        iterator end() const;
-        reverse_iterator rbegin() const;
+        iterator end() const noexcept;
+        reverse_iterator rbegin() const noexcept;
         reverse_iterator rend() const;
         ///@}
 

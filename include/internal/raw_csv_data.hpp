@@ -54,11 +54,9 @@ namespace csv {
             }
 
             T pop_front() noexcept {
-                std::unique_lock<std::mutex> lock{ this->_lock };
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 T item = std::move(data.front());
                 data.pop_front();
-                lock.unlock();
-
                 return item;
             }
 
@@ -128,7 +126,7 @@ namespace csv {
 
                 // Push row
                 if (this->current_row.size() > 0) 
-                    this->push_row(*_records);
+                    this->push_row();
             }
 
             void set_output(RowCollection& records) { this->_records = &records; }
@@ -142,11 +140,11 @@ namespace csv {
             }
 
         private:
-            CONSTEXPR internals::ParseFlags parse_flag(const char ch) const noexcept {
+            constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
             }
 
-            CONSTEXPR bool ws_flag(const char ch) const noexcept {
+            constexpr bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
             }
 
@@ -182,9 +180,9 @@ namespace csv {
 
             void parse_loop(csv::string_view in);
 
-            void push_row(RowCollection& records) {
+            void push_row() {
                 current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
-                records.push_back(std::move(current_row));
+                this->_records->push_back(std::move(current_row));
             };
 
             void set_data_ptr(RawCSVDataPtr ptr) {

@@ -40,6 +40,7 @@ namespace csv {
                 this->field_start > 0 ? (unsigned int)this->field_start : 0,
                 this->field_length
             });
+
             this->current_row.row_length++;
 
             if (this->field_has_double_quote) {
@@ -101,7 +102,9 @@ namespace csv {
 
                         // End of record -> Write record
                         this->push_field();
-                        this->push_row(*this->_records);
+                        this->push_row();
+
+                        // Reset
                         this->current_row = CSVRow(this->data_ptr);
                         this->current_row.data_start = i;
                         this->current_row.field_bounds_index = this->data_ptr->fields.size();
