@@ -22,11 +22,7 @@ namespace csv {
             return CSV_NOT_FOUND;
         }
 
-<<<<<<< HEAD
         CSV_INLINE size_t ColNames::size() const noexcept {
-=======
-        CSV_INLINE size_t ColNames::size() const {
->>>>>>> master
             return this->col_names.size();
         }
 
