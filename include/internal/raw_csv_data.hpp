@@ -43,7 +43,6 @@ namespace csv {
         }
 
         bool empty() const noexcept {
-            
             return this->data.empty();
         }
 
@@ -123,22 +122,31 @@ namespace csv {
 
         mio::mmap_source  data_source;
 
-        void parse(csv::string_view in, RowCollection& records);
-        void end_feed(RowCollection& records) {
+        void parse(csv::string_view in);
+
+        void parse(csv::string_view in, RowCollection& records) {
+            this->set_output(records);
+            this->parse(in);
+        }
+        
+        void end_feed() {
             using internals::ParseFlags;
 
             bool empty_last_field = this->current_row.data
                 && !this->current_row.data->data.empty()
                 && parse_flag(this->current_row.data->data.back()) == ParseFlags::DELIMITER;
 
+            // Push field
             if (this->field_length > 0 || empty_last_field) {
                 this->push_field();
             }
 
-            if (this->current_row.size() > 0) {
-                this->push_row(records);
-            }
+            // Push row
+            if (this->current_row.size() > 0) 
+                this->push_row(*_records);
         }
+
+        void set_output(RowCollection& records) { this->_records = &records; }
 
         void set_parse_flags(internals::ParseFlagMap parse_flags) {
             _parse_flags = parse_flags;
@@ -149,19 +157,18 @@ namespace csv {
         }
 
     private:
-
-        CONSTEXPR internals::ParseFlags parse_flag(const char ch) const {
+        CONSTEXPR internals::ParseFlags parse_flag(const char ch) const noexcept {
             return _parse_flags.data()[ch + 128];
         }
 
-        CONSTEXPR bool ws_flag(const char ch) const {
+        CONSTEXPR bool ws_flag(const char ch) const noexcept {
             return _ws_flags.data()[ch + 128];
         }
 
         void push_field();
 
         template<bool QuoteEscape=false>
-        CONSTEXPR void parse_field(string_view in, size_t& i, const size_t& current_row_start) {
+        CONSTEXPR void parse_field(string_view in, size_t& i, const size_t& current_row_start) noexcept {
             using internals::ParseFlags;
 
             // Trim off leading whitespace
@@ -208,16 +215,14 @@ namespace csv {
          */
         internals::WhitespaceMap _ws_flags;
 
-        internals::ColNamesPtr col_names = nullptr;
-
         CSVRow current_row;
         int field_start = -1;
         size_t field_length = 0;
         bool field_has_double_quote = false;
-
+        
+        internals::ColNamesPtr col_names = nullptr;
         RawCSVDataPtr data_ptr = nullptr;
         internals::CSVFieldArray* fields = nullptr;
-        
         RowCollection* _records = nullptr;
     };
 }

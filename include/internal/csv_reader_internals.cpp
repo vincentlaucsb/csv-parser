@@ -93,10 +93,7 @@ namespace csv {
             return get_csv_head(filename, get_file_size(filename));
         }
 
-        CSV_INLINE std::string get_csv_head(
-            csv::string_view filename,
-            size_t file_size
-        ) {
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
             const size_t bytes = 500000;
 
             std::error_code error;

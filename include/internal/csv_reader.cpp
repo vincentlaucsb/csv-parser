@@ -77,7 +77,7 @@ namespace csv {
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
-        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState) {
+        unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -99,7 +99,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
+    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         this->_filename = filename;
         this->csv_mmap_eof = false;
         this->file_size = internals::get_file_size(filename);
@@ -206,7 +206,7 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        this->parser.end_feed(this->records);
+        this->parser.end_feed();
     }
 
     CSV_INLINE void CSVReader::set_parse_flags(const CSVFormat& format)

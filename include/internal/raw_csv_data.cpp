@@ -1,13 +1,12 @@
 #include "raw_csv_data.hpp"
 
 namespace csv {
-    CSV_INLINE void BasicCSVParser::parse(csv::string_view in, RowCollection& records) {
+    CSV_INLINE void BasicCSVParser::parse(csv::string_view in) {
         using internals::ParseFlags;
 
         this->set_data_ptr(std::make_shared<RawCSVData>());
         this->data_ptr->col_names = this->col_names;
-        this->_records = &records;
-
+        
         // Check for previous fragments
         if (this->current_row.data && this->current_row.size() > 0 || this->field_length > 0) {
             // Make a separate data buffer for the fragment row
@@ -38,7 +37,6 @@ namespace csv {
 
     CSV_INLINE void BasicCSVParser::push_field()
     {
-        // Push field
         this->fields->push_back({
             this->field_start > 0 ? (unsigned int)this->field_start : 0,
             this->field_length

@@ -159,21 +159,6 @@ namespace csv {
          * @{
          */
 
-        std::thread read_csv_worker;
-
-        /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
-        struct ThreadedReadingState {
-            std::future<bool> worker;
-            std::deque<internals::WorkItem> feed_buffer;    /**< Message queue for worker */
-            std::mutex feed_lock;                /**< Allow only one worker to write */
-            std::condition_variable feed_cond;   /**< Wake up worker */
-        };
-
-        /** Open a file for reading. */
-        void fopen(csv::string_view filename);
-
-        size_t file_size;
-
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
@@ -222,10 +207,13 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
+        std::thread read_csv_worker;
         std::string _filename = "";
         bool csv_mmap_eof = true;
         size_t csv_mmap_pos = 0;
-        std::unique_ptr<ThreadedReadingState> feed_state;
+
+        size_t file_size;
+
         ///@} 
 
         /**@}*/ // End of parser internals

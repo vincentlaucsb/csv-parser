@@ -24,7 +24,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     RowCollection rows;
 
     parser.parse(csv, rows);
-    parser.end_feed(rows);
+    parser.end_feed();
 
     auto row = rows.front();
     REQUIRE(row.get_field(0) == "A");
