@@ -13,7 +13,7 @@
 namespace csv {
     namespace internals {
         /** A string buffer and its size. Consumed by read_csv_worker(). */
-        using WorkItem = std::pair<std::unique_ptr<char[]>, size_t>;
+        using WorkItem = std::pair<const char *, size_t>;
 
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
@@ -76,7 +76,11 @@ namespace csv {
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
-        /** Read the first 500KB of a CSV file */
+        CSV_INLINE size_t get_file_size(csv::string_view filename);
+
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
+
+        /** Read the first 500KB of a CSV file */
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
     }
 }

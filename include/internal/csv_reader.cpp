@@ -2,10 +2,6 @@
  *  @brief Defines functionality needed for basic CSV parsing
  */
 
-#include <algorithm>
-#include <cstring>  // For read_csv()
-#include <fstream>
-#include <sstream>
 #include "csv_reader.hpp"
 
 namespace csv {
@@ -42,7 +38,7 @@ namespace csv {
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size())
             );
 
-            std::deque<CSVRow> rows;
+            ThreadSafeDeque<CSVRow> rows;
             parser.parse(head, rows);
 
             return CSVRow(std::move(rows[format.get_header()]));
@@ -75,7 +71,7 @@ namespace csv {
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
-        unicode_bom_scan(!format.unicode_detect), feed_state(new ThreadedReadingState) {
+        unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -97,8 +93,9 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
-        auto head = internals::get_csv_head(filename);
+    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _filename(filename), mmap_eof(false) {
+        this->file_size = internals::get_file_size(filename);
+        auto head = internals::get_csv_head(filename, this->file_size);
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
@@ -115,7 +112,6 @@ namespace csv {
         }
 
         this->set_parse_flags(format);
-        this->fopen(filename);
     }
 
     /** Return the format of the original raw CSV */
@@ -151,10 +147,6 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    CSV_INLINE void CSVReader::feed(internals::WorkItem&& buff) {
-        this->feed( csv::string_view(buff.first.get(), buff.second) );
-    }
-
     /** Parse a CSV-formatted string.
      *
      *  @par Usage
@@ -166,6 +158,26 @@ namespace csv {
     CSV_INLINE void CSVReader::feed(csv::string_view in) {
         if (in.empty()) return;
 
+        this->trim_utf8_bom(in);
+        this->parser.parse(in, this->records);
+        this->trim_header();
+    }
+
+    CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
+        this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
+        this->parser.set_output(this->records);
+        this->parser.parse(std::move(source));
+        this->trim_header();
+    }
+
+    CSV_INLINE void CSVReader::end_feed() {
+        /** Indicate that there is no more data to receive,
+         *  and handle the last row
+         */
+        this->parser.end_feed();
+    }
+
+    CSV_INLINE void CSVReader::trim_utf8_bom(csv::string_view in) {
         /** Handle possible Unicode byte order mark */
         if (!this->unicode_bom_scan) {
             if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
@@ -175,47 +187,20 @@ namespace csv {
 
             this->unicode_bom_scan = true;
         }
+    }
 
-        this->parser.parse(in, this->records);
-
+    CSV_INLINE void CSVReader::trim_header() {
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
                 if (i == this->_format.header && this->col_names->empty()) {
-                    this->set_col_names(CSVRow(std::move(this->records.front())));
+                    this->set_col_names(this->records.pop_front());
                 }
-
-                this->records.pop_front();
+                else {
+                    this->records.pop_front();
+                }
             }
 
             this->header_trimmed = true;
-        }
-    }
-
-    CSV_INLINE void CSVReader::end_feed() {
-        /** Indicate that there is no more data to receive,
-         *  and handle the last row
-         */
-        this->parser.end_feed(this->records);
-    }
-
-    /** Worker thread for read_csv() which parses CSV rows (while the main
-     *  thread pulls data from disk)
-     */
-    CSV_INLINE void CSVReader::read_csv_worker() {
-        while (true) {
-            std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock }; // Get lock
-            this->feed_state->feed_cond.wait(lock,                            // Wait
-                [this] { return !(this->feed_state->feed_buffer.empty()); });
-
-            // Wake-up
-            auto in = std::move(this->feed_state->feed_buffer.front());
-            this->feed_state->feed_buffer.pop_front();
-
-            // Nullptr --> Die
-            if (!in.first) break;
-
-            lock.unlock();      // Release lock
-            this->feed(std::move(in));
         }
     }
 
@@ -230,35 +215,6 @@ namespace csv {
         }
 
         this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
-    }
-
-    CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
-        this->_filename = filename;
-
-        if (!this->csv_mmap.is_open()) {
-            this->csv_mmap_eof = false;
-            std::ifstream infile(_filename, std::ios::binary);
-            const auto start = infile.tellg();
-            infile.seekg(0, std::ios::end);
-            const auto end = infile.tellg();
-            this->file_size = end - start;
-
-            std::error_code error;
-
-            if (internals::get_available_memory() > this->file_size * 2) {
-                this->csv_mmap.map(filename, error);
-            }
-            else {
-                this->csv_mmap.map(filename, 0,
-                    std::min((size_t)csv::internals::ITERATION_CHUNK_SIZE, this->file_size),
-                    error
-                );
-            }
-
-            if (error) {
-                throw error;
-            }
-        }
     }
 
     /**
@@ -278,69 +234,32 @@ namespace csv {
      * @param[in] bytes Number of bytes to read.
      * @see CSVReader::read_row()
      */
-    CSV_INLINE void CSVReader::read_csv(const size_t& bytes) {
-        if (this->_filename.empty()) {
-            return;
-        }
+    CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
+        if (this->_filename.empty()) return false;
 
-        const size_t BUFFER_UPPER_LIMIT = std::min(bytes, (size_t)1000000);
-        std::unique_ptr<char[]> buffer(new char[BUFFER_UPPER_LIMIT]);
-        auto * HEDLEY_RESTRICT line_buffer = buffer.get();
-        line_buffer[0] = '\0';
+        size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+        std::error_code error;
+        auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos,
+            length, error);
 
-        std::thread worker(&CSVReader::read_csv_worker, this);
+        if (error) throw error;
 
-        size_t strlen = 0;
-        for (size_t processed = 0; this->csv_mmap_pos < this->file_size && processed < bytes; this->csv_mmap_pos++) {
-            if (this->relative_mmap_pos == this->csv_mmap.length()) {
-                std::error_code error;
+        this->mmap_pos += length;
 
-                size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-                this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
-                    length,
-                    error
-                );
+        // Tell read_row() to listen for CSV rows
+        this->records.notify_all();
 
-                if (error) {
-                    throw error;
-                }
+        this->feed_map(std::move(_csv_mmap));
 
-                this->relative_mmap_pos = 0;
-            }
-
-            line_buffer[strlen] = this->csv_mmap[this->relative_mmap_pos];
-            strlen++;
-            this->relative_mmap_pos++;
-
-            if (strlen == BUFFER_UPPER_LIMIT - 1) {
-                processed += strlen;
-                line_buffer[strlen] = '\0';
-
-                std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-
-                this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
-
-                buffer = std::unique_ptr<char[]>(new char[BUFFER_UPPER_LIMIT]); // New pointer
-                line_buffer = buffer.get();
-                line_buffer[0] = '\0';
-                strlen = 0;
-
-                this->feed_state->feed_cond.notify_one();
-            }
-        }
-
-        // Feed remaining bits
-        std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock };
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(std::move(buffer), strlen));
-        this->feed_state->feed_buffer.push_back(std::make_pair<>(nullptr, 0)); // Termination signal
-        this->feed_state->feed_cond.notify_one();
-        lock.unlock();
-        worker.join();
-
-        if (this->csv_mmap_pos == this->csv_mmap.length()) {
-            this->csv_mmap_eof = true;
+        if (this->mmap_pos == this->file_size) {
+            this->mmap_eof = true;
             this->end_feed();
         }
+
+        // Tell read_row() to stop waiting
+        this->records.kill_all();
+
+        return true;
     }
 
     /**
@@ -358,33 +277,36 @@ namespace csv {
      *
      */
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
-        if (this->records.empty()) {
-            if (!this->eof()) {
-                this->read_csv(internals::ITERATION_CHUNK_SIZE);
-            }
-            else return false; // Stop reading
-        }
+        while (true) {
+            if (this->records.empty()) {
+                if (this->records.is_waitable())
+                    // Reading thread is currently active => wait for it to populate records
+                    this->records.wait();
+                else if (this->eof())
+                    // End of file and no more records
+                    return false;
+                else {
+                    // Reading thread is not active => start another one
+                    if (this->read_csv_worker.joinable())
+                        this->read_csv_worker.join();
 
-        while (!this->records.empty()) {
-            if (this->records.front().size() != this->n_cols &&
+                    this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                }
+            }
+            else if (this->records.front().size() != this->n_cols &&
                 this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
+                auto errored_row = this->records.pop_front();
+
                 if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
-                    auto errored_row = std::move(this->records.front());
-                    if (this->records.front().size() < this->n_cols) {
+                    if (errored_row.size() < this->n_cols)
                         throw std::runtime_error("Line too short " + internals::format_row(errored_row));
-                    }
 
                     throw std::runtime_error("Line too long " + internals::format_row(errored_row));
                 }
-
-                // Silently drop row (default)
-                this->records.pop_front();
             }
             else {
-                row = std::move(this->records.front());
-
-                this->num_rows++;
-                this->records.pop_front();
+                row = std::move(this->records.pop_front());
+                this->n_rows++;
                 return true;
             }
         }

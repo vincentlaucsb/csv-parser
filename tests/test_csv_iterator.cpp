@@ -16,7 +16,6 @@ TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
         "1,2,3\r\n"
         "1,2,3"_csv;
 
-
     CSVRow row;
     rows.read_row(row);
 

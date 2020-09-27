@@ -54,7 +54,7 @@ namespace csv {
             reader.get_col_names(),
             format.get_delim(),
             reader.size(),
-            (int)reader.get_col_names().size()
+            reader.get_col_names().size()
         };
 
         return info;

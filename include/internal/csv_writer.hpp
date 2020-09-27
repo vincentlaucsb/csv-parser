@@ -105,8 +105,31 @@ namespace csv {
         /** @copydoc write_row
          *  @return  The current DelimWriter instance (allowing for operator chaining)
          */
+        template<typename T, size_t Size>
+        void write_row(const std::array<T, Size>& record, bool quote_minimal = true) {
+            for (size_t i = 0; i < Size; i++) {
+                auto& field = record[i];
+                out << csv_escape<Delim, Quote>(field, quote_minimal);
+                if (i + 1 != Size) out << Delim;
+            }
+
+            out << std::endl;
+        }
+
+        /** @copydoc write_row
+         *  @return  The current DelimWriter instance (allowing for operator chaining)
+         */
         template<typename T, typename Alloc, template <typename, typename> class Container>
         DelimWriter& operator<<(const Container<T, Alloc>& record) {
+            this->write_row(record);
+            return *this;
+        }
+
+        /** @copydoc write_row
+         *  @return  The current DelimWriter instance (allowing for operator chaining)
+         */
+        template<typename T, size_t Size>
+        DelimWriter& operator<<(const std::array<T, Size>& record) {
             this->write_row(record);
             return *this;
         }
