@@ -101,7 +101,7 @@ namespace csv {
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         this->_filename = filename;
-        this->csv_mmap_eof = false;
+        this->mmap_eof = false;
         this->file_size = internals::get_file_size(filename);
         auto head = internals::get_csv_head(filename, this->file_size);
 
@@ -153,11 +153,6 @@ namespace csv {
             if (_col_names[i] == col_name) return (int)i;
 
         return CSV_NOT_FOUND;
-    }
-
-    CSV_INLINE void CSVReader::feed(internals::WorkItem&& buff) {
-        
-        this->feed( csv::string_view(buff.first, buff.second) );
     }
 
     CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
@@ -246,10 +241,10 @@ namespace csv {
 
         std::error_code error;
 
-        size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-        auto _csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
+        size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+        auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos,
             length, error);
-        this->csv_mmap_pos += length;
+        this->mmap_pos += length;
 
         if (error) {
             throw error;
@@ -258,8 +253,8 @@ namespace csv {
         this->records.start_waiters();
         this->feed_map(std::move(_csv_mmap));
 
-        if (this->csv_mmap_pos == this->file_size) {
-            this->csv_mmap_eof = true;
+        if (this->mmap_pos == this->file_size) {
+            this->mmap_eof = true;
             this->end_feed();
         }
 
@@ -321,7 +316,7 @@ namespace csv {
                 else {
                     row = std::move(this->records.pop_front());
 
-                    this->num_rows++;
+                    this->n_rows++;
                     return true;
                 }
             }

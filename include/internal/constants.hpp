@@ -4,6 +4,7 @@
 
 #pragma once
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <deque>
 
@@ -42,15 +43,28 @@ namespace csv {
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
          */
-        const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
+        constexpr size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
-        // TODO: Move to another header file
         template<typename T>
         inline bool is_equal(T a, T b, T epsilon = 0.001) {
             /** Returns true if two floating point values are about the same */
             static_assert(std::is_floating_point<T>::value, "T must be a floating point type.");
             return std::abs(a - b) < epsilon;
         }
+
+        /**  @typedef ParseFlags
+         *   An enum used for describing the significance of each character
+         *   with respect to CSV parsing
+         */
+        enum class ParseFlags {
+            NOT_SPECIAL, /**< Characters with no special meaning */
+            QUOTE,       /**< Characters which may signify a quote escape */
+            DELIMITER,   /**< Characters which may signify a new field */
+            NEWLINE      /**< Characters which may signify a new row */
+        };
+
+        using ParseFlagMap = std::array<ParseFlags, 256>;
+        using WhitespaceMap = std::array<bool, 256>;
     }
 
     /** Integer indicating a requested column wasn't found. */

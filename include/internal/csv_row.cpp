@@ -8,6 +8,26 @@
 
 namespace csv {
     namespace internals {
+        RawCSVField& CSVFieldArray::operator[](size_t n) {
+            if (n > this->size()) {
+                throw std::runtime_error("Index out of bounds.");
+            }
+
+            size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
+            size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+            return this->buffers[page_no][buffer_idx];
+        }
+
+        CSV_INLINE void CSVFieldArray::push_back(RawCSVField && field) {
+            if (this->_current_buffer_size == this->single_buffer_capacity) {
+                this->allocate();
+            }
+
+            this->buffers.back()[this->_current_buffer_size] = std::move(field);
+            this->_current_buffer_size++;
+            this->_size++;
+        }
+
         CSV_INLINE void CSVFieldArray::allocate() {
             RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
             buffers.push_back(buffer);
@@ -58,13 +78,15 @@ namespace csv {
 
     CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
     {
-        if (index >= this->size()) {
-            throw std::runtime_error("Index out of bounds.");
-        }
+        using internals::ParseFlags;
 
-        size_t field_index = this->field_bounds_index + index;
-        const RawCSVField& raw_field = this->data->fields[field_index];
-        bool has_doubled_quote = this->data->has_double_quotes.find(field_index) != this->data->has_double_quotes.end();
+        if (index >= this->size())
+            throw std::runtime_error("Index out of bounds.");
+
+        const size_t field_index = this->field_bounds_index + index;
+        const auto& raw_field = this->data->fields[field_index];
+        const bool has_doubled_quote = this->data->has_double_quotes.find(
+            field_index) != this->data->has_double_quotes.end();
 
         csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
 
@@ -73,8 +95,7 @@ namespace csv {
             if (ret.empty()) {
                 bool prev_ch_quote = false;
                 for (size_t i = 0; i < raw_field.length; i++) {
-                    // TODO: Use parse flags
-                    if (csv_field[i] == '"') {
+                    if (this->data->parse_flags[csv_field[i] + 128] == ParseFlags::QUOTE) {
                         if (prev_ch_quote) {
                             prev_ch_quote = false;
                             continue;

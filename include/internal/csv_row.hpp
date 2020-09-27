@@ -19,14 +19,9 @@
 #include "col_names.hpp"
 
 namespace csv {
-    class BasicCSVParser;
-
-    struct RawCSVField {
-        size_t start;
-        size_t length;
-    };
-
     namespace internals {
+        class BasicCSVParser;
+
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
         static const std::string ERROR_FLOAT_TO_INT =
@@ -35,42 +30,24 @@ namespace csv {
     
         std::string json_escape_string(csv::string_view s) noexcept;
 
+        /** A barebones class used for describing CSV fields */
+        struct RawCSVField {
+            size_t start;
+            size_t length;
+        };
+
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
         class CSVFieldArray {
         public:
-            CSVFieldArray() {
-                this->allocate();
-            }
-
-            RawCSVField& operator[](size_t n) {
-                if (n > this->size()) {
-                    throw std::runtime_error("Index out of bounds.");
-                }
-
-                size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
-                size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
-                return this->buffers[page_no][buffer_idx];
-            }
-
-            void push_back(RawCSVField&& field) {
-                if (this->_current_buffer_size == this->single_buffer_capacity) {
-                    this->allocate();
-                }
-
-                this->buffers.back()[this->_current_buffer_size] = std::move(field);
-                this->_current_buffer_size++;
-                this->_size++;
-            }
-
+            CSVFieldArray() { this->allocate(); }
             ~CSVFieldArray() {
-                for (auto& buffer : buffers) {
+                for (auto& buffer : buffers)
                     delete[] buffer;
-                }
             }
 
-            CONSTEXPR size_t size() const noexcept {
-                return this->_size;
-            }
+            void push_back(RawCSVField&& field);
+            constexpr size_t size() const noexcept { return this->_size; }
+            RawCSVField& operator[](size_t n);
 
         private:
             const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
@@ -82,19 +59,21 @@ namespace csv {
             /** Allocate a new page of memory */
             void allocate();
         };
+
+
+        /** A class for storing raw CSV data and associated metadata */
+        struct RawCSVData {
+            std::string data = "";
+            internals::CSVFieldArray fields;
+
+            std::unordered_set<size_t> has_double_quotes = {};
+            std::unordered_map<size_t, std::string> double_quote_fields = {};
+            internals::ColNamesPtr col_names = nullptr;
+            internals::ParseFlagMap parse_flags;
+        };
+
+        using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
     }
-
-    /** A class for storing raw CSV data and associated metadata */
-    struct RawCSVData {
-        std::string data = "";
-        internals::CSVFieldArray fields;
-
-        std::unordered_set<size_t> has_double_quotes = {};
-        std::unordered_map<size_t, std::string> double_quote_fields = {};
-        internals::ColNamesPtr col_names = nullptr;
-    };
-
-    using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
 
     /**
     * @class CSVField
@@ -104,7 +83,7 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr explicit CSVField(csv::string_view _sv) : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) { };
 
         operator std::string() const {
             return std::string("<CSVField> ") + std::string(this->sv);
@@ -189,7 +168,7 @@ namespace csv {
          *  @sa      csv::CSVField::operator==(csv::string_view other)
          */
         template<typename T>
-        bool operator==(T other) const
+        CONSTEXPR bool operator==(T other) const noexcept
         {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
@@ -211,27 +190,27 @@ namespace csv {
         }
 
         /** Return a string view over the field's contents */
-        CONSTEXPR csv::string_view get_sv() const { return this->sv; }
+        CONSTEXPR csv::string_view get_sv() const noexcept { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        CONSTEXPR bool is_null() { return type() == DataType::CSV_NULL; }
+        CONSTEXPR bool is_null() noexcept { return type() == DataType::CSV_NULL; }
 
         /** Returns true if field is a non-numeric, non-empty string */
-        CONSTEXPR bool is_str() { return type() == DataType::CSV_STRING; }
+        CONSTEXPR bool is_str() noexcept { return type() == DataType::CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() { return type() >= DataType::CSV_INT8; }
+        CONSTEXPR bool is_num() noexcept { return type() >= DataType::CSV_INT8; }
 
         /** Returns true if field is an integer */
-        CONSTEXPR bool is_int() {
+        CONSTEXPR bool is_int() noexcept {
             return (type() >= DataType::CSV_INT8) && (type() <= DataType::CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR bool is_float() { return type() == DataType::CSV_DOUBLE; };
+        CONSTEXPR bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
-        CONSTEXPR DataType type() {
+        CONSTEXPR DataType type() noexcept {
             this->get_value();
             return _type;
         }
@@ -240,7 +219,7 @@ namespace csv {
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
         DataType _type = DataType::UNKNOWN; /**< Cached data type value */
-        CONSTEXPR void get_value() {
+        CONSTEXPR void get_value() noexcept {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */
@@ -253,18 +232,18 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        friend BasicCSVParser;
+        friend internals::BasicCSVParser;
 
         CSVRow() = default;
         
         /** Construct a CSVRow from a RawCSVDataPtr */
-        CSVRow(RawCSVDataPtr _data) : data(_data) {}
+        CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
 
         /** Indicates whether row is empty or not */
-        CONSTEXPR bool empty() const { return this->size() == 0; }
+        CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
 
         /** Return the number of fields in this row */
-        CONSTEXPR size_t size() const { return row_length; }
+        CONSTEXPR size_t size() const noexcept { return row_length; }
 
         /** @name Value Retrieval */
         ///@{
@@ -347,7 +326,7 @@ namespace csv {
         ///@}
 
     private:
-        RawCSVDataPtr data;
+        internals::RawCSVDataPtr data;
 
         /** Where in RawCSVData.data we start */
         size_t data_start = 0;

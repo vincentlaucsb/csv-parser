@@ -4,6 +4,7 @@
 #include <sstream>
 
 using namespace csv;
+using namespace csv::internals;
 using RowCollection = ThreadSafeDeque<CSVRow>;
 
 internals::WorkItem make_work_item(csv::string_view in) {

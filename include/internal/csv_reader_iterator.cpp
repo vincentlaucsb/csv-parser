@@ -11,21 +11,17 @@ namespace csv {
             this->read_csv();
 
             // Still empty => return end iterator
-            if (this->records.empty()) {
-                return this->end();
-            }
+            if (this->records.empty()) return this->end();
         }
 
-        CSVReader::iterator ret(this, std::move(this->records.front()));
-
-        this->records.pop_front();
+        CSVReader::iterator ret(this, std::move(this->records.pop_front()));
         return ret;
     }
 
     /** A placeholder for the imaginary past the end row in a CSV.
      *  Attempting to deference this will lead to bad things.
      */
-    CSV_INLINE HEDLEY_CONST CSVReader::iterator CSVReader::end() const {
+    CSV_INLINE HEDLEY_CONST CSVReader::iterator CSVReader::end() const noexcept {
         return CSVReader::iterator();
     }
 

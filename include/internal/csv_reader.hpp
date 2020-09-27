@@ -132,7 +132,7 @@ namespace csv {
         ///@{
         bool read_row(CSVRow &row);
         iterator begin();
-        HEDLEY_CONST iterator end() const;
+        HEDLEY_CONST iterator end() const noexcept;
         ///@}
 
         /** @name CSV Metadata */
@@ -145,12 +145,12 @@ namespace csv {
         /** @name CSV Metadata: Attributes */
         ///@{
         bool empty() const { return this->size() == 0; }
-        size_t size() const { return this->num_rows; }
+        size_t size() const { return this->n_rows; }
         bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
 
     protected:
-        using RowCollection = ThreadSafeDeque<CSVRow>;
+        using RowCollection = internals::ThreadSafeDeque<CSVRow>;
 
         /**
          * \defgroup csv_internal CSV Parser Internals
@@ -163,7 +163,7 @@ namespace csv {
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return this->csv_mmap_eof; };
+        bool eof() { return this->mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{
@@ -175,9 +175,8 @@ namespace csv {
         /** Pointer to a object containing column information */
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
-        // TODO: Update description
-        /** Buffer for current row being parsed */
-        BasicCSVParser parser = BasicCSVParser(this->col_names);
+        /** Helper class which actually does the parsing */
+        internals::BasicCSVParser parser = internals::BasicCSVParser(this->col_names);
 
         /** Queue of parsed CSV rows */
         RowCollection records;
@@ -192,7 +191,7 @@ namespace csv {
         size_t n_cols = 0;
 
         /** How many rows (minus header) have been parsed so far */
-        size_t num_rows = 0;
+        size_t n_rows = 0;
 
         /** Set to true if UTF-8 BOM was detected */
         bool _utf8_bom = false;
@@ -200,25 +199,22 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         CSV_INLINE void feed_map(mio::mmap_source&& source);
         bool read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
+        /**@}*/ // End of parser internals
+
+    private:
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
         std::thread read_csv_worker;
         std::string _filename = "";
-        bool csv_mmap_eof = true;
-        size_t csv_mmap_pos = 0;
-
         size_t file_size;
+        bool mmap_eof = true;
+        size_t mmap_pos = 0;
+        ///@}
 
-        ///@} 
-
-        /**@}*/ // End of parser internals
-
-    private:
         /** Set parse and whitespace flags */
         void set_parse_flags(const CSVFormat& format);
     };
