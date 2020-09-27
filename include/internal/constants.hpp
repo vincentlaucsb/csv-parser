@@ -33,35 +33,16 @@ namespace csv {
 
             /** Size of a memory page in bytes */
             const int PAGE_SIZE = getpagesize();
-
-            /** Returns the amount of available mmory */
-            inline unsigned long long get_available_memory()
-            {
-                MEMORYSTATUSEX status;
-                status.dwLength = sizeof(status);
-                GlobalMemoryStatusEx(&status);
-                return status.ullAvailPhys;
-            }
         #elif defined(__linux__) 
-            // To be defined
-            inline unsigned long long get_available_memory() {
-                return 0;
-            }
-
             const int PAGE_SIZE = getpagesize();
         #else
-            // To be defined
-            inline unsigned long long get_available_memory() {
-                return 0;
-            }
-
             const int PAGE_SIZE = 4096;
         #endif
 
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
          */
-        constexpr size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
+        const size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
         // TODO: Move to another header file
         template<typename T>
@@ -74,7 +55,4 @@ namespace csv {
 
     /** Integer indicating a requested column wasn't found. */
     constexpr int CSV_NOT_FOUND = -1;
-
-    /** Used for counting number of rows */
-    using RowCount = long long int;
 }

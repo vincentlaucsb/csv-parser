@@ -102,12 +102,7 @@ namespace csv {
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : feed_state(new ThreadedReadingState) {
         this->_filename = filename;
         this->csv_mmap_eof = false;
-        std::ifstream infile(std::string(filename), std::ios::binary);
-        const auto start = infile.tellg();
-        infile.seekg(0, std::ios::end);
-        const auto end = infile.tellg();
-        this->file_size = end - start;
-
+        this->file_size = internals::get_file_size(filename);
         auto head = internals::get_csv_head(filename, this->file_size);
 
         /** Guess delimiter and header row */
@@ -214,27 +209,6 @@ namespace csv {
         this->parser.end_feed(this->records);
     }
 
-    /** Worker thread for read_csv() which parses CSV rows (while the main
-     *  thread pulls data from disk)
-     */
-    CSV_INLINE void CSVReader::read_csv_worker() {
-        while (true) {
-            std::unique_lock<std::mutex> lock{ this->feed_state->feed_lock }; // Get lock
-            this->feed_state->feed_cond.wait(lock,                            // Wait
-                [this] { return !(this->feed_state->feed_buffer.empty()); });
-
-            // Wake-up
-            auto in = std::move(this->feed_state->feed_buffer.front());
-            this->feed_state->feed_buffer.pop_front();
-
-            // Nullptr --> Die
-            if (!in.first) break;
-
-            lock.unlock();      // Release lock
-            this->feed(std::move(in));
-        }
-    }
-
     CSV_INLINE void CSVReader::set_parse_flags(const CSVFormat& format)
     {
         this->_format = format;
@@ -246,19 +220,6 @@ namespace csv {
         }
 
         this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
-    }
-
-    CSV_INLINE void CSVReader::fopen(csv::string_view filename) {
-        this->_filename = filename;
-
-        if (!this->csv_mmap.is_open()) {
-            this->csv_mmap_eof = false;
-            std::ifstream infile(_filename, std::ios::binary);
-            const auto start = infile.tellg();
-            infile.seekg(0, std::ios::end);
-            const auto end = infile.tellg();
-            this->file_size = end - start;
-        }
     }
 
     /**
@@ -330,18 +291,18 @@ namespace csv {
                 }
                 else {
                     if (this->eof()) {
-                        if (this->read_rows.joinable()) {
-                            this->read_rows.join();
+                        if (this->read_csv_worker.joinable()) {
+                            this->read_csv_worker.join();
                         }
 
                         return false;
                     }
 
-                    if (this->read_rows.joinable()) {
-                        this->read_rows.join();
+                    if (this->read_csv_worker.joinable()) {
+                        this->read_csv_worker.join();
                     }
 
-                    read_rows = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                    read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
                 }
             }
             else {

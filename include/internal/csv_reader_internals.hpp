@@ -76,14 +76,11 @@ namespace csv {
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
-        CSV_INLINE std::string get_csv_head(
-            csv::string_view filename
-        );
+        CSV_INLINE size_t get_file_size(csv::string_view filename);
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename);
 
         /** Read the first 500KB of a CSV file */
-        CSV_INLINE std::string get_csv_head(
-            csv::string_view filename,
-            size_t file_size
-        );
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
     }
 }

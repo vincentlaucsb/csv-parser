@@ -16,8 +16,8 @@ namespace csv {
      */
     class CSVStat : public CSVReader {
     public:
-        using FreqCount = std::unordered_map<std::string, RowCount>;
-        using TypeCount = std::unordered_map<DataType, RowCount>;
+        using FreqCount = std::unordered_map<std::string, size_t>;
+        using TypeCount = std::unordered_map<DataType, size_t>;
 
         void end_feed();
         std::vector<long double> get_mean() const;

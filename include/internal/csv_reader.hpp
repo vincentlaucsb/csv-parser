@@ -93,7 +93,7 @@ namespace csv {
         private:
             CSVReader * daddy = nullptr;  // Pointer to parent
             CSVRow row;                   // Current row
-            RowCount i = 0;               // Index of current row
+            size_t i = 0;               // Index of current row
         };
 
         /** @name Constructors
@@ -108,8 +108,11 @@ namespace csv {
         CSVReader(CSVReader&&) = default;     // Move constructor
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
-
-
+        ~CSVReader() {
+            if (this->read_csv_worker.joinable()) {
+                this->read_csv_worker.join();
+            }
+        }
 
         /** @name Reading In-Memory Strings
          *  You can piece together incomplete CSV fragments by calling feed() on them
@@ -119,6 +122,8 @@ namespace csv {
          *  smaller strings.
          */
          ///@{
+        /** @name Reading In-Memory Strings */
+        ///@{
         void feed(csv::string_view in);
         void end_feed();
         ///@}
@@ -140,7 +145,7 @@ namespace csv {
         /** @name CSV Metadata: Attributes */
         ///@{
         bool empty() const { return this->size() == 0; }
-        RowCount size() const { return this->num_rows; }
+        size_t size() const { return this->num_rows; }
         bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
 
@@ -154,7 +159,7 @@ namespace csv {
          * @{
          */
 
-        std::thread read_rows;
+        std::thread read_csv_worker;
 
         /** Multi-threaded Reading State, including synchronization objects that cannot be moved. */
         struct ThreadedReadingState {
@@ -202,7 +207,7 @@ namespace csv {
         size_t n_cols = 0;
 
         /** How many rows (minus header) have been parsed so far */
-        RowCount num_rows = 0;
+        size_t num_rows = 0;
 
         /** Set to true if UTF-8 BOM was detected */
         bool _utf8_bom = false;
@@ -213,17 +218,11 @@ namespace csv {
         void feed(internals::WorkItem&&); /**< @brief Helper for read_csv_worker() */
         CSV_INLINE void feed_map(mio::mmap_source&& source);
         bool read_csv(const size_t& bytes = internals::ITERATION_CHUNK_SIZE);
-
-        bool worker_finished = false;
-        size_t relative_mmap_pos = 0;
-
-        void read_csv_worker();
-        std::string _filename = "";
         ///@}
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        mio::mmap_source csv_mmap;
+        std::string _filename = "";
         bool csv_mmap_eof = true;
         size_t csv_mmap_pos = 0;
         std::unique_ptr<ThreadedReadingState> feed_state;
