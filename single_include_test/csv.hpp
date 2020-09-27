@@ -6015,7 +6015,7 @@ namespace csv {
         /** @name CSV Metadata: Attributes */
         ///@{
         bool empty() const { return this->size() == 0; }
-        RowCount size() const { return this->n_rows; }
+        RowCount size() const { return this->num_rows; }
         bool utf8_bom() const { return this->_utf8_bom; }
         ///@}
 
@@ -6043,7 +6043,7 @@ namespace csv {
         void set_col_names(const std::vector<std::string>&);
 
         /** Returns true if we have reached end of file */
-        bool eof() { return this->mmap_eof; };
+        bool eof() { return this->csv_mmap_eof; };
 
         /** @name CSV Settings **/
         ///@{
@@ -6072,7 +6072,7 @@ namespace csv {
         size_t n_cols = 0;
 
         /** How many rows (minus header) have been parsed so far */
-        RowCount n_rows = 0;
+        RowCount num_rows = 0;
 
         /** Set to true if UTF-8 BOM was detected */
         bool _utf8_bom = false;
@@ -6092,8 +6092,8 @@ namespace csv {
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
         mio::mmap_source csv_mmap;
-        bool mmap_eof = true;
-        size_t mmap_pos = 0;
+        bool csv_mmap_eof = true;
+        size_t csv_mmap_pos = 0;
         std::unique_ptr<ThreadedReadingState> feed_state;
         ///@} 
 
@@ -6700,7 +6700,7 @@ namespace csv {
         this->_filename = filename;
 
         if (!this->csv_mmap.is_open()) {
-            this->mmap_eof = false;
+            this->csv_mmap_eof = false;
             std::ifstream infile(_filename, std::ios::binary);
             const auto start = infile.tellg();
             infile.seekg(0, std::ios::end);
@@ -6755,12 +6755,12 @@ namespace csv {
         std::thread worker(&CSVReader::read_csv_worker, this);
 
         size_t strlen = 0;
-        for (size_t processed = 0; this->mmap_pos < this->file_size && processed < bytes; this->mmap_pos++) {
+        for (size_t processed = 0; this->csv_mmap_pos < this->file_size && processed < bytes; this->csv_mmap_pos++) {
             if (this->relative_mmap_pos == this->csv_mmap.length()) {
                 std::error_code error;
 
-                size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-                this->csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos,
+                size_t length = std::min(this->file_size - this->csv_mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+                this->csv_mmap = mio::make_mmap_source(this->_filename, this->csv_mmap_pos,
                     length,
                     error
                 );
@@ -6801,8 +6801,8 @@ namespace csv {
         lock.unlock();
         worker.join();
 
-        if (this->mmap_pos == this->csv_mmap.length()) {
-            this->mmap_eof = true;
+        if (this->csv_mmap_pos == this->csv_mmap.length()) {
+            this->csv_mmap_eof = true;
             this->end_feed();
         }
     }
@@ -6847,7 +6847,7 @@ namespace csv {
             else {
                 row = std::move(this->records.front());
 
-                this->n_rows++;
+                this->num_rows++;
                 this->records.pop_front();
                 return true;
             }

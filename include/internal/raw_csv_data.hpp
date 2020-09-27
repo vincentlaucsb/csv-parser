@@ -105,7 +105,6 @@ namespace csv {
         }
 
         bool stop_waiting = true;
-
     private:
         std::mutex _lock;
         std::condition_variable _cond;
@@ -122,9 +121,24 @@ namespace csv {
         BasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
             _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-        mio::mmap_source data_source;
+        mio::mmap_source  data_source;
 
-        size_t parse(csv::string_view in, RowCollection& records, bool last_block = true);
+        void parse(csv::string_view in, RowCollection& records);
+        void end_feed(RowCollection& records) {
+            using internals::ParseFlags;
+
+            bool empty_last_field = this->current_row.data
+                && !this->current_row.data->data.empty()
+                && parse_flag(this->current_row.data->data.back()) == ParseFlags::DELIMITER;
+
+            if (this->field_length > 0 || empty_last_field) {
+                this->push_field();
+            }
+
+            if (this->current_row.size() > 0) {
+                this->push_row(records);
+            }
+        }
 
         void set_parse_flags(internals::ParseFlagMap parse_flags) {
             _parse_flags = parse_flags;
@@ -135,6 +149,7 @@ namespace csv {
         }
 
     private:
+
         CONSTEXPR internals::ParseFlags parse_flag(const char ch) const {
             return _parse_flags.data()[ch + 128];
         }
@@ -143,26 +158,18 @@ namespace csv {
             return _ws_flags.data()[ch + 128];
         }
 
-        size_t parse_loop(csv::string_view in, bool last_block);
-
-        void push_field(
-            CSVRow& row,
-            int& field_start,
-            size_t& field_length,
-            bool& has_double_quote);
+        void push_field();
 
         template<bool QuoteEscape=false>
-        CONSTEXPR void parse_field(string_view in, size_t& i,
-            int& field_start,
-            size_t& field_length,
-            const size_t& current_row_start) {
+        CONSTEXPR void parse_field(string_view in, size_t& i, const size_t& current_row_start) {
             using internals::ParseFlags;
 
             // Trim off leading whitespace
             while (i < in.size() && ws_flag(in[i])) i++;
 
-            if (field_start < 0)
-                field_start = (int)(i - current_row_start);
+            if (this->field_start < 0) {
+                this->field_start = (int)(i - current_row_start);
+            }
 
             // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
             // sequences, use the loop below to avoid having to go through the outer
@@ -174,16 +181,18 @@ namespace csv {
                 while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
             }
 
-            field_length = i - (field_start + current_row_start);
+            this->field_length = i - (this->field_start + current_row_start);
 
-            // Trim off trailing whitespace, field_length constraint matters
+            // Trim off trailing whitespace, this->field_length constraint matters
             // when field is entirely whitespace
-            for (size_t j = i - 1; ws_flag(in[j]) && field_length > 0; j--) field_length--;
+            for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
         }
 
-        void push_row(CSVRow&& row, RowCollection& records) {
-            row.row_length = row.data->fields.size() - row.field_bounds_index;
-            records.push_back(std::move(row));
+        void parse_loop(csv::string_view in);
+
+        void push_row(RowCollection& records) {
+            current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
+            records.push_back(std::move(current_row));
         };
 
         void set_data_ptr(RawCSVDataPtr ptr) {
@@ -201,8 +210,14 @@ namespace csv {
 
         internals::ColNamesPtr col_names = nullptr;
 
+        CSVRow current_row;
+        int field_start = -1;
+        size_t field_length = 0;
+        bool field_has_double_quote = false;
+
         RawCSVDataPtr data_ptr = nullptr;
         internals::CSVFieldArray* fields = nullptr;
+        
         RowCollection* _records = nullptr;
     };
 }

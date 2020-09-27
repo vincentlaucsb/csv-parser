@@ -16,7 +16,6 @@ namespace csv {
      */
     class CSVStat : public CSVReader {
     public:
-        using RowCount = size_t;
         using FreqCount = std::unordered_map<std::string, RowCount>;
         using TypeCount = std::unordered_map<DataType, RowCount>;
 

@@ -25,24 +25,43 @@ namespace csv {
 
         // Get operating system specific details
         #if defined(_WIN32)
-            inline size_t getpagesize() {
+            inline int getpagesize() {
                 _SYSTEM_INFO sys_info = {};
                 GetSystemInfo(&sys_info);
                 return std::max(sys_info.dwPageSize, sys_info.dwAllocationGranularity);
             }
 
             /** Size of a memory page in bytes */
-            const size_t PAGE_SIZE = getpagesize();
+            const int PAGE_SIZE = getpagesize();
+
+            /** Returns the amount of available mmory */
+            inline unsigned long long get_available_memory()
+            {
+                MEMORYSTATUSEX status;
+                status.dwLength = sizeof(status);
+                GlobalMemoryStatusEx(&status);
+                return status.ullAvailPhys;
+            }
         #elif defined(__linux__) 
-            const size_t PAGE_SIZE = getpagesize();
+            // To be defined
+            inline unsigned long long get_available_memory() {
+                return 0;
+            }
+
+            const int PAGE_SIZE = getpagesize();
         #else
-            const size_t PAGE_SIZE = 4096;
+            // To be defined
+            inline unsigned long long get_available_memory() {
+                return 0;
+            }
+
+            const int PAGE_SIZE = 4096;
         #endif
 
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
          */
-        const size_t ITERATION_CHUNK_SIZE = std::min((size_t)10000000, PAGE_SIZE); // 10MB
+        constexpr size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
         // TODO: Move to another header file
         template<typename T>
@@ -55,4 +74,7 @@ namespace csv {
 
     /** Integer indicating a requested column wasn't found. */
     constexpr int CSV_NOT_FOUND = -1;
+
+    /** Used for counting number of rows */
+    using RowCount = long long int;
 }

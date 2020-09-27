@@ -22,6 +22,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVStat::end_feed() {
+        CSVReader::end_feed();
         this->calc();
     }
 
