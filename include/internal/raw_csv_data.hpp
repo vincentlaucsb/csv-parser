@@ -177,8 +177,8 @@ namespace csv {
                 return _parse_flags.data()[ch + 128];
             }
 
-            constexpr internals::CompoundParseFlags compound_parse_flag(const char ch) const noexcept {
-                return internals::compound_flag(parse_flag(ch), this->quote_escape);
+            constexpr internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
+                return internals::qe_flag(parse_flag(ch), this->quote_escape);
             }
 
             constexpr bool ws_flag(const char ch) const noexcept {
@@ -191,8 +191,7 @@ namespace csv {
 
             void push_field();
 
-            template<bool QuoteEscape=false>
-            CONSTEXPR void parse_field(string_view in, size_t& i) noexcept {
+            void parse_field(string_view in, size_t& i) noexcept {
                 using internals::ParseFlags;
 
                 // Trim off leading whitespace
@@ -205,12 +204,7 @@ namespace csv {
                 // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                 // sequences, use the loop below to avoid having to go through the outer
                 // switch statement as much as possible
-                IF_CONSTEXPR(QuoteEscape) {
-                    while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
-                }
-                else {
-                    while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
-                }
+                while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
 
                 this->field_length = i - (this->field_start + current_row_start());
 

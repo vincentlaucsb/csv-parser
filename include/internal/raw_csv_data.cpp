@@ -36,10 +36,10 @@ namespace csv {
 
         CSV_INLINE void BasicCSVParser::push_field()
         {
-            this->fields->push_back({
+            this->fields->emplace_back(
                 this->field_start > 0 ? (unsigned int)this->field_start : 0,
                 this->field_length
-            });
+            );
 
             this->current_row.row_length++;
 
@@ -62,12 +62,12 @@ namespace csv {
 
             for (size_t i = 0; i < in.size(); ) {
                 switch (compound_parse_flag(in[i])) {
-                case CompoundParseFlags::DELIMITER:
+                case ParseFlags::DELIMITER:
                     this->push_field();
                     i++;
                     break;
 
-                case CompoundParseFlags::NEWLINE:
+                case ParseFlags::NEWLINE:
                     i++;
 
                     // Catches CRLF (or LFLF)
@@ -83,15 +83,11 @@ namespace csv {
                     this->current_row.field_bounds_index = this->data_ptr->fields.size();
                     break;
 
-                case CompoundParseFlags::NOT_SPECIAL:
-                    this->parse_field<false>(in, i);
+                case ParseFlags::NOT_SPECIAL:
+                    this->parse_field(in, i);
                     break;
 
-                case CompoundParseFlags::QUOTE_ESCAPE_NOT_SPECIAL:
-                    this->parse_field<true>(in, i);
-                    break;
-
-                case CompoundParseFlags::QUOTE_ESCAPE_QUOTE:
+                case ParseFlags::QUOTE_ESCAPE_QUOTE:
                     if (i + 1 == in.size()) return;
                     else if (i + 1 < in.size()) {
                         auto next_ch = parse_flag(in[i + 1]);

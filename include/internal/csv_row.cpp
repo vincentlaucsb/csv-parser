@@ -18,19 +18,29 @@ namespace csv {
             return this->buffers[page_no][buffer_idx];
         }
 
-        CSV_INLINE void CSVFieldArray::push_back(RawCSVField && field) {
+        CSV_INLINE void CSVFieldArray::push_back(RawCSVField&& field) {
             if (this->_current_buffer_size == this->single_buffer_capacity) {
                 this->allocate();
             }
 
-            this->buffers.back()[this->_current_buffer_size] = std::move(field);
-            this->_current_buffer_size++;
+            *(_back++) = std::move(field);
+            _current_buffer_size++;
+        }
+
+        CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length) {
+            if (this->_current_buffer_size == this->single_buffer_capacity) {
+                this->allocate();
+            }
+
+            *(_back++) = { size, length };
+            _current_buffer_size++;
         }
 
         CSV_INLINE void CSVFieldArray::allocate() {
             RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;
+            _back = &(buffers.back()[0]);
         }
     }
 

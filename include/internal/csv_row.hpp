@@ -46,16 +46,24 @@ namespace csv {
             }
 
             void push_back(RawCSVField&& field);
+            void emplace_back(const size_t& size, const size_t& length);
+
             size_t size() const noexcept {
                 return this->_current_buffer_size + ((this->buffers.size() - 1) * this->single_buffer_capacity);
             }
+
             RawCSVField& operator[](size_t n) const;
 
         private:
-            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
+            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField));
 
             std::vector<RawCSVField*> buffers = {};
+
+            /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
+
+            /** Pointer to the current empty field */
+            RawCSVField* _back = nullptr;
 
             /** Allocate a new page of memory */
             void allocate();
