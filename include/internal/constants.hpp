@@ -57,11 +57,39 @@ namespace csv {
          *   with respect to CSV parsing
          */
         enum class ParseFlags {
-            NOT_SPECIAL, /**< Characters with no special meaning */
-            QUOTE,       /**< Characters which may signify a quote escape */
-            DELIMITER,   /**< Characters which may signify a new field */
-            NEWLINE      /**< Characters which may signify a new row */
+            QUOTE       = 3, /**< Characters which may signify a quote escape */
+            NOT_SPECIAL = 4, /**< Characters with no special meaning */
+            DELIMITER   = 8, /**< Characters which may signify a new field */
+            NEWLINE     = 12  /**< Characters which may signify a new row */
         };
+
+        enum class CompoundParseFlags {
+            QUOTE                     = 1,
+            NOT_SPECIAL               = 4,
+            DELIMITER                 = 8,
+            NEWLINE                   = 12,
+            QUOTE_ESCAPE_NOT_SPECIAL  = 0,
+            QUOTE_ESCAPE_QUOTE        = 3
+        };
+
+        constexpr CompoundParseFlags compound_flag(ParseFlags flag, bool quote_escape) {
+            return (CompoundParseFlags)((int)flag & (13 - (quote_escape * 10)));
+        }
+        
+        /** Optimizations for reducing branching in parsing loop
+         *
+         *  Idea: The meaning of all non-quote characters changes depending
+         *  on whether or not the parser is in a quote-escaped mode (0 or 1)
+         */
+        static_assert(compound_flag(ParseFlags::NOT_SPECIAL, false) == CompoundParseFlags::NOT_SPECIAL);
+        static_assert(compound_flag(ParseFlags::QUOTE, false) == CompoundParseFlags::QUOTE);
+        static_assert(compound_flag(ParseFlags::DELIMITER, false) == CompoundParseFlags::DELIMITER);
+        static_assert(compound_flag(ParseFlags::NEWLINE, false) == CompoundParseFlags::NEWLINE);
+
+        static_assert(compound_flag(ParseFlags::NOT_SPECIAL, true) == CompoundParseFlags::QUOTE_ESCAPE_NOT_SPECIAL);
+        static_assert(compound_flag(ParseFlags::QUOTE, true) == CompoundParseFlags::QUOTE_ESCAPE_QUOTE);
+        static_assert(compound_flag(ParseFlags::DELIMITER, true) == CompoundParseFlags::QUOTE_ESCAPE_NOT_SPECIAL);
+        static_assert(compound_flag(ParseFlags::NEWLINE, true) == CompoundParseFlags::QUOTE_ESCAPE_NOT_SPECIAL);
 
         using ParseFlagMap = std::array<ParseFlags, 256>;
         using WhitespaceMap = std::array<bool, 256>;

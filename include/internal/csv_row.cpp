@@ -25,7 +25,6 @@ namespace csv {
 
             this->buffers.back()[this->_current_buffer_size] = std::move(field);
             this->_current_buffer_size++;
-            this->_size++;
         }
 
         CSV_INLINE void CSVFieldArray::allocate() {

@@ -46,7 +46,9 @@ namespace csv {
             }
 
             void push_back(RawCSVField&& field);
-            constexpr size_t size() const noexcept { return this->_size; }
+            size_t size() const noexcept {
+                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->single_buffer_capacity);
+            }
             RawCSVField& operator[](size_t n) const;
 
         private:
@@ -54,7 +56,6 @@ namespace csv {
 
             std::vector<RawCSVField*> buffers = {};
             size_t _current_buffer_size = 0;
-            size_t _size = 0;
 
             /** Allocate a new page of memory */
             void allocate();

@@ -176,6 +176,10 @@ namespace csv {
                 return _parse_flags.data()[ch + 128];
             }
 
+            constexpr internals::CompoundParseFlags compound_parse_flag(const char ch, bool quote_escape) const noexcept {
+                return internals::compound_flag(parse_flag(ch), quote_escape);
+            }
+
             constexpr bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
             }
