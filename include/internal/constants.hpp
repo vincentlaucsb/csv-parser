@@ -72,7 +72,7 @@ namespace csv {
             QUOTE_ESCAPE_QUOTE        = 3
         };
 
-        constexpr CompoundParseFlags compound_flag(ParseFlags flag, bool quote_escape) {
+        constexpr CompoundParseFlags compound_flag(ParseFlags flag, bool quote_escape) noexcept {
             return (CompoundParseFlags)((int)flag & (13 - (quote_escape * 10)));
         }
         
