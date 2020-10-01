@@ -5209,7 +5209,10 @@ namespace csv {
          *  @note Equivalent to `header_row(-1)`
          *
          */
-        CSVFormat& no_header() { this->header_row(-1); }
+        CSVFormat& no_header() {
+            this->header_row(-1);
+            return *this;
+        }
 
         /** Turn quoting on or off */
         CSVFormat& quote(bool use_quote) {

@@ -18,7 +18,7 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
       * csv::CSVReader::iterator
         * csv::CSVReader::begin()
         * csv::CSVReader::end()
- * Convienience Functions
+ * Convenience Functions
   * csv::parse()
   * csv::operator ""_csv()
   * csv::parse_no_header()
