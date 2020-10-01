@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.0.0
+CSV for C++, version 2.0.1
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -5136,6 +5136,7 @@ namespace csv {
  *  Defines an object used to store CSV format settings
  */
 
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -5202,6 +5203,13 @@ namespace csv {
          *  @note Unsets any values set by column_names()
          */
         CSVFormat& header_row(int row);
+
+        /** Tells the parser that this CSV has no header row
+         *
+         *  @note Equivalent to `header_row(-1)`
+         *
+         */
+        CSVFormat& no_header() { this->header_row(-1); }
 
         /** Turn quoting on or off */
         CSVFormat& quote(bool use_quote) {
@@ -5381,7 +5389,22 @@ namespace csv {
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
         class CSVFieldArray {
         public:
-            CSVFieldArray() { this->allocate(); }
+            CSVFieldArray(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
+                _single_buffer_capacity(single_buffer_capacity) {
+                this->allocate();
+            }
+
+            // No copy constructor
+            CSVFieldArray(const CSVFieldArray& other) = delete;
+
+            // CSVFieldArrays may be moved
+            CSVFieldArray(CSVFieldArray&& other) :
+                _single_buffer_capacity(other._single_buffer_capacity) {
+                buffers = std::move(other.buffers);
+                _current_buffer_size = other._current_buffer_size;
+                _back = other._back;
+            }
+
             ~CSVFieldArray() {
                 for (auto& buffer : buffers)
                     delete[] buffer;
@@ -5391,13 +5414,13 @@ namespace csv {
             void emplace_back(const size_t& size, const size_t& length);
 
             size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->single_buffer_capacity);
+                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
             }
 
             RawCSVField& operator[](size_t n) const;
 
         private:
-            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField));
+            const size_t _single_buffer_capacity;
 
             std::vector<RawCSVField*> buffers = {};
 
@@ -6305,7 +6328,9 @@ namespace csv {
      */
      ///@{
     CSVReader operator ""_csv(const char*, size_t);
+    CSVReader operator ""_csv_no_header(const char*, size_t);
     CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader parse_no_header(csv::string_view in);
     ///@}
 
     /** @name Utility Functions */
@@ -6569,6 +6594,8 @@ namespace csv {
     }
 
     CSV_INLINE CSVFormat& CSVFormat::header_row(int row) {
+        if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
+
         this->header = row;
         this->col_names = {};
         return *this;
@@ -7113,13 +7140,13 @@ namespace csv {
                 throw std::runtime_error("Index out of bounds.");
             }
 
-            size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
-            size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+            size_t page_no = (size_t)std::floor((double)(n / _single_buffer_capacity));
+            size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
 
         CSV_INLINE void CSVFieldArray::push_back(RawCSVField&& field) {
-            if (this->_current_buffer_size == this->single_buffer_capacity) {
+            if (this->_current_buffer_size == this->_single_buffer_capacity) {
                 this->allocate();
             }
 
@@ -7128,7 +7155,7 @@ namespace csv {
         }
 
         CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length) {
-            if (this->_current_buffer_size == this->single_buffer_capacity) {
+            if (this->_current_buffer_size == this->_single_buffer_capacity) {
                 this->allocate();
             }
 
@@ -7137,7 +7164,7 @@ namespace csv {
         }
 
         CSV_INLINE void CSVFieldArray::allocate() {
-            RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
+            RawCSVField * buffer = new RawCSVField[_single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;
             _back = &(buffers.back()[0]);
@@ -7835,9 +7862,11 @@ namespace csv {
 
 
 namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string,
-     *  a collection of CSVRow objects
+    /** Shorthand function for parsing an in-memory CSV string
      *
+     *  @return A collection of CSVRow objects
+     *
+     *  @par Example
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
@@ -7845,6 +7874,17 @@ namespace csv {
         parser.feed(in);
         parser.end_feed();
         return parser;
+    }
+
+    /** Parses a CSV string with no headers
+     *
+     *  @return A collection of CSVRow objects
+     */
+    CSV_INLINE CSVReader parse_no_header(csv::string_view in) {
+        CSVFormat format;
+        format.header_row(-1);
+
+        return parse(in, format);
     }
 
     /** Parse a RFC 4180 CSV string, returning a collection
@@ -7856,6 +7896,11 @@ namespace csv {
      */
     CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
         return parse(csv::string_view(in, n));
+    }
+
+    /** A shorthand for csv::parse_no_header() */
+    CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
+        return parse_no_header(csv::string_view(in));
     }
 
     /**
