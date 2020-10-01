@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.0.0
+CSV for C++, version 2.0.1
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -1854,11 +1854,37 @@ namespace csv {
          *   with respect to CSV parsing
          */
         enum class ParseFlags {
-            NOT_SPECIAL, /**< Characters with no special meaning */
-            QUOTE,       /**< Characters which may signify a quote escape */
-            DELIMITER,   /**< Characters which may signify a new field */
-            NEWLINE      /**< Characters which may signify a new row */
+            QUOTE_ESCAPE_QUOTE = 0,        /* A quote inside or terminating a quote_escaped field */
+            QUOTE              = 2 | 1,    /**< Characters which may signify a quote escape */
+            NOT_SPECIAL        = 4,        /**< Characters with no special meaning or escaped delimiters and newlines */
+            DELIMITER          = 4 | 2,    /**< Characters which signify a new field */
+            NEWLINE            = 4 | 2 | 1 /**< Characters which signify a new row */
         };
+
+        /** Transform the ParseFlags given the context of whether or not the current
+         *  field is quote escaped */
+        constexpr ParseFlags qe_flag(ParseFlags flag, bool quote_escape) noexcept {
+            return (ParseFlags)((int)flag & ~((int)ParseFlags::QUOTE * quote_escape));
+        }
+        
+        // Assumed to be true by parsing functions: allows for testing
+        // if an item is DELIMITER or NEWLINE with a >= statement
+        static_assert(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
+
+        /** Optimizations for reducing branching in parsing loop
+         *
+         *  Idea: The meaning of all non-quote characters changes depending
+         *  on whether or not the parser is in a quote-escaped mode (0 or 1)
+         */
+        static_assert(qe_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
+        static_assert(qe_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
+        static_assert(qe_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
+        static_assert(qe_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
+
+        static_assert(qe_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
+        static_assert(qe_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
+        static_assert(qe_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
+        static_assert(qe_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         using ParseFlagMap = std::array<ParseFlags, 256>;
         using WhitespaceMap = std::array<bool, 256>;
@@ -5110,6 +5136,7 @@ namespace csv {
  *  Defines an object used to store CSV format settings
  */
 
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -5176,6 +5203,13 @@ namespace csv {
          *  @note Unsets any values set by column_names()
          */
         CSVFormat& header_row(int row);
+
+        /** Tells the parser that this CSV has no header row
+         *
+         *  @note Equivalent to `header_row(-1)`
+         *
+         */
+        CSVFormat& no_header() { this->header_row(-1); }
 
         /** Turn quoting on or off */
         CSVFormat& quote(bool use_quote) {
@@ -5355,22 +5389,46 @@ namespace csv {
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
         class CSVFieldArray {
         public:
-            CSVFieldArray() { this->allocate(); }
+            CSVFieldArray(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
+                _single_buffer_capacity(single_buffer_capacity) {
+                this->allocate();
+            }
+
+            // No copy constructor
+            CSVFieldArray(const CSVFieldArray& other) = delete;
+
+            // CSVFieldArrays may be moved
+            CSVFieldArray(CSVFieldArray&& other) :
+                _single_buffer_capacity(other._single_buffer_capacity) {
+                buffers = std::move(other.buffers);
+                _current_buffer_size = other._current_buffer_size;
+                _back = other._back;
+            }
+
             ~CSVFieldArray() {
                 for (auto& buffer : buffers)
                     delete[] buffer;
             }
 
             void push_back(RawCSVField&& field);
-            constexpr size_t size() const noexcept { return this->_size; }
+            void emplace_back(const size_t& size, const size_t& length);
+
+            size_t size() const noexcept {
+                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
+            }
+
             RawCSVField& operator[](size_t n) const;
 
         private:
-            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / alignof(RawCSVField));
+            const size_t _single_buffer_capacity;
 
             std::vector<RawCSVField*> buffers = {};
+
+            /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
-            size_t _size = 0;
+
+            /** Pointer to the current empty field */
+            RawCSVField* _back = nullptr;
 
             /** Allocate a new page of memory */
             void allocate();
@@ -5857,6 +5915,7 @@ namespace csv {
             internals::WhitespaceMap _ws_flags;
 
             CSVRow current_row;
+            bool quote_escape = false;
             int field_start = -1;
             size_t field_length = 0;
             bool field_has_double_quote = false;
@@ -5871,34 +5930,36 @@ namespace csv {
                 return _parse_flags.data()[ch + 128];
             }
 
+            constexpr internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
+                return internals::qe_flag(parse_flag(ch), this->quote_escape);
+            }
+
             constexpr bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
             }
 
+            size_t& current_row_start() {
+                return this->current_row.data_start;
+            }
+
             void push_field();
 
-            template<bool QuoteEscape=false>
-            CONSTEXPR void parse_field(string_view in, size_t& i, const size_t& current_row_start) noexcept {
+            void parse_field(string_view in, size_t& i) noexcept {
                 using internals::ParseFlags;
 
                 // Trim off leading whitespace
                 while (i < in.size() && ws_flag(in[i])) i++;
 
                 if (this->field_start < 0) {
-                    this->field_start = (int)(i - current_row_start);
+                    this->field_start = (int)(i - current_row_start());
                 }
 
                 // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                 // sequences, use the loop below to avoid having to go through the outer
                 // switch statement as much as possible
-                IF_CONSTEXPR(QuoteEscape) {
-                    while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
-                }
-                else {
-                    while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
-                }
+                while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
 
-                this->field_length = i - (this->field_start + current_row_start);
+                this->field_length = i - (this->field_start + current_row_start());
 
                 // Trim off trailing whitespace, this->field_length constraint matters
                 // when field is entirely whitespace
@@ -6267,7 +6328,9 @@ namespace csv {
      */
      ///@{
     CSVReader operator ""_csv(const char*, size_t);
+    CSVReader operator ""_csv_no_header(const char*, size_t);
     CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader parse_no_header(csv::string_view in);
     ///@}
 
     /** @name Utility Functions */
@@ -6531,6 +6594,8 @@ namespace csv {
     }
 
     CSV_INLINE CSVFormat& CSVFormat::header_row(int row) {
+        if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
+
         this->header = row;
         this->col_names = {};
         return *this;
@@ -7075,25 +7140,34 @@ namespace csv {
                 throw std::runtime_error("Index out of bounds.");
             }
 
-            size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
-            size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+            size_t page_no = (size_t)std::floor((double)(n / _single_buffer_capacity));
+            size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
 
-        CSV_INLINE void CSVFieldArray::push_back(RawCSVField && field) {
-            if (this->_current_buffer_size == this->single_buffer_capacity) {
+        CSV_INLINE void CSVFieldArray::push_back(RawCSVField&& field) {
+            if (this->_current_buffer_size == this->_single_buffer_capacity) {
                 this->allocate();
             }
 
-            this->buffers.back()[this->_current_buffer_size] = std::move(field);
-            this->_current_buffer_size++;
-            this->_size++;
+            *(_back++) = std::move(field);
+            _current_buffer_size++;
+        }
+
+        CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length) {
+            if (this->_current_buffer_size == this->_single_buffer_capacity) {
+                this->allocate();
+            }
+
+            *(_back++) = { size, length };
+            _current_buffer_size++;
         }
 
         CSV_INLINE void CSVFieldArray::allocate() {
-            RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
+            RawCSVField * buffer = new RawCSVField[_single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;
+            _back = &(buffers.back()[0]);
         }
     }
 
@@ -7788,9 +7862,11 @@ namespace csv {
 
 
 namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string,
-     *  a collection of CSVRow objects
+    /** Shorthand function for parsing an in-memory CSV string
      *
+     *  @return A collection of CSVRow objects
+     *
+     *  @par Example
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
@@ -7798,6 +7874,17 @@ namespace csv {
         parser.feed(in);
         parser.end_feed();
         return parser;
+    }
+
+    /** Parses a CSV string with no headers
+     *
+     *  @return A collection of CSVRow objects
+     */
+    CSV_INLINE CSVReader parse_no_header(csv::string_view in) {
+        CSVFormat format;
+        format.header_row(-1);
+
+        return parse(in, format);
     }
 
     /** Parse a RFC 4180 CSV string, returning a collection
@@ -7809,6 +7896,11 @@ namespace csv {
      */
     CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
         return parse(csv::string_view(in, n));
+    }
+
+    /** A shorthand for csv::parse_no_header() */
+    CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
+        return parse_no_header(csv::string_view(in));
     }
 
     /**
@@ -7882,10 +7974,10 @@ namespace csv {
 
         CSV_INLINE void BasicCSVParser::push_field()
         {
-            this->fields->push_back({
+            this->fields->emplace_back(
                 this->field_start > 0 ? (unsigned int)this->field_start : 0,
                 this->field_length
-            });
+            );
 
             this->current_row.row_length++;
 
@@ -7903,76 +7995,72 @@ namespace csv {
         {
             using internals::ParseFlags;
 
-            // Parser state
-            size_t current_row_start = 0;
-            bool quote_escape = false;
+            this->quote_escape = false;
+            this->current_row_start() = 0;
 
-            size_t in_size = in.size();
-            for (size_t i = 0; i < in_size; ) {
-                if (quote_escape) {
-                    if (parse_flag(in[i]) == ParseFlags::QUOTE) {
-                        if (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER
-                            || i + 1 == in.size()) {
+            for (size_t i = 0; i < in.size(); ) {
+                switch (compound_parse_flag(in[i])) {
+                case ParseFlags::DELIMITER:
+                    this->push_field();
+                    i++;
+                    break;
+
+                case ParseFlags::NEWLINE:
+                    i++;
+
+                    // Catches CRLF (or LFLF)
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) i++;
+
+                    // End of record -> Write record
+                    this->push_field();
+                    this->push_row();
+
+                    // Reset
+                    this->current_row = CSVRow(this->data_ptr);
+                    this->current_row.data_start = i;
+                    this->current_row.field_bounds_index = this->data_ptr->fields.size();
+                    break;
+
+                case ParseFlags::NOT_SPECIAL:
+                    this->parse_field(in, i);
+                    break;
+
+                case ParseFlags::QUOTE_ESCAPE_QUOTE:
+                    if (i + 1 == in.size()) return;
+                    else if (i + 1 < in.size()) {
+                        auto next_ch = parse_flag(in[i + 1]);
+                        if (next_ch >= ParseFlags::DELIMITER) {
                             quote_escape = false;
-                            i++;
-                            continue;
-                        }
-
-                        // Case: Escaped quote
-                        this->field_length++;
-                        i++;
-
-                        if (i < in.size() && parse_flag(in[i]) == ParseFlags::QUOTE) {
-                            i++;
-                            this->field_length++;
-                            this->field_has_double_quote = true;
-                        }
-
-                        continue;
-                    }
-
-                    this->parse_field<true>(in, i, current_row_start);
-                }
-                else {
-                    switch (parse_flag(in[i])) {
-                    case ParseFlags::DELIMITER:
-                        this->push_field();
-                        i++;
-                        break;
-
-                    case ParseFlags::NEWLINE:
-                        i++;
-
-                        // Catches CRLF (or LFLF)
-                        if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) i++;
-
-                        // End of record -> Write record
-                        this->push_field();
-                        this->push_row();
-
-                        // Reset
-                        this->current_row = CSVRow(this->data_ptr);
-                        this->current_row.data_start = i;
-                        this->current_row.field_bounds_index = this->data_ptr->fields.size();
-                        current_row_start = i;
-                        break;
-
-                    case ParseFlags::NOT_SPECIAL:
-                        this->parse_field<false>(in, i, current_row_start);
-                        break;
-                    default: // Quote
-                        if (this->field_length == 0) {
-                            quote_escape = true;
                             i++;
                             break;
                         }
+                        else if (next_ch == ParseFlags::QUOTE) {
+                            // Case: Escaped quote
+                            i += 2;
+                            this->field_length += 2;
+                            this->field_has_double_quote = true;
+                            break;
+                        }
+                    }
+                    
+                    // Case: Unescaped single quote => not strictly valid but we'll keep it
+                    this->field_length++;
+                    i++;
 
-                        // Unescaped quote
-                        this->field_length++;
+                    break;
+
+                default: // Quote (currently not quote escaped)
+                    if (this->field_length == 0) {
+                        quote_escape = true;
                         i++;
-
                         break;
                     }
+
+                    // Case: Unescaped quote
+                    this->field_length++;
+                    i++;
+
+                    break;
                 }
             }
         }

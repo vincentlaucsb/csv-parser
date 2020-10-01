@@ -8,8 +8,8 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
 ### CSV Reading
  * csv::CSVFormat: \copybrief csv::CSVFormat
  * csv::CSVReader
-  * csv::CSVReader::correct_rows: \copybrief csv::CSVReader::correct_rows
-  * csv::CSVReader::utf8_bom: \copybrief csv::CSVReader::utf8_bom
+  * csv::CSVReader::size(): \copybrief csv::CSVReader::size()
+  * csv::CSVReader::utf8_bom(): \copybrief csv::CSVReader::utf8_bom()
   * csv::CSVReader::get_format(): \copybrief csv::CSVReader::get_format()
   * Manually parsing string fragments
       * csv::CSVReader::feed()
@@ -18,8 +18,11 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
       * csv::CSVReader::iterator
         * csv::CSVReader::begin()
         * csv::CSVReader::end()
- * csv::parse()
- * csv::operator ""_csv()
+ * Convienience Functions
+  * csv::parse()
+  * csv::operator ""_csv()
+  * csv::parse_no_header()
+  * csv::operator ""_csv_no_header()
 
  ### See also
  [Dealing with Variable Length CSV Rows](md_docs_source_variable_row_lengths.html)

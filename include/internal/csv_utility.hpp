@@ -24,7 +24,9 @@ namespace csv {
      */
      ///@{
     CSVReader operator ""_csv(const char*, size_t);
+    CSVReader operator ""_csv_no_header(const char*, size_t);
     CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader parse_no_header(csv::string_view in);
     ///@}
 
     /** @name Utility Functions */

@@ -36,10 +36,10 @@ namespace csv {
 
         CSV_INLINE void BasicCSVParser::push_field()
         {
-            this->fields->push_back({
+            this->fields->emplace_back(
                 this->field_start > 0 ? (unsigned int)this->field_start : 0,
                 this->field_length
-            });
+            );
 
             this->current_row.row_length++;
 
@@ -57,76 +57,72 @@ namespace csv {
         {
             using internals::ParseFlags;
 
-            // Parser state
-            size_t current_row_start = 0;
-            bool quote_escape = false;
+            this->quote_escape = false;
+            this->current_row_start() = 0;
 
-            size_t in_size = in.size();
-            for (size_t i = 0; i < in_size; ) {
-                if (quote_escape) {
-                    if (parse_flag(in[i]) == ParseFlags::QUOTE) {
-                        if (i + 1 < in.size() && parse_flag(in[i + 1]) >= ParseFlags::DELIMITER
-                            || i + 1 == in.size()) {
+            for (size_t i = 0; i < in.size(); ) {
+                switch (compound_parse_flag(in[i])) {
+                case ParseFlags::DELIMITER:
+                    this->push_field();
+                    i++;
+                    break;
+
+                case ParseFlags::NEWLINE:
+                    i++;
+
+                    // Catches CRLF (or LFLF)
+                    if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) i++;
+
+                    // End of record -> Write record
+                    this->push_field();
+                    this->push_row();
+
+                    // Reset
+                    this->current_row = CSVRow(this->data_ptr);
+                    this->current_row.data_start = i;
+                    this->current_row.field_bounds_index = this->data_ptr->fields.size();
+                    break;
+
+                case ParseFlags::NOT_SPECIAL:
+                    this->parse_field(in, i);
+                    break;
+
+                case ParseFlags::QUOTE_ESCAPE_QUOTE:
+                    if (i + 1 == in.size()) return;
+                    else if (i + 1 < in.size()) {
+                        auto next_ch = parse_flag(in[i + 1]);
+                        if (next_ch >= ParseFlags::DELIMITER) {
                             quote_escape = false;
-                            i++;
-                            continue;
-                        }
-
-                        // Case: Escaped quote
-                        this->field_length++;
-                        i++;
-
-                        if (i < in.size() && parse_flag(in[i]) == ParseFlags::QUOTE) {
-                            i++;
-                            this->field_length++;
-                            this->field_has_double_quote = true;
-                        }
-
-                        continue;
-                    }
-
-                    this->parse_field<true>(in, i, current_row_start);
-                }
-                else {
-                    switch (parse_flag(in[i])) {
-                    case ParseFlags::DELIMITER:
-                        this->push_field();
-                        i++;
-                        break;
-
-                    case ParseFlags::NEWLINE:
-                        i++;
-
-                        // Catches CRLF (or LFLF)
-                        if (i < in.size() && parse_flag(in[i]) == ParseFlags::NEWLINE) i++;
-
-                        // End of record -> Write record
-                        this->push_field();
-                        this->push_row();
-
-                        // Reset
-                        this->current_row = CSVRow(this->data_ptr);
-                        this->current_row.data_start = i;
-                        this->current_row.field_bounds_index = this->data_ptr->fields.size();
-                        current_row_start = i;
-                        break;
-
-                    case ParseFlags::NOT_SPECIAL:
-                        this->parse_field<false>(in, i, current_row_start);
-                        break;
-                    default: // Quote
-                        if (this->field_length == 0) {
-                            quote_escape = true;
                             i++;
                             break;
                         }
+                        else if (next_ch == ParseFlags::QUOTE) {
+                            // Case: Escaped quote
+                            i += 2;
+                            this->field_length += 2;
+                            this->field_has_double_quote = true;
+                            break;
+                        }
+                    }
+                    
+                    // Case: Unescaped single quote => not strictly valid but we'll keep it
+                    this->field_length++;
+                    i++;
 
-                        // Unescaped quote
-                        this->field_length++;
+                    break;
+
+                default: // Quote (currently not quote escaped)
+                    if (this->field_length == 0) {
+                        quote_escape = true;
                         i++;
-
                         break;
                     }
+
+                    // Case: Unescaped quote
+                    this->field_length++;
+                    i++;
+
+                    break;
                 }
             }
         }

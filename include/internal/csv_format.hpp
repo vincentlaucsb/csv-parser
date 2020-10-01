@@ -3,6 +3,7 @@
  */
 
 #pragma once
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -70,6 +71,13 @@ namespace csv {
          *  @note Unsets any values set by column_names()
          */
         CSVFormat& header_row(int row);
+
+        /** Tells the parser that this CSV has no header row
+         *
+         *  @note Equivalent to `header_row(-1)`
+         *
+         */
+        CSVFormat& no_header() { this->header_row(-1); }
 
         /** Turn quoting on or off */
         CSVFormat& quote(bool use_quote) {

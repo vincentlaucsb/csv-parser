@@ -162,6 +162,7 @@ namespace csv {
             internals::WhitespaceMap _ws_flags;
 
             CSVRow current_row;
+            bool quote_escape = false;
             int field_start = -1;
             size_t field_length = 0;
             bool field_has_double_quote = false;
@@ -176,34 +177,36 @@ namespace csv {
                 return _parse_flags.data()[ch + 128];
             }
 
+            constexpr internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
+                return internals::qe_flag(parse_flag(ch), this->quote_escape);
+            }
+
             constexpr bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
             }
 
+            size_t& current_row_start() {
+                return this->current_row.data_start;
+            }
+
             void push_field();
 
-            template<bool QuoteEscape=false>
-            CONSTEXPR void parse_field(string_view in, size_t& i, const size_t& current_row_start) noexcept {
+            void parse_field(string_view in, size_t& i) noexcept {
                 using internals::ParseFlags;
 
                 // Trim off leading whitespace
                 while (i < in.size() && ws_flag(in[i])) i++;
 
                 if (this->field_start < 0) {
-                    this->field_start = (int)(i - current_row_start);
+                    this->field_start = (int)(i - current_row_start());
                 }
 
                 // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                 // sequences, use the loop below to avoid having to go through the outer
                 // switch statement as much as possible
-                IF_CONSTEXPR(QuoteEscape) {
-                    while (i < in.size() && parse_flag(in[i]) != ParseFlags::QUOTE) i++;
-                }
-                else {
-                    while (i < in.size() && parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
-                }
+                while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
 
-                this->field_length = i - (this->field_start + current_row_start);
+                this->field_length = i - (this->field_start + current_row_start());
 
                 // Trim off trailing whitespace, this->field_length constraint matters
                 // when field is entirely whitespace
