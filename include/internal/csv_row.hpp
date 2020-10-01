@@ -39,7 +39,22 @@ namespace csv {
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
         class CSVFieldArray {
         public:
-            CSVFieldArray() { this->allocate(); }
+            CSVFieldArray(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
+                _single_buffer_capacity(single_buffer_capacity) {
+                this->allocate();
+            }
+
+            // No copy constructor
+            CSVFieldArray(const CSVFieldArray& other) = delete;
+
+            // CSVFieldArrays may be moved
+            CSVFieldArray(CSVFieldArray&& other) :
+                _single_buffer_capacity(other._single_buffer_capacity) {
+                buffers = std::move(other.buffers);
+                _current_buffer_size = other._current_buffer_size;
+                _back = other._back;
+            }
+
             ~CSVFieldArray() {
                 for (auto& buffer : buffers)
                     delete[] buffer;
@@ -49,13 +64,13 @@ namespace csv {
             void emplace_back(const size_t& size, const size_t& length);
 
             size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->single_buffer_capacity);
+                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
             }
 
             RawCSVField& operator[](size_t n) const;
 
         private:
-            const size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField));
+            const size_t _single_buffer_capacity;
 
             std::vector<RawCSVField*> buffers = {};
 

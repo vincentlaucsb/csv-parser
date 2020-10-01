@@ -40,6 +40,8 @@ namespace csv {
     }
 
     CSV_INLINE CSVFormat& CSVFormat::header_row(int row) {
+        if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
+
         this->header = row;
         this->col_names = {};
         return *this;

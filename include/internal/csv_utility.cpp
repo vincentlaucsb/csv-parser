@@ -3,9 +3,11 @@
 #include "csv_utility.hpp"
 
 namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string,
-     *  a collection of CSVRow objects
+    /** Shorthand function for parsing an in-memory CSV string
      *
+     *  @return A collection of CSVRow objects
+     *
+     *  @par Example
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
@@ -13,6 +15,17 @@ namespace csv {
         parser.feed(in);
         parser.end_feed();
         return parser;
+    }
+
+    /** Parses a CSV string with no headers
+     *
+     *  @return A collection of CSVRow objects
+     */
+    CSV_INLINE CSVReader parse_no_header(csv::string_view in) {
+        CSVFormat format;
+        format.header_row(-1);
+
+        return parse(in, format);
     }
 
     /** Parse a RFC 4180 CSV string, returning a collection
@@ -24,6 +37,11 @@ namespace csv {
      */
     CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
         return parse(csv::string_view(in, n));
+    }
+
+    /** A shorthand for csv::parse_no_header() */
+    CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
+        return parse_no_header(csv::string_view(in));
     }
 
     /**

@@ -17,26 +17,40 @@ TEST_CASE( "Test Parse Flags", "[test_parse_flags]" ) {
 
 // Test Main Functions
 TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
-    auto rows = "A,B,C\r\n" // Header row
-                "123,234,345\r\n"
-                "1,2,3\r\n"
-                "1,2,3"_csv;
-   
-    // Expected Results
-    CSVRow row;
-    rows.read_row(row);
-    vector<string> first_row = {"123", "234", "345"};
-    REQUIRE( vector<string>(row) == first_row );
+    SECTION("Expected Results") {
+        auto rows = "A,B,C\r\n" // Header row
+            "123,234,345\r\n"
+            "1,2,3\r\n"
+            "1,2,3"_csv;
+
+        CSVRow row;
+        rows.read_row(row);
+        vector<string> first_row = { "123", "234", "345" };
+        REQUIRE(vector<string>(row) == first_row);
+    }
+
+    SECTION("Expected Results: No Header") {
+        auto rows = "123,234,345\r\n"
+            "1,2,3\r\n"
+            "1,2,3"_csv_no_header;
+
+        CSVRow row;
+        rows.read_row(row);
+        vector<string> first_row = { "123", "234", "345" };
+        REQUIRE(vector<string>(row) == first_row);
+    }
 }
 
 TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
-    // TODO: Actually check to see if flag is set
-    auto rows = "\uFEFFA,B,C\r\n" // Header row
+    auto rows = "\xEF\xBB\xBF"  // BOM
+        "A,B,C\r\n"             // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
         "1,2,3"_csv;
 
-    // Expected Results
+    // Flag should be set
+    REQUIRE(rows.utf8_bom());
+
     CSVRow row;
     rows.read_row(row);
     vector<string> first_row = { "123", "234", "345" };

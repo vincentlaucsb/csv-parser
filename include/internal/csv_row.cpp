@@ -13,13 +13,13 @@ namespace csv {
                 throw std::runtime_error("Index out of bounds.");
             }
 
-            size_t page_no = (size_t)std::floor((double)(n / this->single_buffer_capacity));
-            size_t buffer_idx = (page_no < 1) ? n : n % this->single_buffer_capacity;
+            size_t page_no = (size_t)std::floor((double)(n / _single_buffer_capacity));
+            size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
 
         CSV_INLINE void CSVFieldArray::push_back(RawCSVField&& field) {
-            if (this->_current_buffer_size == this->single_buffer_capacity) {
+            if (this->_current_buffer_size == this->_single_buffer_capacity) {
                 this->allocate();
             }
 
@@ -28,7 +28,7 @@ namespace csv {
         }
 
         CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length) {
-            if (this->_current_buffer_size == this->single_buffer_capacity) {
+            if (this->_current_buffer_size == this->_single_buffer_capacity) {
                 this->allocate();
             }
 
@@ -37,7 +37,7 @@ namespace csv {
         }
 
         CSV_INLINE void CSVFieldArray::allocate() {
-            RawCSVField * buffer = new RawCSVField[single_buffer_capacity];
+            RawCSVField * buffer = new RawCSVField[_single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;
             _back = &(buffers.back()[0]);
