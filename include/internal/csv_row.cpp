@@ -9,12 +9,8 @@
 namespace csv {
     namespace internals {
         CSV_INLINE RawCSVField& CSVFieldArray::operator[](size_t n) const {
-            if (n > this->size()) {
-                throw std::runtime_error("Index out of bounds.");
-            }
-
-            size_t page_no = (size_t)std::floor((double)(n / _single_buffer_capacity));
-            size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
+            const size_t page_no = n/  _single_buffer_capacity;
+            const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
 
