@@ -2,6 +2,7 @@
 #include <array>
 #include <condition_variable>
 #include <deque>
+#include <thread>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -15,6 +16,45 @@
 
 namespace csv {
     namespace internals {
+        using TokenMap = std::vector<std::pair<ParseFlags, size_t>>;
+        inline void tokenize_worker(TokenMap& out, csv::string_view in, ParseFlagMap parse_flags) {
+            out = {};
+            for (size_t i = 0; i < in.size(); i++) {
+                auto flag = parse_flags[in[i] + 128];
+                if (flag != ParseFlags::NOT_SPECIAL) {
+                    out.push_back(std::pair(flag, i));
+                }
+            }
+        }
+
+        inline TokenMap tokenize(csv::string_view in, ParseFlagMap parse_flags) {
+            size_t num_workers = 4;
+            size_t chunk_size = in.size() / 4;
+
+            std::vector<TokenMap> output = std::vector<TokenMap>(num_workers);
+            TokenMap tokens = {};
+            std::vector<std::thread> workers = {};
+
+            for (size_t i = 0; i < num_workers; i++) {
+                auto chunk = in.substr(i * chunk_size, chunk_size);
+                if (i + 1 == num_workers) {
+                    chunk = in.substr(i * chunk_size);
+                }
+
+                workers.push_back(std::thread(tokenize_worker, std::ref(output[i]), chunk, parse_flags));
+            }
+
+            for (auto& worker : workers) {
+                worker.join();
+            }
+
+            for (auto& out : output) {
+                tokens.insert(tokens.end(), out.begin(), out.end());
+            }
+
+            return tokens;
+        }
+
         /** A std::deque wrapper which allows multiple read and write threads to concurrently
          *  access it along with providing read threads the ability to wait for the deque
          *  to become populated

@@ -11,6 +11,36 @@ internals::WorkItem make_work_item(csv::string_view in) {
     return std::make_pair<>(in.data(), in.length());
 }
 
+TEST_CASE("Tokenize Test", "[test_tokenizer]") {
+    std::string csv = "A,B,C\r\n" // Header row
+        "123,234,345\r\n"
+        "1,2,3\r\n"
+        "1,2,3";
+
+    TokenMap tokens = tokenize(csv, internals::make_parse_flags(',', '"'));
+    REQUIRE(tokens[0].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[0].second == 1);
+    REQUIRE(tokens[1].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[1].second == 3);
+    REQUIRE(tokens[2].first == ParseFlags::NEWLINE);
+    REQUIRE(tokens[2].second == 5);
+    REQUIRE(tokens[3].first == ParseFlags::NEWLINE);
+    REQUIRE(tokens[3].second == 6);
+
+    REQUIRE(tokens[4].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[5].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[6].first == ParseFlags::NEWLINE);
+    REQUIRE(tokens[7].first == ParseFlags::NEWLINE);
+
+    REQUIRE(tokens[8].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[9].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[10].first == ParseFlags::NEWLINE);
+    REQUIRE(tokens[11].first == ParseFlags::NEWLINE);
+
+    REQUIRE(tokens[12].first == ParseFlags::DELIMITER);
+    REQUIRE(tokens[13].first == ParseFlags::DELIMITER);
+}
+
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     std::string csv = "A,B,C\r\n" // Header row
         "123,234,345\r\n"
