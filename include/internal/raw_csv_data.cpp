@@ -2,7 +2,7 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE void BasicCSVParser::parse(csv::string_view in) {
+        CSV_INLINE size_t BasicCSVParser::parse(csv::string_view in) {
             this->set_data_ptr(std::make_shared<RawCSVData>());
             this->data_ptr->col_names = this->col_names;
 
@@ -31,7 +31,7 @@ namespace csv {
                 this->current_row = CSVRow(this->data_ptr);
             }
 
-            this->parse_loop(in);
+            return this->parse_loop(in);
         }
 
         CSV_INLINE void BasicCSVParser::push_field()
@@ -60,7 +60,7 @@ namespace csv {
             field_length = 0;
         }
 
-        CSV_INLINE void BasicCSVParser::parse_loop(csv::string_view in)
+        CSV_INLINE size_t BasicCSVParser::parse_loop(csv::string_view in)
         {
             using internals::ParseFlags;
 
@@ -93,7 +93,7 @@ namespace csv {
                     break;
 
                 case ParseFlags::QUOTE_ESCAPE_QUOTE:
-                    if (i + 1 == in.size()) return;
+                    if (i + 1 == in.size()) return 0;
                     else if (i + 1 < in.size()) {
                         auto next_ch = parse_flag(in[i + 1]);
                         if (next_ch >= ParseFlags::DELIMITER) {
@@ -130,6 +130,8 @@ namespace csv {
                     break;
                 }
             }
+
+            return this->current_row_start();
         }
     }
 }

@@ -195,7 +195,7 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed_map(mio::mmap_source&& source);
+        size_t feed_map(mio::mmap_source&& source);
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 

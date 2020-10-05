@@ -163,11 +163,14 @@ namespace csv {
         this->trim_header();
     }
 
-    CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
+    CSV_INLINE size_t CSVReader::feed_map(mio::mmap_source&& source) {
+        size_t remainder = 0;
         this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
         this->parser.set_output(this->records);
-        this->parser.parse(std::move(source));
+        remainder = this->parser.parse(std::move(source));
         this->trim_header();
+
+        return remainder;
     }
 
     CSV_INLINE void CSVReader::end_feed() {
@@ -249,7 +252,11 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
-        this->feed_map(std::move(_csv_mmap));
+        size_t remainder = this->feed_map(std::move(_csv_mmap));
+        if (remainder > 0) {
+            this->parser.clear_fragments();
+            this->mmap_pos -= (length - remainder);
+        }
 
         if (this->mmap_pos == this->file_size) {
             this->mmap_eof = true;
