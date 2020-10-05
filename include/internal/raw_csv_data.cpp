@@ -37,15 +37,25 @@ namespace csv {
         CSV_INLINE void BasicCSVParser::push_field()
         {
             // Update
-            fields->emplace_back(
-                field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)this->field_start,
-                field_length,
-                field_has_double_quote
-            );
+            if (field_has_double_quote) {
+                fields->emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)this->field_start,
+                    field_length,
+                    true
+                );
+                field_has_double_quote = false;
+
+            }
+            else {
+                fields->emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)this->field_start,
+                    field_length
+                );
+            }
+
             current_row.row_length++;
 
             // Reset field state
-            field_has_double_quote = false;
             field_start = UNINITIALIZED_FIELD;
             field_length = 0;
         }

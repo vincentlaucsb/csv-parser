@@ -32,6 +32,13 @@ namespace csv {
 
         /** A barebones class used for describing CSV fields */
         struct RawCSVField {
+            RawCSVField() = default;
+            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) {
+                start = _start;
+                length = _length;
+                has_double_quote = _double_quote;
+            }
+
             size_t start;
             size_t length;
             bool has_double_quote;
@@ -61,8 +68,15 @@ namespace csv {
                     delete[] buffer;
             }
 
-            void push_back(RawCSVField&& field);
-            void emplace_back(const size_t& size, const size_t& length, bool double_quote = false);
+            template <class... Args>
+            void emplace_back(Args&&... args) {
+                if (this->_current_buffer_size == this->_single_buffer_capacity) {
+                    this->allocate();
+                }
+
+                *(_back++) = RawCSVField(std::forward<Args>(args)...);
+                _current_buffer_size++;
+            }
 
             size_t size() const noexcept {
                 return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
