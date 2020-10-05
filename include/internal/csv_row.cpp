@@ -88,7 +88,7 @@ namespace csv {
         if (index >= this->size())
             throw std::runtime_error("Index out of bounds.");
 
-        const size_t field_index = this->field_bounds_index + index;
+        const size_t field_index = this->fields_start + index;
         auto& field = this->data->fields[field_index];
         auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
 

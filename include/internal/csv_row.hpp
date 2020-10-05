@@ -95,6 +95,7 @@ namespace csv {
             std::unordered_map<size_t, std::string> double_quote_fields = {};
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
+            internals::WhitespaceMap ws_flags;
         };
 
         using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
@@ -263,6 +264,8 @@ namespace csv {
         
         /** Construct a CSVRow from a RawCSVDataPtr */
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
@@ -359,7 +362,7 @@ namespace csv {
         size_t data_start = 0;
 
         /** Where in the RawCSVDataPtr.fields array we start */
-        size_t field_bounds_index = 0;
+        size_t fields_start = 0;
 
         /** How many columns this row spans */
         size_t row_length = 0;

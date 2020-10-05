@@ -14,7 +14,7 @@ namespace csv {
                 this->current_row.data = this->data_ptr;
                 this->current_row.data_start = 0;
                 this->current_row.row_length = 0;
-                this->current_row.field_bounds_index = 0;
+                this->current_row.fields_start = 0;
 
                 this->field_start = -1;
                 this->field_length = 0;
@@ -75,9 +75,7 @@ namespace csv {
                     this->push_row();
 
                     // Reset
-                    this->current_row = CSVRow(this->data_ptr);
-                    this->current_row.data_start = i;
-                    this->current_row.field_bounds_index = this->data_ptr->fields.size();
+                    this->current_row = CSVRow(data_ptr, i, fields->size());
                     break;
 
                 case ParseFlags::NOT_SPECIAL:

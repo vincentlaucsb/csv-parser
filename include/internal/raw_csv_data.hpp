@@ -257,7 +257,7 @@ namespace csv {
             void parse_loop(csv::string_view in);
 
             void push_row() {
-                current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
+                current_row.row_length = fields->size() - current_row.fields_start;
                 this->_records->push_back(std::move(current_row));
             };
 
