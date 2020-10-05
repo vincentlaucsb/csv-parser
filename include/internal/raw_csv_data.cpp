@@ -16,7 +16,7 @@ namespace csv {
                 this->current_row.row_length = 0;
                 this->current_row.fields_start = 0;
 
-                this->field_start = -1;
+                this->field_start = UNINITIALIZED_FIELD;
                 this->field_length = 0;
 
                 auto& fragment_data = this->current_row.data;
@@ -38,7 +38,7 @@ namespace csv {
         {
             // Update
             fields->emplace_back(
-                this->field_start > 0 ? (unsigned int)this->field_start : 0,
+                field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)this->field_start,
                 field_length,
                 field_has_double_quote
             );
@@ -46,7 +46,7 @@ namespace csv {
 
             // Reset field state
             field_has_double_quote = false;
-            field_start = -1;
+            field_start = UNINITIALIZED_FIELD;
             field_length = 0;
         }
 

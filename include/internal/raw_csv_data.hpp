@@ -62,7 +62,7 @@ namespace csv {
         template<typename T>
         class ThreadSafeDeque {
         public:
-            ThreadSafeDeque() = default;
+            ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {};
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
             }
@@ -88,7 +88,10 @@ namespace csv {
             void push_back(T&& item) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 this->data.push_back(std::move(item));
-                this->_cond.notify_all();
+
+                if (this->size() >= _notify_size) {
+                    this->_cond.notify_all();
+                }
             }
 
             T pop_front() noexcept {
@@ -110,7 +113,7 @@ namespace csv {
                 }
 
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_cond.wait(lock, [this] { return !this->empty() || !this->is_waitable(); });
+                this->_cond.wait(lock, [this] { return this->size() >= _notify_size || !this->is_waitable(); });
                 lock.unlock();
             }
 
@@ -138,10 +141,13 @@ namespace csv {
 
         private:
             bool _is_waitable = false;
+            size_t _notify_size;
             std::mutex _lock;
             std::condition_variable _cond;
             std::deque<T> data;
         };
+
+        constexpr const size_t UNINITIALIZED_FIELD = -1;
 
         /** A class for parsing raw CSV data */
         class BasicCSVParser {
@@ -236,16 +242,15 @@ namespace csv {
                 // Trim off leading whitespace
                 while (i < in.size() && ws_flag(in[i])) i++;
 
-                if (field_start < 0) {
+                if (field_start == UNINITIALIZED_FIELD)
                     field_start = (int)(i - current_row_start());
-                }
 
                 // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                 // sequences, use the loop below to avoid having to go through the outer
                 // switch statement as much as possible
                 while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
 
-                this->field_length = i - (this->field_start + current_row_start());
+                field_length = i - (field_start + current_row_start());
 
                 // Trim off trailing whitespace, this->field_length constraint matters
                 // when field is entirely whitespace
