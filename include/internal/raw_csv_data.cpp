@@ -36,21 +36,18 @@ namespace csv {
 
         CSV_INLINE void BasicCSVParser::push_field()
         {
-            this->fields->emplace_back(
+            // Update
+            fields->emplace_back(
                 this->field_start > 0 ? (unsigned int)this->field_start : 0,
-                this->field_length
+                field_length,
+                field_has_double_quote
             );
-
-            this->current_row.row_length++;
-
-            if (this->field_has_double_quote) {
-                this->current_row.data->has_double_quotes.insert(this->data_ptr->fields.size() - 1);
-                this->field_has_double_quote = false;
-            }
+            current_row.row_length++;
 
             // Reset field state
-            this->field_start = -1;
-            this->field_length = 0;
+            field_has_double_quote = false;
+            field_start = -1;
+            field_length = 0;
         }
 
         CSV_INLINE void BasicCSVParser::parse_loop(csv::string_view in)

@@ -9,7 +9,7 @@
 namespace csv {
     namespace internals {
         CSV_INLINE RawCSVField& CSVFieldArray::operator[](size_t n) const {
-            const size_t page_no = n/  _single_buffer_capacity;
+            const size_t page_no = n / _single_buffer_capacity;
             const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
@@ -23,12 +23,12 @@ namespace csv {
             _current_buffer_size++;
         }
 
-        CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length) {
+        CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length, bool double_quote) {
             if (this->_current_buffer_size == this->_single_buffer_capacity) {
                 this->allocate();
             }
 
-            *(_back++) = { size, length };
+            *(_back++) = { size, (unsigned int)length, double_quote };
             _current_buffer_size++;
         }
 
@@ -89,18 +89,15 @@ namespace csv {
             throw std::runtime_error("Index out of bounds.");
 
         const size_t field_index = this->field_bounds_index + index;
-        const auto& raw_field = this->data->fields[field_index];
-        const bool has_doubled_quote = this->data->has_double_quotes.find(
-            field_index) != this->data->has_double_quotes.end();
+        auto& field = this->data->fields[field_index];
+        auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
 
-        csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
-
-        if (has_doubled_quote) {
-            std::string& ret = this->data->double_quote_fields[field_index];
-            if (ret.empty()) {
+        if (field.has_double_quote) {
+            auto& value = this->data->double_quote_fields[field_index];
+            if (value.empty()) {
                 bool prev_ch_quote = false;
-                for (size_t i = 0; i < raw_field.length; i++) {
-                    if (this->data->parse_flags[csv_field[i] + 128] == ParseFlags::QUOTE) {
+                for (size_t i = 0; i < field.length; i++) {
+                    if (this->data->parse_flags[field_str[i] + 128] == ParseFlags::QUOTE) {
                         if (prev_ch_quote) {
                             prev_ch_quote = false;
                             continue;
@@ -110,14 +107,14 @@ namespace csv {
                         }
                     }
 
-                    ret += csv_field[i];
+                    value += field_str[i];
                 }
             }
 
-            return csv::string_view(ret);
+            return csv::string_view(value);
         }
 
-        return csv_field.substr(0, raw_field.length);
+        return field_str.substr(0, field.length);
     }
 
 #ifdef _MSC_VER

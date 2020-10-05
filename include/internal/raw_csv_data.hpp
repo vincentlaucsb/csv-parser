@@ -163,11 +163,12 @@ namespace csv {
 
             CSVRow current_row;
             bool quote_escape = false;
+
             int field_start = -1;
             size_t field_length = 0;
             bool field_has_double_quote = false;
-            mio::mmap_source data_source;
 
+            mio::mmap_source data_source;
             internals::ColNamesPtr col_names = nullptr;
             RawCSVDataPtr data_ptr = nullptr;
             internals::CSVFieldArray* fields = nullptr;
@@ -197,8 +198,8 @@ namespace csv {
                 // Trim off leading whitespace
                 while (i < in.size() && ws_flag(in[i])) i++;
 
-                if (this->field_start < 0) {
-                    this->field_start = (int)(i - current_row_start());
+                if (field_start < 0) {
+                    field_start = (int)(i - current_row_start());
                 }
 
                 // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous

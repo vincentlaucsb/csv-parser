@@ -34,6 +34,7 @@ namespace csv {
         struct RawCSVField {
             size_t start;
             size_t length;
+            bool has_double_quote;
         };
 
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
@@ -61,7 +62,7 @@ namespace csv {
             }
 
             void push_back(RawCSVField&& field);
-            void emplace_back(const size_t& size, const size_t& length);
+            void emplace_back(const size_t& size, const size_t& length, bool double_quote = false);
 
             size_t size() const noexcept {
                 return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
