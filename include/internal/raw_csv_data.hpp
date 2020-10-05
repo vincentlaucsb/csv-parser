@@ -86,10 +86,9 @@ namespace csv {
             }
 
             void push_back(T&& item) {
-                std::unique_lock<std::mutex> lock{ this->_lock };
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 this->data.push_back(std::move(item));
                 this->_cond.notify_all();
-                lock.unlock();
             }
 
             T pop_front() noexcept {
@@ -203,15 +202,14 @@ namespace csv {
 
             CSVRow current_row;
             bool quote_escape = false;
-
             int field_start = -1;
             size_t field_length = 0;
             bool field_has_double_quote = false;
 
             mio::mmap_source data_source;
-            internals::ColNamesPtr col_names = nullptr;
+            ColNamesPtr col_names = nullptr;
             RawCSVDataPtr data_ptr = nullptr;
-            internals::CSVFieldArray* fields = nullptr;
+            CSVFieldArray* fields = nullptr;
             RowCollection* _records = nullptr;
 
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
