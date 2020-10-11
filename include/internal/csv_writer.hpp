@@ -31,10 +31,9 @@ namespace csv {
         template<typename T,
             std::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0>
         inline std::string to_string(T value) {
-            if (value > 0)
-                return to_string((size_t)value);
+            if (value > 0) return to_string((size_t)value);
 
-            return to_string((size_t)(value * -1));
+            return "-" + to_string((size_t)(value * -1));
         }
 
         template<typename T,
@@ -112,10 +111,8 @@ namespace csv {
         DelimWriter& operator<<(const Container<T, Alloc>& record) {
             const size_t ilen = record.size();
             size_t i = 0;
-
-            for (auto& field : record) {
+            for (const auto& field : record) {
                 out << csv_escape(field);
-
                 if (i + 1 != ilen) out << Delim;
                 i++;
             }
@@ -130,8 +127,7 @@ namespace csv {
         template<typename T, size_t Size>
         DelimWriter& operator<<(const std::array<T, Size>& record) {
             for (size_t i = 0; i < Size; i++) {
-                auto& field = record[i];
-                out << csv_escape(field);
+                out << csv_escape(record[i]);
                 if (i + 1 != Size) out << Delim;
             }
 
@@ -192,10 +188,8 @@ namespace csv {
             // Start initial quote escape sequence
             std::string out(1, Quote);
             for (auto ch: in) {
-                if (ch == Quote)
-                    out += std::string(2, Quote);
-                else
-                    out += ch;
+                if (ch == Quote) out += std::string(2, Quote);
+                else out += ch;
             }
 
             // Finish off quote escape
@@ -220,11 +214,6 @@ namespace csv {
         bool quote_minimal;
         OutputStream & out;
     };
-
-    /* Uncomment when C++17 support is better
-    template<class OutputStream>
-    DelimWriter(OutputStream&) -> DelimWriter<OutputStream>;
-    */
 
     /** Class for writing CSV files
      *
