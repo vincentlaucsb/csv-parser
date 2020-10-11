@@ -90,7 +90,8 @@ namespace csv {
     class DelimWriter {
     public:
         /** Construct a DelimWriter over the specified output stream */
-        DelimWriter(OutputStream& _out) : out(_out) {};
+        DelimWriter(OutputStream& _out, bool _quote_minimal = true)
+            : out(_out), quote_minimal(_quote_minimal) {};
 
         /** Construct a DelimWriter over the file
          *
@@ -104,40 +105,22 @@ namespace csv {
          *
          *  @param[in]  record          Sequence of strings to be formatted
          *  @param      quote_minimal   Only quote fields if necessary
+         *
+         *  @return  The current DelimWriter instance (allowing for operator chaining)
          */
         template<typename T, typename Alloc, template <typename, typename> class Container>
-        void write_row(const Container<T, Alloc>& record, bool quote_minimal = true) {
+        DelimWriter& operator<<(const Container<T, Alloc>& record) {
             const size_t ilen = record.size();
             size_t i = 0;
-            for (auto& field: record) {
-                out << csv_escape<T>(field, quote_minimal);
+
+            for (auto& field : record) {
+                out << csv_escape(field);
+
                 if (i + 1 != ilen) out << Delim;
                 i++;
             }
 
             out << std::endl;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, size_t Size>
-        void write_row(const std::array<T, Size>& record, bool quote_minimal = true) {
-            for (size_t i = 0; i < Size; i++) {
-                auto& field = record[i];
-                out << csv_escape<T>(field, quote_minimal);
-                if (i + 1 != Size) out << Delim;
-            }
-
-            out << std::endl;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, typename Alloc, template <typename, typename> class Container>
-        DelimWriter& operator<<(const Container<T, Alloc>& record) {
-            this->write_row(record);
             return *this;
         }
 
@@ -146,7 +129,13 @@ namespace csv {
          */
         template<typename T, size_t Size>
         DelimWriter& operator<<(const std::array<T, Size>& record) {
-            this->write_row(record);
+            for (size_t i = 0; i < Size; i++) {
+                auto& field = record[i];
+                out << csv_escape(field);
+                if (i + 1 != Size) out << Delim;
+            }
+
+            out << std::endl;
             return *this;
         }
 
@@ -158,66 +147,66 @@ namespace csv {
 
     private:
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        template<typename T>
-        std::string csv_escape(T in, bool quote_minimal = true) {
-            return _csv_escape(internals::to_string(in), quote_minimal);
+        template<typename T,
+            std::enable_if_t<!std::is_convertible<T, csv::string_view>::value, int> = 0
+        >
+        std::string csv_escape(T in) {
+            return internals::to_string(in);
         }
 
-        template<>
-        std::string csv_escape(csv::string_view in, bool quote_minimal) {
-            return _csv_escape(in, quote_minimal);
+        template<typename T,
+            std::enable_if_t<std::is_convertible<T, csv::string_view>::value, int> = 0
+        >
+        std::string csv_escape(T in) {
+            return _csv_escape(in);
         }
 
-        template<>
-        std::string csv_escape(std::string in, bool quote_minimal) {
-            return _csv_escape(in, quote_minimal);
-        }
-
-        template<>
-        std::string csv_escape(const char * in, bool quote_minimal) {
-            return _csv_escape(in, quote_minimal);
-        }
 #endif
 
-        std::string _csv_escape(csv::string_view in, bool quote_minimal = true) {
+        std::string _csv_escape(csv::string_view in) {
             /** Format a string to be RFC 4180-compliant
              *  @param[in]  in              String to be CSV-formatted
              *  @param[out] quote_minimal   Only quote fields if necessary.
              *                              If False, everything is quoted.
              */
 
-             // Sequence used for escaping quote characters that appear in text
-            constexpr char double_quote[3] = { Quote, Quote };
+            // Do we need a quote escape
+            bool quote_escape = false;
 
-            std::string new_string;
-            bool quote_escape = false;     // Do we need a quote escape
-            new_string += Quote;           // Start initial quote escape sequence
-
-            for (size_t i = 0; i < in.size(); i++) {
-                switch (in[i]) {
-                case Quote:
-                    new_string += double_quote;
+            for (auto ch : in) {
+                if (ch == Quote || ch == Delim) {
                     quote_escape = true;
                     break;
-                case Delim:
-                    quote_escape = true;
-                    HEDLEY_FALL_THROUGH;
-                default:
-                    new_string += in[i];
                 }
             }
 
-            if (quote_escape || !quote_minimal) {
-                new_string += Quote; // Finish off quote escape
-                return new_string;
+            if (!quote_escape) {
+                if (quote_minimal) return std::string(in);
+                else {
+                    std::string out(Quote, 1);
+                    out += in;
+                    out += Quote;
+                }
             }
 
-            return std::string(in);
+            // Start initial quote escape sequence
+            std::string out(1, Quote);
+            for (auto ch: in) {
+                if (ch == Quote)
+                    out += std::string(2, Quote);
+                else
+                    out += ch;
+            }
+
+            // Finish off quote escape
+            out += Quote;
+            return out;
         }
 
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
             out << csv_escape(std::get<Index>(record));
+
             IF_CONSTEXPR (Index + 1 < sizeof...(T)) out << Delim;
 
             this->write_tuple<Index + 1>(record);
@@ -228,6 +217,7 @@ namespace csv {
             out << std::endl;
         }
 
+        bool quote_minimal;
         OutputStream & out;
     };
 

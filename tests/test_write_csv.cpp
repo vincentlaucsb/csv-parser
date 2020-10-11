@@ -56,7 +56,7 @@ TEST_CASE("CSV to Stringstream", "[test_csv_sstream1]") {
 
     auto writer = make_csv_writer(out);
     for (; !q.empty(); q.pop())
-        writer.write_row(q.front());
+        writer << q.front();
 
     REQUIRE(out.str() == correct.str());
 }
