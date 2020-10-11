@@ -3,54 +3,70 @@
   */
 
 #pragma once
-#include <iostream>
-#include <vector>
-#include <string>
 #include <fstream>
+#include <iostream>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
+
 #include "compatibility.hpp"
+#include "data_type.h"
 
 namespace csv {
+    namespace internals {
+        template<typename T,
+            std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        inline std::string to_string(T value) {
+            std::string digits_reverse = "";
+
+            while (value > 0) {
+                digits_reverse += (char)('0' + (value % 10));
+                value /= 10;
+            }
+
+            return std::string(digits_reverse.rbegin(), digits_reverse.rend());
+        }
+
+        template<typename T,
+            std::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0>
+        inline std::string to_string(T value) {
+            if (value > 0)
+                return to_string((size_t)value);
+
+            return to_string((size_t)(value * -1));
+        }
+
+        template<typename T,
+            std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
+        inline std::string to_string(T value) {
+            std::string result;
+
+            if (value < 0)
+                result = "-";
+            
+            // Integral part
+            size_t integral = (size_t)(std::abs(value));
+            result += to_string(integral);
+
+            // Decimal part
+            size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
+
+            result += ".";
+
+            if (decimal == 0) {
+                result += "0";
+            }
+            else {
+                result += to_string(decimal);
+            }
+
+            return result;
+        }
+    }
+
     /** @name CSV Writing */
     ///@{
-    #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    template<char Delim = ',', char Quote = '"'>
-    inline std::string csv_escape(csv::string_view in, const bool quote_minimal = true) {
-        /** Format a string to be RFC 4180-compliant
-         *  @param[in]  in              String to be CSV-formatted
-         *  @param[out] quote_minimal   Only quote fields if necessary.
-         *                              If False, everything is quoted.
-         */
-
-        // Sequence used for escaping quote characters that appear in text
-        constexpr char double_quote[3] = { Quote, Quote };
-
-        std::string new_string;
-        bool quote_escape = false;     // Do we need a quote escape
-        new_string += Quote;           // Start initial quote escape sequence
-
-        for (size_t i = 0; i < in.size(); i++) {
-            switch (in[i]) {
-            case Quote:
-                new_string += double_quote;
-                quote_escape = true;
-                break;
-            case Delim:
-                quote_escape = true;
-                HEDLEY_FALL_THROUGH;
-            default:
-                new_string += in[i];
-            }
-        }
-
-        if (quote_escape || !quote_minimal) {
-            new_string += Quote; // Finish off quote escape
-            return new_string;
-        }
-
-        return std::string(in);
-    }
-    #endif
-
     /** 
      *  Class for writing delimiter separated values files
      *
@@ -94,7 +110,7 @@ namespace csv {
             const size_t ilen = record.size();
             size_t i = 0;
             for (auto& field: record) {
-                out << csv_escape<Delim, Quote>(field, quote_minimal);
+                out << csv_escape<T>(field, quote_minimal);
                 if (i + 1 != ilen) out << Delim;
                 i++;
             }
@@ -109,7 +125,7 @@ namespace csv {
         void write_row(const std::array<T, Size>& record, bool quote_minimal = true) {
             for (size_t i = 0; i < Size; i++) {
                 auto& field = record[i];
-                out << csv_escape<Delim, Quote>(field, quote_minimal);
+                out << csv_escape<T>(field, quote_minimal);
                 if (i + 1 != Size) out << Delim;
             }
 
@@ -134,7 +150,84 @@ namespace csv {
             return *this;
         }
 
+        template<typename... T>
+        DelimWriter& operator<<(const std::tuple<T...>& record) {
+            this->write_tuple<0, T...>(record);
+            return *this;
+        }
+
     private:
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+        template<typename T>
+        std::string csv_escape(T in, bool quote_minimal = true) {
+            return _csv_escape(internals::to_string(in), quote_minimal);
+        }
+
+        template<>
+        std::string csv_escape(csv::string_view in, bool quote_minimal) {
+            return _csv_escape(in, quote_minimal);
+        }
+
+        template<>
+        std::string csv_escape(std::string in, bool quote_minimal) {
+            return _csv_escape(in, quote_minimal);
+        }
+
+        template<>
+        std::string csv_escape(const char * in, bool quote_minimal) {
+            return _csv_escape(in, quote_minimal);
+        }
+#endif
+
+        std::string _csv_escape(csv::string_view in, bool quote_minimal = true) {
+            /** Format a string to be RFC 4180-compliant
+             *  @param[in]  in              String to be CSV-formatted
+             *  @param[out] quote_minimal   Only quote fields if necessary.
+             *                              If False, everything is quoted.
+             */
+
+             // Sequence used for escaping quote characters that appear in text
+            constexpr char double_quote[3] = { Quote, Quote };
+
+            std::string new_string;
+            bool quote_escape = false;     // Do we need a quote escape
+            new_string += Quote;           // Start initial quote escape sequence
+
+            for (size_t i = 0; i < in.size(); i++) {
+                switch (in[i]) {
+                case Quote:
+                    new_string += double_quote;
+                    quote_escape = true;
+                    break;
+                case Delim:
+                    quote_escape = true;
+                    HEDLEY_FALL_THROUGH;
+                default:
+                    new_string += in[i];
+                }
+            }
+
+            if (quote_escape || !quote_minimal) {
+                new_string += Quote; // Finish off quote escape
+                return new_string;
+            }
+
+            return std::string(in);
+        }
+
+        template<size_t Index = 0, typename... T>
+        typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            out << csv_escape(std::get<Index>(record));
+            IF_CONSTEXPR (Index + 1 < sizeof...(T)) out << Delim;
+
+            this->write_tuple<Index + 1>(record);
+        }
+
+        template<size_t Index = 0, typename... T>
+        typename std::enable_if<Index == sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            out << std::endl;
+        }
+
         OutputStream & out;
     };
 

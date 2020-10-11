@@ -10,6 +10,7 @@ using std::queue;
 using std::vector;
 using std::string;
 
+/**
 TEST_CASE("CSV Comma Escape", "[test_csv_comma]") {
     std::string input = "Furthermore, this should be quoted.";
     std::string correct = "\"Furthermore, this should be quoted.\"";
@@ -34,6 +35,14 @@ TEST_CASE("CSV Quote All", "[test_csv_quote_all]") {
     std::string correct = "\"This should be quoted\"";
     REQUIRE(csv_escape<>(input, false) == correct);
 }
+*/
+
+TEST_CASE("to_string - Double", "[test_to_string_double]") {
+    double value = 20.2;
+    double neg_value = -20.2;
+
+    REQUIRE(internals::to_string(neg_value) == "-20.19999");
+}
 
 TEST_CASE("CSV to Stringstream", "[test_csv_sstream1]") {
     std::stringstream out, correct;
@@ -50,6 +59,34 @@ TEST_CASE("CSV to Stringstream", "[test_csv_sstream1]") {
         writer.write_row(q.front());
 
     REQUIRE(out.str() == correct.str());
+}
+
+struct Time {
+    std::string hour;
+    std::string minute;
+};
+
+namespace csv {
+    namespace internals {
+        std::string to_string(Time time) {
+            return time.hour + ":" + time.minute;
+        }
+    }
+}
+
+TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
+    Time time = { "5", "30" };
+    std::stringstream output, correct_output;
+    auto csv_writer = make_csv_writer(output);
+
+    csv_writer << std::make_tuple("One", 2, "Three", 4.0, time)
+        << std::make_tuple("One", (short)2, "Three", 4.0f, time);
+
+    for (size_t i = 0; i < 2; i++) {
+        correct_output << "One,2,Three,4.0,5:30" << std::endl;
+    }
+
+    REQUIRE(output.str() == correct_output.str());
 }
 
 //! [CSV Writer Example]
