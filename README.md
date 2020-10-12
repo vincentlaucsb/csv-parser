@@ -314,15 +314,21 @@ using namespace std;
 ...
 
 stringstream ss; // Can also use ofstream, etc.
+
 auto writer = make_csv_writer(ss);
+// auto writer = make_tsv_writer(ss);               // For tab-separated files
+// DelimWriter<stringstream, '|', '"'> writer(ss);  // Your own custom format
+
 writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })
     << list<string>({ "to", "write", "documentation." });
 
-writer << array<string, 2>({ "The quick brown "fox", "jumps over the lazy dog" });
+writer << array<string, 2>({ "The quick brown", "fox", "jumps over the lazy dog" });
+writer << make_tuple(1, 2.0, "Three");
 ...
-
 ```
+
+You can pass in arbitrary types into `DelimWriter` by defining `std::string csv::internals::to_string(YourType value)`.
 
 ## Contributing
 Bug reports, feature requests, and so on are always welcome. Feel free to leave a note in the Issues section.

@@ -515,6 +515,6 @@ TEST_CASE("Empty CSV", "[read_empty_csv]") {
 
         // We want to make sure that no exceptions are thrown
         REQUIRE(reader.empty());
-        REQUIRE(reader.size() == 0);
+        REQUIRE(reader.n_rows() == 0);
     }
 }

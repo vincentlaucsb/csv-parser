@@ -33,7 +33,7 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
         i++;
     }
 
-    REQUIRE(reader.size() == n_rows);
+    REQUIRE(reader.n_rows() == n_rows);
 
     remove(filename);
 }

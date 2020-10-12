@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.0.1
+CSV for C++, version 2.0.2
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -5312,6 +5312,7 @@ namespace csv {
 #include <array>
 #include <condition_variable>
 #include <deque>
+#include <thread>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -5385,8 +5386,16 @@ namespace csv {
 
         /** A barebones class used for describing CSV fields */
         struct RawCSVField {
+            RawCSVField() = default;
+            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) {
+                start = _start;
+                length = _length;
+                has_double_quote = _double_quote;
+            }
+
             size_t start;
             size_t length;
+            bool has_double_quote;
         };
 
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
@@ -5413,8 +5422,15 @@ namespace csv {
                     delete[] buffer;
             }
 
-            void push_back(RawCSVField&& field);
-            void emplace_back(const size_t& size, const size_t& length);
+            template <class... Args>
+            void emplace_back(Args&&... args) {
+                if (this->_current_buffer_size == this->_single_buffer_capacity) {
+                    this->allocate();
+                }
+
+                *(_back++) = RawCSVField(std::forward<Args>(args)...);
+                _current_buffer_size++;
+            }
 
             size_t size() const noexcept {
                 return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
@@ -5447,6 +5463,7 @@ namespace csv {
             std::unordered_map<size_t, std::string> double_quote_fields = {};
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
+            internals::WhitespaceMap ws_flags;
         };
 
         using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
@@ -5615,6 +5632,8 @@ namespace csv {
         
         /** Construct a CSVRow from a RawCSVDataPtr */
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
@@ -5628,6 +5647,8 @@ namespace csv {
         CSVField operator[](const std::string&) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+
+        /** Retrieve this row's associated column names */
         std::vector<std::string> get_col_names() const {
             return this->data->col_names->get_col_names();
         }
@@ -5711,7 +5732,7 @@ namespace csv {
         size_t data_start = 0;
 
         /** Where in the RawCSVDataPtr.fields array we start */
-        size_t field_bounds_index = 0;
+        size_t fields_start = 0;
 
         /** How many columns this row spans */
         size_t row_length = 0;
@@ -5778,7 +5799,7 @@ namespace csv {
         template<typename T>
         class ThreadSafeDeque {
         public:
-            ThreadSafeDeque() = default;
+            ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {};
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
             }
@@ -5802,10 +5823,12 @@ namespace csv {
             }
 
             void push_back(T&& item) {
-                std::unique_lock<std::mutex> lock{ this->_lock };
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 this->data.push_back(std::move(item));
-                this->_cond.notify_all();
-                lock.unlock();
+
+                if (this->size() >= _notify_size) {
+                    this->_cond.notify_all();
+                }
             }
 
             T pop_front() noexcept {
@@ -5827,7 +5850,7 @@ namespace csv {
                 }
 
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_cond.wait(lock, [this] { return !this->empty() || !this->is_waitable(); });
+                this->_cond.wait(lock, [this] { return this->size() >= _notify_size || !this->is_waitable(); });
                 lock.unlock();
             }
 
@@ -5855,10 +5878,13 @@ namespace csv {
 
         private:
             bool _is_waitable = false;
+            size_t _notify_size;
             std::mutex _lock;
             std::condition_variable _cond;
             std::deque<T> data;
         };
+
+        constexpr const int UNINITIALIZED_FIELD = -1;
 
         /** A class for parsing raw CSV data */
         class BasicCSVParser {
@@ -5870,15 +5896,26 @@ namespace csv {
             BasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            void parse(mio::mmap_source&& source) {
+            size_t parse(mio::mmap_source&& source) {
                 this->data_source = std::move(source);
-                this->parse(csv::string_view(this->data_source.data(), this->data_source.length()));
+                return this->parse(csv::string_view(this->data_source.data(), this->data_source.length()));
             }
 
-            void parse(csv::string_view in);
-            void parse(csv::string_view in, RowCollection& records) {
+            /** @return The number of lingering characters in the last
+             *          unfinished row
+             */
+            size_t parse(csv::string_view in);
+
+            size_t parse(csv::string_view in, RowCollection& records) {
                 this->set_output(records);
-                this->parse(in);
+                return this->parse(in);
+            }
+
+            void clear_fragments() {
+                this->data_ptr = RawCSVDataPtr(new RawCSVData());
+                this->current_row = CSVRow(this->data_ptr, 0, 0);
+                this->field_start = UNINITIALIZED_FIELD;
+                this->field_length = 0;
             }
         
             void end_feed() {
@@ -5922,11 +5959,11 @@ namespace csv {
             int field_start = -1;
             size_t field_length = 0;
             bool field_has_double_quote = false;
-            mio::mmap_source data_source;
 
-            internals::ColNamesPtr col_names = nullptr;
+            mio::mmap_source data_source;
+            ColNamesPtr col_names = nullptr;
             RawCSVDataPtr data_ptr = nullptr;
-            internals::CSVFieldArray* fields = nullptr;
+            CSVFieldArray* fields = nullptr;
             RowCollection* _records = nullptr;
 
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
@@ -5953,26 +5990,25 @@ namespace csv {
                 // Trim off leading whitespace
                 while (i < in.size() && ws_flag(in[i])) i++;
 
-                if (this->field_start < 0) {
-                    this->field_start = (int)(i - current_row_start());
-                }
+                if (field_start == UNINITIALIZED_FIELD)
+                    field_start = (int)(i - current_row_start());
 
                 // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
                 // sequences, use the loop below to avoid having to go through the outer
                 // switch statement as much as possible
                 while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
 
-                this->field_length = i - (this->field_start + current_row_start());
+                field_length = i - (field_start + current_row_start());
 
                 // Trim off trailing whitespace, this->field_length constraint matters
                 // when field is entirely whitespace
                 for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
             }
 
-            void parse_loop(csv::string_view in);
+            size_t parse_loop(csv::string_view in);
 
             void push_row() {
-                current_row.row_length = current_row.data->fields.size() - current_row.field_bounds_index;
+                current_row.row_length = fields->size() - current_row.fields_start;
                 this->_records->push_back(std::move(current_row));
             };
 
@@ -6182,10 +6218,12 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        constexpr bool empty() const noexcept { return this->size() == 0; }
-        constexpr size_t size() const noexcept { return this->n_rows; }
+        constexpr bool empty() const noexcept { return this->n_rows() == 0; }
 
-        /** Returns true if the CSV was prefixed with a UTF-8 bom */
+        /** @return The number of rows that have been read so far */
+        constexpr size_t n_rows() const noexcept { return this->_n_rows; }
+
+        /** @return Whether or not CSV was prefixed with a UTF-8 bom */
         constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
         ///@}
 
@@ -6224,7 +6262,7 @@ namespace csv {
         size_t n_cols = 0;
 
         /** How many rows (minus header) have been parsed so far */
-        size_t n_rows = 0;
+        size_t _n_rows = 0;
 
         /** Set to true if UTF-8 BOM was detected */
         bool _utf8_bom = false;
@@ -6232,7 +6270,7 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed_map(mio::mmap_source&& source);
+        size_t feed_map(mio::mmap_source&& source);
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
@@ -6348,53 +6386,70 @@ namespace csv {
   *  A standalone header file for writing delimiter-separated files
   */
 
-#include <iostream>
-#include <vector>
-#include <string>
 #include <fstream>
+#include <iostream>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
+
 
 namespace csv {
+    namespace internals {
+        /** to_string() for unsigned integers */
+        template<typename T,
+            std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        inline std::string to_string(T value) {
+            std::string digits_reverse = "";
+
+            if (value == 0) return "0";
+
+            while (value > 0) {
+                digits_reverse += (char)('0' + (value % 10));
+                value /= 10;
+            }
+
+            return std::string(digits_reverse.rbegin(), digits_reverse.rend());
+        }
+
+        /** to_string() for signed integers */
+        template<
+            typename T,
+            std::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0
+        >
+        inline std::string to_string(T value) {
+            if (value >= 0)
+                return to_string((size_t)value);
+
+            return "-" + to_string((size_t)(value * -1));
+        }
+
+        /** to_string() for floating point numbers */
+        template<
+            typename T,
+            std::enable_if_t<std::is_floating_point<T>::value, int> = 0
+        >
+        inline std::string to_string(T value) {
+            std::string result;
+
+            if (value < 0) result = "-";
+            
+            // Integral part
+            size_t integral = (size_t)(std::abs(value));
+            result += (integral == 0) ? "0" : to_string(integral);
+
+            // Decimal part
+            size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
+
+            result += ".";
+            result += (decimal == 0) ? "0" : to_string(integral);
+
+            return result;
+        }
+    }
+
     /** @name CSV Writing */
     ///@{
-    #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    template<char Delim = ',', char Quote = '"'>
-    inline std::string csv_escape(csv::string_view in, const bool quote_minimal = true) {
-        /** Format a string to be RFC 4180-compliant
-         *  @param[in]  in              String to be CSV-formatted
-         *  @param[out] quote_minimal   Only quote fields if necessary.
-         *                              If False, everything is quoted.
-         */
-
-        // Sequence used for escaping quote characters that appear in text
-        constexpr char double_quote[3] = { Quote, Quote };
-
-        std::string new_string;
-        bool quote_escape = false;     // Do we need a quote escape
-        new_string += Quote;           // Start initial quote escape sequence
-
-        for (size_t i = 0; i < in.size(); i++) {
-            switch (in[i]) {
-            case Quote:
-                new_string += double_quote;
-                quote_escape = true;
-                break;
-            case Delim:
-                quote_escape = true;
-                HEDLEY_FALL_THROUGH;
-            default:
-                new_string += in[i];
-            }
-        }
-
-        if (quote_escape || !quote_minimal) {
-            new_string += Quote; // Finish off quote escape
-            return new_string;
-        }
-
-        return std::string(in);
-    }
-    #endif
-
     /** 
      *  Class for writing delimiter separated values files
      *
@@ -6411,14 +6466,22 @@ namespace csv {
      *  formatted strings and csv::TSVWriter<OutputStream>
      *  to write tab separated strings
      *
-     *  @par Example
+     *  @par Example w/ std::vector, std::deque, std::list
      *  @snippet test_write_csv.cpp CSV Writer Example
+     *
+     *  @par Example w/ std::tuple
+     *  @snippet test_write_csv.cpp CSV Writer Tuple Example
      */
     template<class OutputStream, char Delim, char Quote>
     class DelimWriter {
     public:
-        /** Construct a DelimWriter over the specified output stream */
-        DelimWriter(OutputStream& _out) : out(_out) {};
+        /** Construct a DelimWriter over the specified output stream
+         *
+         *  @param  _out           Stream to write to
+         *  @param  _quote_minimal Limit field quoting to only when necessary
+        */
+        DelimWriter(OutputStream& _out, bool _quote_minimal = true)
+            : out(_out), quote_minimal(_quote_minimal) {};
 
         /** Construct a DelimWriter over the file
          *
@@ -6431,65 +6494,126 @@ namespace csv {
          *  @warning This does not check to make sure row lengths are consistent
          *
          *  @param[in]  record          Sequence of strings to be formatted
-         *  @param      quote_minimal   Only quote fields if necessary
+         *
+         *  @return  The current DelimWriter instance (allowing for operator chaining)
          */
-        template<typename T, typename Alloc, template <typename, typename> class Container>
-        void write_row(const Container<T, Alloc>& record, bool quote_minimal = true) {
+        template<typename T, size_t Size>
+        DelimWriter& operator<<(const std::array<T, Size>& record) {
+            for (size_t i = 0; i < Size; i++) {
+                out << csv_escape(record[i]);
+                if (i + 1 != Size) out << Delim;
+            }
+
+            out << std::endl;
+            return *this;
+        }
+
+        /** @copydoc operator<< */
+        template<typename... T>
+        DelimWriter& operator<<(const std::tuple<T...>& record) {
+            this->write_tuple<0, T...>(record);
+            return *this;
+        }
+
+        /**
+         * @tparam T A container such as std::vector, std::deque, or std::list
+         * 
+         * @copydoc operator<<
+         */
+        template<
+            typename T, typename Alloc, template <typename, typename> class Container,
+
+            // Avoid conflicting with tuples with two elements
+            std::enable_if_t<std::is_class<Alloc>::value, int> = 0
+        >
+            DelimWriter& operator<<(const Container<T, Alloc>& record) {
             const size_t ilen = record.size();
             size_t i = 0;
-            for (auto& field: record) {
-                out << csv_escape<Delim, Quote>(field, quote_minimal);
+            for (const auto& field : record) {
+                out << csv_escape(field);
                 if (i + 1 != ilen) out << Delim;
                 i++;
             }
 
             out << std::endl;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, size_t Size>
-        void write_row(const std::array<T, Size>& record, bool quote_minimal = true) {
-            for (size_t i = 0; i < Size; i++) {
-                auto& field = record[i];
-                out << csv_escape<Delim, Quote>(field, quote_minimal);
-                if (i + 1 != Size) out << Delim;
-            }
-
-            out << std::endl;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, typename Alloc, template <typename, typename> class Container>
-        DelimWriter& operator<<(const Container<T, Alloc>& record) {
-            this->write_row(record);
-            return *this;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, size_t Size>
-        DelimWriter& operator<<(const std::array<T, Size>& record) {
-            this->write_row(record);
             return *this;
         }
 
     private:
+        template<typename T,
+            std::enable_if_t<!std::is_convertible<T, csv::string_view>::value, int> = 0
+        >
+        std::string csv_escape(T in) {
+            return internals::to_string(in);
+        }
+
+        template<typename T,
+            std::enable_if_t<std::is_convertible<T, csv::string_view>::value, int> = 0
+        >
+        std::string csv_escape(T in) {
+            return _csv_escape(in);
+        }
+
+        std::string _csv_escape(csv::string_view in) {
+            /** Format a string to be RFC 4180-compliant
+             *  @param[in]  in              String to be CSV-formatted
+             *  @param[out] quote_minimal   Only quote fields if necessary.
+             *                              If False, everything is quoted.
+             */
+
+            // Do we need a quote escape
+            bool quote_escape = false;
+
+            for (auto ch : in) {
+                if (ch == Quote || ch == Delim) {
+                    quote_escape = true;
+                    break;
+                }
+            }
+
+            if (!quote_escape) {
+                if (quote_minimal) return std::string(in);
+                else {
+                    std::string ret(Quote, 1);
+                    ret += in;
+                    ret += Quote;
+                }
+            }
+
+            // Start initial quote escape sequence
+            std::string ret(1, Quote);
+            for (auto ch: in) {
+                if (ch == Quote) ret += std::string(2, Quote);
+                else ret += ch;
+            }
+
+            // Finish off quote escape
+            ret += Quote;
+            return ret;
+        }
+
+        /** Recurisve template for writing std::tuples */
+        template<size_t Index = 0, typename... T>
+        typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            out << csv_escape(std::get<Index>(record));
+
+            IF_CONSTEXPR (Index + 1 < sizeof...(T)) out << Delim;
+
+            this->write_tuple<Index + 1>(record);
+        }
+
+        /** Base case for writing std::tuples */
+        template<size_t Index = 0, typename... T>
+        typename std::enable_if<Index == sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            out << std::endl;
+        }
+
+        bool quote_minimal;
         OutputStream & out;
     };
 
-    /* Uncomment when C++17 support is better
-    template<class OutputStream>
-    DelimWriter(OutputStream&) -> DelimWriter<OutputStream>;
-    */
-
-    /** Class for writing CSV files
+    /** An alias for csv::DelimWriter for writing standard CSV files
      *
-     *  @sa csv::DelimWriter::write_row()
      *  @sa csv::DelimWriter::operator<<()
      *
      *  @note Use `csv::make_csv_writer()` to in instatiate this class over
@@ -6509,21 +6633,17 @@ namespace csv {
     template<class OutputStream>
     using TSVWriter = DelimWriter<OutputStream, '\t', '"'>;
 
-    //
-    // Temporary: Until more C++17 compilers support template deduction guides
-    //
+    /** Return a csv::CSVWriter over the output stream */
     template<class OutputStream>
-    inline CSVWriter<OutputStream> make_csv_writer(OutputStream& out) {
-        /** Return a CSVWriter over the output stream */
-        return CSVWriter<OutputStream>(out);
+    inline CSVWriter<OutputStream> make_csv_writer(OutputStream& out, bool quote_minimal=true) {
+        return CSVWriter<OutputStream>(out, quote_minimal);
     }
 
+    /** Return a csv::TSVWriter over the output stream */
     template<class OutputStream>
-    inline TSVWriter<OutputStream> make_tsv_writer(OutputStream& out) {
-        /** Return a TSVWriter over the output stream */
-        return TSVWriter<OutputStream>(out);
+    inline TSVWriter<OutputStream> make_tsv_writer(OutputStream& out, bool quote_minimal=true) {
+        return TSVWriter<OutputStream>(out, quote_minimal);
     }
-
     ///@}
 }
 
@@ -6811,11 +6931,14 @@ namespace csv {
         this->trim_header();
     }
 
-    CSV_INLINE void CSVReader::feed_map(mio::mmap_source&& source) {
+    CSV_INLINE size_t CSVReader::feed_map(mio::mmap_source&& source) {
+        size_t remainder = 0;
         this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
         this->parser.set_output(this->records);
-        this->parser.parse(std::move(source));
+        remainder = this->parser.parse(std::move(source));
         this->trim_header();
+
+        return remainder;
     }
 
     CSV_INLINE void CSVReader::end_feed() {
@@ -6897,7 +7020,11 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
-        this->feed_map(std::move(_csv_mmap));
+        size_t remainder = this->feed_map(std::move(_csv_mmap));
+        if (remainder > 0) {
+            this->parser.clear_fragments();
+            this->mmap_pos -= (length - remainder);
+        }
 
         if (this->mmap_pos == this->file_size) {
             this->mmap_eof = true;
@@ -6954,7 +7081,7 @@ namespace csv {
             }
             else {
                 row = std::move(this->records.pop_front());
-                this->n_rows++;
+                this->_n_rows++;
                 return true;
             }
         }
@@ -7139,31 +7266,9 @@ namespace csv {
 namespace csv {
     namespace internals {
         CSV_INLINE RawCSVField& CSVFieldArray::operator[](size_t n) const {
-            if (n > this->size()) {
-                throw std::runtime_error("Index out of bounds.");
-            }
-
-            size_t page_no = (size_t)std::floor((double)(n / _single_buffer_capacity));
-            size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
+            const size_t page_no = n / _single_buffer_capacity;
+            const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
-        }
-
-        CSV_INLINE void CSVFieldArray::push_back(RawCSVField&& field) {
-            if (this->_current_buffer_size == this->_single_buffer_capacity) {
-                this->allocate();
-            }
-
-            *(_back++) = std::move(field);
-            _current_buffer_size++;
-        }
-
-        CSV_INLINE void CSVFieldArray::emplace_back(const size_t & size, const size_t & length) {
-            if (this->_current_buffer_size == this->_single_buffer_capacity) {
-                this->allocate();
-            }
-
-            *(_back++) = { size, length };
-            _current_buffer_size++;
         }
 
         CSV_INLINE void CSVFieldArray::allocate() {
@@ -7207,7 +7312,6 @@ namespace csv {
     }
 
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {
-
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
             ret.push_back(std::string(this->get_field(i)));
@@ -7222,19 +7326,16 @@ namespace csv {
         if (index >= this->size())
             throw std::runtime_error("Index out of bounds.");
 
-        const size_t field_index = this->field_bounds_index + index;
-        const auto& raw_field = this->data->fields[field_index];
-        const bool has_doubled_quote = this->data->has_double_quotes.find(
-            field_index) != this->data->has_double_quotes.end();
+        const size_t field_index = this->fields_start + index;
+        auto& field = this->data->fields[field_index];
+        auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
 
-        csv::string_view csv_field = csv::string_view(this->data->data).substr(this->data_start + raw_field.start);
-
-        if (has_doubled_quote) {
-            std::string& ret = this->data->double_quote_fields[field_index];
-            if (ret.empty()) {
+        if (field.has_double_quote) {
+            auto& value = this->data->double_quote_fields[field_index];
+            if (value.empty()) {
                 bool prev_ch_quote = false;
-                for (size_t i = 0; i < raw_field.length; i++) {
-                    if (this->data->parse_flags[csv_field[i] + 128] == ParseFlags::QUOTE) {
+                for (size_t i = 0; i < field.length; i++) {
+                    if (this->data->parse_flags[field_str[i] + 128] == ParseFlags::QUOTE) {
                         if (prev_ch_quote) {
                             prev_ch_quote = false;
                             continue;
@@ -7244,14 +7345,14 @@ namespace csv {
                         }
                     }
 
-                    ret += csv_field[i];
+                    value += field_str[i];
                 }
             }
 
-            return csv::string_view(ret);
+            return csv::string_view(value);
         }
 
-        return csv_field.substr(0, raw_field.length);
+        return field_str.substr(0, field.length);
     }
 
 #ifdef _MSC_VER
@@ -7933,7 +8034,7 @@ namespace csv {
             filename,
             reader.get_col_names(),
             format.get_delim(),
-            reader.size(),
+            reader.n_rows(),
             reader.get_col_names().size()
         };
 
@@ -7943,7 +8044,7 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        CSV_INLINE void BasicCSVParser::parse(csv::string_view in) {
+        CSV_INLINE size_t BasicCSVParser::parse(csv::string_view in) {
             this->set_data_ptr(std::make_shared<RawCSVData>());
             this->data_ptr->col_names = this->col_names;
 
@@ -7955,9 +8056,9 @@ namespace csv {
                 this->current_row.data = this->data_ptr;
                 this->current_row.data_start = 0;
                 this->current_row.row_length = 0;
-                this->current_row.field_bounds_index = 0;
+                this->current_row.fields_start = 0;
 
-                this->field_start = -1;
+                this->field_start = UNINITIALIZED_FIELD;
                 this->field_length = 0;
 
                 auto& fragment_data = this->current_row.data;
@@ -7972,29 +8073,36 @@ namespace csv {
                 this->current_row = CSVRow(this->data_ptr);
             }
 
-            this->parse_loop(in);
+            return this->parse_loop(in);
         }
 
         CSV_INLINE void BasicCSVParser::push_field()
         {
-            this->fields->emplace_back(
-                this->field_start > 0 ? (unsigned int)this->field_start : 0,
-                this->field_length
-            );
+            // Update
+            if (field_has_double_quote) {
+                fields->emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)this->field_start,
+                    field_length,
+                    true
+                );
+                field_has_double_quote = false;
 
-            this->current_row.row_length++;
-
-            if (this->field_has_double_quote) {
-                this->current_row.data->has_double_quotes.insert(this->data_ptr->fields.size() - 1);
-                this->field_has_double_quote = false;
+            }
+            else {
+                fields->emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)this->field_start,
+                    field_length
+                );
             }
 
+            current_row.row_length++;
+
             // Reset field state
-            this->field_start = -1;
-            this->field_length = 0;
+            field_start = UNINITIALIZED_FIELD;
+            field_length = 0;
         }
 
-        CSV_INLINE void BasicCSVParser::parse_loop(csv::string_view in)
+        CSV_INLINE size_t BasicCSVParser::parse_loop(csv::string_view in)
         {
             using internals::ParseFlags;
 
@@ -8019,9 +8127,7 @@ namespace csv {
                     this->push_row();
 
                     // Reset
-                    this->current_row = CSVRow(this->data_ptr);
-                    this->current_row.data_start = i;
-                    this->current_row.field_bounds_index = this->data_ptr->fields.size();
+                    this->current_row = CSVRow(data_ptr, i, fields->size());
                     break;
 
                 case ParseFlags::NOT_SPECIAL:
@@ -8029,7 +8135,7 @@ namespace csv {
                     break;
 
                 case ParseFlags::QUOTE_ESCAPE_QUOTE:
-                    if (i + 1 == in.size()) return;
+                    if (i + 1 == in.size()) return 0;
                     else if (i + 1 < in.size()) {
                         auto next_ch = parse_flag(in[i + 1]);
                         if (next_ch >= ParseFlags::DELIMITER) {
@@ -8066,6 +8172,8 @@ namespace csv {
                     break;
                 }
             }
+
+            return this->current_row_start();
         }
     }
 }

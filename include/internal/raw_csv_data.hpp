@@ -108,7 +108,7 @@ namespace csv {
             std::deque<T> data;
         };
 
-        constexpr const size_t UNINITIALIZED_FIELD = -1;
+        constexpr const int UNINITIALIZED_FIELD = -1;
 
         /** A class for parsing raw CSV data */
         class BasicCSVParser {

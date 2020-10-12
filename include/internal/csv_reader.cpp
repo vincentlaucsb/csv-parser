@@ -313,7 +313,7 @@ namespace csv {
             }
             else {
                 row = std::move(this->records.pop_front());
-                this->n_rows++;
+                this->_n_rows++;
                 return true;
             }
         }

@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     CSVWriter<std::ofstream> writer(outfile);
     writer << std::vector<std::string>({"A", "B", "C", "D", "E"});
 
-    for (size_t i = 0; i < 5000000; i++) {
+    for (size_t i = 0; i < 1000000; i++) {
         writer << std::array<double, 5>({
             d(gen),
             d(gen),

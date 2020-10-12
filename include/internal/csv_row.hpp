@@ -293,6 +293,8 @@ namespace csv {
         CSVField operator[](const std::string&) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+
+        /** Retrieve this row's associated column names */
         std::vector<std::string> get_col_names() const {
             return this->data->col_names->get_col_names();
         }

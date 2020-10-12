@@ -145,10 +145,12 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        constexpr bool empty() const noexcept { return this->size() == 0; }
-        constexpr size_t size() const noexcept { return this->n_rows; }
+        constexpr bool empty() const noexcept { return this->n_rows() == 0; }
 
-        /** Returns true if the CSV was prefixed with a UTF-8 bom */
+        /** @return The number of rows that have been read so far */
+        constexpr size_t n_rows() const noexcept { return this->_n_rows; }
+
+        /** @return Whether or not CSV was prefixed with a UTF-8 bom */
         constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
         ///@}
 
@@ -187,7 +189,7 @@ namespace csv {
         size_t n_cols = 0;
 
         /** How many rows (minus header) have been parsed so far */
-        size_t n_rows = 0;
+        size_t _n_rows = 0;
 
         /** Set to true if UTF-8 BOM was detected */
         bool _utf8_bom = false;

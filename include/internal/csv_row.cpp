@@ -55,7 +55,6 @@ namespace csv {
     }
 
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {
-
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
             ret.push_back(std::string(this->get_field(i)));

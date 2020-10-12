@@ -24,10 +24,10 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
   * csv::parse_no_header()
   * csv::operator ""_csv_no_header()
 
- ### See also
+ #### See also
  [Dealing with Variable Length CSV Rows](md_docs_source_variable_row_lengths.html)
 
- ### Working with parsed data
+ #### Working with parsed data
  * csv::CSVRow: \copybrief csv::CSVRow
   * csv::CSVRow::operator std::vector<std::string>()
   * csv::CSVRow::iterator
@@ -42,7 +42,9 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
 ### Statistics
  * csv::CSVStat
 
-### Writing
+### CSV Writing
+ * csv::make_csv_writer()
+ * csv::make_tsv_writer()
  * csv::DelimWriter
    * csv::CSVWriter
    * csv::TSVWriter
