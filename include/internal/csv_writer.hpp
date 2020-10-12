@@ -163,7 +163,7 @@ namespace csv {
             typename T,
             std::enable_if_t<
                 !std::is_convertible<T, std::string>::value
-                && !std::is_convertible<T, std::string_view>::value
+                && !std::is_convertible<T, csv::string_view>::value
             , int> = 0
         >
         std::string csv_escape(T in) {
@@ -174,11 +174,11 @@ namespace csv {
             typename T,
             std::enable_if_t<
                 std::is_convertible<T, std::string>::value
-                || std::is_convertible<T, std::string_view>::value
+                || std::is_convertible<T, csv::string_view>::value
             , int> = 0
         >
         std::string csv_escape(T in) {
-            IF_CONSTEXPR(std::is_convertible<T, std::string_view>::value) {
+            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
                 return _csv_escape(in);
             }
             
