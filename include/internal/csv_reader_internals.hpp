@@ -12,9 +12,6 @@
 
 namespace csv {
     namespace internals {
-        /** A string buffer and its size. Consumed by read_csv_worker(). */
-        using WorkItem = std::pair<const char *, size_t>;
-
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum

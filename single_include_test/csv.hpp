@@ -1886,7 +1886,10 @@ namespace csv {
         static_assert(qe_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
         static_assert(qe_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
+        /** An array which maps ASCII chars to a parsing flag */
         using ParseFlagMap = std::array<ParseFlags, 256>;
+
+        /** An array which maps ASCII chars to a flag indicating if it is whitespace */
         using WhitespaceMap = std::array<bool, 256>;
     }
 
@@ -6023,9 +6026,6 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        /** A string buffer and its size. Consumed by read_csv_worker(). */
-        using WorkItem = std::pair<const char *, size_t>;
-
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
