@@ -76,15 +76,15 @@ TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
 struct Time {
     std::string hour;
     std::string minute;
-};
 
-namespace csv {
-    namespace internals {
-        std::string to_string(Time time) {
-            return time.hour + ":" + time.minute;
-        }
+    operator std::string() const {
+        std::string ret = hour;
+        ret += ":";
+        ret += minute;
+        
+        return ret;
     }
-}
+};
 
 TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
     Time time = { "5", "30" };

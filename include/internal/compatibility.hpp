@@ -44,6 +44,9 @@ namespace csv {
          *  The string_view class used by this library.
          */
         using string_view = nonstd::string_view;
+
+        template <bool _Test, class _Ty = void>
+        using enable_if_t = typename enable_if<_Test, _Ty>::type;
     #endif
 
     #ifdef CSV_HAS_CXX17

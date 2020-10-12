@@ -4774,6 +4774,9 @@ namespace csv {
          *  The string_view class used by this library.
          */
         using string_view = nonstd::string_view;
+
+        template <bool _Test, class _Ty = void>
+        using enable_if_t = typename enable_if<_Test, _Ty>::type;
     #endif
 
     #ifdef CSV_HAS_CXX17
@@ -6540,18 +6543,30 @@ namespace csv {
         }
 
     private:
-        template<typename T,
-            std::enable_if_t<!std::is_convertible<T, csv::string_view>::value, int> = 0
+        template<
+            typename T,
+            std::enable_if_t<
+                !std::is_convertible<T, std::string>::value
+                && !std::is_convertible<T, std::string_view>::value
+            , int> = 0
         >
         std::string csv_escape(T in) {
             return internals::to_string(in);
         }
 
-        template<typename T,
-            std::enable_if_t<std::is_convertible<T, csv::string_view>::value, int> = 0
+        template<
+            typename T,
+            std::enable_if_t<
+                std::is_convertible<T, std::string>::value
+                || std::is_convertible<T, std::string_view>::value
+            , int> = 0
         >
         std::string csv_escape(T in) {
-            return _csv_escape(in);
+            IF_CONSTEXPR(std::is_convertible<T, std::string_view>::value) {
+                return _csv_escape(in);
+            }
+            
+            return _csv_escape(std::string(in));
         }
 
         std::string _csv_escape(csv::string_view in) {

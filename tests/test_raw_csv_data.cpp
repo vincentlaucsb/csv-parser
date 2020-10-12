@@ -7,10 +7,6 @@ using namespace csv;
 using namespace csv::internals;
 using RowCollection = ThreadSafeDeque<CSVRow>;
 
-internals::WorkItem make_work_item(csv::string_view in) {
-    return std::make_pair<>(in.data(), in.length());
-}
-
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     std::string csv = "A,B,C\r\n" // Header row
         "123,234,345\r\n"

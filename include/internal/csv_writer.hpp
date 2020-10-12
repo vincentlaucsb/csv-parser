@@ -159,18 +159,30 @@ namespace csv {
         }
 
     private:
-        template<typename T,
-            std::enable_if_t<!std::is_convertible<T, csv::string_view>::value, int> = 0
+        template<
+            typename T,
+            std::enable_if_t<
+                !std::is_convertible<T, std::string>::value
+                && !std::is_convertible<T, std::string_view>::value
+            , int> = 0
         >
         std::string csv_escape(T in) {
             return internals::to_string(in);
         }
 
-        template<typename T,
-            std::enable_if_t<std::is_convertible<T, csv::string_view>::value, int> = 0
+        template<
+            typename T,
+            std::enable_if_t<
+                std::is_convertible<T, std::string>::value
+                || std::is_convertible<T, std::string_view>::value
+            , int> = 0
         >
         std::string csv_escape(T in) {
-            return _csv_escape(in);
+            IF_CONSTEXPR(std::is_convertible<T, std::string_view>::value) {
+                return _csv_escape(in);
+            }
+            
+            return _csv_escape(std::string(in));
         }
 
         std::string _csv_escape(csv::string_view in) {
