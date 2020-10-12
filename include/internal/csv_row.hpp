@@ -20,7 +20,7 @@
 
 namespace csv {
     namespace internals {
-        class BasicCSVParser;
+        class IBasicCSVParser;
 
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -102,7 +102,9 @@ namespace csv {
 
         /** A class for storing raw CSV data and associated metadata */
         struct RawCSVData {
-            std::string data = "";
+            std::shared_ptr<void> _data = nullptr;
+            csv::string_view data = "";
+
             internals::CSVFieldArray fields;
 
             std::unordered_set<size_t> has_double_quotes = {};
@@ -272,7 +274,7 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        friend internals::BasicCSVParser;
+        friend internals::IBasicCSVParser;
 
         CSVRow() = default;
         

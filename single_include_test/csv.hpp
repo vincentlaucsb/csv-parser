@@ -5380,7 +5380,7 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        class BasicCSVParser;
+        class basic_csv_parser;
 
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -5632,7 +5632,7 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        friend internals::BasicCSVParser;
+        friend internals::basic_csv_parser;
 
         CSVRow() = default;
         
@@ -5893,13 +5893,13 @@ namespace csv {
         constexpr const int UNINITIALIZED_FIELD = -1;
 
         /** A class for parsing raw CSV data */
-        class BasicCSVParser {
+        class basic_csv_parser {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            BasicCSVParser() = default;
-            BasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
-            BasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
+            basic_csv_parser() = default;
+            basic_csv_parser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
+            basic_csv_parser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
             size_t parse(mio::mmap_source&& source) {
@@ -6256,7 +6256,7 @@ namespace csv {
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
         /** Helper class which actually does the parsing */
-        internals::BasicCSVParser parser = internals::BasicCSVParser(this->col_names);
+        internals::basic_csv_parser parser = internals::basic_csv_parser(this->col_names);
 
         /** Queue of parsed CSV rows */
         RowCollection records;
@@ -6816,7 +6816,7 @@ namespace csv {
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
 
-            BasicCSVParser parser(
+            basic_csv_parser parser(
                 parse_flags,
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size())
             );
@@ -7115,7 +7115,7 @@ namespace csv {
             std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
             // Parse the CSV
-            BasicCSVParser parser(
+            basic_csv_parser parser(
                 internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags({}, 0)
             );
@@ -8059,7 +8059,7 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        CSV_INLINE size_t BasicCSVParser::parse(csv::string_view in) {
+        CSV_INLINE size_t basic_csv_parser::parse(csv::string_view in) {
             this->set_data_ptr(std::make_shared<RawCSVData>());
             this->data_ptr->col_names = this->col_names;
 
@@ -8091,7 +8091,7 @@ namespace csv {
             return this->parse_loop(in);
         }
 
-        CSV_INLINE void BasicCSVParser::push_field()
+        CSV_INLINE void basic_csv_parser::push_field()
         {
             // Update
             if (field_has_double_quote) {
@@ -8117,7 +8117,7 @@ namespace csv {
             field_length = 0;
         }
 
-        CSV_INLINE size_t BasicCSVParser::parse_loop(csv::string_view in)
+        CSV_INLINE size_t basic_csv_parser::parse_loop(csv::string_view in)
         {
             using internals::ParseFlags;
 

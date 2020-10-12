@@ -110,44 +110,108 @@ namespace csv {
 
         constexpr const int UNINITIALIZED_FIELD = -1;
 
-        /** A class for parsing raw CSV data */
-        class BasicCSVParser {
+        class IBasicCSVParser {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            BasicCSVParser() = default;
-            BasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
-            BasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
+            IBasicCSVParser() = default;
+            IBasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
+            IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            size_t parse(mio::mmap_source&& source) {
-                this->data_source = std::move(source);
-                return this->parse(csv::string_view(this->data_source.data(), this->data_source.length()));
+            void set_parse_flags(internals::ParseFlagMap parse_flags) {
+                _parse_flags = parse_flags;
+            }
+
+            void set_ws_flags(internals::WhitespaceMap ws_flags) {
+                _ws_flags = ws_flags;
+            }
+
+            constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
+                return _parse_flags.data()[ch + 128];
+            }
+
+            constexpr internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
+                return internals::qe_flag(parse_flag(ch), this->quote_escape);
+            }
+
+            void set_output(RowCollection& records) { this->_records = &records; }
+
+
+        protected:
+            RawCSVDataPtr data_ptr = nullptr;
+            int field_start = UNINITIALIZED_FIELD;
+            size_t field_length = 0;
+
+            void push_field();
+
+            CSVRow current_row;
+            void push_row() {
+                current_row.row_length = fields->size() - current_row.fields_start;
+                this->_records->push_back(std::move(current_row));
+            };
+
+
+            size_t parse_loop(csv::string_view in);
+
+            CSVFieldArray* fields = nullptr;
+
+            /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+            internals::ParseFlagMap _parse_flags;
+
+        private:
+
+
+            /** An array where the (i + 128)th slot determines whether ASCII character i should
+             *  be trimmed
+             */
+            internals::WhitespaceMap _ws_flags;
+
+            bool quote_escape = false;
+            bool field_has_double_quote = false;
+
+            mio::mmap_source data_source;
+            ColNamesPtr col_names = nullptr;
+            RowCollection* _records = nullptr;
+
+
+            constexpr bool ws_flag(const char ch) const noexcept {
+                return _ws_flags.data()[ch + 128];
+            }
+
+            size_t& current_row_start() {
+                return this->current_row.data_start;
+            }
+
+            void parse_field(csv::string_view in, size_t& i) noexcept;
+        };
+
+        /** A class for parsing raw CSV data */
+        template<typename TSource>
+        class basic_csv_parser: public IBasicCSVParser {
+            using RowCollection = ThreadSafeDeque<CSVRow>;
+
+        public:
+            basic_csv_parser(ParseFlagMap parse_flags, WhitespaceMap ws_flags) {
+                set_parse_flags(parse_flags);
+                set_ws_flags(ws_flags);
             }
 
             /** @return The number of lingering characters in the last
              *          unfinished row
              */
-            size_t parse(csv::string_view in);
+            size_t feed(TSource&& in) {
+                this->set_data_source(std::move(in));
+                this->current_row = CSVRow(this->data_ptr);
 
-            size_t parse(csv::string_view in, RowCollection& records) {
-                this->set_output(records);
-                return this->parse(in);
-            }
-
-            void clear_fragments() {
-                this->data_ptr = RawCSVDataPtr(new RawCSVData());
-                this->current_row = CSVRow(this->data_ptr, 0, 0);
-                this->field_start = UNINITIALIZED_FIELD;
-                this->field_length = 0;
+                return this->parse_loop(this->data_ptr->data);
             }
         
             void end_feed() {
                 using internals::ParseFlags;
 
-                bool empty_last_field = this->current_row.data
-                    && !this->current_row.data->data.empty()
-                    && parse_flag(this->current_row.data->data.back()) == ParseFlags::DELIMITER;
+                bool empty_last_field = this->data_ptr->_data
+                    && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
 
                 // Push field
                 if (this->field_length > 0 || empty_last_field) {
@@ -159,87 +223,12 @@ namespace csv {
                     this->push_row();
             }
 
-            void set_output(RowCollection& records) { this->_records = &records; }
-
-            void set_parse_flags(internals::ParseFlagMap parse_flags) {
-                _parse_flags = parse_flags;
-            }
-
-            void set_ws_flags(internals::WhitespaceMap ws_flags) {
-                _ws_flags = ws_flags;
-            }
-
-        private:
-            /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-            internals::ParseFlagMap _parse_flags;
-
-            /** An array where the (i + 128)th slot determines whether ASCII character i should
-             *  be trimmed
-             */
-            internals::WhitespaceMap _ws_flags;
-
-            CSVRow current_row;
-            bool quote_escape = false;
-            int field_start = -1;
-            size_t field_length = 0;
-            bool field_has_double_quote = false;
-
-            mio::mmap_source data_source;
-            ColNamesPtr col_names = nullptr;
-            RawCSVDataPtr data_ptr = nullptr;
-            CSVFieldArray* fields = nullptr;
-            RowCollection* _records = nullptr;
-
-            constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
-                return _parse_flags.data()[ch + 128];
-            }
-
-            constexpr internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
-                return internals::qe_flag(parse_flag(ch), this->quote_escape);
-            }
-
-            constexpr bool ws_flag(const char ch) const noexcept {
-                return _ws_flags.data()[ch + 128];
-            }
-
-            size_t& current_row_start() {
-                return this->current_row.data_start;
-            }
-
-            void push_field();
-
-            void parse_field(string_view in, size_t& i) noexcept {
-                using internals::ParseFlags;
-
-                // Trim off leading whitespace
-                while (i < in.size() && ws_flag(in[i])) i++;
-
-                if (field_start == UNINITIALIZED_FIELD)
-                    field_start = (int)(i - current_row_start());
-
-                // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-                // sequences, use the loop below to avoid having to go through the outer
-                // switch statement as much as possible
-                while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
-
-                field_length = i - (field_start + current_row_start());
-
-                // Trim off trailing whitespace, this->field_length constraint matters
-                // when field is entirely whitespace
-                for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
-            }
-
-            size_t parse_loop(csv::string_view in);
-
-            void push_row() {
-                current_row.row_length = fields->size() - current_row.fields_start;
-                this->_records->push_back(std::move(current_row));
-            };
-
-            void set_data_ptr(RawCSVDataPtr ptr) {
-                this->data_ptr = ptr;
+            void set_data_source(TSource&& source) {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->_data = std::make_shared<TSource>(std::move(source));
+                this->data_ptr->data = csv::string_view(*((TSource*)this->data_ptr->_data.get()));
                 this->data_ptr->parse_flags = this->_parse_flags;
-                this->fields = &(ptr->fields);
+                this->fields = &(this->data_ptr->fields);
             }
         };
     }

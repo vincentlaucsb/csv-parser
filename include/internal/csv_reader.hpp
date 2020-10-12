@@ -16,12 +16,12 @@
 #include <vector>
 
 #include "../external/mio.hpp"
+#include "basic_csv_parser.hpp"
 #include "constants.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
 #include "csv_reader_internals.hpp"
 #include "compatibility.hpp"
-#include "raw_csv_data.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
@@ -180,7 +180,7 @@ namespace csv {
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
         /** Helper class which actually does the parsing */
-        internals::BasicCSVParser parser = internals::BasicCSVParser(this->col_names);
+        std::unique_ptr<internals::IBasicCSVParser> parser = nullptr;
 
         /** Queue of parsed CSV rows */
         RowCollection records;

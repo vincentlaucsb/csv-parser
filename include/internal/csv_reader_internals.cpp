@@ -10,13 +10,13 @@ namespace csv {
             std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
             // Parse the CSV
-            BasicCSVParser parser(
+            basic_csv_parser<std::string> parser(
                 internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags({}, 0)
             );
 
             ThreadSafeDeque<CSVRow> rows;
-            parser.parse(head, rows);
+            // parser.parse(head, rows);
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];

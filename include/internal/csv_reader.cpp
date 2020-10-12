@@ -33,13 +33,13 @@ namespace csv {
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
 
-            BasicCSVParser parser(
+            basic_csv_parser<std::string> parser(
                 parse_flags,
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size())
             );
 
             ThreadSafeDeque<CSVRow> rows;
-            parser.parse(head, rows);
+            // parser.feed(std::move(head));
 
             return CSVRow(std::move(rows[format.get_header()]));
         }
@@ -159,15 +159,15 @@ namespace csv {
         if (in.empty()) return;
 
         this->trim_utf8_bom(in);
-        this->parser.parse(in, this->records);
+        //this->parser.parse(in, this->records);
         this->trim_header();
     }
 
     CSV_INLINE size_t CSVReader::feed_map(mio::mmap_source&& source) {
         size_t remainder = 0;
         this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
-        this->parser.set_output(this->records);
-        remainder = this->parser.parse(std::move(source));
+        //this->parser.set_output(this->records);
+        //remainder = this->parser.parse(std::move(source));
         this->trim_header();
 
         return remainder;
@@ -177,7 +177,7 @@ namespace csv {
         /** Indicate that there is no more data to receive,
          *  and handle the last row
          */
-        this->parser.end_feed();
+        // this->parser.end_feed();
     }
 
     CSV_INLINE void CSVReader::trim_utf8_bom(csv::string_view in) {
@@ -211,13 +211,13 @@ namespace csv {
     {
         this->_format = format;
         if (format.no_quote) {
-            this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim()));
+            //this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim()));
         }
         else {
-            this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim(), format.quote_char));
+            //this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim(), format.quote_char));
         }
 
-        this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
+        //this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
     }
 
     /**
@@ -254,7 +254,7 @@ namespace csv {
 
         size_t remainder = this->feed_map(std::move(_csv_mmap));
         if (remainder > 0) {
-            this->parser.clear_fragments();
+            // this->parser.clear_fragments();
             this->mmap_pos -= (length - remainder);
         }
 

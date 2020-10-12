@@ -1,40 +1,29 @@
-#include "raw_csv_data.hpp"
+#include "basic_csv_parser.hpp"
 
 namespace csv {
     namespace internals {
-        CSV_INLINE size_t BasicCSVParser::parse(csv::string_view in) {
-            this->set_data_ptr(std::make_shared<RawCSVData>());
-            this->data_ptr->col_names = this->col_names;
+        CSV_INLINE void IBasicCSVParser::parse_field(csv::string_view in, size_t& i) noexcept {
+            using internals::ParseFlags;
 
-            // Check for previous fragments
-            if (this->current_row.data && this->current_row.size() > 0 || this->field_length > 0) {
-                // Make a separate data buffer for the fragment row
-                auto temp_str = this->current_row.data->data.substr(this->current_row.data_start);
+            // Trim off leading whitespace
+            while (i < in.size() && ws_flag(in[i])) i++;
 
-                this->current_row.data = this->data_ptr;
-                this->current_row.data_start = 0;
-                this->current_row.row_length = 0;
-                this->current_row.fields_start = 0;
+            if (field_start == UNINITIALIZED_FIELD)
+                field_start = (int)(i - current_row_start());
 
-                this->field_start = UNINITIALIZED_FIELD;
-                this->field_length = 0;
+            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+            // sequences, use the loop below to avoid having to go through the outer
+            // switch statement as much as possible
+            while (i < in.size() && compound_parse_flag(in[i]) == ParseFlags::NOT_SPECIAL) i++;
 
-                auto& fragment_data = this->current_row.data;
-                fragment_data->data.reserve(temp_str.size() + in.size());
-                fragment_data->data = temp_str;
-                fragment_data->data += in;
+            field_length = i - (field_start + current_row_start());
 
-                in = csv::string_view(fragment_data->data);
-            }
-            else {
-                this->data_ptr->data.assign(in.data(), in.size());
-                this->current_row = CSVRow(this->data_ptr);
-            }
-
-            return this->parse_loop(in);
+            // Trim off trailing whitespace, this->field_length constraint matters
+            // when field is entirely whitespace
+            for (size_t j = i - 1; ws_flag(in[j]) && this->field_length > 0; j--) this->field_length--;
         }
 
-        CSV_INLINE void BasicCSVParser::push_field()
+        CSV_INLINE void IBasicCSVParser::push_field()
         {
             // Update
             if (field_has_double_quote) {
@@ -60,7 +49,7 @@ namespace csv {
             field_length = 0;
         }
 
-        CSV_INLINE size_t BasicCSVParser::parse_loop(csv::string_view in)
+        CSV_INLINE size_t IBasicCSVParser::parse_loop(csv::string_view in)
         {
             using internals::ParseFlags;
 

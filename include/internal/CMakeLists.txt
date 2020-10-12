@@ -22,8 +22,8 @@ target_sources(csv
 		csv_utility.hpp
 		csv_writer.hpp
 		data_type.h
-		raw_csv_data.hpp
-		raw_csv_data.cpp
+		"basic_csv_parser.hpp"
+		"basic_csv_parser.cpp"
 		)
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)

@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "basic_csv_parser.hpp"
 #include "compatibility.hpp"
 #include "csv_format.hpp"
-#include "raw_csv_data.hpp"
 
 namespace csv {
     namespace internals {
@@ -62,6 +62,10 @@ namespace csv {
             }
 
             return ret;
+        }
+
+        CSV_INLINE WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
+            return make_ws_flags(flags.data(), flags.size());
         }
 
         struct GuessScore {
