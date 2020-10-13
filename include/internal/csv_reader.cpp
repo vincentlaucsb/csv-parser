@@ -60,7 +60,9 @@ namespace csv {
             );
 
             ThreadSafeDeque<CSVRow> rows;
-            // parser.parse(head, rows);
+            parser.set_output(rows);
+            parser.set_data_source(head);
+            parser.next();
 
             for (size_t i = 0; i < rows.size(); i++) {
                 auto& row = rows[i];
