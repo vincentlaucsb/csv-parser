@@ -12,6 +12,7 @@
 
 namespace csv {
     class CSVReader;
+    class IBasicCSVParser;
 
     /** Determines how to handle rows that are shorter or longer than the majority */
     enum class VariableColumnPolicy {
@@ -140,7 +141,8 @@ namespace csv {
         }
 
         friend CSVReader;
-
+        friend IBasicCSVParser;
+        
     private:
         /**< Throws an error if delimiters and trim characters overlap */
         void assert_no_char_overlap();

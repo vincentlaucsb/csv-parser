@@ -33,15 +33,93 @@ namespace csv {
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
 
-            basic_csv_parser<std::string> parser(
+            basic_csv_parser<csv::string_view> parser(
                 parse_flags,
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size())
             );
 
             ThreadSafeDeque<CSVRow> rows;
-            // parser.feed(std::move(head));
+            parser.set_output(rows);
+            parser.set_data_source(head);
+            parser.next();
 
             return CSVRow(std::move(rows[format.get_header()]));
+        }
+
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format) {
+            // Frequency counter of row length
+            std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
+
+            // Map row lengths to row num where they first occurred
+            std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
+
+            // Parse the CSV
+            basic_csv_parser<std::string> parser(
+                internals::make_parse_flags(format.get_delim(), '"'),
+                internals::make_ws_flags({}, 0)
+            );
+
+            ThreadSafeDeque<CSVRow> rows;
+            // parser.parse(head, rows);
+
+            for (size_t i = 0; i < rows.size(); i++) {
+                auto& row = rows[i];
+
+                // Ignore zero-length rows
+                if (row.size() > 0) {
+                    if (row_tally.find(row.size()) != row_tally.end()) {
+                        row_tally[row.size()]++;
+                    }
+                    else {
+                        row_tally[row.size()] = 1;
+                        row_when[row.size()] = i;
+                    }
+                }
+            }
+
+            double final_score = 0;
+            size_t header_row = 0;
+
+            // Final score is equal to the largest 
+            // row size times rows of that size
+            for (auto& [row_size, row_count] : row_tally) {
+                double score = (double)(row_size * row_count);
+                if (score > final_score) {
+                    final_score = score;
+                    header_row = row_when[row_size];
+                }
+            }
+
+            return {
+                final_score,
+                header_row
+            };
+        }
+
+        /** Guess the delimiter used by a delimiter-separated values file */
+        CSV_INLINE CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims) {
+            /** For each delimiter, find out which row length was most common.
+             *  The delimiter with the longest mode row length wins.
+             *  Then, the line number of the header row is the first row with
+             *  the mode row length.
+             */
+
+            CSVFormat format;
+            size_t max_score = 0,
+                header = 0;
+            char current_delim = delims[0];
+
+            for (char cand_delim : delims) {
+                auto result = calculate_score(head, format.delimiter(cand_delim));
+
+                if (result.score > max_score) {
+                    max_score = (size_t)result.score;
+                    current_delim = cand_delim;
+                    header = result.header;
+                }
+            }
+
+            return { current_delim, (int)header };
         }
     }
 
@@ -70,13 +148,23 @@ namespace csv {
     }
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
-    CSV_INLINE CSVReader::CSVReader(CSVFormat format) : 
+    CSV_INLINE CSVReader::CSVReader(const std::stringstream& source, CSVFormat format) : 
         unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
         
-        this->set_parse_flags(format);
+        internals::ParseFlagMap parse_flags;
+        if (format.no_quote) {
+            parse_flags = internals::make_parse_flags(format.get_delim());
+        }
+        else {
+            parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+        }
+
+        auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+
+        this->parser = std::make_unique<internals::basic_csv_parser<std::stringstream>>(parse_flags, ws_flags);
     }
 
     /** Allows reading a CSV file in chunks, using overlapped
@@ -93,9 +181,8 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _filename(filename), mmap_eof(false) {
-        this->file_size = internals::get_file_size(filename);
-        auto head = internals::get_csv_head(filename, this->file_size);
+    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
+        auto head = internals::get_csv_head(filename);
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
@@ -104,14 +191,23 @@ namespace csv {
             format.header = guess_result.header_row;
         }
 
-        if (format.col_names.empty()) {
-            this->set_col_names(internals::_get_col_names(head, format));
-        }
-        else {
+        if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
 
-        this->set_parse_flags(format);
+        internals::ParseFlagMap parse_flags;
+
+        if (format.no_quote) {
+            parse_flags = internals::make_parse_flags(format.get_delim());
+        }
+        else {
+            parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+        }
+
+        auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
+
+        this->parser = std::make_unique<internals::basic_csv_parser<mio::basic_mmap_source<char>>>(
+            filename, parse_flags, ws_flags);
     }
 
     /** Return the format of the original raw CSV */
@@ -147,22 +243,6 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    /** Parse a CSV-formatted string.
-     *
-     *  @par Usage
-     *  Incomplete CSV fragments can be joined together by calling feed() on them sequentially.
-     *
-     *  @note
-     *  `end_feed()` should be called after the last string.
-     */
-    CSV_INLINE void CSVReader::feed(csv::string_view in) {
-        if (in.empty()) return;
-
-        this->trim_utf8_bom(in);
-        //this->parser.parse(in, this->records);
-        this->trim_header();
-    }
-
     CSV_INLINE size_t CSVReader::feed_map(mio::mmap_source&& source) {
         size_t remainder = 0;
         this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
@@ -171,13 +251,6 @@ namespace csv {
         this->trim_header();
 
         return remainder;
-    }
-
-    CSV_INLINE void CSVReader::end_feed() {
-        /** Indicate that there is no more data to receive,
-         *  and handle the last row
-         */
-        // this->parser.end_feed();
     }
 
     CSV_INLINE void CSVReader::trim_utf8_bom(csv::string_view in) {
@@ -238,29 +311,17 @@ namespace csv {
      * @see CSVReader::read_row()
      */
     CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
-        if (this->_filename.empty()) return false;
-
-        size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-        std::error_code error;
-        auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos,
-            length, error);
-
-        if (error) throw error;
-
-        this->mmap_pos += length;
-
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
-        size_t remainder = this->feed_map(std::move(_csv_mmap));
-        if (remainder > 0) {
-            // this->parser.clear_fragments();
-            this->mmap_pos -= (length - remainder);
+        this->parser->next();
+
+        if (!this->header_trimmed) {
+            this->trim_header();
         }
 
-        if (this->mmap_pos == this->file_size) {
-            this->mmap_eof = true;
-            this->end_feed();
+        if (this->parser->eof()) {
+            // this->end_feed();
         }
 
         // Tell read_row() to stop waiting
@@ -289,7 +350,7 @@ namespace csv {
                 if (this->records.is_waitable())
                     // Reading thread is currently active => wait for it to populate records
                     this->records.wait();
-                else if (this->eof())
+                else if (this->parser->eof())
                     // End of file and no more records
                     return false;
                 else {

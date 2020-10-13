@@ -6,8 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "basic_csv_parser.hpp"
+#include "../external/mio.hpp"
 #include "compatibility.hpp"
+#include "constants.hpp"
 #include "csv_format.hpp"
 
 namespace csv {
@@ -64,18 +65,9 @@ namespace csv {
             return ret;
         }
 
-        CSV_INLINE WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
+        inline WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
             return make_ws_flags(flags.data(), flags.size());
         }
-
-        struct GuessScore {
-            double score;
-            size_t header;
-        };
-
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
-
-        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
         CSV_INLINE size_t get_file_size(csv::string_view filename);
 

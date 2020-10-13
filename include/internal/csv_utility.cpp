@@ -1,3 +1,4 @@
+#include <sstream>
 #include <vector>
 
 #include "csv_utility.hpp"
@@ -11,10 +12,10 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        CSVReader parser(format);
-        parser.feed(in);
-        parser.end_feed();
-        return parser;
+        std::stringstream stream;
+        stream << in;
+
+        return CSVReader(stream, format);
     }
 
     /** Parses a CSV string with no headers

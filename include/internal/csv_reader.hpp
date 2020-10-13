@@ -30,6 +30,16 @@ namespace csv {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
 
         std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
+
+        struct GuessScore {
+            double score;
+            size_t header;
+        };
+
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
+
+        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
+
     }
 
     std::vector<std::string> get_col_names(
@@ -102,7 +112,7 @@ namespace csv {
          */
          ///@{
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
-        CSVReader(CSVFormat format = CSVFormat());
+        CSVReader(const std::stringstream& source, CSVFormat format = CSVFormat());
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor
@@ -114,20 +124,6 @@ namespace csv {
                 this->read_csv_worker.join();
             }
         }
-
-        /** @name Reading In-Memory Strings
-         *  You can piece together incomplete CSV fragments by calling feed() on them
-         *  before finally calling end_feed().
-         *
-         *  Alternatively, you can also use the parse() shorthand function for
-         *  smaller strings.
-         */
-         ///@{
-        /** @name Reading In-Memory Strings */
-        ///@{
-        void feed(csv::string_view in);
-        void end_feed();
-        ///@}
 
         /** @name Retrieving CSV Rows */
         ///@{
@@ -164,7 +160,7 @@ namespace csv {
          * @{
          */
          /** Returns true if we have reached end of file */
-        constexpr bool eof() const noexcept { return this->mmap_eof; };
+        bool eof() const noexcept { return this->parser->eof(); };
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
@@ -212,10 +208,6 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::string _filename = "";
-        size_t file_size;
-        bool mmap_eof = true;
-        size_t mmap_pos = 0;
         std::thread read_csv_worker;
         ///@}
 

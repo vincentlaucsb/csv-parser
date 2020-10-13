@@ -12,6 +12,8 @@
 #include "../external/mio.hpp"
 #include "col_names.hpp"
 #include "compatibility.hpp"
+#include "csv_format.hpp"
+#include "csv_reader_internals.hpp"
 #include "csv_row.hpp"
 
 namespace csv {
@@ -115,17 +117,14 @@ namespace csv {
 
         public:
             IBasicCSVParser() = default;
+
             IBasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
+
             IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            void set_parse_flags(internals::ParseFlagMap parse_flags) {
-                _parse_flags = parse_flags;
-            }
-
-            void set_ws_flags(internals::WhitespaceMap ws_flags) {
-                _ws_flags = ws_flags;
-            }
+            virtual bool eof() = 0;
+            virtual void next() = 0;
 
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
@@ -137,6 +136,73 @@ namespace csv {
 
             void set_output(RowCollection& records) { this->_records = &records; }
 
+            template<typename TSource>
+            void set_data_source(TSource&& source) {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->_data = std::make_shared<TSource>(std::move(source));
+                this->data_ptr->data = csv::string_view(*((TSource*)this->data_ptr->_data.get()));
+                this->data_ptr->parse_flags = this->_parse_flags;
+                this->fields = &(this->data_ptr->fields);
+
+                this->current_row = CSVRow(this->data_ptr);
+            }
+
+            template<>
+            void set_data_source(csv::string_view& source) {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->data = source;
+                this->data_ptr->parse_flags = this->_parse_flags;
+                this->fields = &(this->data_ptr->fields);
+
+                this->current_row = CSVRow(this->data_ptr);
+            }
+
+            template<>
+            void set_data_source(mio::basic_mmap_source<char>&& source) {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(source));
+
+                auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
+
+                this->data_ptr->data = csv::string_view(
+                    mmap_ptr->data(), mmap_ptr->length()
+                );
+                this->data_ptr->parse_flags = this->_parse_flags;
+                this->fields = &(this->data_ptr->fields);
+
+                this->current_row = CSVRow(this->data_ptr);
+            }
+
+            /**
+            template<>
+            void set_data_source(std::stringstream&& source) {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->_data = std::make_shared<std::stringstream>(std::move(source));
+                this->data_ptr->data = csv::string_view(
+                    ((std::stringstream*)(this->data_ptr->_data.get()))->str()
+                );
+                this->data_ptr->parse_flags = this->_parse_flags;
+                this->fields = &(this->data_ptr->fields);
+
+                this->current_row = CSVRow(this->data_ptr);
+            }
+            **/
+
+            void end_feed() {
+                using internals::ParseFlags;
+
+                bool empty_last_field = this->data_ptr->_data
+                    && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+
+                // Push field
+                if (this->field_length > 0 || empty_last_field) {
+                    this->push_field();
+                }
+
+                // Push row
+                if (this->current_row.size() > 0)
+                    this->push_row();
+            }
 
         protected:
             RawCSVDataPtr data_ptr = nullptr;
@@ -151,7 +217,6 @@ namespace csv {
                 this->_records->push_back(std::move(current_row));
             };
 
-
             size_t parse_loop(csv::string_view in);
 
             CSVFieldArray* fields = nullptr;
@@ -160,8 +225,6 @@ namespace csv {
             internals::ParseFlagMap _parse_flags;
 
         private:
-
-
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
              */
@@ -182,7 +245,7 @@ namespace csv {
             size_t& current_row_start() {
                 return this->current_row.data_start;
             }
-
+                
             void parse_field(csv::string_view in, size_t& i) noexcept;
         };
 
@@ -192,44 +255,60 @@ namespace csv {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            basic_csv_parser(ParseFlagMap parse_flags, WhitespaceMap ws_flags) {
-                set_parse_flags(parse_flags);
-                set_ws_flags(ws_flags);
-            }
+            basic_csv_parser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) : IBasicCSVParser(parse_flags, ws_flags) {};
 
-            /** @return The number of lingering characters in the last
-             *          unfinished row
-             */
-            size_t feed(TSource&& in) {
-                this->set_data_source(std::move(in));
+            void next() override {
                 this->current_row = CSVRow(this->data_ptr);
-
-                return this->parse_loop(this->data_ptr->data);
+                this->parse_loop(this->data_ptr->data);
+                this->end_feed();
             }
-        
-            void end_feed() {
-                using internals::ParseFlags;
 
-                bool empty_last_field = this->data_ptr->_data
-                    && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+            bool eof() override { return true; }
+        };
 
-                // Push field
-                if (this->field_length > 0 || empty_last_field) {
-                    this->push_field();
+        template<>
+        class basic_csv_parser<mio::basic_mmap_source<char>> : public IBasicCSVParser {
+        public:
+            basic_csv_parser(
+                csv::string_view filename,
+                internals::ParseFlagMap parse_flags,
+                internals::WhitespaceMap ws_flags
+            ) : IBasicCSVParser(parse_flags, ws_flags) {
+                this->_filename = filename;
+                this->file_size = internals::get_file_size(filename);
+            };
+
+            bool eof() override {
+                return this->mmap_eof;
+            }
+
+            void next() override {
+                size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+                std::error_code error;
+                auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos, length, error);
+
+                if (error) throw error;
+
+                this->mmap_pos += length;
+
+                this->set_data_source(std::move(_csv_mmap));
+                size_t remainder = this->parse_loop(this->data_ptr->data);
+
+                if (remainder > 0) {
+                    this->mmap_pos -= (length - remainder);
                 }
 
-                // Push row
-                if (this->current_row.size() > 0) 
-                    this->push_row();
+                if (this->mmap_pos == this->file_size) {
+                    this->mmap_eof = true;
+                    this->end_feed();
+                }
             }
 
-            void set_data_source(TSource&& source) {
-                this->data_ptr = std::make_shared<RawCSVData>();
-                this->data_ptr->_data = std::make_shared<TSource>(std::move(source));
-                this->data_ptr->data = csv::string_view(*((TSource*)this->data_ptr->_data.get()));
-                this->data_ptr->parse_flags = this->_parse_flags;
-                this->fields = &(this->data_ptr->fields);
-            }
+        private:
+            std::string _filename;
+            size_t file_size = 0;
+            bool mmap_eof = false;
+            size_t mmap_pos = 0;
         };
     }
 }

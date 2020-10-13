@@ -49,6 +49,9 @@ namespace csv {
             field_length = 0;
         }
 
+        /** @return The number of lingering characters in the last
+         *          unfinished row
+         */
         CSV_INLINE size_t IBasicCSVParser::parse_loop(csv::string_view in)
         {
             using internals::ParseFlags;

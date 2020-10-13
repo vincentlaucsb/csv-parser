@@ -1,4 +1,5 @@
 #include "catch.hpp"
+#include "internal/basic_csv_parser.hpp"
 #include "internal/csv_reader_internals.hpp"
 #include "internal/csv_row.hpp"
 
@@ -9,10 +10,10 @@ using namespace csv::internals;
 using RowCollection = ThreadSafeDeque<CSVRow>;
 
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
-    std::string csv = "A,B,C\r\n"
+    std::string csv("A,B,C\r\n"
         "123,234,345\r\n"
         "1,2,3\r\n"
-        "1,2,3";
+        "1,2,3");
 
     RowCollection rows;
 
@@ -22,8 +23,8 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     );
 
     parser.set_output(rows);
-    parser.feed(std::move(csv));
-    parser.end_feed();
+    parser.set_data_source(std::move(csv));
+    parser.next();
 
     auto row = rows.front();
     REQUIRE(row[0] == "A");
@@ -54,12 +55,12 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
 }
 
 TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
-    std::string csv = ""
+    std::string csv(""
         "\"A\",\"B\",\"C\"\r\n"   // Quoted fields w/ no escapes
         "123,\"234,345\",456\r\n" // Escaped comma
         "1,\"2\"\"3\",4\r\n"      // Escaped quote
         "1,\"23\"\"34\",5\r\n"      // Another escaped quote
-        "1,\"\",2\r\n";           // Empty Field
+        "1,\"\",2\r\n");           // Empty Field
 
     RowCollection rows;
 
@@ -69,8 +70,8 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
     );
 
     parser.set_output(rows);
-    parser.feed(std::move(csv));
-    parser.end_feed();
+    parser.set_data_source(std::move(csv));
+    parser.next();
 
     auto row = rows.front();
     REQUIRE(row[0] == "A");
@@ -186,8 +187,8 @@ TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
         );
 
         parser.set_output(rows);
-        parser.feed(std::move(row_str));
-        parser.end_feed();
+        parser.set_data_source(std::move(row_str));
+        parser.next();
 
         auto header = rows[0];
         REQUIRE(vector<string>(header) == vector<string>(
@@ -214,8 +215,8 @@ TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]
         );
 
         parser.set_output(rows);
-        parser.feed(std::move(csv_string));
-        parser.end_feed();
+        parser.set_data_source(std::move(csv_string));
+        parser.next();
 
         size_t row_no = 0;
         for (auto& row : rows) {
