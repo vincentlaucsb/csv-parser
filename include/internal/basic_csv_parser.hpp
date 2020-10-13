@@ -191,7 +191,9 @@ namespace csv {
             void end_feed() {
                 using internals::ParseFlags;
 
-                bool empty_last_field = this->data_ptr->_data
+                bool empty_last_field = this->data_ptr
+                    && this->data_ptr->_data
+                    && !this->data_ptr->data.empty()
                     && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
 
                 // Push field
@@ -290,6 +292,9 @@ namespace csv {
                 if (error) throw error;
 
                 this->mmap_pos += length;
+
+                this->field_start = UNINITIALIZED_FIELD;
+                this->field_length = 0;
 
                 this->set_data_source(std::move(_csv_mmap));
                 size_t remainder = this->parse_loop(this->data_ptr->data);

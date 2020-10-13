@@ -213,8 +213,5 @@ namespace csv {
 
         void trim_utf8_bom(csv::string_view in);
         void trim_header();
-
-        /** Set parse and whitespace flags */
-        void set_parse_flags(const CSVFormat& format);
     };
 }

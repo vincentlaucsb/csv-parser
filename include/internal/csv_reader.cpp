@@ -282,19 +282,6 @@ namespace csv {
         }
     }
 
-    CSV_INLINE void CSVReader::set_parse_flags(const CSVFormat& format)
-    {
-        this->_format = format;
-        if (format.no_quote) {
-            //this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim()));
-        }
-        else {
-            //this->parser.set_parse_flags(internals::make_parse_flags(format.get_delim(), format.quote_char));
-        }
-
-        //this->parser.set_ws_flags(internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size()));
-    }
-
     /**
      *  @param[in] names Column names
      */
@@ -316,6 +303,7 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
+        this->parser->set_output(this->records);
         this->parser->next();
 
         if (!this->header_trimmed) {

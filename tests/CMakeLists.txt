@@ -11,13 +11,13 @@ target_sources(csv_test
         #test_csv_row.cpp
         #test_csv_row_json.cpp
         #test_csv_stat.cpp
-        test_guess_csv.cpp
+        #test_guess_csv.cpp
         #test_read_csv.cpp
-        #test_read_csv_file.cpp
+        test_read_csv_file.cpp
         #test_write_csv.cpp
         #test_data_type.cpp
         test_raw_csv_data.cpp
-        #test_round_trip.cpp
+        test_round_trip.cpp
     )
 target_link_libraries(csv_test csv)
 

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdio>
+#include <iostream>
 
 #include "catch.hpp"
 #include "csv.hpp"
