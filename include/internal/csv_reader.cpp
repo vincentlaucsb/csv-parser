@@ -151,7 +151,7 @@ namespace csv {
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
     CSV_INLINE CSVReader::CSVReader(const std::stringstream& source, CSVFormat format) : 
-        unicode_bom_scan(!format.unicode_detect) {
+        _format(format), unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -191,6 +191,7 @@ namespace csv {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
             format.delimiter(guess_result.delim);
             format.header = guess_result.header_row;
+            this->_format = format;
         }
 
         if (!format.col_names.empty()) {
@@ -208,8 +209,12 @@ namespace csv {
 
         auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
-        this->parser = std::make_unique<internals::basic_csv_parser<mio::basic_mmap_source<char>>>(
+        this->parser = std::make_unique<internals::BasicMmapParser>(
             filename, parse_flags, ws_flags);
+
+        // Read initial chunk to get metadata
+        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+        this->read_csv_worker.join();
     }
 
     /** Return the format of the original raw CSV */

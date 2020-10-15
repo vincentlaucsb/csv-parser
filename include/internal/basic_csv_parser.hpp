@@ -268,10 +268,9 @@ namespace csv {
             bool eof() override { return true; }
         };
 
-        template<>
-        class basic_csv_parser<mio::basic_mmap_source<char>> : public IBasicCSVParser {
+        class BasicMmapParser : public IBasicCSVParser {
         public:
-            basic_csv_parser(
+            BasicMmapParser(
                 csv::string_view filename,
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags
