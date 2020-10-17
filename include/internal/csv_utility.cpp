@@ -53,8 +53,8 @@ namespace csv {
      *  @param[in] format    Format of the CSV file
      */
     CSV_INLINE int get_col_pos(
-        const std::string filename,
-        const std::string col_name,
+        csv::string_view filename,
+        csv::string_view col_name,
         const CSVFormat format) {
         CSVReader reader(filename, format);
         return reader.index_of(col_name);

@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <condition_variable>
 #include <deque>
@@ -136,28 +137,6 @@ namespace csv {
 
             void set_output(RowCollection& records) { this->_records = &records; }
 
-            template<typename TSource>
-            void set_data_source(TSource&& source) {
-                this->data_ptr = std::make_shared<RawCSVData>();
-                this->data_ptr->_data = std::make_shared<TSource>(std::move(source));
-                this->data_ptr->data = csv::string_view(*((TSource*)this->data_ptr->_data.get()));
-                this->data_ptr->parse_flags = this->_parse_flags;
-                this->fields = &(this->data_ptr->fields);
-
-                this->current_row = CSVRow(this->data_ptr);
-            }
-
-            template<>
-            void set_data_source(csv::string_view& source) {
-                this->data_ptr = std::make_shared<RawCSVData>();
-                this->data_ptr->data = source;
-                this->data_ptr->parse_flags = this->_parse_flags;
-                this->fields = &(this->data_ptr->fields);
-
-                this->current_row = CSVRow(this->data_ptr);
-            }
-
-            template<>
             void set_data_source(mio::basic_mmap_source<char>&& source) {
                 this->data_ptr = std::make_shared<RawCSVData>();
                 this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(source));
@@ -172,21 +151,6 @@ namespace csv {
 
                 this->current_row = CSVRow(this->data_ptr);
             }
-
-            /**
-            template<>
-            void set_data_source(std::stringstream&& source) {
-                this->data_ptr = std::make_shared<RawCSVData>();
-                this->data_ptr->_data = std::make_shared<std::stringstream>(std::move(source));
-                this->data_ptr->data = csv::string_view(
-                    ((std::stringstream*)(this->data_ptr->_data.get()))->str()
-                );
-                this->data_ptr->parse_flags = this->_parse_flags;
-                this->fields = &(this->data_ptr->fields);
-
-                this->current_row = CSVRow(this->data_ptr);
-            }
-            **/
 
             void end_feed() {
                 using internals::ParseFlags;
@@ -252,20 +216,57 @@ namespace csv {
         };
 
         /** A class for parsing raw CSV data */
-        template<typename TSource>
-        class basic_csv_parser: public IBasicCSVParser {
+        template<typename TStream>
+        class BasicStreamParser: public IBasicCSVParser {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            basic_csv_parser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) : IBasicCSVParser(parse_flags, ws_flags) {};
+            BasicStreamParser(
+                TStream& source,
+                internals::ParseFlagMap parse_flags,
+                internals::WhitespaceMap ws_flags) :
+                IBasicCSVParser(parse_flags, ws_flags),
+                _source(source)
+            {};
 
             void next() override {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->_data = std::make_shared<std::string>();
+                this->data_ptr->parse_flags = this->_parse_flags;
+
+                const auto start = _source.tellg();
+                _source.seekg(0, std::ios::end);
+                const auto end = _source.tellg();
+                _source.seekg(0, std::ios::beg);
+
+                // Read data into buffer
+                size_t length = std::min((size_t)(end - start), internals::ITERATION_CHUNK_SIZE);
+                char c;
+
+                for (size_t i = 0; i < length; i++) {
+                    _source.get(c);
+                    *((std::string*)this->data_ptr->_data.get()) += c;
+                }
+
+                // Create string_view
+                this->data_ptr->data = *((std::string*)this->data_ptr->_data.get());
+
+                if (_source.eof()) {
+                    this->_eof = true;
+                }
+
                 this->current_row = CSVRow(this->data_ptr);
+                this->fields = &(this->data_ptr->fields);
+
                 this->parse_loop(this->data_ptr->data);
                 this->end_feed();
             }
 
-            bool eof() override { return true; }
+            bool eof() override { return this->_eof; }
+
+        private:
+            TStream& _source;
+            bool _eof = false;
         };
 
         class BasicMmapParser : public IBasicCSVParser {

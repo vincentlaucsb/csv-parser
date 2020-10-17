@@ -32,9 +32,10 @@ namespace csv {
 
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
+            std::stringstream source(head.data());
 
-            basic_csv_parser<csv::string_view> parser(
-                parse_flags,
+            BasicStreamParser<std::stringstream> parser(
+                source, parse_flags,
                 internals::make_ws_flags(trim_chars.data(), trim_chars.size())
             );
 
@@ -54,14 +55,15 @@ namespace csv {
             std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
             // Parse the CSV
-            basic_csv_parser<std::string> parser(
+            std::stringstream source(head.data());
+            BasicStreamParser<std::stringstream> parser(
+                source,
                 internals::make_parse_flags(format.get_delim(), '"'),
                 internals::make_ws_flags({}, 0)
             );
 
             ThreadSafeDeque<CSVRow> rows;
             parser.set_output(rows);
-            parser.set_data_source(head);
             parser.next();
 
             for (size_t i = 0; i < rows.size(); i++) {
@@ -150,7 +152,7 @@ namespace csv {
     }
 
     /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
-    CSV_INLINE CSVReader::CSVReader(const std::stringstream& source, CSVFormat format) : 
+    CSV_INLINE CSVReader::CSVReader(std::stringstream& source, CSVFormat format) : 
         _format(format), unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
@@ -166,7 +168,7 @@ namespace csv {
 
         auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
-        this->parser = std::make_unique<internals::basic_csv_parser<std::stringstream>>(parse_flags, ws_flags);
+        this->parser = std::make_unique<internals::BasicStreamParser<std::stringstream>>(source, parse_flags, ws_flags);
     }
 
     /** Allows reading a CSV file in chunks, using overlapped

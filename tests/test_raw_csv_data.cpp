@@ -10,20 +10,20 @@ using namespace csv::internals;
 using RowCollection = ThreadSafeDeque<CSVRow>;
 
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
-    std::string csv("A,B,C\r\n"
+    std::stringstream csv("A,B,C\r\n"
         "123,234,345\r\n"
         "1,2,3\r\n"
         "1,2,3");
 
     RowCollection rows;
 
-    basic_csv_parser<std::string> parser(
+    BasicStreamParser<std::stringstream> parser(
+        csv,
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
     parser.set_output(rows);
-    parser.set_data_source(std::move(csv));
     parser.next();
 
     auto row = rows.front();
@@ -55,7 +55,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
 }
 
 TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
-    std::string csv(""
+    std::stringstream csv(""
         "\"A\",\"B\",\"C\"\r\n"   // Quoted fields w/ no escapes
         "123,\"234,345\",456\r\n" // Escaped comma
         "1,\"2\"\"3\",4\r\n"      // Escaped quote
@@ -64,13 +64,13 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
 
     RowCollection rows;
 
-    basic_csv_parser<std::string> parser(
+    BasicStreamParser<std::stringstream> parser(
+        csv,
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
     parser.set_output(rows);
-    parser.set_data_source(std::move(csv));
     parser.next();
 
     auto row = rows.front();
@@ -181,13 +181,14 @@ TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
 
         RowCollection rows;
 
-        basic_csv_parser<std::string> parser(
+        auto csv = std::stringstream(row_str);
+        BasicStreamParser<std::stringstream> parser(
+            csv,
             internals::make_parse_flags(',', '"'),
             internals::make_ws_flags({ ' ', '\t' })
         );
 
         parser.set_output(rows);
-        parser.set_data_source(std::move(row_str));
         parser.next();
 
         auto header = rows[0];
@@ -209,13 +210,15 @@ TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]
     SECTION("Parse Test") {
         RowCollection rows;
 
-        basic_csv_parser<std::string> parser(
+        auto csv = std::stringstream(csv_string);
+        BasicStreamParser<std::stringstream> parser(
+            csv,
             internals::make_parse_flags(',', '"'),
             internals::make_ws_flags({ ' ', '\t' })
         );
 
         parser.set_output(rows);
-        parser.set_data_source(std::move(csv_string));
+
         parser.next();
 
         size_t row_no = 0;

@@ -29,7 +29,7 @@ namespace csv {
         std::vector<TypeCount> get_dtypes() const;
 
         CSVStat(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
-        CSVStat(const std::stringstream& source, CSVFormat format = CSVFormat()) : CSVReader(source, format) {};
+        CSVStat(std::stringstream& source, CSVFormat format = CSVFormat()) : CSVReader(source, format) {};
     private:
         // An array of rolling averages
         // Each index corresponds to the rolling mean for the column at said index

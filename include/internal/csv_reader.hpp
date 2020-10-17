@@ -112,7 +112,7 @@ namespace csv {
          */
          ///@{
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
-        CSVReader(const std::stringstream& source, CSVFormat format = CSVFormat());
+        CSVReader(std::stringstream& source, CSVFormat format = CSVFormat());
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor
