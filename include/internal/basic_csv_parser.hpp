@@ -255,12 +255,11 @@ namespace csv {
 
                 // Read data into buffer
                 size_t length = std::min(stream_length - stream_pos, internals::ITERATION_CHUNK_SIZE);
-                char c;
+                std::unique_ptr<char[]> buff(new char[length]);
+                _source.read(buff.get(), length);
+                ((std::string*)(this->data_ptr->_data.get()))->assign(buff.get(), length);
 
-                for (; stream_pos < length; stream_pos++) {
-                    _source.get(c);
-                    *((std::string*)this->data_ptr->_data.get()) += c;
-                }
+                stream_pos += length;
 
                 // Create string_view
                 this->data_ptr->data = *((std::string*)this->data_ptr->_data.get());

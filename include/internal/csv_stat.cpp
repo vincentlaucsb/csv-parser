@@ -16,7 +16,7 @@ namespace csv {
     }
 
     CSV_INLINE CSVStat::CSVStat(std::stringstream& stream, CSVFormat format) :
-        reader(std::move(stream), format) {
+        reader(stream, format) {
         this->calc();
     }
 
