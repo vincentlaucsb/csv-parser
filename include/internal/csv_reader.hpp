@@ -135,8 +135,8 @@ namespace csv {
         /** @name CSV Metadata */
         ///@{
         CSVFormat get_format() const;
-        std::vector<std::string> get_col_names() const;
-        int index_of(csv::string_view col_name) const;
+        std::vector<std::string> get_col_names();
+        int index_of(csv::string_view col_name);
         ///@}
         
         /** @name CSV Metadata: Attributes */

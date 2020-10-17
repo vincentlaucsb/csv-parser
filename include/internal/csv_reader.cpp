@@ -41,7 +41,6 @@ namespace csv {
 
             ThreadSafeDeque<CSVRow> rows;
             parser.set_output(rows);
-            parser.set_data_source(head);
             parser.next();
 
             return CSVRow(std::move(rows[format.get_header()]));
@@ -169,6 +168,11 @@ namespace csv {
         auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
         this->parser = std::make_unique<internals::BasicStreamParser<std::stringstream>>(source, parse_flags, ws_flags);
+        this->parser->set_col_names(this->col_names);
+
+        // Read initial chunk to get metadata
+        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+        this->read_csv_worker.join();
     }
 
     /** Allows reading a CSV file in chunks, using overlapped
@@ -213,6 +217,7 @@ namespace csv {
 
         this->parser = std::make_unique<internals::BasicMmapParser>(
             filename, parse_flags, ws_flags);
+        this->parser->set_col_names(this->col_names);
 
         // Read initial chunk to get metadata
         this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
@@ -233,7 +238,11 @@ namespace csv {
     }
 
     /** Return the CSV's column names as a vector of strings. */
-    CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
+    CSV_INLINE std::vector<std::string> CSVReader::get_col_names() {
+        if (!this->header_trimmed && this->read_csv_worker.joinable()) {
+            this->read_csv_worker.join();
+        }
+
         if (this->col_names) {
             return this->col_names->get_col_names();
         }
@@ -244,7 +253,7 @@ namespace csv {
     /** Return the index of the column name if found or
      *         csv::CSV_NOT_FOUND otherwise.
      */
-    CSV_INLINE int CSVReader::index_of(csv::string_view col_name) const {
+    CSV_INLINE int CSVReader::index_of(csv::string_view col_name) {
         auto _col_names = this->get_col_names();
         for (size_t i = 0; i < _col_names.size(); i++)
             if (_col_names[i] == col_name) return (int)i;

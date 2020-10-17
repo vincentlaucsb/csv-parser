@@ -137,8 +137,12 @@ namespace csv {
 
             void set_output(RowCollection& records) { this->_records = &records; }
 
+            void set_col_names(const ColNamesPtr& _col_names) {
+                this->col_names = _col_names;
+            }
+
             void set_data_source(mio::basic_mmap_source<char>&& source) {
-                this->data_ptr = std::make_shared<RawCSVData>();
+                this->reset_data_ptr();
                 this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(source));
 
                 auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
@@ -146,8 +150,6 @@ namespace csv {
                 this->data_ptr->data = csv::string_view(
                     mmap_ptr->data(), mmap_ptr->length()
                 );
-                this->data_ptr->parse_flags = this->_parse_flags;
-                this->fields = &(this->data_ptr->fields);
 
                 this->current_row = CSVRow(this->data_ptr);
             }
@@ -178,13 +180,22 @@ namespace csv {
             void push_field();
 
             CSVRow current_row;
+
             void push_row() {
                 current_row.row_length = fields->size() - current_row.fields_start;
                 this->_records->push_back(std::move(current_row));
             };
 
+            void reset_data_ptr() {
+                this->data_ptr = std::make_shared<RawCSVData>();
+                this->data_ptr->parse_flags = this->_parse_flags;
+                this->data_ptr->col_names = this->col_names;
+                this->fields = &(this->data_ptr->fields);
+            }
+
             size_t parse_loop(csv::string_view in);
 
+            ColNamesPtr col_names = nullptr;
             CSVFieldArray* fields = nullptr;
 
             /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
@@ -200,7 +211,7 @@ namespace csv {
             bool field_has_double_quote = false;
 
             mio::mmap_source data_source;
-            ColNamesPtr col_names = nullptr;
+
             RowCollection* _records = nullptr;
 
 
@@ -226,24 +237,27 @@ namespace csv {
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags) :
                 IBasicCSVParser(parse_flags, ws_flags),
-                _source(source)
+                _source(std::move(source))
             {};
 
             void next() override {
-                this->data_ptr = std::make_shared<RawCSVData>();
+                this->reset_data_ptr();
                 this->data_ptr->_data = std::make_shared<std::string>();
-                this->data_ptr->parse_flags = this->_parse_flags;
 
-                const auto start = _source.tellg();
-                _source.seekg(0, std::ios::end);
-                const auto end = _source.tellg();
-                _source.seekg(0, std::ios::beg);
+                if (stream_length == 0) {
+                    const auto start = _source.tellg();
+                    _source.seekg(0, std::ios::end);
+                    const auto end = _source.tellg();
+                    _source.seekg(0, std::ios::beg);
+
+                    stream_length = end - start;
+                }
 
                 // Read data into buffer
-                size_t length = std::min((size_t)(end - start), internals::ITERATION_CHUNK_SIZE);
+                size_t length = std::min(stream_length - stream_pos, internals::ITERATION_CHUNK_SIZE);
                 char c;
 
-                for (size_t i = 0; i < length; i++) {
+                for (; stream_pos < length; stream_pos++) {
                     _source.get(c);
                     *((std::string*)this->data_ptr->_data.get()) += c;
                 }
@@ -251,13 +265,11 @@ namespace csv {
                 // Create string_view
                 this->data_ptr->data = *((std::string*)this->data_ptr->_data.get());
 
-                if (_source.eof()) {
+                if (_source.eof() || stream_pos == stream_length) {
                     this->_eof = true;
                 }
 
                 this->current_row = CSVRow(this->data_ptr);
-                this->fields = &(this->data_ptr->fields);
-
                 this->parse_loop(this->data_ptr->data);
                 this->end_feed();
             }
@@ -265,7 +277,9 @@ namespace csv {
             bool eof() override { return this->_eof; }
 
         private:
-            TStream& _source;
+            TStream _source;
+            size_t stream_pos = 0;
+            size_t stream_length = 0;
             bool _eof = false;
         };
 
