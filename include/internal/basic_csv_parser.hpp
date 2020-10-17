@@ -118,16 +118,15 @@ namespace csv {
 
         public:
             IBasicCSVParser() = default;
-
             IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            virtual ~IBasicCSVParser() {
-
-            }
+            virtual ~IBasicCSVParser() {}
 
             bool eof() { return this->_eof; }
             virtual void next() = 0;
+
+            void end_feed();
 
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
@@ -142,28 +141,8 @@ namespace csv {
             void set_col_names(const ColNamesPtr& _col_names) {
                 this->col_names = _col_names;
             }
-
-            void end_feed() {
-                using internals::ParseFlags;
-
-                bool empty_last_field = this->data_ptr
-                    && this->data_ptr->_data
-                    && !this->data_ptr->data.empty()
-                    && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
-
-                // Push field
-                if (this->field_length > 0 || empty_last_field) {
-                    this->push_field();
-                }
-
-                // Push row
-                if (this->current_row.size() > 0)
-                    this->push_row();
-            }
             
-            CONSTEXPR bool utf8_bom() const {
-                return this->_utf8_bom;
-            }
+            constexpr bool utf8_bom() const { return this->_utf8_bom; }
 
         protected:
             bool _eof = false;
@@ -174,20 +153,6 @@ namespace csv {
             void push_field();
 
             CSVRow current_row;
-
-            void trim_utf8_bom() {
-                /** Handle possible Unicode byte order mark */
-                if (!this->unicode_bom_scan) {
-                    auto& data = this->data_ptr->data;
-
-                    if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
-                        data.remove_prefix(3); // Remove BOM from input string
-                        this->_utf8_bom = true;
-                    }
-
-                    this->unicode_bom_scan = true;
-                }
-            }
 
             void push_row() {
                 current_row.row_length = fields->size() - current_row.fields_start;
@@ -202,6 +167,7 @@ namespace csv {
             }
 
             size_t parse_loop();
+            void trim_utf8_bom();
 
             ColNamesPtr col_names = nullptr;
             CSVFieldArray* fields = nullptr;
@@ -302,38 +268,7 @@ namespace csv {
 
             ~BasicMmapParser() {}
 
-            void next() override {
-                // Reset parser state
-                this->field_start = UNINITIALIZED_FIELD;
-                this->field_length = 0;
-                this->reset_data_ptr();
-
-                // Create memory map
-                size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-                std::error_code error;
-                this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
-                this->mmap_pos += length;
-                if (error) throw error;
-
-                auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
-
-                // Create string view
-                this->data_ptr->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
-
-                // Parse
-                this->current_row = CSVRow(this->data_ptr);
-                size_t remainder = this->parse_loop();
-
-                // Re-align
-                if (remainder > 0) {
-                    this->mmap_pos -= (length - remainder);
-                }
-
-                if (this->mmap_pos == this->file_size) {
-                    this->_eof = true;
-                    this->end_feed();
-                }
-            }
+            void next() override;
 
         private:
             std::string _filename;

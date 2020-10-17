@@ -150,7 +150,7 @@ namespace csv {
         constexpr size_t n_rows() const noexcept { return this->_n_rows; }
 
         /** @return Whether or not CSV was prefixed with a UTF-8 bom */
-        constexpr bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
+        bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
         ///@}
 
     protected:

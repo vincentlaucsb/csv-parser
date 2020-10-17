@@ -2,6 +2,27 @@
 
 namespace csv {
     namespace internals {
+#ifdef _MSC_VER
+#pragma region IBasicCVParser
+#endif
+        CSV_INLINE void IBasicCSVParser::end_feed() {
+            using internals::ParseFlags;
+
+            bool empty_last_field = this->data_ptr
+                && this->data_ptr->_data
+                && !this->data_ptr->data.empty()
+                && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+
+            // Push field
+            if (this->field_length > 0 || empty_last_field) {
+                this->push_field();
+            }
+
+            // Push row
+            if (this->current_row.size() > 0)
+                this->push_row();
+        }
+
         CSV_INLINE void IBasicCSVParser::parse_field(csv::string_view in, size_t& i) noexcept {
             using internals::ParseFlags;
 
@@ -127,5 +148,61 @@ namespace csv {
 
             return this->current_row_start();
         }
+
+        CSV_INLINE void IBasicCSVParser::trim_utf8_bom() {
+            /** Handle possible Unicode byte order mark */
+            if (!this->unicode_bom_scan) {
+                auto& data = this->data_ptr->data;
+
+                if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
+                    data.remove_prefix(3); // Remove BOM from input string
+                    this->_utf8_bom = true;
+                }
+
+                this->unicode_bom_scan = true;
+            }
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
+
+#ifdef _MSC_VER
+#pragma region Specializations
+#endif
+        CSV_INLINE void BasicMmapParser::next() {
+            // Reset parser state
+            this->field_start = UNINITIALIZED_FIELD;
+            this->field_length = 0;
+            this->reset_data_ptr();
+
+            // Create memory map
+            size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+            std::error_code error;
+            this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
+            this->mmap_pos += length;
+            if (error) throw error;
+
+            auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
+
+            // Create string view
+            this->data_ptr->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
+
+            // Parse
+            this->current_row = CSVRow(this->data_ptr);
+            size_t remainder = this->parse_loop();
+
+            // Re-align
+            if (remainder > 0) {
+                this->mmap_pos -= (length - remainder);
+            }
+
+            if (this->mmap_pos == this->file_size) {
+                this->_eof = true;
+                this->end_feed();
+            }
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
     }
 }

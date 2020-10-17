@@ -5969,14 +5969,15 @@ namespace csv {
 
         public:
             IBasicCSVParser() = default;
-
-            IBasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
-
             IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            virtual bool eof() = 0;
+            virtual ~IBasicCSVParser() {}
+
+            bool eof() { return this->_eof; }
             virtual void next() = 0;
+
+            void end_feed();
 
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
@@ -5991,39 +5992,11 @@ namespace csv {
             void set_col_names(const ColNamesPtr& _col_names) {
                 this->col_names = _col_names;
             }
-
-            void set_data_source(mio::basic_mmap_source<char>&& source) {
-                this->reset_data_ptr();
-                this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(source));
-
-                auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
-
-                this->data_ptr->data = csv::string_view(
-                    mmap_ptr->data(), mmap_ptr->length()
-                );
-
-                this->current_row = CSVRow(this->data_ptr);
-            }
-
-            void end_feed() {
-                using internals::ParseFlags;
-
-                bool empty_last_field = this->data_ptr
-                    && this->data_ptr->_data
-                    && !this->data_ptr->data.empty()
-                    && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
-
-                // Push field
-                if (this->field_length > 0 || empty_last_field) {
-                    this->push_field();
-                }
-
-                // Push row
-                if (this->current_row.size() > 0)
-                    this->push_row();
-            }
+            
+            constexpr bool utf8_bom() const { return this->_utf8_bom; }
 
         protected:
+            bool _eof = false;
             RawCSVDataPtr data_ptr = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
@@ -6044,7 +6017,8 @@ namespace csv {
                 this->fields = &(this->data_ptr->fields);
             }
 
-            size_t parse_loop(csv::string_view in);
+            size_t parse_loop();
+            void trim_utf8_bom();
 
             ColNamesPtr col_names = nullptr;
             CSVFieldArray* fields = nullptr;
@@ -6057,14 +6031,14 @@ namespace csv {
              *  be trimmed
              */
             internals::WhitespaceMap _ws_flags;
-
             bool quote_escape = false;
             bool field_has_double_quote = false;
 
-            mio::mmap_source data_source;
+            /** Whether or not an attempt to find Unicode BOM has been made */
+            bool unicode_bom_scan = false;
+            bool _utf8_bom = false;
 
             RowCollection* _records = nullptr;
-
 
             constexpr bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
@@ -6090,6 +6064,8 @@ namespace csv {
                 IBasicCSVParser(parse_flags, ws_flags),
                 _source(std::move(source))
             {};
+
+            ~BasicStreamParser() {}
 
             void next() override {
                 this->reset_data_ptr();
@@ -6120,17 +6096,14 @@ namespace csv {
                 }
 
                 this->current_row = CSVRow(this->data_ptr);
-                this->parse_loop(this->data_ptr->data);
+                this->parse_loop();
                 this->end_feed();
             }
-
-            bool eof() override { return this->_eof; }
 
         private:
             TStream _source;
             size_t stream_pos = 0;
             size_t stream_length = 0;
-            bool _eof = false;
         };
 
         class BasicMmapParser : public IBasicCSVParser {
@@ -6144,39 +6117,13 @@ namespace csv {
                 this->file_size = internals::get_file_size(filename);
             };
 
-            bool eof() override {
-                return this->mmap_eof;
-            }
+            ~BasicMmapParser() {}
 
-            void next() override {
-                size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-                std::error_code error;
-                auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos, length, error);
-
-                if (error) throw error;
-
-                this->mmap_pos += length;
-
-                this->field_start = UNINITIALIZED_FIELD;
-                this->field_length = 0;
-
-                this->set_data_source(std::move(_csv_mmap));
-                size_t remainder = this->parse_loop(this->data_ptr->data);
-
-                if (remainder > 0) {
-                    this->mmap_pos -= (length - remainder);
-                }
-
-                if (this->mmap_pos == this->file_size) {
-                    this->mmap_eof = true;
-                    this->end_feed();
-                }
-            }
+            void next() override;
 
         private:
             std::string _filename;
             size_t file_size = 0;
-            bool mmap_eof = false;
             size_t mmap_pos = 0;
         };
     }
@@ -6309,7 +6256,7 @@ namespace csv {
         constexpr size_t n_rows() const noexcept { return this->_n_rows; }
 
         /** @return Whether or not CSV was prefixed with a UTF-8 bom */
-        constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
+        bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
         ///@}
 
     protected:
@@ -6347,22 +6294,14 @@ namespace csv {
         /** How many rows (minus header) have been parsed so far */
         size_t _n_rows = 0;
 
-        /** Set to true if UTF-8 BOM was detected */
-        bool _utf8_bom = false;
-        ///@}
-
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        size_t feed_map(mio::mmap_source&& source);
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
         /**@}*/ // End of parser internals
 
     private:
-        /** Whether or not an attempt to find Unicode BOM has been made */
-        bool unicode_bom_scan = false;
-
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
 
@@ -6371,7 +6310,6 @@ namespace csv {
         std::thread read_csv_worker;
         ///@}
 
-        void trim_utf8_bom(csv::string_view in);
         void trim_header();
     };
 }
@@ -6463,7 +6401,7 @@ namespace csv {
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
     int get_col_pos(csv::string_view filename, csv::string_view col_name,
-        const CSVFormat format = CSVFormat::guess_csv());
+        const CSVFormat& format = CSVFormat::guess_csv());
     ///@}
 }
 /** @file
@@ -6746,6 +6684,27 @@ namespace csv {
 
 namespace csv {
     namespace internals {
+#ifdef _MSC_VER
+#pragma region IBasicCVParser
+#endif
+        CSV_INLINE void IBasicCSVParser::end_feed() {
+            using internals::ParseFlags;
+
+            bool empty_last_field = this->data_ptr
+                && this->data_ptr->_data
+                && !this->data_ptr->data.empty()
+                && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+
+            // Push field
+            if (this->field_length > 0 || empty_last_field) {
+                this->push_field();
+            }
+
+            // Push row
+            if (this->current_row.size() > 0)
+                this->push_row();
+        }
+
         CSV_INLINE void IBasicCSVParser::parse_field(csv::string_view in, size_t& i) noexcept {
             using internals::ParseFlags;
 
@@ -6796,13 +6755,15 @@ namespace csv {
         /** @return The number of lingering characters in the last
          *          unfinished row
          */
-        CSV_INLINE size_t IBasicCSVParser::parse_loop(csv::string_view in)
+        CSV_INLINE size_t IBasicCSVParser::parse_loop()
         {
             using internals::ParseFlags;
 
             this->quote_escape = false;
             this->current_row_start() = 0;
+            this->trim_utf8_bom();
 
+            auto& in = this->data_ptr->data;
             for (size_t i = 0; i < in.size(); ) {
                 switch (compound_parse_flag(in[i])) {
                 case ParseFlags::DELIMITER:
@@ -6869,6 +6830,62 @@ namespace csv {
 
             return this->current_row_start();
         }
+
+        CSV_INLINE void IBasicCSVParser::trim_utf8_bom() {
+            /** Handle possible Unicode byte order mark */
+            if (!this->unicode_bom_scan) {
+                auto& data = this->data_ptr->data;
+
+                if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
+                    data.remove_prefix(3); // Remove BOM from input string
+                    this->_utf8_bom = true;
+                }
+
+                this->unicode_bom_scan = true;
+            }
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
+
+#ifdef _MSC_VER
+#pragma region Specializations
+#endif
+        CSV_INLINE void BasicMmapParser::next() {
+            // Reset parser state
+            this->field_start = UNINITIALIZED_FIELD;
+            this->field_length = 0;
+            this->reset_data_ptr();
+
+            // Create memory map
+            size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+            std::error_code error;
+            this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
+            this->mmap_pos += length;
+            if (error) throw error;
+
+            auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
+
+            // Create string view
+            this->data_ptr->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
+
+            // Parse
+            this->current_row = CSVRow(this->data_ptr);
+            size_t remainder = this->parse_loop();
+
+            // Re-align
+            if (remainder > 0) {
+                this->mmap_pos -= (length - remainder);
+            }
+
+            if (this->mmap_pos == this->file_size) {
+                this->_eof = true;
+                this->end_feed();
+            }
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
     }
 }
 
@@ -7142,9 +7159,9 @@ namespace csv {
         return internals::_guess_format(head, delims);
     }
 
-    /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
+    /** Allows parsing stream sources such as std::stringstream or std::ifstream */
     CSV_INLINE CSVReader::CSVReader(std::stringstream& source, CSVFormat format) : 
-        _format(format), unicode_bom_scan(!format.unicode_detect) {
+        _format(format) { // TODO: Use this setting again  unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -7172,8 +7189,8 @@ namespace csv {
      *  Rows should be retrieved with read_row() or by using
      *  CSVReader::iterator.
      *
-     *  **Details:** Reads the first 500kB of a CSV file to infer file information
-     *              such as column names and delimiting character.
+     *  **Details:** Reads the first block of a CSV file synchronously to get information
+     *               such as column names and delimiting character.
      *
      *  @param[in] filename  Path to CSV file
      *  @param[in] format    Format of the CSV file
@@ -7249,28 +7266,6 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    CSV_INLINE size_t CSVReader::feed_map(mio::mmap_source&& source) {
-        size_t remainder = 0;
-        this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
-        //this->parser.set_output(this->records);
-        //remainder = this->parser.parse(std::move(source));
-        this->trim_header();
-
-        return remainder;
-    }
-
-    CSV_INLINE void CSVReader::trim_utf8_bom(csv::string_view in) {
-        /** Handle possible Unicode byte order mark */
-        if (!this->unicode_bom_scan) {
-            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
-                in.remove_prefix(3); // Remove BOM from input string
-                this->_utf8_bom = true;
-            }
-
-            this->unicode_bom_scan = true;
-        }
-    }
-
     CSV_INLINE void CSVReader::trim_header() {
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
@@ -7307,15 +7302,12 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
+        // Parse
         this->parser->set_output(this->records);
         this->parser->next();
 
         if (!this->header_trimmed) {
             this->trim_header();
-        }
-
-        if (this->parser->eof()) {
-            // this->end_feed();
         }
 
         // Tell read_row() to stop waiting
@@ -8194,9 +8186,7 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        std::stringstream stream;
-        stream << in;
-
+        std::stringstream stream(in.data());
         return CSVReader(stream, format);
     }
 
@@ -8237,7 +8227,7 @@ namespace csv {
     CSV_INLINE int get_col_pos(
         csv::string_view filename,
         csv::string_view col_name,
-        const CSVFormat format) {
+        const CSVFormat& format) {
         CSVReader reader(filename, format);
         return reader.index_of(col_name);
     }
