@@ -12,9 +12,7 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        std::stringstream stream;
-        stream << in;
-
+        std::stringstream stream(in.data());
         return CSVReader(stream, format);
     }
 
@@ -55,7 +53,7 @@ namespace csv {
     CSV_INLINE int get_col_pos(
         csv::string_view filename,
         csv::string_view col_name,
-        const CSVFormat format) {
+        const CSVFormat& format) {
         CSVReader reader(filename, format);
         return reader.index_of(col_name);
     }

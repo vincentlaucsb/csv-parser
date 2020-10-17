@@ -150,7 +150,7 @@ namespace csv {
         constexpr size_t n_rows() const noexcept { return this->_n_rows; }
 
         /** @return Whether or not CSV was prefixed with a UTF-8 bom */
-        constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
+        constexpr bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
         ///@}
 
     protected:
@@ -188,22 +188,14 @@ namespace csv {
         /** How many rows (minus header) have been parsed so far */
         size_t _n_rows = 0;
 
-        /** Set to true if UTF-8 BOM was detected */
-        bool _utf8_bom = false;
-        ///@}
-
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        size_t feed_map(mio::mmap_source&& source);
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
         /**@}*/ // End of parser internals
 
     private:
-        /** Whether or not an attempt to find Unicode BOM has been made */
-        bool unicode_bom_scan = false;
-
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
 
@@ -212,7 +204,6 @@ namespace csv {
         std::thread read_csv_worker;
         ///@}
 
-        void trim_utf8_bom(csv::string_view in);
         void trim_header();
     };
 }

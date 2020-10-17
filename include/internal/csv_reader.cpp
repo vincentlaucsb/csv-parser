@@ -150,9 +150,9 @@ namespace csv {
         return internals::_guess_format(head, delims);
     }
 
-    /** Allows parsing in-memory sources (by calling feed() and end_feed()). */
+    /** Allows parsing stream sources such as std::stringstream or std::ifstream */
     CSV_INLINE CSVReader::CSVReader(std::stringstream& source, CSVFormat format) : 
-        _format(format), unicode_bom_scan(!format.unicode_detect) {
+        _format(format) { // TODO: Use this setting again  unicode_bom_scan(!format.unicode_detect) {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -180,8 +180,8 @@ namespace csv {
      *  Rows should be retrieved with read_row() or by using
      *  CSVReader::iterator.
      *
-     *  **Details:** Reads the first 500kB of a CSV file to infer file information
-     *              such as column names and delimiting character.
+     *  **Details:** Reads the first block of a CSV file synchronously to get information
+     *               such as column names and delimiting character.
      *
      *  @param[in] filename  Path to CSV file
      *  @param[in] format    Format of the CSV file
@@ -257,28 +257,6 @@ namespace csv {
         return CSV_NOT_FOUND;
     }
 
-    CSV_INLINE size_t CSVReader::feed_map(mio::mmap_source&& source) {
-        size_t remainder = 0;
-        this->trim_utf8_bom(csv::string_view(source.data(), source.length()));
-        //this->parser.set_output(this->records);
-        //remainder = this->parser.parse(std::move(source));
-        this->trim_header();
-
-        return remainder;
-    }
-
-    CSV_INLINE void CSVReader::trim_utf8_bom(csv::string_view in) {
-        /** Handle possible Unicode byte order mark */
-        if (!this->unicode_bom_scan) {
-            if (in[0] == '\xEF' && in[1] == '\xBB' && in[2] == '\xBF') {
-                in.remove_prefix(3); // Remove BOM from input string
-                this->_utf8_bom = true;
-            }
-
-            this->unicode_bom_scan = true;
-        }
-    }
-
     CSV_INLINE void CSVReader::trim_header() {
         if (!this->header_trimmed) {
             for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
@@ -315,15 +293,12 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
+        // Parse
         this->parser->set_output(this->records);
         this->parser->next();
 
         if (!this->header_trimmed) {
             this->trim_header();
-        }
-
-        if (this->parser->eof()) {
-            // this->end_feed();
         }
 
         // Tell read_row() to stop waiting

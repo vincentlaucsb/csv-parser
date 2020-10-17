@@ -52,13 +52,15 @@ namespace csv {
         /** @return The number of lingering characters in the last
          *          unfinished row
          */
-        CSV_INLINE size_t IBasicCSVParser::parse_loop(csv::string_view in)
+        CSV_INLINE size_t IBasicCSVParser::parse_loop()
         {
             using internals::ParseFlags;
 
             this->quote_escape = false;
             this->current_row_start() = 0;
+            this->trim_utf8_bom();
 
+            auto& in = this->data_ptr->data;
             for (size_t i = 0; i < in.size(); ) {
                 switch (compound_parse_flag(in[i])) {
                 case ParseFlags::DELIMITER:

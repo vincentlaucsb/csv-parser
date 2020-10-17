@@ -119,12 +119,14 @@ namespace csv {
         public:
             IBasicCSVParser() = default;
 
-            IBasicCSVParser(internals::ColNamesPtr _col_names) : col_names(_col_names) {};
-
             IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
-            virtual bool eof() = 0;
+            virtual ~IBasicCSVParser() {
+
+            }
+
+            bool eof() { return this->_eof; }
             virtual void next() = 0;
 
             constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
@@ -139,19 +141,6 @@ namespace csv {
 
             void set_col_names(const ColNamesPtr& _col_names) {
                 this->col_names = _col_names;
-            }
-
-            void set_data_source(mio::basic_mmap_source<char>&& source) {
-                this->reset_data_ptr();
-                this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(source));
-
-                auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
-
-                this->data_ptr->data = csv::string_view(
-                    mmap_ptr->data(), mmap_ptr->length()
-                );
-
-                this->current_row = CSVRow(this->data_ptr);
             }
 
             void end_feed() {
@@ -171,8 +160,13 @@ namespace csv {
                 if (this->current_row.size() > 0)
                     this->push_row();
             }
+            
+            CONSTEXPR bool utf8_bom() const {
+                return this->_utf8_bom;
+            }
 
         protected:
+            bool _eof = false;
             RawCSVDataPtr data_ptr = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
@@ -180,6 +174,20 @@ namespace csv {
             void push_field();
 
             CSVRow current_row;
+
+            void trim_utf8_bom() {
+                /** Handle possible Unicode byte order mark */
+                if (!this->unicode_bom_scan) {
+                    auto& data = this->data_ptr->data;
+
+                    if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
+                        data.remove_prefix(3); // Remove BOM from input string
+                        this->_utf8_bom = true;
+                    }
+
+                    this->unicode_bom_scan = true;
+                }
+            }
 
             void push_row() {
                 current_row.row_length = fields->size() - current_row.fields_start;
@@ -193,7 +201,7 @@ namespace csv {
                 this->fields = &(this->data_ptr->fields);
             }
 
-            size_t parse_loop(csv::string_view in);
+            size_t parse_loop();
 
             ColNamesPtr col_names = nullptr;
             CSVFieldArray* fields = nullptr;
@@ -206,14 +214,14 @@ namespace csv {
              *  be trimmed
              */
             internals::WhitespaceMap _ws_flags;
-
             bool quote_escape = false;
             bool field_has_double_quote = false;
 
-            mio::mmap_source data_source;
+            /** Whether or not an attempt to find Unicode BOM has been made */
+            bool unicode_bom_scan = false;
+            bool _utf8_bom = false;
 
             RowCollection* _records = nullptr;
-
 
             constexpr bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
@@ -239,6 +247,8 @@ namespace csv {
                 IBasicCSVParser(parse_flags, ws_flags),
                 _source(std::move(source))
             {};
+
+            ~BasicStreamParser() {}
 
             void next() override {
                 this->reset_data_ptr();
@@ -269,17 +279,14 @@ namespace csv {
                 }
 
                 this->current_row = CSVRow(this->data_ptr);
-                this->parse_loop(this->data_ptr->data);
+                this->parse_loop();
                 this->end_feed();
             }
-
-            bool eof() override { return this->_eof; }
 
         private:
             TStream _source;
             size_t stream_pos = 0;
             size_t stream_length = 0;
-            bool _eof = false;
         };
 
         class BasicMmapParser : public IBasicCSVParser {
@@ -293,31 +300,37 @@ namespace csv {
                 this->file_size = internals::get_file_size(filename);
             };
 
-            bool eof() override {
-                return this->mmap_eof;
-            }
+            ~BasicMmapParser() {}
 
             void next() override {
-                size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
-                std::error_code error;
-                auto _csv_mmap = mio::make_mmap_source(this->_filename, this->mmap_pos, length, error);
-
-                if (error) throw error;
-
-                this->mmap_pos += length;
-
+                // Reset parser state
                 this->field_start = UNINITIALIZED_FIELD;
                 this->field_length = 0;
+                this->reset_data_ptr();
 
-                this->set_data_source(std::move(_csv_mmap));
-                size_t remainder = this->parse_loop(this->data_ptr->data);
+                // Create memory map
+                size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+                std::error_code error;
+                this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
+                this->mmap_pos += length;
+                if (error) throw error;
 
+                auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
+
+                // Create string view
+                this->data_ptr->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
+
+                // Parse
+                this->current_row = CSVRow(this->data_ptr);
+                size_t remainder = this->parse_loop();
+
+                // Re-align
                 if (remainder > 0) {
                     this->mmap_pos -= (length - remainder);
                 }
 
                 if (this->mmap_pos == this->file_size) {
-                    this->mmap_eof = true;
+                    this->_eof = true;
                     this->end_feed();
                 }
             }
@@ -325,7 +338,6 @@ namespace csv {
         private:
             std::string _filename;
             size_t file_size = 0;
-            bool mmap_eof = false;
             size_t mmap_pos = 0;
         };
     }

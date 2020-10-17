@@ -50,6 +50,7 @@ TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
 
     // Flag should be set
     REQUIRE(rows.utf8_bom());
+    REQUIRE(rows.get_col_names() == std::vector<std::string>({ "A", "B", "C" }));
 
     CSVRow row;
     rows.read_row(row);
