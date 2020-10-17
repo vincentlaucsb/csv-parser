@@ -206,7 +206,7 @@ namespace csv {
                 if (quote_minimal) return std::string(in);
                 else {
                     std::string ret(Quote, 1);
-                    ret += in;
+                    ret += in.data();
                     ret += Quote;
                 }
             }

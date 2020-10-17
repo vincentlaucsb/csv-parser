@@ -262,7 +262,7 @@ namespace csv {
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags
             ) : IBasicCSVParser(parse_flags, ws_flags) {
-                this->_filename = filename;
+                this->_filename = filename.data();
                 this->file_size = internals::get_file_size(filename);
             };
 

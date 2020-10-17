@@ -81,7 +81,7 @@ namespace csv {
     CSV_INLINE void CSVStat::calc() {
         constexpr size_t CALC_CHUNK_SIZE = 5000;
 
-        while (!reader.eof()) {
+        while (true) {
             /** Chunk rows */
             for (auto& row : reader) {
                 if (this->records.size() < CALC_CHUNK_SIZE) {
@@ -109,6 +109,8 @@ namespace csv {
             // Block until done
             for (auto& th : pool)
                 th.join();
+
+            if (reader.eof()) break;
         }
     }
 
