@@ -130,13 +130,16 @@ namespace csv {
         bool read_row(CSVRow &row);
         iterator begin();
         HEDLEY_CONST iterator end() const noexcept;
+
+        /** Returns true if we have reached end of file */
+        bool eof() const noexcept { return this->parser->eof(); };
         ///@}
 
         /** @name CSV Metadata */
         ///@{
         CSVFormat get_format() const;
-        std::vector<std::string> get_col_names();
-        int index_of(csv::string_view col_name);
+        std::vector<std::string> get_col_names() const;
+        int index_of(csv::string_view col_name) const;
         ///@}
         
         /** @name CSV Metadata: Attributes */
@@ -159,8 +162,6 @@ namespace csv {
          *        extend the parser should read this.
          * @{
          */
-         /** Returns true if we have reached end of file */
-        bool eof() const noexcept { return this->parser->eof(); };
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);

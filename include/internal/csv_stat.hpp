@@ -15,7 +15,7 @@ namespace csv {
      *  \include programs/csv_stats.cpp
      *
      */
-    class CSVStat : public CSVReader {
+    class CSVStat {
     public:
         using FreqCount = std::unordered_map<std::string, size_t>;
         using TypeCount = std::unordered_map<DataType, size_t>;
@@ -28,8 +28,12 @@ namespace csv {
         std::vector<FreqCount> get_counts() const;
         std::vector<TypeCount> get_dtypes() const;
 
+        std::vector<std::string> get_col_names() const {
+            return this->reader.get_col_names();
+        }
+
         CSVStat(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
-        CSVStat(std::stringstream& source, CSVFormat format = CSVFormat()) : CSVReader(source, format) {};
+        CSVStat(std::stringstream& source, CSVFormat format = CSVFormat());
     private:
         // An array of rolling averages
         // Each index corresponds to the rolling mean for the column at said index
@@ -49,5 +53,8 @@ namespace csv {
 
         void calc();
         void calc_worker(const size_t&);
+
+        CSVReader reader;
+        std::deque<CSVRow> records = {};
     };
 }

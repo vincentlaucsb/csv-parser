@@ -238,11 +238,7 @@ namespace csv {
     }
 
     /** Return the CSV's column names as a vector of strings. */
-    CSV_INLINE std::vector<std::string> CSVReader::get_col_names() {
-        if (!this->header_trimmed && this->read_csv_worker.joinable()) {
-            this->read_csv_worker.join();
-        }
-
+    CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
         if (this->col_names) {
             return this->col_names->get_col_names();
         }
@@ -253,7 +249,7 @@ namespace csv {
     /** Return the index of the column name if found or
      *         csv::CSV_NOT_FOUND otherwise.
      */
-    CSV_INLINE int CSVReader::index_of(csv::string_view col_name) {
+    CSV_INLINE int CSVReader::index_of(csv::string_view col_name) const {
         auto _col_names = this->get_col_names();
         for (size_t i = 0; i < _col_names.size(); i++)
             if (_col_names[i] == col_name) return (int)i;
