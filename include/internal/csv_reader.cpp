@@ -152,23 +152,6 @@ namespace csv {
         return internals::_guess_format(head, delims);
     }
 
-    /** Allows parsing stream sources such as std::stringstream or std::ifstream */
-    CSV_INLINE CSVReader::CSVReader(std::stringstream& source, CSVFormat format) : 
-        _format(format) { // TODO: Use this setting again  unicode_bom_scan(!format.unicode_detect) {
-        using Parser = internals::BasicStreamParser<std::stringstream>;
-
-        if (!format.col_names.empty()) {
-            this->set_col_names(format.col_names);
-        }
-
-        this->parser = std::unique_ptr<Parser>(new Parser(source, format, 
-            col_names)); // For C++11
-
-        // Read initial chunk to get metadata
-        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-        this->read_csv_worker.join();
-    }
-
     /** Allows reading a CSV file in chunks, using overlapped
      *  threads for simulatenously reading from disk and parsing.
      *  Rows should be retrieved with read_row() or by using

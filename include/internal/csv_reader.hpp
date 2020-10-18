@@ -112,7 +112,23 @@ namespace csv {
          */
          ///@{
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
-        CSVReader(std::stringstream& source, CSVFormat format = CSVFormat());
+
+        /** Allows parsing stream sources such as std::stringstream or std::ifstream */
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::ios_base, TStream>::value, int> = 0>
+        CSVReader(TStream& source, CSVFormat format = CSVFormat()) : _format(format) {
+            using Parser = internals::BasicStreamParser<TStream>;
+
+            if (!format.col_names.empty()) {
+                this->set_col_names(format.col_names);
+            }
+
+            this->parser = std::unique_ptr<Parser>(new Parser(source, format, col_names)); // For C++11
+
+            // Read initial chunk to get metadata
+            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+            this->read_csv_worker.join();
+        }
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor
