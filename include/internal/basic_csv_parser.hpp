@@ -245,6 +245,8 @@ namespace csv {
             ~BasicStreamParser() {}
 
             void next() override {
+                if (this->eof()) return;
+
                 this->reset_data_ptr();
                 this->data_ptr->_data = std::make_shared<std::string>();
 
@@ -262,9 +264,8 @@ namespace csv {
                 std::unique_ptr<char[]> buff(new char[length]);
                 _source.seekg(stream_pos, std::ios::beg);
                 _source.read(buff.get(), length);
+                stream_pos = _source.tellg();
                 ((std::string*)(this->data_ptr->_data.get()))->assign(buff.get(), length);
-
-                stream_pos += length;
 
                 // Create string_view
                 this->data_ptr->data = *((std::string*)this->data_ptr->_data.get());
@@ -277,8 +278,9 @@ namespace csv {
                     this->_eof = true;
                     this->end_feed();
                 }
-
-                this->stream_pos -= (length - remainder);
+                else {
+                    this->stream_pos -= (length - remainder);
+                }
             }
 
         private:
