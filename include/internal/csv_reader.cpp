@@ -25,21 +25,12 @@ namespace csv {
          *
          */
         CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
-            auto parse_flags = internals::make_parse_flags(format.get_delim());
-            if (format.is_quoting_enabled()) {
-                parse_flags = internals::make_parse_flags(format.get_delim(), format.get_quote_char());
-            }
-
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
             std::stringstream source(head.data());
-
-            BasicStreamParser<std::stringstream> parser(
-                source, parse_flags,
-                internals::make_ws_flags(trim_chars.data(), trim_chars.size())
-            );
-
             ThreadSafeDeque<CSVRow> rows;
+            
+            BasicStreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
 
@@ -55,13 +46,9 @@ namespace csv {
 
             // Parse the CSV
             std::stringstream source(head.data());
-            BasicStreamParser<std::stringstream> parser(
-                source,
-                internals::make_parse_flags(format.get_delim(), '"'),
-                internals::make_ws_flags({}, 0)
-            );
-
             ThreadSafeDeque<CSVRow> rows;
+
+            BasicStreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
 
@@ -182,8 +169,7 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
 
-        this->parser = std::unique_ptr<Parser>(
-            new Parser(filename, format, this->col_names)); // For C++11
+        this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
 
         // Read initial chunk to get metadata
         this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
@@ -259,7 +245,6 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records.notify_all();
 
-        // Parse
         this->parser->set_output(this->records);
         this->parser->next();
 

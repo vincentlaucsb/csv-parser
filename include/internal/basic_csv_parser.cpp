@@ -5,6 +5,22 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region IBasicCVParser
 #endif
+        CSV_INLINE IBasicCSVParser::IBasicCSVParser(
+            const CSVFormat& format,
+            const ColNamesPtr& col_names
+        ) : _col_names(col_names) {
+            if (format.no_quote) {
+                _parse_flags = internals::make_parse_flags(format.get_delim());
+            }
+            else {
+                _parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+            }
+
+            _ws_flags = internals::make_ws_flags(
+                format.trim_chars.data(), format.trim_chars.size()
+            );
+        }
+
         CSV_INLINE void IBasicCSVParser::end_feed() {
             using internals::ParseFlags;
 
@@ -153,8 +169,19 @@ namespace csv {
             return this->current_row_start();
         }
 
+        CSV_INLINE void IBasicCSVParser::push_row() {
+            current_row.row_length = fields->size() - current_row.fields_start;
+            this->_records->push_back(std::move(current_row));
+        }
+
+        CSV_INLINE void IBasicCSVParser::reset_data_ptr() {
+            this->data_ptr = std::make_shared<RawCSVData>();
+            this->data_ptr->parse_flags = this->_parse_flags;
+            this->data_ptr->col_names = this->_col_names;
+            this->fields = &(this->data_ptr->fields);
+        }
+
         CSV_INLINE void IBasicCSVParser::trim_utf8_bom() {
-            /** Handle possible Unicode byte order mark */
             auto& data = this->data_ptr->data;
 
             if (!this->unicode_bom_scan && data.size() >= 3) {

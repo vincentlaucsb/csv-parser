@@ -29,9 +29,10 @@ namespace csv {
             ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {};
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
+                this->_notify_size = other._notify_size;
             }
 
-            ThreadSafeDeque(const std::deque<T>& source) {
+            ThreadSafeDeque(const std::deque<T>& source) : ThreadSafeDeque() {
                 this->data = source;
             }
 
@@ -113,34 +114,30 @@ namespace csv {
 
         constexpr const int UNINITIALIZED_FIELD = -1;
 
+        /** Abstract base class which provides CSV parsing logic.
+         *
+         *  Concrete implementations may customize this logic across
+         *  different input sources, such as memory mapped files, stringstreams,
+         *  etc...
+         */
         class IBasicCSVParser {
+        public:
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
-        public:
             IBasicCSVParser() = default;
-            IBasicCSVParser(const CSVFormat& format, const ColNamesPtr& col_names = nullptr) {
-                if (format.no_quote) {
-                    _parse_flags = internals::make_parse_flags(format.get_delim());
-                }
-                else {
-                    _parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-                }
-
-                _ws_flags = internals::make_ws_flags(
-                    format.trim_chars.data(), format.trim_chars.size()
-                );
-
-                this->_col_names = col_names;
-            }
-
+            IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
             IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
             virtual ~IBasicCSVParser() {}
 
+            /** Whether or not we have reached the end of source */
             bool eof() { return this->_eof; }
+
+            /** Parse the next block of data */
             virtual void next() = 0;
 
+            /** Indicate the last block of data has been parsed */
             void end_feed();
 
             CONSTEXPR internals::ParseFlags parse_flag(const char ch) const noexcept {
@@ -151,53 +148,44 @@ namespace csv {
                 return internals::qe_flag(parse_flag(ch), this->quote_escape);
             }
 
-            void set_output(RowCollection& records) { this->_records = &records; }
-
-            void set_col_names(const ColNamesPtr& _col_names) {
-                this->_col_names = _col_names;
-            }
-            
+            /** Whether or not this CSV has a UTF-8 byte order mark */
             CONSTEXPR bool utf8_bom() const { return this->_utf8_bom; }
 
+            void set_output(RowCollection& rows) { this->_records = &rows; }
+
         protected:
-            bool _eof = false;
+            /** @name Current Parser State */
+            ///@{
+            CSVRow current_row;
             RawCSVDataPtr data_ptr = nullptr;
+            ColNamesPtr _col_names = nullptr;
+            CSVFieldArray* fields = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
 
-            void push_field();
+            /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
+            internals::ParseFlagMap _parse_flags;
+            ///@}
 
-            CSVRow current_row;
+            /** @name Current Stream/File State */
+            ///@{
+            bool _eof = false;
 
             /** The size of the incoming CSV */
             size_t source_size = 0;
+            ///@}
 
+            /** Whether or not source needs to be read in chunks */
+            CONSTEXPR bool no_chunk() const { return this->source_size < ITERATION_CHUNK_SIZE; }
 
-            bool no_chunk() {
-                return this->source_size < ITERATION_CHUNK_SIZE;
-            }
-
-            void push_row() {
-                current_row.row_length = fields->size() - current_row.fields_start;
-                this->_records->push_back(std::move(current_row));
-            };
-
-            void reset_data_ptr() {
-                this->data_ptr = std::make_shared<RawCSVData>();
-                this->data_ptr->parse_flags = this->_parse_flags;
-                this->data_ptr->col_names = this->_col_names;
-                this->fields = &(this->data_ptr->fields);
-            }
-
+            /** Parse the current chunk of data *
+             *
+             *  @returns How many character were read that are part of complete rows
+             */
             size_t parse();
-            void trim_utf8_bom();
 
-            ColNamesPtr _col_names = nullptr;
-            CSVFieldArray* fields = nullptr;
-
-            /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-            internals::ParseFlagMap _parse_flags;
-
+            /** Create a new RawCSVDataPtr for a new chunk of data */
+            void reset_data_ptr();
         private:
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
@@ -205,12 +193,15 @@ namespace csv {
             internals::WhitespaceMap _ws_flags;
             bool quote_escape = false;
             bool field_has_double_quote = false;
+
+            /** Where we are in the current data block */
             size_t data_pos = 0;
 
             /** Whether or not an attempt to find Unicode BOM has been made */
             bool unicode_bom_scan = false;
             bool _utf8_bom = false;
             
+            /** Where complete rows should be pushed to */
             RowCollection* _records = nullptr;
 
             CONSTEXPR bool ws_flag(const char ch) const noexcept {
@@ -220,8 +211,17 @@ namespace csv {
             size_t& current_row_start() {
                 return this->current_row.data_start;
             }
-                
+    
             void parse_field() noexcept;
+
+            /** Finish parsing the current field */
+            void push_field();
+
+            /** Finish parsing the current row */
+            void push_row();
+
+            /** Handle possible Unicode byte order mark */
+            void trim_utf8_bom();
         };
 
         /** A class for parsing raw CSV data */
@@ -230,9 +230,10 @@ namespace csv {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            BasicStreamParser(TStream& source, const CSVFormat& format,
-                const ColNamesPtr& col_names = nullptr)
-                : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
+            BasicStreamParser(TStream& source,
+                const CSVFormat& format,
+                const ColNamesPtr& col_names = nullptr
+            ) : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
 
             BasicStreamParser(
                 TStream& source,
@@ -290,9 +291,10 @@ namespace csv {
 
         class BasicMmapParser : public IBasicCSVParser {
         public:
-            BasicMmapParser(csv::string_view filename, const CSVFormat& format,
-                const ColNamesPtr& col_names = nullptr)
-                : IBasicCSVParser(format, col_names) {
+            BasicMmapParser(csv::string_view filename,
+                const CSVFormat& format,
+                const ColNamesPtr& col_names = nullptr
+            ) : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
                 this->source_size = internals::get_file_size(filename);
             };

@@ -119,11 +119,11 @@ namespace csv {
         CSVReader(TStream& source, CSVFormat format = CSVFormat()) : _format(format) {
             using Parser = internals::BasicStreamParser<TStream>;
 
-            if (!format.col_names.empty()) {
+            if (!format.col_names.empty())
                 this->set_col_names(format.col_names);
-            }
 
-            this->parser = std::unique_ptr<Parser>(new Parser(source, format, col_names)); // For C++11
+            this->parser = std::unique_ptr<Parser>(
+                new Parser(source, format, col_names)); // For C++11
 
             // Read initial chunk to get metadata
             this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
@@ -196,7 +196,7 @@ namespace csv {
         std::unique_ptr<internals::IBasicCSVParser> parser = nullptr;
 
         /** Queue of parsed CSV rows */
-        RowCollection records;
+        RowCollection records = RowCollection(100);
 
         /** The number of columns in this CSV */
         size_t n_cols = 0;
