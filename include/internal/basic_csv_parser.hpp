@@ -166,7 +166,7 @@ namespace csv {
                 this->fields = &(this->data_ptr->fields);
             }
 
-            size_t parse_loop();
+            size_t parse();
             void trim_utf8_bom();
 
             ColNamesPtr col_names = nullptr;
@@ -182,6 +182,7 @@ namespace csv {
             internals::WhitespaceMap _ws_flags;
             bool quote_escape = false;
             bool field_has_double_quote = false;
+            size_t data_pos = 0;
 
             /** Whether or not an attempt to find Unicode BOM has been made */
             bool unicode_bom_scan = false;
@@ -197,7 +198,7 @@ namespace csv {
                 return this->current_row.data_start;
             }
                 
-            void parse_field(csv::string_view in, size_t& i) noexcept;
+            void parse_field() noexcept;
         };
 
         /** A class for parsing raw CSV data */
@@ -240,13 +241,14 @@ namespace csv {
                 // Create string_view
                 this->data_ptr->data = *((std::string*)this->data_ptr->_data.get());
 
+                // Parse
+                this->current_row = CSVRow(this->data_ptr);
+                this->parse();
+
                 if (_source.eof() || stream_pos == stream_length) {
                     this->_eof = true;
+                    this->end_feed();
                 }
-
-                this->current_row = CSVRow(this->data_ptr);
-                this->parse_loop();
-                this->end_feed();
             }
 
         private:
