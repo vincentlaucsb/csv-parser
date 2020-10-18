@@ -180,7 +180,7 @@ namespace csv {
             this->reset_data_ptr();
 
             // Create memory map
-            size_t length = std::min(this->file_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+            size_t length = std::min(this->source_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
             std::error_code error;
             this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
             this->mmap_pos += length;
@@ -193,17 +193,14 @@ namespace csv {
 
             // Parse
             this->current_row = CSVRow(this->data_ptr);
-            size_t remainder = this->parse();
+            size_t remainder = this->parse();            
 
-            // Re-align
-            if (remainder > 0) {
-                this->mmap_pos -= (length - remainder);
-            }
-
-            if (this->mmap_pos == this->file_size) {
+            if (this->mmap_pos == this->source_size || no_chunk()) {
                 this->_eof = true;
                 this->end_feed();
             }
+
+            this->mmap_pos -= (length - remainder);
         }
 #ifdef _MSC_VER
 #pragma endregion

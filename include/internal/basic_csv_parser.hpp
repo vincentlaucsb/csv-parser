@@ -169,6 +169,14 @@ namespace csv {
 
             CSVRow current_row;
 
+            /** The size of the incoming CSV */
+            size_t source_size = 0;
+
+
+            bool no_chunk() {
+                return this->source_size < ITERATION_CHUNK_SIZE;
+            }
+
             void push_row() {
                 current_row.row_length = fields->size() - current_row.fields_start;
                 this->_records->push_back(std::move(current_row));
@@ -202,7 +210,7 @@ namespace csv {
             /** Whether or not an attempt to find Unicode BOM has been made */
             bool unicode_bom_scan = false;
             bool _utf8_bom = false;
-
+            
             RowCollection* _records = nullptr;
 
             CONSTEXPR bool ws_flag(const char ch) const noexcept {
@@ -240,18 +248,19 @@ namespace csv {
                 this->reset_data_ptr();
                 this->data_ptr->_data = std::make_shared<std::string>();
 
-                if (stream_length == 0) {
+                if (source_size == 0) {
                     const auto start = _source.tellg();
                     _source.seekg(0, std::ios::end);
                     const auto end = _source.tellg();
                     _source.seekg(0, std::ios::beg);
 
-                    stream_length = end - start;
+                    source_size = end - start;
                 }
 
                 // Read data into buffer
-                size_t length = std::min(stream_length - stream_pos, internals::ITERATION_CHUNK_SIZE);
+                size_t length = std::min(source_size - stream_pos, internals::ITERATION_CHUNK_SIZE);
                 std::unique_ptr<char[]> buff(new char[length]);
+                _source.seekg(stream_pos, std::ios::beg);
                 _source.read(buff.get(), length);
                 ((std::string*)(this->data_ptr->_data.get()))->assign(buff.get(), length);
 
@@ -262,18 +271,19 @@ namespace csv {
 
                 // Parse
                 this->current_row = CSVRow(this->data_ptr);
-                this->parse();
+                size_t remainder = this->parse();
 
-                if (_source.eof() || stream_pos == stream_length) {
+                if (stream_pos == source_size || no_chunk()) {
                     this->_eof = true;
                     this->end_feed();
                 }
+
+                this->stream_pos -= (length - remainder);
             }
 
         private:
             TStream _source;
             size_t stream_pos = 0;
-            size_t stream_length = 0;
         };
 
         class BasicMmapParser : public IBasicCSVParser {
@@ -282,7 +292,7 @@ namespace csv {
                 const ColNamesPtr& col_names = nullptr)
                 : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
-                this->file_size = internals::get_file_size(filename);
+                this->source_size = internals::get_file_size(filename);
             };
 
             ~BasicMmapParser() {}
@@ -291,7 +301,6 @@ namespace csv {
 
         private:
             std::string _filename;
-            size_t file_size = 0;
             size_t mmap_pos = 0;
         };
     }
