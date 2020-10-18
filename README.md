@@ -9,6 +9,7 @@
    * [CMake Instructions](#cmake-instructions)
  * [Features & Examples](#features--examples)
    * [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
+      * [Memory Mapped Files vs. Streams](#memory-mapped-files-vs-streams)
    * [Indexing by Column Names](#indexing-by-column-names)
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
