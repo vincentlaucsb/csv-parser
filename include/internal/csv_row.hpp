@@ -13,14 +13,13 @@
 #include <sstream>
 #include <vector>
 
-#include "compatibility.hpp"
-#include "constants.hpp"
+#include "common.hpp"
 #include "data_type.h"
 #include "col_names.hpp"
 
 namespace csv {
     namespace internals {
-        class BasicCSVParser;
+        class IBasicCSVParser;
 
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -32,36 +31,67 @@ namespace csv {
 
         /** A barebones class used for describing CSV fields */
         struct RawCSVField {
+            RawCSVField() = default;
+            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) {
+                start = _start;
+                length = _length;
+                has_double_quote = _double_quote;
+            }
+
+            /** The start of the field, relative to the beginning of the row */
             size_t start;
-            size_t length;
+
+            /** The length of the row, ignoring quote escape characters */
+            size_t length; 
+
+            /** Whether or not the field contains an escaped quote */
+            bool has_double_quote;
         };
 
-        /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
-        class CSVFieldArray {
+        /** A class used for efficiently storing RawCSVField objects and expanding as necessary
+         *
+         *  @par Implementation
+         *  This data structure stores RawCSVField in continguous blocks. When more capacity
+         *  is needed, a new block is allocated, but previous data stays put.
+         *
+         *  @par Thread Safety
+         *  This class may be safely read from multiple threads and written to from one,
+         *  as long as the writing thread does not actively touch fields which are being
+         *  read.
+         */
+        class CSVFieldList {
         public:
-            CSVFieldArray(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
+            /** Construct a CSVFieldList which allocates blocks of a certain size */
+            CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
                 this->allocate();
             }
 
             // No copy constructor
-            CSVFieldArray(const CSVFieldArray& other) = delete;
+            CSVFieldList(const CSVFieldList& other) = delete;
 
             // CSVFieldArrays may be moved
-            CSVFieldArray(CSVFieldArray&& other) :
+            CSVFieldList(CSVFieldList&& other) :
                 _single_buffer_capacity(other._single_buffer_capacity) {
                 buffers = std::move(other.buffers);
                 _current_buffer_size = other._current_buffer_size;
                 _back = other._back;
             }
 
-            ~CSVFieldArray() {
+            ~CSVFieldList() {
                 for (auto& buffer : buffers)
                     delete[] buffer;
             }
 
-            void push_back(RawCSVField&& field);
-            void emplace_back(const size_t& size, const size_t& length);
+            template <class... Args>
+            void emplace_back(Args&&... args) {
+                if (this->_current_buffer_size == this->_single_buffer_capacity) {
+                    this->allocate();
+                }
+
+                *(_back++) = RawCSVField(std::forward<Args>(args)...);
+                _current_buffer_size++;
+            }
 
             size_t size() const noexcept {
                 return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
@@ -87,13 +117,19 @@ namespace csv {
 
         /** A class for storing raw CSV data and associated metadata */
         struct RawCSVData {
-            std::string data = "";
-            internals::CSVFieldArray fields;
+            std::shared_ptr<void> _data = nullptr;
+            csv::string_view data = "";
+
+            internals::CSVFieldList fields;
 
             std::unordered_set<size_t> has_double_quotes = {};
+
+            // TODO: Consider replacing with a more thread-safe structure
             std::unordered_map<size_t, std::string> double_quote_fields = {};
+
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
+            internals::WhitespaceMap ws_flags;
         };
 
         using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
@@ -256,12 +292,14 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        friend internals::BasicCSVParser;
+        friend internals::IBasicCSVParser;
 
         CSVRow() = default;
         
         /** Construct a CSVRow from a RawCSVDataPtr */
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
@@ -275,6 +313,8 @@ namespace csv {
         CSVField operator[](const std::string&) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+
+        /** Retrieve this row's associated column names */
         std::vector<std::string> get_col_names() const {
             return this->data->col_names->get_col_names();
         }
@@ -319,11 +359,11 @@ namespace csv {
             iterator operator-(difference_type n) const;
 
             /** Two iterators are equal if they point to the same field */
-            constexpr bool operator==(const iterator& other) const noexcept {
+            CONSTEXPR bool operator==(const iterator& other) const noexcept {
                 return this->i == other.i;
             };
 
-            constexpr bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
+            CONSTEXPR bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;
@@ -358,7 +398,7 @@ namespace csv {
         size_t data_start = 0;
 
         /** Where in the RawCSVDataPtr.fields array we start */
-        size_t field_bounds_index = 0;
+        size_t fields_start = 0;
 
         /** How many columns this row spans */
         size_t row_length = 0;

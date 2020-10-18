@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdio>
+#include <iostream>
 
 #include "catch.hpp"
 #include "csv.hpp"
@@ -17,9 +18,9 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
 
     const size_t n_rows = 1000000;
 
-    for (int i = 0; i <= n_rows; i++) {
-        auto str = std::to_string(i);
-        writer << std::array<std::string, 5>({ str, str, str, str, str });
+    for (size_t i = 0; i <= n_rows; i++) {
+        auto str = internals::to_string(i);
+        writer << std::array<csv::string_view, 5>({ str, str, str, str, str });
     }
 
     CSVReader reader(filename);
@@ -33,7 +34,7 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
         i++;
     }
 
-    REQUIRE(reader.size() == n_rows);
+    REQUIRE(reader.n_rows() == n_rows);
 
     remove(filename);
 }

@@ -1,3 +1,4 @@
+#include <sstream>
 #include <vector>
 
 #include "csv_utility.hpp"
@@ -11,10 +12,8 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        CSVReader parser(format);
-        parser.feed(in);
-        parser.end_feed();
-        return parser;
+        std::stringstream stream(in.data());
+        return CSVReader(stream, format);
     }
 
     /** Parses a CSV string with no headers
@@ -41,7 +40,7 @@ namespace csv {
 
     /** A shorthand for csv::parse_no_header() */
     CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
-        return parse_no_header(csv::string_view(in));
+        return parse_no_header(csv::string_view(in, n));
     }
 
     /**
@@ -52,9 +51,9 @@ namespace csv {
      *  @param[in] format    Format of the CSV file
      */
     CSV_INLINE int get_col_pos(
-        const std::string filename,
-        const std::string col_name,
-        const CSVFormat format) {
+        csv::string_view filename,
+        csv::string_view col_name,
+        const CSVFormat& format) {
         CSVReader reader(filename, format);
         return reader.index_of(col_name);
     }
@@ -71,7 +70,7 @@ namespace csv {
             filename,
             reader.get_col_names(),
             format.get_delim(),
-            reader.size(),
+            reader.n_rows(),
             reader.get_col_names().size()
         };
 

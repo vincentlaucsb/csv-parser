@@ -16,12 +16,10 @@
 #include <vector>
 
 #include "../external/mio.hpp"
-#include "constants.hpp"
+#include "basic_csv_parser.hpp"
+#include "common.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
-#include "csv_reader_internals.hpp"
-#include "compatibility.hpp"
-#include "raw_csv_data.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
@@ -30,6 +28,15 @@ namespace csv {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
 
         std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
+
+        struct GuessScore {
+            double score;
+            size_t header;
+        };
+
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
+
+        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     }
 
     std::vector<std::string> get_col_names(
@@ -102,7 +109,25 @@ namespace csv {
          */
          ///@{
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
-        CSVReader(CSVFormat format = CSVFormat());
+
+        /** Allows parsing stream sources such as `std::stringstream` or `std::ifstream`
+         *
+         *  @tparam TStream An input stream deriving from `std::istream`
+         *  @note   Currently this constructor requires special CSV dialects to be manually
+         *          specified.
+         */
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
+        CSVReader(TStream& source, CSVFormat format = CSVFormat()) : _format(format) {
+            using Parser = internals::StreamParser<TStream>;
+
+            if (!format.col_names.empty())
+                this->set_col_names(format.col_names);
+
+            this->parser = std::unique_ptr<Parser>(
+                new Parser(source, format, col_names)); // For C++11
+            this->initial_read();
+        }
         ///@}
 
         CSVReader(const CSVReader&) = delete; // No copy constructor
@@ -115,25 +140,14 @@ namespace csv {
             }
         }
 
-        /** @name Reading In-Memory Strings
-         *  You can piece together incomplete CSV fragments by calling feed() on them
-         *  before finally calling end_feed().
-         *
-         *  Alternatively, you can also use the parse() shorthand function for
-         *  smaller strings.
-         */
-         ///@{
-        /** @name Reading In-Memory Strings */
-        ///@{
-        void feed(csv::string_view in);
-        void end_feed();
-        ///@}
-
         /** @name Retrieving CSV Rows */
         ///@{
         bool read_row(CSVRow &row);
         iterator begin();
         HEDLEY_CONST iterator end() const noexcept;
+
+        /** Returns true if we have reached end of file */
+        bool eof() const noexcept { return this->parser->eof(); };
         ///@}
 
         /** @name CSV Metadata */
@@ -145,24 +159,28 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        constexpr bool empty() const noexcept { return this->size() == 0; }
-        constexpr size_t size() const noexcept { return this->n_rows; }
+        /** Whether or not the file or stream contains valid CSV rows,
+         *  not including the header.
+         *
+         *  @note Gives an accurate answer regardless of when it is called.
+         *
+         */
+        CONSTEXPR bool empty() const noexcept { return this->n_rows() == 0; }
 
-        /** Returns true if the CSV was prefixed with a UTF-8 bom */
-        constexpr bool utf8_bom() const noexcept { return this->_utf8_bom; }
+        /** Retrieves the number of rows that have been read so far */
+        CONSTEXPR size_t n_rows() const noexcept { return this->_n_rows; }
+
+        /** Whether or not CSV was prefixed with a UTF-8 bom */
+        bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
         ///@}
 
     protected:
-        using RowCollection = internals::ThreadSafeDeque<CSVRow>;
-
         /**
          * \defgroup csv_internal CSV Parser Internals
          * @brief Internals of CSVReader. Only maintainers and those looking to
          *        extend the parser should read this.
          * @{
          */
-         /** Returns true if we have reached end of file */
-        constexpr bool eof() const noexcept { return this->mmap_eof; };
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
@@ -178,49 +196,36 @@ namespace csv {
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
         /** Helper class which actually does the parsing */
-        internals::BasicCSVParser parser = internals::BasicCSVParser(this->col_names);
+        std::unique_ptr<internals::IBasicCSVParser> parser = nullptr;
 
         /** Queue of parsed CSV rows */
-        RowCollection records;
+        RowCollection records = RowCollection(100);
 
-        /** The number of columns in this CSV */
-        size_t n_cols = 0;
-
-        /** How many rows (minus header) have been parsed so far */
-        size_t n_rows = 0;
-
-        /** Set to true if UTF-8 BOM was detected */
-        bool _utf8_bom = false;
-        ///@}
+        size_t n_cols = 0;  /**< The number of columns in this CSV */
+        size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        void feed_map(mio::mmap_source&& source);
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
-        /**@}*/ // End of parser internals
+        /**@}*/
 
     private:
-        /** Whether or not an attempt to find Unicode BOM has been made */
-        bool unicode_bom_scan = false;
-
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::string _filename = "";
-        size_t file_size;
-        bool mmap_eof = true;
-        size_t mmap_pos = 0;
-        std::thread read_csv_worker;
+        std::thread read_csv_worker; /**< Worker thread for read_csv() */
         ///@}
 
-        void trim_utf8_bom(csv::string_view in);
-        void trim_header();
+        /** Read initial chunk to get metadata */
+        void initial_read() {
+            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+            this->read_csv_worker.join();
+        }
 
-        /** Set parse and whitespace flags */
-        void set_parse_flags(const CSVFormat& format);
+        void trim_header();
     };
 }

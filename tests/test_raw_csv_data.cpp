@@ -1,5 +1,6 @@
 #include "catch.hpp"
-#include "csv.hpp"
+#include "internal/basic_csv_parser.hpp"
+#include "internal/csv_row.hpp"
 
 #include <sstream>
 
@@ -7,25 +8,22 @@ using namespace csv;
 using namespace csv::internals;
 using RowCollection = ThreadSafeDeque<CSVRow>;
 
-internals::WorkItem make_work_item(csv::string_view in) {
-    return std::make_pair<>(in.data(), in.length());
-}
-
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
-    std::string csv = "A,B,C\r\n" // Header row
+    std::stringstream csv("A,B,C\r\n"
         "123,234,345\r\n"
         "1,2,3\r\n"
-        "1,2,3";
+        "1,2,3");
 
-    BasicCSVParser parser(
+    RowCollection rows;
+
+    StreamParser<std::stringstream> parser(
+        csv,
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
-    RowCollection rows;
-
-    parser.parse(csv, rows);
-    parser.end_feed();
+    parser.set_output(rows);
+    parser.next();
 
     auto row = rows.front();
     REQUIRE(row[0] == "A");
@@ -56,20 +54,23 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
 }
 
 TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
-    std::string csv = ""
+    std::stringstream csv(""
         "\"A\",\"B\",\"C\"\r\n"   // Quoted fields w/ no escapes
         "123,\"234,345\",456\r\n" // Escaped comma
         "1,\"2\"\"3\",4\r\n"      // Escaped quote
         "1,\"23\"\"34\",5\r\n"      // Another escaped quote
-        "1,\"\",2\r\n";           // Empty Field
+        "1,\"\",2\r\n");           // Empty Field
 
-    BasicCSVParser parser(
+    RowCollection rows;
+
+    StreamParser<std::stringstream> parser(
+        csv,
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
-    RowCollection rows;
-    parser.parse(csv, rows);
+    parser.set_output(rows);
+    parser.next();
 
     auto row = rows.front();
     REQUIRE(row[0] == "A");
@@ -104,70 +105,6 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
     REQUIRE(row[1] == "");
     REQUIRE(row[2] == "2");
     REQUIRE(row.size() == 3);
-}
-
-TEST_CASE("Basic Fragment Test", "[raw_csv_fragment]") {
-    auto csv_fragments = GENERATE(as<std::vector<std::string>> {},
-        std::vector<std::string>({
-            "A,B,C\r\n"
-            "123,234,345\r\n",
-            "1,2,3\r\n"
-            "1,2,3\r\n"
-        }),
-        
-        std::vector<std::string>({
-            "A,B,C\r\n"
-            "123,234,", "345\r\n",
-            "1,2,3\r\n"
-            "1,2,3\r\n"
-        }),
-        std::vector<std::string>({
-            "\"A\",\"B\",\"C\"\r\n"
-            "123,234,", "345\r\n",
-            "1,\"2", "\",3\r\n"     // Fragment in middle of quoted field
-            "1,2,3\r\n"
-        })
-    );
-
-    SECTION("Fragment Stitching") {
-        BasicCSVParser parser(
-            internals::make_parse_flags(',', '"'),
-            internals::WhitespaceMap()
-        );
-
-        RowCollection rows;
-
-        for (auto& frag : csv_fragments) {
-            parser.parse(frag, rows);
-        }
-
-        auto row = rows.front();
-        REQUIRE(row[0] == "A");
-        REQUIRE(row[1] == "B");
-        REQUIRE(row[2] == "C");
-        REQUIRE(row.size() == 3);
-
-        rows.pop_front();
-        row = rows.front();
-        REQUIRE(row[0] == "123");
-        REQUIRE(row[1] == "234");
-        REQUIRE(row[2] == "345");
-        REQUIRE(row.size() == 3);
-
-        rows.pop_front();
-        row = rows.front();
-        REQUIRE(row[0] == "1");
-        REQUIRE(row[1] == "2");
-        REQUIRE(row[2] == "3");
-        REQUIRE(row.size() == 3);
-
-        rows.pop_front();
-        row = rows.front();
-        REQUIRE(row[0] == "1");
-        REQUIRE(row[1] == "2");
-        REQUIRE(row[2] == "3");
-        REQUIRE(row.size() == 3);
-    }
 }
 
 inline std::vector<std::string> make_whitespace_test_cases() {
@@ -242,13 +179,16 @@ TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
         using namespace std;
 
         RowCollection rows;
-        char ws_chars[] = { ' ', '\t' };
 
-        BasicCSVParser parser(
+        auto csv = std::stringstream(row_str);
+        StreamParser<std::stringstream> parser(
+            csv,
             internals::make_parse_flags(',', '"'),
-            internals::make_ws_flags(ws_chars, 2)
+            internals::make_ws_flags({ ' ', '\t' })
         );
-        parser.parse(row_str, rows);
+
+        parser.set_output(rows);
+        parser.next();
 
         auto header = rows[0];
         REQUIRE(vector<string>(header) == vector<string>(
@@ -268,13 +208,17 @@ TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]
 
     SECTION("Parse Test") {
         RowCollection rows;
-        char ws_chars[] = { ' ', '\t' };
 
-        BasicCSVParser parser(
+        auto csv = std::stringstream(csv_string);
+        StreamParser<std::stringstream> parser(
+            csv,
             internals::make_parse_flags(',', '"'),
-            internals::make_ws_flags(ws_chars, 2)
+            internals::make_ws_flags({ ' ', '\t' })
         );
-        parser.parse(csv_string, rows);
+
+        parser.set_output(rows);
+
+        parser.next();
 
         size_t row_no = 0;
         for (auto& row : rows) {

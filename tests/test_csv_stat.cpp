@@ -6,19 +6,17 @@ const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";
 
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
-    std::string int_list = "";
+    std::stringstream int_list;
     for (int i = 1; i < 101; i++) {
         int_str = std::to_string(i);
-        int_list += int_str + "," + int_str + "," + int_str + "\r\n";
+        int_list << int_str << "," << int_str << "," << int_str << "\r\n";
     }
     
     // Expected results
     CSVFormat format;
     format.column_names({ "A", "B", "C" });
 
-    CSVStat reader(format);
-    reader.feed(int_list);
-    reader.end_feed();
+    CSVStat reader(int_list, format);
 
     std::vector<long double> means = { 50.5, 50.5, 50.5 };
     std::vector<long double> mins = { 1, 1, 1 };

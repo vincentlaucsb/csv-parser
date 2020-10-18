@@ -70,39 +70,48 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
-    const std::string data_file = "./tests/data/real_data/2015_StateDepartment.csv";
-    CSVReader reader(data_file, CSVFormat());
-    CSVRow row;
-    reader.read_row(row); // Populate row with first line
-    
-    // Expected Results
-    vector<string> col_names = {
-        "Year", "Entity Type", "Entity Group", "Entity Name",
-        "Department / Subdivision", "Position", "Elected Official",
-        "Judicial", "Other Positions", "Min Classification Salary",
-        "Max Classification Salary", "Reported Base Wage", "Regular Pay",
-        "Overtime Pay", "Lump-Sum Pay", "Other Pay", "Total Wages",
-        "Defined Benefit Plan Contribution", "Employees Retirement Cost Covered",
-        "Deferred Compensation Plan", "Health Dental Vision",
-        "Total Retirement and Health Cost", "Pension Formula",
-        "Entity URL", "Entity Population", "Last Updated",
-        "Entity County", "Special District Activities"
-    };
-    
-    vector<string> first_row = {
-        "2015","State Department","","Administrative Law, Office of","",
-        "Assistant Chief Counsel","False","False","","112044","129780",""
-        ,"133020.06","0","2551.59","2434.8","138006.45","34128.65","0","0"
-        ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
-        "08/02/2016","",""
-    };
+    constexpr auto path = "./tests/data/real_data/2015_StateDepartment.csv";
 
-    REQUIRE( vector<string>(row) == first_row );
-    REQUIRE( get_col_names(data_file) == col_names );
-    
-    // Skip to end
-    while (reader.read_row(row));
-    REQUIRE( reader.size() == 246497 );
+    // Test using memory mapped IO and std::ifstream
+    std::vector<CSVReader> readers = {};
+    std::ifstream infile(path, std::ios::binary);
+
+    readers.emplace_back(path, CSVFormat()); // Memory mapped
+    readers.emplace_back(infile, CSVFormat());
+
+    for (auto& reader : readers) {
+        CSVRow row;
+        reader.read_row(row); // Populate row with first line
+
+        // Expected Results
+        vector<string> col_names = {
+            "Year", "Entity Type", "Entity Group", "Entity Name",
+            "Department / Subdivision", "Position", "Elected Official",
+            "Judicial", "Other Positions", "Min Classification Salary",
+            "Max Classification Salary", "Reported Base Wage", "Regular Pay",
+            "Overtime Pay", "Lump-Sum Pay", "Other Pay", "Total Wages",
+            "Defined Benefit Plan Contribution", "Employees Retirement Cost Covered",
+            "Deferred Compensation Plan", "Health Dental Vision",
+            "Total Retirement and Health Cost", "Pension Formula",
+            "Entity URL", "Entity Population", "Last Updated",
+            "Entity County", "Special District Activities"
+        };
+
+        vector<string> first_row = {
+            "2015","State Department","","Administrative Law, Office of","",
+            "Assistant Chief Counsel","False","False","","112044","129780",""
+            ,"133020.06","0","2551.59","2434.8","138006.45","34128.65","0","0"
+            ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
+            "08/02/2016","",""
+        };
+
+        REQUIRE(vector<string>(row) == first_row);
+        REQUIRE(reader.get_col_names() == col_names);
+
+        // Skip to end
+        while (reader.read_row(row));
+        REQUIRE(reader.n_rows() == 246497);
+    }
 }
 
 //

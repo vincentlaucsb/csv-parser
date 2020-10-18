@@ -6,30 +6,25 @@
 #include "csv_stat.hpp"
 
 namespace csv {
+    /** Calculate statistics for an arbitrarily large file. When this constructor
+     *  is called, CSVStat will process the entire file iteratively. Once finished,
+     *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
+     */
     CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
-        CSVReader(filename, format) {
-        /** Lazily calculate statistics for a potentially large file. Once this constructor
-         *  is called, CSVStat will process the entire file iteratively. Once finished,
-         *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
-         */
-        while (!this->eof()) {
-            this->read_csv(internals::ITERATION_CHUNK_SIZE);
-            this->calc();
-        }
-
-        if (!this->records.empty())
-            this->calc();
+        reader(filename, format) {
+        this->calc();
     }
 
-    CSV_INLINE void CSVStat::end_feed() {
-        CSVReader::end_feed();
+    /** Calculate statistics for a CSV stored in a std::stringstream */
+    CSV_INLINE CSVStat::CSVStat(std::stringstream& stream, CSVFormat format) :
+        reader(stream, format) {
         this->calc();
     }
 
     /** Return current means */
     CSV_INLINE std::vector<long double> CSVStat::get_mean() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
             ret.push_back(this->rolling_means[i]);
         }
         return ret;
@@ -38,7 +33,7 @@ namespace csv {
     /** Return current variances */
     CSV_INLINE std::vector<long double> CSVStat::get_variance() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
         }
         return ret;
@@ -47,7 +42,7 @@ namespace csv {
     /** Return current mins */
     CSV_INLINE std::vector<long double> CSVStat::get_mins() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
             ret.push_back(this->mins[i]);
         }
         return ret;
@@ -56,7 +51,7 @@ namespace csv {
     /** Return current maxes */
     CSV_INLINE std::vector<long double> CSVStat::get_maxes() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
             ret.push_back(this->maxes[i]);
         }
         return ret;
@@ -65,7 +60,7 @@ namespace csv {
     /** Get counts for each column */
     CSV_INLINE std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
         std::vector<FreqCount> ret;
-        for (size_t i = 0; i < this->col_names->size(); i++) {
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
             ret.push_back(this->counts[i]);
         }
         return ret;
@@ -74,35 +69,46 @@ namespace csv {
     /** Get data type counts for each column */
     CSV_INLINE std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
         std::vector<TypeCount> ret;        
-        for (size_t i = 0; i < this->col_names->size(); i++) {
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
             ret.push_back(this->dtypes[i]);
         }
         return ret;
     }
 
     CSV_INLINE void CSVStat::calc() {
-        /** Go through all records and calculate specified statistics */
-        for (size_t i = 0; i < this->col_names->size(); i++) {
-            dtypes.push_back({});
-            counts.push_back({});
-            rolling_means.push_back(0);
-            rolling_vars.push_back(0);
-            mins.push_back(NAN);
-            maxes.push_back(NAN);
-            n.push_back(0);
+        constexpr size_t CALC_CHUNK_SIZE = 5000;
+
+        while (true) {
+            /** Chunk rows */
+            for (auto& row : reader) {
+                if (this->records.size() < CALC_CHUNK_SIZE) {
+                    this->records.push_back(std::move(row));
+                }
+            }
+
+            /** Go through all records and calculate specified statistics */
+            for (size_t i = 0; i < this->get_col_names().size(); i++) {
+                dtypes.push_back({});
+                counts.push_back({});
+                rolling_means.push_back(0);
+                rolling_vars.push_back(0);
+                mins.push_back(NAN);
+                maxes.push_back(NAN);
+                n.push_back(0);
+            }
+
+            std::vector<std::thread> pool;
+
+            // Start threads
+            for (size_t i = 0; i < this->get_col_names().size(); i++)
+                pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
+
+            // Block until done
+            for (auto& th : pool)
+                th.join();
+
+            if (reader.eof()) break;
         }
-
-        std::vector<std::thread> pool;
-
-        // Start threads
-        for (size_t i = 0; i < this->col_names->size(); i++)
-            pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
-
-        // Block until done
-        for (auto& th: pool)
-            th.join();
-
-        this->records.clear();
     }
 
     CSV_INLINE void CSVStat::calc_worker(const size_t &i) {
@@ -114,7 +120,7 @@ namespace csv {
         auto current_record = this->records.begin();
 
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            if (current_record->size() == this->n_cols) {
+            if (current_record->size() == this->get_col_names().size()) {
                 auto current_field = (*current_record)[i];
 
                 // Optimization: Don't count() if there's too many distinct values in the first 1000 rows
@@ -132,7 +138,7 @@ namespace csv {
                     this->min_max(x_n, i);
                 }
             }
-            else if (this->_format.get_variable_column_policy() == VariableColumnPolicy::THROW) {
+            else if (this->reader.get_format().get_variable_column_policy() == VariableColumnPolicy::THROW) {
                 throw std::runtime_error("Line has different length than the others " + internals::format_row(*current_record));
             }
 

@@ -14,10 +14,7 @@ CSVRow make_csv_row(std::vector<std::string> data, std::vector<std::string> col_
     writer << col_names;
     writer << data;
 
-    CSVReader reader;
-    reader.feed(raw_csv.str());
-    reader.end_feed();
-
+    CSVReader reader(raw_csv);
     CSVRow row;
     reader.read_row(row);
 
@@ -99,16 +96,13 @@ TEST_CASE("CSVRow to_json_array() Test() - Mixed", "[csv_mixed_row_to_json_array
 
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/68
 TEST_CASE("CSVRow to_json() with Wrong Columns", "[csv_json_wrong_cols]") {
-    std::string csv_string(R"(A,B,C,
+    std::stringstream csv_string(R"(A,B,C,
 123,345,678,)");
 
-    auto format = csv::CSVFormat();
+    auto format = CSVFormat();
     format.column_names({ "A", "B" });
 
-    csv::CSVReader reader(format);
-    reader.feed(csv_string);
-    reader.end_feed();
-
+    CSVReader reader(csv_string, format);
     CSVRow first_row;
     reader.read_row(first_row);
 

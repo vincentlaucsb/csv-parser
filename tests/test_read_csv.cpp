@@ -50,6 +50,7 @@ TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
 
     // Flag should be set
     REQUIRE(rows.utf8_bom());
+    REQUIRE(rows.get_col_names() == std::vector<std::string>({ "A", "B", "C" }));
 
     CSVRow row;
     rows.read_row(row);
@@ -125,22 +126,6 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
     }
 }
 //! [Parse Example]
-
-TEST_CASE("Fragment Test", "[read_csv_fragments]") {
-    CSVReader reader;
-
-    reader.feed("A,B,C\r\n" // Header row
-        "123,\"234\"\"345\",456\r\n");
-    reader.feed("123,\"234\"345\",456\r\n"
-                "123,\"234\"345\",\"456\"");
-    reader.end_feed();
-
-    // Expected Results: Double " is an escape for a single "
-    vector<string> correct_row = { "123", "234\"345", "456" };
-    for (auto& row : reader) {
-        REQUIRE(vector<string>(row) == correct_row);
-    }
-}
 
 TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     auto row_str = GENERATE(as<std::string> {},
@@ -359,14 +344,12 @@ TEST_CASE("Test read_row() CSVField - Memory", "[read_row_csvf2]") {
 
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/56
 TEST_CASE("Leading Empty Field Regression", "[empty_field_regression]") {
-    std::string csv_string(R"(category,subcategory,project name
+    std::stringstream csv_string(R"(category,subcategory,project name
 ,,foo-project
 bar-category,,bar-project
 	)");
-    auto format = csv::CSVFormat();
-    csv::CSVReader reader(format);
-    reader.feed(csv_string);
-    reader.end_feed();
+
+    CSVReader reader(csv_string, CSVFormat());
     
     CSVRow first_row, second_row;
     REQUIRE(reader.read_row(first_row));
@@ -382,13 +365,10 @@ bar-category,,bar-project
 }
 
 TEST_CASE("Test Parsing CSV with Dummy Column", "[read_csv_dummy]") {
-    std::string csv_string(R"(A,B,C,
+    std::stringstream csv_string(R"(A,B,C,
 123,345,678,)");
 
-    auto format = csv::CSVFormat();
-    csv::CSVReader reader(format);
-    reader.feed(csv_string);
-    reader.end_feed();
+    CSVReader reader(csv_string, CSVFormat());
 
     CSVRow first_row;
 
@@ -402,7 +382,7 @@ TEST_CASE("Test Parsing CSV with Dummy Column", "[read_csv_dummy]") {
 
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/67
 TEST_CASE("Comments in Header Regression", "[comments_in_header_regression]") {
-    std::string csv_string(R"(# some extra metadata
+    std::stringstream csv_string(R"(# some extra metadata
 # some extra metadata
 timestamp,distance,angle,amplitude
 22857782,30000,-3141.59,0
@@ -412,9 +392,7 @@ timestamp,distance,angle,amplitude
     auto format = csv::CSVFormat();
     format.header_row(2);
 
-    csv::CSVReader reader(format);
-    reader.feed(csv_string);
-    reader.end_feed();
+    csv::CSVReader reader(csv_string, format);
 
     std::vector<std::string> expected = {
         "timestamp", "distance", "angle", "amplitude"
@@ -507,14 +485,15 @@ TEST_CASE("Empty CSV", "[read_empty_csv]") {
     );
 
     SECTION("Read Empty CSV") {
-        CSVReader reader;
-        reader.feed(csv_string);
-        reader.end_feed();
+        std::stringstream source(csv_string);
+        CSVReader reader(source);
+        REQUIRE(reader.empty());
 
-        for (auto& row : reader);
+        for (auto& row : reader) {
+            (void)row;
+        }
 
         // We want to make sure that no exceptions are thrown
-        REQUIRE(reader.empty());
-        REQUIRE(reader.size() == 0);
+        REQUIRE(reader.n_rows() == 0);
     }
 }

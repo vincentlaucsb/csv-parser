@@ -8,7 +8,8 @@
    * [Single Header](#single-header)
    * [CMake Instructions](#cmake-instructions)
  * [Features & Examples](#features--examples)
-   * [Reading a Large File (with Iterators)](#reading-a-large-file-with-iterators)
+   * [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
+      * [Memory Mapped Files vs. Streams](#memory-mapped-files-vs-streams)
    * [Indexing by Column Names](#indexing-by-column-names)
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
@@ -86,7 +87,7 @@ target_link_libraries(<your program> csv)
 ```
 
 ## Features & Examples
-### Reading a Large File (with Iterators)
+### Reading an Arbitrarily Large File (with Iterators)
 With this library, you can easily stream over a large file without reading its entirety into memory.
 
 **C++ Style**
@@ -123,6 +124,29 @@ while (reader.read_row(row)) {
 }
 
 ...
+```
+
+#### Memory-Mapped Files vs. Streams
+By default, passing in a file path string to the constructor of `CSVReader`
+causes memory-mapped IO to be used. In general, this option is the most
+performant.
+
+However, `std::ifstream` may also be used as well as in-memory sources via `std::stringstream`.
+
+**Note**: Currently CSV guessing only works for memory-mapped files. The CSV dialect
+must be manually defined for other sources.
+
+```cpp
+CSVFormat format;
+// custom formatting options go here
+
+CSVReader mmap("some_file.csv", format);
+
+std::ifstream infile("some_file.csv", std::ios::binary);
+CSVReader ifstream_reader(infile, format);
+
+std::stringstream my_csv;
+CSVReader sstream_reader(my_csv, format);
 ```
 
 ### Indexing by Column Names
@@ -314,15 +338,22 @@ using namespace std;
 ...
 
 stringstream ss; // Can also use ofstream, etc.
+
 auto writer = make_csv_writer(ss);
+// auto writer = make_tsv_writer(ss);               // For tab-separated files
+// DelimWriter<stringstream, '|', '"'> writer(ss);  // Your own custom format
+
 writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })
     << list<string>({ "to", "write", "documentation." });
 
-writer << array<string, 2>({ "The quick brown "fox", "jumps over the lazy dog" });
+writer << array<string, 2>({ "The quick brown", "fox", "jumps over the lazy dog" });
+writer << make_tuple(1, 2.0, "Three");
 ...
-
 ```
+
+You can pass in arbitrary types into `DelimWriter` by defining a conversion function
+for that type to `std::string`.
 
 ## Contributing
 Bug reports, feature requests, and so on are always welcome. Feel free to leave a note in the Issues section.

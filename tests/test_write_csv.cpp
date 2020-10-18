@@ -10,46 +10,37 @@ using std::queue;
 using std::vector;
 using std::string;
 
-TEST_CASE("CSV Comma Escape", "[test_csv_comma]") {
-    std::string input = "Furthermore, this should be quoted.";
-    std::string correct = "\"Furthermore, this should be quoted.\"";
+TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]") {
+    std::stringstream output, correct;
+    auto writer = make_csv_writer(output);
 
-    REQUIRE(csv_escape<>(input) == correct);
-}
+    SECTION("Escaped Comma") {
+        writer << std::array<std::string, 1>({ "Furthermore, this should be quoted." });
+        correct << "\"Furthermore, this should be quoted.\"";
+    }
 
-TEST_CASE("CSV Quote Escape", "[test_csv_quote]") {
-    std::string input = "\"What does it mean to be RFC 4180 compliant?\" she asked.";
-    std::string correct = "\"\"\"What does it mean to be RFC 4180 compliant?\"\" she asked.\"";
+    SECTION("Quote Escape") {
+        writer << std::array<std::string, 1>({ "\"What does it mean to be RFC 4180 compliant?\" she asked." });
+        correct << "\"\"\"What does it mean to be RFC 4180 compliant?\"\" she asked.\"";
+    }
 
-    REQUIRE(csv_escape<>(input) == correct);
-}
+    SECTION("Quote Minimal") {
+        writer << std::array<std::string, 1>({ "This should not be quoted" });
+        correct << "This should not be quoted";
+    }
 
-TEST_CASE("CSV Quote Minimal", "[test_csv_quote_min]") {
-    std::string input = "This should not be quoted";
-    REQUIRE(csv_escape<>(input) == input);
+    correct << std::endl;
+    REQUIRE(output.str() == correct.str());
 }
 
 TEST_CASE("CSV Quote All", "[test_csv_quote_all]") {
-    std::string input = "This should be quoted";
-    std::string correct = "\"This should be quoted\"";
-    REQUIRE(csv_escape<>(input, false) == correct);
-}
+    std::stringstream output, correct;
+    auto writer = make_csv_writer(output, false);
 
-TEST_CASE("CSV to Stringstream", "[test_csv_sstream1]") {
-    std::stringstream out, correct;
+    writer << std::array<std::string, 1>({ "This should be quoted" });
+    correct << "\"This should be quoted\"" << std::endl;
 
-    // Build correct string
-    correct << "A,B,C" << std::endl << "\"1,1\",2,3" << std::endl;
-
-    queue<vector<string>> q;
-    q.push({ "A", "B", "C" });
-    q.push({ "1,1", "2", "3" });
-
-    auto writer = make_csv_writer(out);
-    for (; !q.empty(); q.pop())
-        writer.write_row(q.front());
-
-    REQUIRE(out.str() == correct.str());
+    REQUIRE(output.str() == correct.str());
 }
 
 //! [CSV Writer Example]
@@ -80,3 +71,42 @@ TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
     }
 }
 //! [CSV Writer Example]
+
+//! [CSV Writer Tuple Example]
+struct Time {
+    std::string hour;
+    std::string minute;
+
+    operator std::string() const {
+        std::string ret = hour;
+        ret += ":";
+        ret += minute;
+        
+        return ret;
+    }
+};
+
+TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
+    #ifdef CSV_HAS_CXX14
+    Time time = { "5", "30" };
+    #else
+    std::string time = "5:30";
+    #endif
+    std::stringstream output, correct_output;
+    auto csv_writer = make_csv_writer(output);
+
+    csv_writer << std::make_tuple("One", 2, "Three", 4.0, time)
+        << std::make_tuple("One", (short)2, "Three", 4.0f, time)
+        << std::make_tuple(-1, -2.0)
+        << std::make_tuple(20.2, -20.2)
+        << std::make_tuple(0.0, 0.0f, 0);
+
+    correct_output << "One,2,Three,4.0,5:30" << std::endl
+        << "One,2,Three,4.0,5:30" << std::endl
+        << "-1,-2.0" << std::endl
+        << "20.20,-20.20" << std::endl
+        << "0.0,0.0,0" << std::endl;
+
+    REQUIRE(output.str() == correct_output.str());
+}
+//! [CSV Writer Tuple Example]

@@ -1,6 +1,5 @@
 #pragma once
-#include "compatibility.hpp"
-#include "constants.hpp"
+#include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
 #include "data_type.h"
@@ -33,7 +32,7 @@ namespace csv {
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
     CSVFileInfo get_file_info(const std::string& filename);
-    int get_col_pos(const std::string filename, const std::string col_name,
-        const CSVFormat format = CSVFormat::guess_csv());
+    int get_col_pos(csv::string_view filename, csv::string_view col_name,
+        const CSVFormat& format = CSVFormat::guess_csv());
     ///@}
 }

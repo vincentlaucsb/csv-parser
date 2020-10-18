@@ -3,54 +3,72 @@
   */
 
 #pragma once
-#include <iostream>
-#include <vector>
-#include <string>
 #include <fstream>
-#include "compatibility.hpp"
+#include <iostream>
+#include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
+
+#include "common.hpp"
+#include "data_type.h"
 
 namespace csv {
+    namespace internals {
+        /** to_string() for unsigned integers */
+        template<typename T,
+            csv::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        inline std::string to_string(T value) {
+            std::string digits_reverse = "";
+
+            if (value == 0) return "0";
+
+            while (value > 0) {
+                digits_reverse += (char)('0' + (value % 10));
+                value /= 10;
+            }
+
+            return std::string(digits_reverse.rbegin(), digits_reverse.rend());
+        }
+
+        /** to_string() for signed integers */
+        template<
+            typename T,
+            csv::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0
+        >
+        inline std::string to_string(T value) {
+            if (value >= 0)
+                return to_string((size_t)value);
+
+            return "-" + to_string((size_t)(value * -1));
+        }
+
+        /** to_string() for floating point numbers */
+        template<
+            typename T,
+            csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
+        >
+        inline std::string to_string(T value) {
+            std::string result;
+
+            if (value < 0) result = "-";
+            
+            // Integral part
+            size_t integral = (size_t)(std::abs(value));
+            result += (integral == 0) ? "0" : to_string(integral);
+
+            // Decimal part
+            size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
+
+            result += ".";
+            result += (decimal == 0) ? "0" : to_string(integral);
+
+            return result;
+        }
+    }
+
     /** @name CSV Writing */
     ///@{
-    #ifndef DOXYGEN_SHOULD_SKIP_THIS
-    template<char Delim = ',', char Quote = '"'>
-    inline std::string csv_escape(csv::string_view in, const bool quote_minimal = true) {
-        /** Format a string to be RFC 4180-compliant
-         *  @param[in]  in              String to be CSV-formatted
-         *  @param[out] quote_minimal   Only quote fields if necessary.
-         *                              If False, everything is quoted.
-         */
-
-        // Sequence used for escaping quote characters that appear in text
-        constexpr char double_quote[3] = { Quote, Quote };
-
-        std::string new_string;
-        bool quote_escape = false;     // Do we need a quote escape
-        new_string += Quote;           // Start initial quote escape sequence
-
-        for (size_t i = 0; i < in.size(); i++) {
-            switch (in[i]) {
-            case Quote:
-                new_string += double_quote;
-                quote_escape = true;
-                break;
-            case Delim:
-                quote_escape = true;
-                HEDLEY_FALL_THROUGH;
-            default:
-                new_string += in[i];
-            }
-        }
-
-        if (quote_escape || !quote_minimal) {
-            new_string += Quote; // Finish off quote escape
-            return new_string;
-        }
-
-        return std::string(in);
-    }
-    #endif
-
     /** 
      *  Class for writing delimiter separated values files
      *
@@ -67,14 +85,22 @@ namespace csv {
      *  formatted strings and csv::TSVWriter<OutputStream>
      *  to write tab separated strings
      *
-     *  @par Example
+     *  @par Example w/ std::vector, std::deque, std::list
      *  @snippet test_write_csv.cpp CSV Writer Example
+     *
+     *  @par Example w/ std::tuple
+     *  @snippet test_write_csv.cpp CSV Writer Tuple Example
      */
     template<class OutputStream, char Delim, char Quote>
     class DelimWriter {
     public:
-        /** Construct a DelimWriter over the specified output stream */
-        DelimWriter(OutputStream& _out) : out(_out) {};
+        /** Construct a DelimWriter over the specified output stream
+         *
+         *  @param  _out           Stream to write to
+         *  @param  _quote_minimal Limit field quoting to only when necessary
+        */
+        DelimWriter(OutputStream& _out, bool _quote_minimal = true)
+            : out(_out), quote_minimal(_quote_minimal) {};
 
         /** Construct a DelimWriter over the file
          *
@@ -87,65 +113,139 @@ namespace csv {
          *  @warning This does not check to make sure row lengths are consistent
          *
          *  @param[in]  record          Sequence of strings to be formatted
-         *  @param      quote_minimal   Only quote fields if necessary
+         *
+         *  @return  The current DelimWriter instance (allowing for operator chaining)
          */
-        template<typename T, typename Alloc, template <typename, typename> class Container>
-        void write_row(const Container<T, Alloc>& record, bool quote_minimal = true) {
+        template<typename T, size_t Size>
+        DelimWriter& operator<<(const std::array<T, Size>& record) {
+            for (size_t i = 0; i < Size; i++) {
+                out << csv_escape(record[i]);
+                if (i + 1 != Size) out << Delim;
+            }
+
+            out << std::endl;
+            return *this;
+        }
+
+        /** @copydoc operator<< */
+        template<typename... T>
+        DelimWriter& operator<<(const std::tuple<T...>& record) {
+            this->write_tuple<0, T...>(record);
+            return *this;
+        }
+
+        /**
+         * @tparam T A container such as std::vector, std::deque, or std::list
+         * 
+         * @copydoc operator<<
+         */
+        template<
+            typename T, typename Alloc, template <typename, typename> class Container,
+
+            // Avoid conflicting with tuples with two elements
+            csv::enable_if_t<std::is_class<Alloc>::value, int> = 0
+        >
+            DelimWriter& operator<<(const Container<T, Alloc>& record) {
             const size_t ilen = record.size();
             size_t i = 0;
-            for (auto& field: record) {
-                out << csv_escape<Delim, Quote>(field, quote_minimal);
+            for (const auto& field : record) {
+                out << csv_escape(field);
                 if (i + 1 != ilen) out << Delim;
                 i++;
             }
 
             out << std::endl;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, size_t Size>
-        void write_row(const std::array<T, Size>& record, bool quote_minimal = true) {
-            for (size_t i = 0; i < Size; i++) {
-                auto& field = record[i];
-                out << csv_escape<Delim, Quote>(field, quote_minimal);
-                if (i + 1 != Size) out << Delim;
-            }
-
-            out << std::endl;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, typename Alloc, template <typename, typename> class Container>
-        DelimWriter& operator<<(const Container<T, Alloc>& record) {
-            this->write_row(record);
-            return *this;
-        }
-
-        /** @copydoc write_row
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
-         */
-        template<typename T, size_t Size>
-        DelimWriter& operator<<(const std::array<T, Size>& record) {
-            this->write_row(record);
             return *this;
         }
 
     private:
+        template<
+            typename T,
+            csv::enable_if_t<
+                !std::is_convertible<T, std::string>::value
+                && !std::is_convertible<T, csv::string_view>::value
+            , int> = 0
+        >
+        std::string csv_escape(T in) {
+            return internals::to_string(in);
+        }
+
+        template<
+            typename T,
+            csv::enable_if_t<
+                std::is_convertible<T, std::string>::value
+                || std::is_convertible<T, csv::string_view>::value
+            , int> = 0
+        >
+        std::string csv_escape(T in) {
+            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
+                return _csv_escape(in);
+            }
+            
+            return _csv_escape(std::string(in));
+        }
+
+        std::string _csv_escape(csv::string_view in) {
+            /** Format a string to be RFC 4180-compliant
+             *  @param[in]  in              String to be CSV-formatted
+             *  @param[out] quote_minimal   Only quote fields if necessary.
+             *                              If False, everything is quoted.
+             */
+
+            // Do we need a quote escape
+            bool quote_escape = false;
+
+            for (auto ch : in) {
+                if (ch == Quote || ch == Delim) {
+                    quote_escape = true;
+                    break;
+                }
+            }
+
+            if (!quote_escape) {
+                if (quote_minimal) return std::string(in);
+                else {
+                    std::string ret(Quote, 1);
+                    ret += in.data();
+                    ret += Quote;
+                }
+            }
+
+            // Start initial quote escape sequence
+            std::string ret(1, Quote);
+            for (auto ch: in) {
+                if (ch == Quote) ret += std::string(2, Quote);
+                else ret += ch;
+            }
+
+            // Finish off quote escape
+            ret += Quote;
+            return ret;
+        }
+
+        /** Recurisve template for writing std::tuples */
+        template<size_t Index = 0, typename... T>
+        typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            out << csv_escape(std::get<Index>(record));
+
+            IF_CONSTEXPR (Index + 1 < sizeof...(T)) out << Delim;
+
+            this->write_tuple<Index + 1>(record);
+        }
+
+        /** Base case for writing std::tuples */
+        template<size_t Index = 0, typename... T>
+        typename std::enable_if<Index == sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            (void)record;
+            out << std::endl;
+        }
+
         OutputStream & out;
+        bool quote_minimal;
     };
 
-    /* Uncomment when C++17 support is better
-    template<class OutputStream>
-    DelimWriter(OutputStream&) -> DelimWriter<OutputStream>;
-    */
-
-    /** Class for writing CSV files
+    /** An alias for csv::DelimWriter for writing standard CSV files
      *
-     *  @sa csv::DelimWriter::write_row()
      *  @sa csv::DelimWriter::operator<<()
      *
      *  @note Use `csv::make_csv_writer()` to in instatiate this class over
@@ -165,20 +265,16 @@ namespace csv {
     template<class OutputStream>
     using TSVWriter = DelimWriter<OutputStream, '\t', '"'>;
 
-    //
-    // Temporary: Until more C++17 compilers support template deduction guides
-    //
+    /** Return a csv::CSVWriter over the output stream */
     template<class OutputStream>
-    inline CSVWriter<OutputStream> make_csv_writer(OutputStream& out) {
-        /** Return a CSVWriter over the output stream */
-        return CSVWriter<OutputStream>(out);
+    inline CSVWriter<OutputStream> make_csv_writer(OutputStream& out, bool quote_minimal=true) {
+        return CSVWriter<OutputStream>(out, quote_minimal);
     }
 
+    /** Return a csv::TSVWriter over the output stream */
     template<class OutputStream>
-    inline TSVWriter<OutputStream> make_tsv_writer(OutputStream& out) {
-        /** Return a TSVWriter over the output stream */
-        return TSVWriter<OutputStream>(out);
+    inline TSVWriter<OutputStream> make_tsv_writer(OutputStream& out, bool quote_minimal=true) {
+        return TSVWriter<OutputStream>(out, quote_minimal);
     }
-
     ///@}
 }
