@@ -341,11 +341,11 @@ namespace csv {
             iterator operator-(difference_type n) const;
 
             /** Two iterators are equal if they point to the same field */
-            constexpr bool operator==(const iterator& other) const noexcept {
+            CONSTEXPR bool operator==(const iterator& other) const noexcept {
                 return this->i == other.i;
             };
 
-            constexpr bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
+            CONSTEXPR bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
 
 #ifndef NDEBUG
             friend CSVRow;

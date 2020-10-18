@@ -128,11 +128,11 @@ namespace csv {
 
             void end_feed();
 
-            constexpr internals::ParseFlags parse_flag(const char ch) const noexcept {
+            CONSTEXPR internals::ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
             }
 
-            constexpr internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
+            CONSTEXPR internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
                 return internals::qe_flag(parse_flag(ch), this->quote_escape);
             }
 
@@ -142,7 +142,7 @@ namespace csv {
                 this->col_names = _col_names;
             }
             
-            constexpr bool utf8_bom() const { return this->_utf8_bom; }
+            CONSTEXPR bool utf8_bom() const { return this->_utf8_bom; }
 
         protected:
             bool _eof = false;
@@ -189,7 +189,7 @@ namespace csv {
 
             RowCollection* _records = nullptr;
 
-            constexpr bool ws_flag(const char ch) const noexcept {
+            CONSTEXPR bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
             }
 

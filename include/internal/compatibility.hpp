@@ -69,11 +69,10 @@ namespace csv {
     #endif
 
     // Resolves g++ bug with regard to constexpr methods
+    // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
     #if defined __GNUC__ && !defined __clang__
-        #if __GNUC__ >= 7
-            #if defined(CSV_HAS_CXX17) && (__GNUC_MINOR__ >= 2 || __GNUC__ >= 8)
-                #define CONSTEXPR constexpr
-            #endif
+        #if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
+            #define CONSTEXPR constexpr
         #endif
     #else
         #ifdef CSV_HAS_CXX17

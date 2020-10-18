@@ -144,10 +144,10 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
-        constexpr bool empty() const noexcept { return this->n_rows() == 0; }
+        CONSTEXPR bool empty() const noexcept { return this->n_rows() == 0; }
 
         /** @return The number of rows that have been read so far */
-        constexpr size_t n_rows() const noexcept { return this->_n_rows; }
+        CONSTEXPR size_t n_rows() const noexcept { return this->_n_rows; }
 
         /** @return Whether or not CSV was prefixed with a UTF-8 bom */
         bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
