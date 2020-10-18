@@ -20,7 +20,6 @@ namespace csv {
         using FreqCount = std::unordered_map<std::string, size_t>;
         using TypeCount = std::unordered_map<DataType, size_t>;
 
-        void end_feed();
         std::vector<long double> get_mean() const;
         std::vector<long double> get_variance() const;
         std::vector<long double> get_mins() const;

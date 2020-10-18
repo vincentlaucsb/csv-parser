@@ -8,7 +8,7 @@
 #include <string>
 #include <cassert>
 
-#include "compatibility.hpp"
+#include "common.hpp"
 
 namespace csv {
     /** Enumerates the different CSV field types that are

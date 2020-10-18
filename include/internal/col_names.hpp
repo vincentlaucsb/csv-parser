@@ -4,8 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "compatibility.hpp"
-#include "constants.hpp"
+#include "common.hpp"
 
 namespace csv {
     namespace internals {

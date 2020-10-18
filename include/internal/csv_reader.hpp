@@ -17,11 +17,9 @@
 
 #include "../external/mio.hpp"
 #include "basic_csv_parser.hpp"
-#include "constants.hpp"
+#include "common.hpp"
 #include "data_type.h"
 #include "csv_format.hpp"
-#include "csv_reader_internals.hpp"
-#include "compatibility.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
@@ -39,7 +37,6 @@ namespace csv {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
-
     }
 
     std::vector<std::string> get_col_names(
@@ -113,21 +110,23 @@ namespace csv {
          ///@{
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
 
-        /** Allows parsing stream sources such as std::stringstream or std::ifstream */
+        /** Allows parsing stream sources such as `std::stringstream` or `std::ifstream`
+         *
+         *  @tparam TStream An input stream deriving from `std::istream`
+         *  @note   Currently this constructor requires special CSV dialects to be manually
+         *          specified.
+         */
         template<typename TStream,
-            csv::enable_if_t<std::is_base_of<std::ios_base, TStream>::value, int> = 0>
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         CSVReader(TStream& source, CSVFormat format = CSVFormat()) : _format(format) {
-            using Parser = internals::BasicStreamParser<TStream>;
+            using Parser = internals::StreamParser<TStream>;
 
             if (!format.col_names.empty())
                 this->set_col_names(format.col_names);
 
             this->parser = std::unique_ptr<Parser>(
                 new Parser(source, format, col_names)); // For C++11
-
-            // Read initial chunk to get metadata
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-            this->read_csv_worker.join();
+            this->initial_read();
         }
         ///@}
 
@@ -160,18 +159,22 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
+        /** Whether or not the file or stream contains valid CSV rows,
+         *  not including the header.
+         *
+         *  @note Gives an accurate answer regardless of when it is called.
+         *
+         */
         CONSTEXPR bool empty() const noexcept { return this->n_rows() == 0; }
 
-        /** @return The number of rows that have been read so far */
+        /** Retrieves the number of rows that have been read so far */
         CONSTEXPR size_t n_rows() const noexcept { return this->_n_rows; }
 
-        /** @return Whether or not CSV was prefixed with a UTF-8 bom */
+        /** Whether or not CSV was prefixed with a UTF-8 bom */
         bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
         ///@}
 
     protected:
-        using RowCollection = internals::ThreadSafeDeque<CSVRow>;
-
         /**
          * \defgroup csv_internal CSV Parser Internals
          * @brief Internals of CSVReader. Only maintainers and those looking to
@@ -198,18 +201,15 @@ namespace csv {
         /** Queue of parsed CSV rows */
         RowCollection records = RowCollection(100);
 
-        /** The number of columns in this CSV */
-        size_t n_cols = 0;
-
-        /** How many rows (minus header) have been parsed so far */
-        size_t _n_rows = 0;
+        size_t n_cols = 0;  /**< The number of columns in this CSV */
+        size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
-        /**@}*/ // End of parser internals
+        /**@}*/
 
     private:
         /** Whether or not rows before header were trimmed */
@@ -217,8 +217,14 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::thread read_csv_worker;
+        std::thread read_csv_worker; /**< Worker thread for read_csv() */
         ///@}
+
+        /** Read initial chunk to get metadata */
+        void initial_read() {
+            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+            this->read_csv_worker.join();
+        }
 
         void trim_header();
     };

@@ -8,16 +8,14 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
 ### CSV Reading
  * csv::CSVFormat: \copybrief csv::CSVFormat
  * csv::CSVReader
-  * csv::CSVReader::size(): \copybrief csv::CSVReader::size()
+  * csv::CSVReader::n_rows(): \copybrief csv::CSVReader::n_rows()
   * csv::CSVReader::utf8_bom(): \copybrief csv::CSVReader::utf8_bom()
   * csv::CSVReader::get_format(): \copybrief csv::CSVReader::get_format()
-  * Manually parsing string fragments
-      * csv::CSVReader::feed()
   * Retrieving data
-      * csv::CSVReader::read_row()
-      * csv::CSVReader::iterator
+      * csv::CSVReader::iterator: Recommended
         * csv::CSVReader::begin()
         * csv::CSVReader::end()
+      * csv::CSVReader::read_row()
  * Convenience Functions
   * csv::parse()
   * csv::operator ""_csv()
@@ -43,11 +41,14 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
  * csv::CSVStat
 
 ### CSV Writing
- * csv::make_csv_writer()
- * csv::make_tsv_writer()
+ * csv::make_csv_writer(): Construct a csv::CSVWriter
+ * csv::make_tsv_writer(): Construct a csv::TSVWriter
  * csv::DelimWriter
-   * csv::CSVWriter
-   * csv::TSVWriter
+   * Pre-Defined Specializations
+     * csv::CSVWriter
+     * csv::TSVWriter
+   * Methods
+     * csv::DelimWriter::operator<<()
 
 ## Frequently Asked Questions
 
@@ -67,8 +68,12 @@ is chosen as the starting row.
 Because you can subclass csv::CSVReader, you can implement your own guessing hueristic. csv::internals::CSVGuesser may be used as a helpful guide in doing so.
 
 ### Is the CSV parser thread-safe?
-The csv::CSVReader iterators are intended to be used from one thread at a time. However, csv::CSVRow and csv::CSVField objects should be 
-thread-safe (since they mainly involve reading data). If you want to perform computations on multiple columns in parallel,
-you may want to avoid using the iterators and
-use csv::CSVReader::read_row() to manually chunk your data. csv::CSVStat provides an example of how parallel computations
-may be performed. (Specifically, look at csv::CSVStat::calc() and csv::CSVStat::calc_worker() in csv_stat.cpp).
+This library already does a lot of work behind the scenes to use threads to squeeze
+performance from your CPU. However, ambitious users who are in the mood for
+experimenting should follow these guidelines:
+ * csv::CSVReader::iterator should only be used from one thread
+   * A workaround is to chunk blocks of `CSVRow` objects together and 
+     create separate threads to process each column
+ * csv::CSVRow may be safely processed from multiple threads
+ * csv::CSVField objects should only be read from one thread at a time
+   * **Note**: csv::CSVRow::operator[]() produces separate copies of `csv::CSVField` objects

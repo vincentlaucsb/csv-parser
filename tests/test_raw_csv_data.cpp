@@ -1,6 +1,5 @@
 #include "catch.hpp"
 #include "internal/basic_csv_parser.hpp"
-#include "internal/csv_reader_internals.hpp"
 #include "internal/csv_row.hpp"
 
 #include <sstream>
@@ -17,7 +16,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
 
     RowCollection rows;
 
-    BasicStreamParser<std::stringstream> parser(
+    StreamParser<std::stringstream> parser(
         csv,
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
@@ -64,7 +63,7 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
 
     RowCollection rows;
 
-    BasicStreamParser<std::stringstream> parser(
+    StreamParser<std::stringstream> parser(
         csv,
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
@@ -182,7 +181,7 @@ TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
         RowCollection rows;
 
         auto csv = std::stringstream(row_str);
-        BasicStreamParser<std::stringstream> parser(
+        StreamParser<std::stringstream> parser(
             csv,
             internals::make_parse_flags(',', '"'),
             internals::make_ws_flags({ ' ', '\t' })
@@ -211,7 +210,7 @@ TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]
         RowCollection rows;
 
         auto csv = std::stringstream(csv_string);
-        BasicStreamParser<std::stringstream> parser(
+        StreamParser<std::stringstream> parser(
             csv,
             internals::make_parse_flags(',', '"'),
             internals::make_ws_flags({ ' ', '\t' })

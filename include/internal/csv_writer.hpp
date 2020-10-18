@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "compatibility.hpp"
+#include "common.hpp"
 #include "data_type.h"
 
 namespace csv {

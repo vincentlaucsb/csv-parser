@@ -1,6 +1,5 @@
 #pragma once
-#include "compatibility.hpp"
-#include "constants.hpp"
+#include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
 #include "data_type.h"

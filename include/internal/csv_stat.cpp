@@ -6,21 +6,18 @@
 #include "csv_stat.hpp"
 
 namespace csv {
+    /** Calculate statistics for an arbitrarily large file. When this constructor
+     *  is called, CSVStat will process the entire file iteratively. Once finished,
+     *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
+     */
     CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
         reader(filename, format) {
-        /** Lazily calculate statistics for a potentially large file. Once this constructor
-         *  is called, CSVStat will process the entire file iteratively. Once finished,
-         *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
-         */
         this->calc();
     }
 
+    /** Calculate statistics for a CSV stored in a std::stringstream */
     CSV_INLINE CSVStat::CSVStat(std::stringstream& stream, CSVFormat format) :
         reader(stream, format) {
-        this->calc();
-    }
-
-    CSV_INLINE void CSVStat::end_feed() {
         this->calc();
     }
 

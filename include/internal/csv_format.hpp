@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "compatibility.hpp"
+#include "common.hpp"
 
 namespace csv {
     namespace internals {
@@ -104,12 +104,6 @@ namespace csv {
             return *this;
         }
 
-        /** Tells the parser to detect and remove UTF-8 byte order marks */
-        CONSTEXPR CSVFormat& detect_bom(bool detect = true) {
-            this->unicode_detect = detect;
-            return *this;
-        }
-
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
@@ -133,8 +127,7 @@ namespace csv {
             CSVFormat format;
             format.delimiter({ ',', '|', '\t', ';', '^' })
                 .quote('"')
-                .header_row(0)
-                .detect_bom(true);
+                .header_row(0);
 
             return format;
         }
@@ -170,8 +163,5 @@ namespace csv {
 
         /**< Allow variable length columns? */
         VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE_ROW;
-
-        /**< Detect and strip out Unicode byte order marks */
-        bool unicode_detect = true;
     };
 }

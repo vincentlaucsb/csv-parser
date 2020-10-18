@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.0.2
+CSV for C++, version 2.1.0
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -1796,15 +1796,20 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
 
 #endif // MIO_SHARED_MMAP_HEADER
 
+/** @file
+ *  @brief Contains the main CSV parsing algorithm and various utility functions
+ */
+
 #include <algorithm>
 #include <array>
 #include <condition_variable>
 #include <deque>
-#include <thread>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <thread>
 #include <vector>
 
 #include <memory>
@@ -1813,12 +1818,27 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
 #include <vector>
 
 /** @file
- *  Defines various compatibility macros
+ *  A standalone header file containing shared code
  */
 
-/** Helper macro which should be #defined as "inline" 
- *  in the single header version
- */
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdlib>
+#include <deque>
+
+#if defined(_WIN32)
+#include <Windows.h>
+#define WIN32_LEAN_AND_MEAN
+#undef max
+#undef min
+#elif defined(__linux__)
+#include <unistd.h>
+#endif
+
+ /** Helper macro which should be #defined as "inline"
+  *  in the single header version
+  */
 #define CSV_INLINE inline
 
 #include <type_traits>
@@ -3144,9 +3164,9 @@ nssv_RESTORE_WARNINGS()
 #endif // NONSTD_SV_LITE_H_INCLUDED
 
 
-// If there is another version of Hedley, then the newer one 
-// takes precedence.
-// See: https://github.com/nemequ/hedley
+  // If there is another version of Hedley, then the newer one 
+  // takes precedence.
+  // See: https://github.com/nemequ/hedley
 /* Hedley - https://nemequ.github.io/hedley
  * Created by Evan Nemerson <evan@nemerson.com>
  *
@@ -4655,6 +4675,9 @@ HEDLEY_DIAGNOSTIC_POP
 
 
 namespace csv {
+#ifdef _MSC_VER
+#pragma region Compatibility Macros
+#endif
     /**
      *  @def IF_CONSTEXPR
      *  Expands to `if constexpr` in C++17 and `if` otherwise
@@ -4664,105 +4687,90 @@ namespace csv {
      *  Mainly used for global variables.
      *
      *  @def CONSTEXPR
-     *  Expands to `constexpr` in C++17 and `inline` otherwise.
+     *  Expands to `constexpr` in decent compilers and `inline` otherwise.
      *  Intended for functions and methods.
      */
 
-    #if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
-        #define CSV_HAS_CXX17
-    #endif
+#if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
+#define CSV_HAS_CXX17
+#endif
 
-    #if CMAKE_CXX_STANDARD >= 14 || __cplusplus >= 	201402L
-        #define CSV_HAS_CXX14
-    #endif
+#if CMAKE_CXX_STANDARD >= 14 || __cplusplus >= 	201402L
+#define CSV_HAS_CXX14
+#endif
 
-    #ifdef CSV_HAS_CXX17
-        #include <string_view>
-        /** @typedef string_view
-         *  The string_view class used by this library.
-         */
-        using string_view = std::string_view;
-    #else
-        /** @typedef string_view
-         *  The string_view class used by this library.
-         */
-        using string_view = nonstd::string_view;
-    #endif
+#ifdef CSV_HAS_CXX17
+#include <string_view>
+     /** @typedef string_view
+      *  The string_view class used by this library.
+      */
+    using string_view = std::string_view;
+#else
+     /** @typedef string_view
+      *  The string_view class used by this library.
+      */
+    using string_view = nonstd::string_view;
+#endif
 
-    #ifdef CSV_HAS_CXX17
-        #define IF_CONSTEXPR if constexpr
-        #define CONSTEXPR_VALUE constexpr
-    #else
-        #define IF_CONSTEXPR if
-        #define CONSTEXPR_VALUE const
-    #endif
+#ifdef CSV_HAS_CXX17
+#define IF_CONSTEXPR if constexpr
+#define CONSTEXPR_VALUE constexpr
+#else
+#define IF_CONSTEXPR if
+#define CONSTEXPR_VALUE const
+#endif
 
-    #ifdef CSV_HAS_CXX14
-        template<bool B, class T = void>
-        using enable_if_t = std::enable_if_t<B,T>;
-    #else
-        template<bool B, class T = void>
-        using enable_if_t = typename std::enable_if<B,T>::type;
-    #endif
+#ifdef CSV_HAS_CXX14
+    template<bool B, class T = void>
+    using enable_if_t = std::enable_if_t<B, T>;
+#else
+    template<bool B, class T = void>
+    using enable_if_t = typename std::enable_if<B, T>::type;
+#endif
 
     // Resolves g++ bug with regard to constexpr methods
     // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
-    #if defined __GNUC__ && !defined __clang__
-        #if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
-            #define CONSTEXPR constexpr
-        #endif
-    #else
-        #ifdef CSV_HAS_CXX17
-            #define CONSTEXPR constexpr
-        #endif
-    #endif
-
-    #ifndef CONSTEXPR
-        #define CONSTEXPR inline
-    #endif
-}
-
-/** @file
- *  Defines CSV global constants
- */
-
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstdlib>
-#include <deque>
-
-#if defined(_WIN32)
-#include <Windows.h>
-#define WIN32_LEAN_AND_MEAN
-#undef max
-#undef min
-#elif defined(__linux__)
-#include <unistd.h>
+#if defined __GNUC__ && !defined __clang__
+#if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
+#define CONSTEXPR constexpr
+#endif
+#else
+#ifdef CSV_HAS_CXX17
+#define CONSTEXPR constexpr
+#endif
 #endif
 
-namespace csv {
+#ifndef CONSTEXPR
+#define CONSTEXPR inline
+#endif
+
+#ifdef _MSC_VER
+#pragma endregion
+#endif
+
     namespace internals {
         // PAGE_SIZE macro could be already defined by the host system.
-        #if defined(PAGE_SIZE)
-        #undef PAGE_SIZE
-        #endif
+#if defined(PAGE_SIZE)
+#undef PAGE_SIZE
+#endif
 
-        // Get operating system specific details
-        #if defined(_WIN32)
-            inline int getpagesize() {
-                _SYSTEM_INFO sys_info = {};
-                GetSystemInfo(&sys_info);
-                return std::max(sys_info.dwPageSize, sys_info.dwAllocationGranularity);
-            }
+// Get operating system specific details
+#if defined(_WIN32)
+        inline int getpagesize() {
+            _SYSTEM_INFO sys_info = {};
+            GetSystemInfo(&sys_info);
+            return std::max(sys_info.dwPageSize, sys_info.dwAllocationGranularity);
+        }
 
-            /** Size of a memory page in bytes */
-            const int PAGE_SIZE = getpagesize();
-        #elif defined(__linux__) 
-            const int PAGE_SIZE = getpagesize();
-        #else
-            const int PAGE_SIZE = 4096;
-        #endif
+        const int PAGE_SIZE = getpagesize();
+#elif defined(__linux__) 
+        const int PAGE_SIZE = getpagesize();
+#else
+        /** Size of a memory page in bytes. Used by
+         *  csv::internals::CSVFieldArray when allocating blocks.
+         */
+        const int PAGE_SIZE = 4096;
+#endif
 
         /** For functions that lazy load a large CSV, this determines how
          *  many bytes are read at a time
@@ -4779,21 +4787,23 @@ namespace csv {
         /**  @typedef ParseFlags
          *   An enum used for describing the significance of each character
          *   with respect to CSV parsing
+         *
+         *   @see quote_escape_flag
          */
         enum class ParseFlags {
-            QUOTE_ESCAPE_QUOTE = 0,        /* A quote inside or terminating a quote_escaped field */
-            QUOTE              = 2 | 1,    /**< Characters which may signify a quote escape */
-            NOT_SPECIAL        = 4,        /**< Characters with no special meaning or escaped delimiters and newlines */
-            DELIMITER          = 4 | 2,    /**< Characters which signify a new field */
-            NEWLINE            = 4 | 2 | 1 /**< Characters which signify a new row */
+            QUOTE_ESCAPE_QUOTE = 0, /**< A quote inside or terminating a quote_escaped field */
+            QUOTE = 2 | 1,          /**< Characters which may signify a quote escape */
+            NOT_SPECIAL = 4,        /**< Characters with no special meaning or escaped delimiters and newlines */
+            DELIMITER = 4 | 2,      /**< Characters which signify a new field */
+            NEWLINE = 4 | 2 | 1     /**< Characters which signify a new row */
         };
 
         /** Transform the ParseFlags given the context of whether or not the current
          *  field is quote escaped */
-        constexpr ParseFlags qe_flag(ParseFlags flag, bool quote_escape) noexcept {
+        constexpr ParseFlags quote_escape_flag(ParseFlags flag, bool quote_escape) noexcept {
             return (ParseFlags)((int)flag & ~((int)ParseFlags::QUOTE * quote_escape));
         }
-        
+
         // Assumed to be true by parsing functions: allows for testing
         // if an item is DELIMITER or NEWLINE with a >= statement
         static_assert(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
@@ -4803,15 +4813,15 @@ namespace csv {
          *  Idea: The meaning of all non-quote characters changes depending
          *  on whether or not the parser is in a quote-escaped mode (0 or 1)
          */
-        static_assert(qe_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
-        static_assert(qe_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
-        static_assert(qe_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
-        static_assert(qe_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
+        static_assert(quote_escape_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
+        static_assert(quote_escape_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
+        static_assert(quote_escape_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
+        static_assert(quote_escape_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
 
-        static_assert(qe_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
-        static_assert(qe_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
-        static_assert(qe_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
-        static_assert(qe_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
+        static_assert(quote_escape_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
+        static_assert(quote_escape_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
+        static_assert(quote_escape_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
+        static_assert(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         /** An array which maps ASCII chars to a parsing flag */
         using ParseFlagMap = std::array<ParseFlags, 256>;
@@ -4823,6 +4833,7 @@ namespace csv {
     /** Integer indicating a requested column wasn't found. */
     constexpr int CSV_NOT_FOUND = -1;
 }
+
 
 namespace csv {
     namespace internals {
@@ -4960,12 +4971,6 @@ namespace csv {
             return *this;
         }
 
-        /** Tells the parser to detect and remove UTF-8 byte order marks */
-        CONSTEXPR CSVFormat& detect_bom(bool detect = true) {
-            this->unicode_detect = detect;
-            return *this;
-        }
-
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
@@ -4989,8 +4994,7 @@ namespace csv {
             CSVFormat format;
             format.delimiter({ ',', '|', '\t', ';', '^' })
                 .quote('"')
-                .header_row(0)
-                .detect_bom(true);
+                .header_row(0);
 
             return format;
         }
@@ -5026,84 +5030,7 @@ namespace csv {
 
         /**< Allow variable length columns? */
         VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE_ROW;
-
-        /**< Detect and strip out Unicode byte order marks */
-        bool unicode_detect = true;
     };
-}
-#include <deque>
-#include <functional>
-#include <fstream>
-#include <memory>
-#include <string>
-#include <vector>
-
-
-namespace csv {
-    namespace internals {
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character and, v[i + 128] labels it according to
-         *  the CSVReader::ParseFlags enum
-         */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter) {
-            std::array<ParseFlags, 256> ret = {};
-            for (int i = -128; i < 128; i++) {
-                const int arr_idx = i + 128;
-                char ch = char(i);
-
-                if (ch == delimiter)
-                    ret[arr_idx] = ParseFlags::DELIMITER;
-                else if (ch == '\r' || ch == '\n')
-                    ret[arr_idx] = ParseFlags::NEWLINE;
-                else
-                    ret[arr_idx] = ParseFlags::NOT_SPECIAL;
-            }
-
-            return ret;
-        }
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character and, v[i + 128] labels it according to
-         *  the CSVReader::ParseFlags enum
-         */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
-            std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
-            ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
-            return ret;
-        }
-
-        /** Create a vector v where each index i corresponds to the
-         *  ASCII number for a character c and, v[i + 128] is true if
-         *  c is a whitespace character
-         */
-        HEDLEY_CONST CONSTEXPR WhitespaceMap make_ws_flags(const char * ws_chars, size_t n_chars) {
-            std::array<bool, 256> ret = {};
-            for (int i = -128; i < 128; i++) {
-                const int arr_idx = i + 128;
-                char ch = char(i);
-                ret[arr_idx] = false;
-
-                for (size_t j = 0; j < n_chars; j++) {
-                    if (ws_chars[j] == ch) {
-                        ret[arr_idx] = true;
-                    }
-                }
-            }
-
-            return ret;
-        }
-
-        inline WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
-            return make_ws_flags(flags.data(), flags.size());
-        }
-
-        CSV_INLINE size_t get_file_size(csv::string_view filename);
-
-        CSV_INLINE std::string get_csv_head(csv::string_view filename);
-
-        /** Read the first 500KB of a CSV file */
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
-    }
 }
 /** @file
  *  Defines the data type used for storing information about a CSV row
@@ -5483,31 +5410,47 @@ namespace csv {
                 has_double_quote = _double_quote;
             }
 
+            /** The start of the field, relative to the beginning of the row */
             size_t start;
-            size_t length;
+
+            /** The length of the row, ignoring quote escape characters */
+            size_t length; 
+
+            /** Whether or not the field contains an escaped quote */
             bool has_double_quote;
         };
 
-        /** A class used for efficiently storing RawCSVField objects and expanding as necessary */
-        class CSVFieldArray {
+        /** A class used for efficiently storing RawCSVField objects and expanding as necessary
+         *
+         *  @par Implementation
+         *  This data structure stores RawCSVField in continguous blocks. When more capacity
+         *  is needed, a new block is allocated, but previous data stays put.
+         *
+         *  @par Thread Safety
+         *  This class may be safely read from multiple threads and written to from one,
+         *  as long as the writing thread does not actively touch fields which are being
+         *  read.
+         */
+        class CSVFieldList {
         public:
-            CSVFieldArray(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
+            /** Construct a CSVFieldList which allocates blocks of a certain size */
+            CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
                 this->allocate();
             }
 
             // No copy constructor
-            CSVFieldArray(const CSVFieldArray& other) = delete;
+            CSVFieldList(const CSVFieldList& other) = delete;
 
             // CSVFieldArrays may be moved
-            CSVFieldArray(CSVFieldArray&& other) :
+            CSVFieldList(CSVFieldList&& other) :
                 _single_buffer_capacity(other._single_buffer_capacity) {
                 buffers = std::move(other.buffers);
                 _current_buffer_size = other._current_buffer_size;
                 _back = other._back;
             }
 
-            ~CSVFieldArray() {
+            ~CSVFieldList() {
                 for (auto& buffer : buffers)
                     delete[] buffer;
             }
@@ -5549,10 +5492,13 @@ namespace csv {
             std::shared_ptr<void> _data = nullptr;
             csv::string_view data = "";
 
-            internals::CSVFieldArray fields;
+            internals::CSVFieldList fields;
 
             std::unordered_set<size_t> has_double_quotes = {};
+
+            // TODO: Consider replacing with a more thread-safe structure
             std::unordered_map<size_t, std::string> double_quote_fields = {};
+
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
             internals::WhitespaceMap ws_flags;
@@ -5884,6 +5830,69 @@ inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) 
 
 namespace csv {
     namespace internals {
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter) {
+            std::array<ParseFlags, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+
+                if (ch == delimiter)
+                    ret[arr_idx] = ParseFlags::DELIMITER;
+                else if (ch == '\r' || ch == '\n')
+                    ret[arr_idx] = ParseFlags::NEWLINE;
+                else
+                    ret[arr_idx] = ParseFlags::NOT_SPECIAL;
+            }
+
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+            std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
+            ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character c and, v[i + 128] is true if
+         *  c is a whitespace character
+         */
+        HEDLEY_CONST CONSTEXPR WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
+            std::array<bool, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+                ret[arr_idx] = false;
+
+                for (size_t j = 0; j < n_chars; j++) {
+                    if (ws_chars[j] == ch) {
+                        ret[arr_idx] = true;
+                    }
+                }
+            }
+
+            return ret;
+        }
+
+        inline WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
+            return make_ws_flags(flags.data(), flags.size());
+        }
+
+        CSV_INLINE size_t get_file_size(csv::string_view filename);
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename);
+
+        /** Read the first 500KB of a CSV file */
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
+
         /** A std::deque wrapper which allows multiple read and write threads to concurrently
          *  access it along with providing read threads the ability to wait for the deque
          *  to become populated
@@ -5935,7 +5944,7 @@ namespace csv {
 
             /** Returns true if a thread is actively pushing items to this deque */
             constexpr bool is_waitable() const noexcept { return this->_is_waitable; }
-            
+
             /** Wait for an item to become available */
             void wait() {
                 if (!is_waitable()) {
@@ -5978,7 +5987,12 @@ namespace csv {
         };
 
         constexpr const int UNINITIALIZED_FIELD = -1;
+    }
 
+    /** Standard type for storing collection of rows */
+    using RowCollection = internals::ThreadSafeDeque<CSVRow>;
+
+    namespace internals {
         /** Abstract base class which provides CSV parsing logic.
          *
          *  Concrete implementations may customize this logic across
@@ -5987,12 +6001,10 @@ namespace csv {
          */
         class IBasicCSVParser {
         public:
-            using RowCollection = ThreadSafeDeque<CSVRow>;
-
             IBasicCSVParser() = default;
             IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
-            IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
-                _parse_flags(parse_flags), _ws_flags(ws_flags) {};
+            IBasicCSVParser(const ParseFlagMap& parse_flags, const WhitespaceMap& ws_flags
+            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
             virtual ~IBasicCSVParser() {}
 
@@ -6005,12 +6017,12 @@ namespace csv {
             /** Indicate the last block of data has been parsed */
             void end_feed();
 
-            CONSTEXPR internals::ParseFlags parse_flag(const char ch) const noexcept {
+            CONSTEXPR ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
             }
 
-            CONSTEXPR internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
-                return internals::qe_flag(parse_flag(ch), this->quote_escape);
+            CONSTEXPR ParseFlags compound_parse_flag(const char ch) const noexcept {
+                return quote_escape_flag(parse_flag(ch), this->quote_escape);
             }
 
             /** Whether or not this CSV has a UTF-8 byte order mark */
@@ -6024,12 +6036,12 @@ namespace csv {
             CSVRow current_row;
             RawCSVDataPtr data_ptr = nullptr;
             ColNamesPtr _col_names = nullptr;
-            CSVFieldArray* fields = nullptr;
+            CSVFieldList* fields = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
 
             /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-            internals::ParseFlagMap _parse_flags;
+            ParseFlagMap _parse_flags;
             ///@}
 
             /** @name Current Stream/File State */
@@ -6055,7 +6067,7 @@ namespace csv {
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
              */
-            internals::WhitespaceMap _ws_flags;
+            WhitespaceMap _ws_flags;
             bool quote_escape = false;
             bool field_has_double_quote = false;
 
@@ -6089,18 +6101,20 @@ namespace csv {
             void trim_utf8_bom();
         };
 
-        /** A class for parsing raw CSV data */
+        /** A class for parsing CSV data from a `std::stringstream`
+         *  or an `std::ifstream`
+         */
         template<typename TStream>
-        class BasicStreamParser: public IBasicCSVParser {
+        class StreamParser: public IBasicCSVParser {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            BasicStreamParser(TStream& source,
+            StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
             ) : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
 
-            BasicStreamParser(
+            StreamParser(
                 TStream& source,
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags) :
@@ -6108,7 +6122,7 @@ namespace csv {
                 _source(std::move(source))
             {};
 
-            ~BasicStreamParser() {}
+            ~StreamParser() {}
 
             void next(size_t bytes = ITERATION_CHUNK_SIZE) override {
                 if (this->eof()) return;
@@ -6154,17 +6168,26 @@ namespace csv {
             size_t stream_pos = 0;
         };
 
-        class BasicMmapParser : public IBasicCSVParser {
+        /** Parser for memory-mapped files
+         *
+         *  @par Implementation
+         *  This class constructs moving windows over a file to avoid
+         *  creating massive memory maps which may require more RAM
+         *  than the user has available. It contains logic to automatically
+         *  re-align each memory map to the beginning of a CSV row.
+         *
+         */
+        class MmapParser : public IBasicCSVParser {
         public:
-            BasicMmapParser(csv::string_view filename,
+            MmapParser(csv::string_view filename,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
             ) : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
-                this->source_size = internals::get_file_size(filename);
+                this->source_size = get_file_size(filename);
             };
 
-            ~BasicMmapParser() {}
+            ~MmapParser() {}
 
             void next(size_t bytes) override;
 
@@ -6191,7 +6214,6 @@ namespace csv {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
-
     }
 
     std::vector<std::string> get_col_names(
@@ -6265,21 +6287,23 @@ namespace csv {
          ///@{
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
 
-        /** Allows parsing stream sources such as std::stringstream or std::ifstream */
+        /** Allows parsing stream sources such as `std::stringstream` or `std::ifstream`
+         *
+         *  @tparam TStream An input stream deriving from `std::istream`
+         *  @note   Currently this constructor requires special CSV dialects to be manually
+         *          specified.
+         */
         template<typename TStream,
-            csv::enable_if_t<std::is_base_of<std::ios_base, TStream>::value, int> = 0>
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         CSVReader(TStream& source, CSVFormat format = CSVFormat()) : _format(format) {
-            using Parser = internals::BasicStreamParser<TStream>;
+            using Parser = internals::StreamParser<TStream>;
 
             if (!format.col_names.empty())
                 this->set_col_names(format.col_names);
 
             this->parser = std::unique_ptr<Parser>(
                 new Parser(source, format, col_names)); // For C++11
-
-            // Read initial chunk to get metadata
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-            this->read_csv_worker.join();
+            this->initial_read();
         }
         ///@}
 
@@ -6312,18 +6336,22 @@ namespace csv {
         
         /** @name CSV Metadata: Attributes */
         ///@{
+        /** Whether or not the file or stream contains valid CSV rows,
+         *  not including the header.
+         *
+         *  @note Gives an accurate answer regardless of when it is called.
+         *
+         */
         CONSTEXPR bool empty() const noexcept { return this->n_rows() == 0; }
 
-        /** @return The number of rows that have been read so far */
+        /** Retrieves the number of rows that have been read so far */
         CONSTEXPR size_t n_rows() const noexcept { return this->_n_rows; }
 
-        /** @return Whether or not CSV was prefixed with a UTF-8 bom */
+        /** Whether or not CSV was prefixed with a UTF-8 bom */
         bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
         ///@}
 
     protected:
-        using RowCollection = internals::ThreadSafeDeque<CSVRow>;
-
         /**
          * \defgroup csv_internal CSV Parser Internals
          * @brief Internals of CSVReader. Only maintainers and those looking to
@@ -6350,18 +6378,15 @@ namespace csv {
         /** Queue of parsed CSV rows */
         RowCollection records = RowCollection(100);
 
-        /** The number of columns in this CSV */
-        size_t n_cols = 0;
-
-        /** How many rows (minus header) have been parsed so far */
-        size_t _n_rows = 0;
+        size_t n_cols = 0;  /**< The number of columns in this CSV */
+        size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
         bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
         ///@}
 
-        /**@}*/ // End of parser internals
+        /**@}*/
 
     private:
         /** Whether or not rows before header were trimmed */
@@ -6369,8 +6394,14 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::thread read_csv_worker;
+        std::thread read_csv_worker; /**< Worker thread for read_csv() */
         ///@}
+
+        /** Read initial chunk to get metadata */
+        void initial_read() {
+            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+            this->read_csv_worker.join();
+        }
 
         void trim_header();
     };
@@ -6395,7 +6426,6 @@ namespace csv {
         using FreqCount = std::unordered_map<std::string, size_t>;
         using TypeCount = std::unordered_map<DataType, size_t>;
 
-        void end_feed();
         std::vector<long double> get_mean() const;
         std::vector<long double> get_variance() const;
         std::vector<long double> get_mins() const;
@@ -6747,6 +6777,33 @@ namespace csv {
 
 namespace csv {
     namespace internals {
+        CSV_INLINE size_t get_file_size(csv::string_view filename) {
+            std::ifstream infile(std::string(filename), std::ios::binary);
+            const auto start = infile.tellg();
+            infile.seekg(0, std::ios::end);
+            const auto end = infile.tellg();
+
+            return end - start;
+        }
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
+            return get_csv_head(filename, get_file_size(filename));
+        }
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
+            const size_t bytes = 500000;
+
+            std::error_code error;
+            size_t length = std::min((size_t)file_size, bytes);
+            auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
+
+            if (error) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            return std::string(mmap.begin(), mmap.end());
+        }
+
 #ifdef _MSC_VER
 #pragma region IBasicCVParser
 #endif
@@ -6945,7 +7002,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Specializations
 #endif
-        CSV_INLINE void BasicMmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
+        CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
             // Reset parser state
             this->field_start = UNINITIALIZED_FIELD;
             this->field_length = 0;
@@ -7128,9 +7185,9 @@ namespace csv {
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
             std::stringstream source(head.data());
-            ThreadSafeDeque<CSVRow> rows;
+            RowCollection rows;
             
-            BasicStreamParser<std::stringstream> parser(source, format);
+            StreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
 
@@ -7146,9 +7203,9 @@ namespace csv {
 
             // Parse the CSV
             std::stringstream source(head.data());
-            ThreadSafeDeque<CSVRow> rows;
+            RowCollection rows;
 
-            BasicStreamParser<std::stringstream> parser(source, format);
+            StreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
 
@@ -7239,10 +7296,7 @@ namespace csv {
         return internals::_guess_format(head, delims);
     }
 
-    /** Allows reading a CSV file in chunks, using overlapped
-     *  threads for simulatenously reading from disk and parsing.
-     *  Rows should be retrieved with read_row() or by using
-     *  CSVReader::iterator.
+    /** Reads an arbitrarily large CSV file using memory-mapped IO.
      *
      *  **Details:** Reads the first block of a CSV file synchronously to get information
      *               such as column names and delimiting character.
@@ -7255,7 +7309,7 @@ namespace csv {
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
-        using Parser = internals::BasicMmapParser;
+        using Parser = internals::MmapParser;
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
@@ -7265,15 +7319,11 @@ namespace csv {
             this->_format = format;
         }
 
-        if (!format.col_names.empty()) {
+        if (!format.col_names.empty())
             this->set_col_names(format.col_names);
-        }
 
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
-
-        // Read initial chunk to get metadata
-        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-        this->read_csv_worker.join();
+        this->initial_read();
     }
 
     /** Return the format of the original raw CSV */
@@ -7334,11 +7384,14 @@ namespace csv {
     }
 
     /**
-     * Parse a CSV file using multiple threads
+     * Read a chunk of CSV data.
      *
-     * @pre CSVReader::infile points to a valid file handle, i.e. CSVReader::fopen was called
+     * @note This method is meant to be run on its own thread. Only one `read_csv()` thread
+     *       should be active at a time.
      *
      * @param[in] bytes Number of bytes to read.
+     *
+     * @see CSVReader::read_csv_worker
      * @see CSVReader::read_row()
      */
     CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
@@ -7361,8 +7414,8 @@ namespace csv {
     /**
      * Retrieve rows as CSVRow objects, returning true if more rows are available.
      *
-     * **Performance Notes**:
-     *  - The number of rows read in at a time is determined by csv::ITERATION_CHUNK_SIZE
+     * @par Performance Notes
+     *  - Reads chunks of data that are csv::internals::ITERATION_CHUNK_SIZE bytes large at a time
      *  - For performance details, read the documentation for CSVRow and CSVField.
      *
      * @param[out] row The variable where the parsed row will be stored
@@ -7408,37 +7461,6 @@ namespace csv {
         }
     
         return false;
-    }
-}
-
-namespace csv {
-    namespace internals {
-        CSV_INLINE size_t get_file_size(csv::string_view filename) {
-            std::ifstream infile(std::string(filename), std::ios::binary);
-            const auto start = infile.tellg();
-            infile.seekg(0, std::ios::end);
-            const auto end = infile.tellg();
-
-            return end - start;
-        }
-
-        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
-            return get_csv_head(filename, get_file_size(filename));
-        }
-
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
-            const size_t bytes = 500000;
-
-            std::error_code error;
-            size_t length = std::min((size_t)file_size, bytes);
-            auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
-
-            if (error) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-            }
-            
-            return std::string(mmap.begin(), mmap.end());
-        }
     }
 }
 /** @file
@@ -7511,13 +7533,13 @@ namespace csv {
 
 namespace csv {
     namespace internals {
-        CSV_INLINE RawCSVField& CSVFieldArray::operator[](size_t n) const {
+        CSV_INLINE RawCSVField& CSVFieldList::operator[](size_t n) const {
             const size_t page_no = n / _single_buffer_capacity;
             const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
 
-        CSV_INLINE void CSVFieldArray::allocate() {
+        CSV_INLINE void CSVFieldList::allocate() {
             RawCSVField * buffer = new RawCSVField[_single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;
@@ -7963,21 +7985,18 @@ namespace csv {
 #include <string>
 
 namespace csv {
+    /** Calculate statistics for an arbitrarily large file. When this constructor
+     *  is called, CSVStat will process the entire file iteratively. Once finished,
+     *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
+     */
     CSV_INLINE CSVStat::CSVStat(csv::string_view filename, CSVFormat format) :
         reader(filename, format) {
-        /** Lazily calculate statistics for a potentially large file. Once this constructor
-         *  is called, CSVStat will process the entire file iteratively. Once finished,
-         *  methods like get_mean(), get_counts(), etc... can be used to retrieve statistics.
-         */
         this->calc();
     }
 
+    /** Calculate statistics for a CSV stored in a std::stringstream */
     CSV_INLINE CSVStat::CSVStat(std::stringstream& stream, CSVFormat format) :
         reader(stream, format) {
-        this->calc();
-    }
-
-    CSV_INLINE void CSVStat::end_feed() {
         this->calc();
     }
 

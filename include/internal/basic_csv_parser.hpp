@@ -1,24 +1,91 @@
+/** @file
+ *  @brief Contains the main CSV parsing algorithm and various utility functions
+ */
+
 #pragma once
 #include <algorithm>
 #include <array>
 #include <condition_variable>
 #include <deque>
-#include <thread>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <thread>
 #include <vector>
 
 #include "../external/mio.hpp"
 #include "col_names.hpp"
-#include "compatibility.hpp"
+#include "common.hpp"
 #include "csv_format.hpp"
-#include "csv_reader_internals.hpp"
 #include "csv_row.hpp"
 
 namespace csv {
     namespace internals {
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter) {
+            std::array<ParseFlags, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+
+                if (ch == delimiter)
+                    ret[arr_idx] = ParseFlags::DELIMITER;
+                else if (ch == '\r' || ch == '\n')
+                    ret[arr_idx] = ParseFlags::NEWLINE;
+                else
+                    ret[arr_idx] = ParseFlags::NOT_SPECIAL;
+            }
+
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character and, v[i + 128] labels it according to
+         *  the CSVReader::ParseFlags enum
+         */
+        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+            std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
+            ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
+            return ret;
+        }
+
+        /** Create a vector v where each index i corresponds to the
+         *  ASCII number for a character c and, v[i + 128] is true if
+         *  c is a whitespace character
+         */
+        HEDLEY_CONST CONSTEXPR WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
+            std::array<bool, 256> ret = {};
+            for (int i = -128; i < 128; i++) {
+                const int arr_idx = i + 128;
+                char ch = char(i);
+                ret[arr_idx] = false;
+
+                for (size_t j = 0; j < n_chars; j++) {
+                    if (ws_chars[j] == ch) {
+                        ret[arr_idx] = true;
+                    }
+                }
+            }
+
+            return ret;
+        }
+
+        inline WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
+            return make_ws_flags(flags.data(), flags.size());
+        }
+
+        CSV_INLINE size_t get_file_size(csv::string_view filename);
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename);
+
+        /** Read the first 500KB of a CSV file */
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
+
         /** A std::deque wrapper which allows multiple read and write threads to concurrently
          *  access it along with providing read threads the ability to wait for the deque
          *  to become populated
@@ -70,7 +137,7 @@ namespace csv {
 
             /** Returns true if a thread is actively pushing items to this deque */
             constexpr bool is_waitable() const noexcept { return this->_is_waitable; }
-            
+
             /** Wait for an item to become available */
             void wait() {
                 if (!is_waitable()) {
@@ -113,7 +180,12 @@ namespace csv {
         };
 
         constexpr const int UNINITIALIZED_FIELD = -1;
+    }
 
+    /** Standard type for storing collection of rows */
+    using RowCollection = internals::ThreadSafeDeque<CSVRow>;
+
+    namespace internals {
         /** Abstract base class which provides CSV parsing logic.
          *
          *  Concrete implementations may customize this logic across
@@ -122,12 +194,10 @@ namespace csv {
          */
         class IBasicCSVParser {
         public:
-            using RowCollection = ThreadSafeDeque<CSVRow>;
-
             IBasicCSVParser() = default;
             IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
-            IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
-                _parse_flags(parse_flags), _ws_flags(ws_flags) {};
+            IBasicCSVParser(const ParseFlagMap& parse_flags, const WhitespaceMap& ws_flags
+            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
             virtual ~IBasicCSVParser() {}
 
@@ -140,12 +210,12 @@ namespace csv {
             /** Indicate the last block of data has been parsed */
             void end_feed();
 
-            CONSTEXPR internals::ParseFlags parse_flag(const char ch) const noexcept {
+            CONSTEXPR ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
             }
 
-            CONSTEXPR internals::ParseFlags compound_parse_flag(const char ch) const noexcept {
-                return internals::qe_flag(parse_flag(ch), this->quote_escape);
+            CONSTEXPR ParseFlags compound_parse_flag(const char ch) const noexcept {
+                return quote_escape_flag(parse_flag(ch), this->quote_escape);
             }
 
             /** Whether or not this CSV has a UTF-8 byte order mark */
@@ -159,12 +229,12 @@ namespace csv {
             CSVRow current_row;
             RawCSVDataPtr data_ptr = nullptr;
             ColNamesPtr _col_names = nullptr;
-            CSVFieldArray* fields = nullptr;
+            CSVFieldList* fields = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
 
             /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-            internals::ParseFlagMap _parse_flags;
+            ParseFlagMap _parse_flags;
             ///@}
 
             /** @name Current Stream/File State */
@@ -190,7 +260,7 @@ namespace csv {
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
              */
-            internals::WhitespaceMap _ws_flags;
+            WhitespaceMap _ws_flags;
             bool quote_escape = false;
             bool field_has_double_quote = false;
 
@@ -224,18 +294,20 @@ namespace csv {
             void trim_utf8_bom();
         };
 
-        /** A class for parsing raw CSV data */
+        /** A class for parsing CSV data from a `std::stringstream`
+         *  or an `std::ifstream`
+         */
         template<typename TStream>
-        class BasicStreamParser: public IBasicCSVParser {
+        class StreamParser: public IBasicCSVParser {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
-            BasicStreamParser(TStream& source,
+            StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
             ) : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
 
-            BasicStreamParser(
+            StreamParser(
                 TStream& source,
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags) :
@@ -243,7 +315,7 @@ namespace csv {
                 _source(std::move(source))
             {};
 
-            ~BasicStreamParser() {}
+            ~StreamParser() {}
 
             void next(size_t bytes = ITERATION_CHUNK_SIZE) override {
                 if (this->eof()) return;
@@ -289,17 +361,26 @@ namespace csv {
             size_t stream_pos = 0;
         };
 
-        class BasicMmapParser : public IBasicCSVParser {
+        /** Parser for memory-mapped files
+         *
+         *  @par Implementation
+         *  This class constructs moving windows over a file to avoid
+         *  creating massive memory maps which may require more RAM
+         *  than the user has available. It contains logic to automatically
+         *  re-align each memory map to the beginning of a CSV row.
+         *
+         */
+        class MmapParser : public IBasicCSVParser {
         public:
-            BasicMmapParser(csv::string_view filename,
+            MmapParser(csv::string_view filename,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
             ) : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
-                this->source_size = internals::get_file_size(filename);
+                this->source_size = get_file_size(filename);
             };
 
-            ~BasicMmapParser() {}
+            ~MmapParser() {}
 
             void next(size_t bytes) override;
 

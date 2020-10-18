@@ -12,7 +12,7 @@ TEST_CASE("Test Dynamic RawCSVFieldArray - Emplace Back", "[test_dynamic_array_e
     constexpr size_t offset = 100;
 
     // Array size should be smaller than the number of items we want to push
-    CSVFieldArray arr(500);
+    CSVFieldList arr(500);
 
     for (size_t i = 0; i < 9999; i++) {
         arr.emplace_back(i, i + offset);
@@ -35,7 +35,7 @@ TEST_CASE("Test CSVFieldArray Thread Safety", "[test_array_thread]") {
     constexpr size_t offset = 100;
 
     // Array size should be smaller than the number of items we want to push
-    CSVFieldArray arr(500);
+    CSVFieldList arr(500);
 
     for (size_t i = 0; i < 9999; i++) {
         arr.emplace_back(i, i + offset);
@@ -57,7 +57,7 @@ TEST_CASE("Test CSVFieldArray Thread Safety", "[test_array_thread]") {
         size_t end = start + chunk_size;
         
         workers.push_back(
-            std::async([](const CSVFieldArray& arr, size_t start, size_t end, size_t offset) {
+            std::async([](const CSVFieldList& arr, size_t start, size_t end, size_t offset) {
                 for (size_t i = start; i < end; i++) {
                     if (arr[i].start != i || arr[i].length != i + offset)
                         return false;

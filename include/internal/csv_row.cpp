@@ -8,13 +8,13 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE RawCSVField& CSVFieldArray::operator[](size_t n) const {
+        CSV_INLINE RawCSVField& CSVFieldList::operator[](size_t n) const {
             const size_t page_no = n / _single_buffer_capacity;
             const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
             return this->buffers[page_no][buffer_idx];
         }
 
-        CSV_INLINE void CSVFieldArray::allocate() {
+        CSV_INLINE void CSVFieldList::allocate() {
             RawCSVField * buffer = new RawCSVField[_single_buffer_capacity];
             buffers.push_back(buffer);
             _current_buffer_size = 0;

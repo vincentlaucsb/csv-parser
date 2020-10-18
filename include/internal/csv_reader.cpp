@@ -28,9 +28,9 @@ namespace csv {
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
             std::stringstream source(head.data());
-            ThreadSafeDeque<CSVRow> rows;
+            RowCollection rows;
             
-            BasicStreamParser<std::stringstream> parser(source, format);
+            StreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
 
@@ -46,9 +46,9 @@ namespace csv {
 
             // Parse the CSV
             std::stringstream source(head.data());
-            ThreadSafeDeque<CSVRow> rows;
+            RowCollection rows;
 
-            BasicStreamParser<std::stringstream> parser(source, format);
+            StreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
 
@@ -139,10 +139,7 @@ namespace csv {
         return internals::_guess_format(head, delims);
     }
 
-    /** Allows reading a CSV file in chunks, using overlapped
-     *  threads for simulatenously reading from disk and parsing.
-     *  Rows should be retrieved with read_row() or by using
-     *  CSVReader::iterator.
+    /** Reads an arbitrarily large CSV file using memory-mapped IO.
      *
      *  **Details:** Reads the first block of a CSV file synchronously to get information
      *               such as column names and delimiting character.
@@ -155,7 +152,7 @@ namespace csv {
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
-        using Parser = internals::BasicMmapParser;
+        using Parser = internals::MmapParser;
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
@@ -165,15 +162,11 @@ namespace csv {
             this->_format = format;
         }
 
-        if (!format.col_names.empty()) {
+        if (!format.col_names.empty())
             this->set_col_names(format.col_names);
-        }
 
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
-
-        // Read initial chunk to get metadata
-        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-        this->read_csv_worker.join();
+        this->initial_read();
     }
 
     /** Return the format of the original raw CSV */
@@ -234,11 +227,14 @@ namespace csv {
     }
 
     /**
-     * Parse a CSV file using multiple threads
+     * Read a chunk of CSV data.
      *
-     * @pre CSVReader::infile points to a valid file handle, i.e. CSVReader::fopen was called
+     * @note This method is meant to be run on its own thread. Only one `read_csv()` thread
+     *       should be active at a time.
      *
      * @param[in] bytes Number of bytes to read.
+     *
+     * @see CSVReader::read_csv_worker
      * @see CSVReader::read_row()
      */
     CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
@@ -261,8 +257,8 @@ namespace csv {
     /**
      * Retrieve rows as CSVRow objects, returning true if more rows are available.
      *
-     * **Performance Notes**:
-     *  - The number of rows read in at a time is determined by csv::ITERATION_CHUNK_SIZE
+     * @par Performance Notes
+     *  - Reads chunks of data that are csv::internals::ITERATION_CHUNK_SIZE bytes large at a time
      *  - For performance details, read the documentation for CSVRow and CSVField.
      *
      * @param[out] row The variable where the parsed row will be stored

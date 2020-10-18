@@ -8,7 +8,7 @@
    * [Single Header](#single-header)
    * [CMake Instructions](#cmake-instructions)
  * [Features & Examples](#features--examples)
-   * [Reading a Large File (with Iterators)](#reading-a-large-file-with-iterators)
+   * [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
    * [Indexing by Column Names](#indexing-by-column-names)
    * [Numeric Conversions](#numeric-conversions)
    * [Specifying the CSV Format](#specifying-the-csv-format)
@@ -86,7 +86,7 @@ target_link_libraries(<your program> csv)
 ```
 
 ## Features & Examples
-### Reading a Large File (with Iterators)
+### Reading an Arbitrarily Large File (with Iterators)
 With this library, you can easily stream over a large file without reading its entirety into memory.
 
 **C++ Style**
@@ -123,6 +123,29 @@ while (reader.read_row(row)) {
 }
 
 ...
+```
+
+#### Memory-Mapped Files vs. Streams
+By default, passing in a file path string to the constructor of `CSVReader`
+causes memory-mapped IO to be used. In general, this option is the most
+performant.
+
+However, `std::ifstream` may also be used as well as in-memory sources via `std::stringstream`.
+
+**Note**: Currently CSV guessing only works for memory-mapped files. The CSV dialect
+must be manually defined for other sources.
+
+```cpp
+CSVFormat format;
+// custom formatting options go here
+
+CSVReader mmap("some_file.csv", format);
+
+std::ifstream infile("some_file.csv", std::ios::binary);
+CSVReader ifstream_reader(infile, format);
+
+std::stringstream my_csv;
+CSVReader sstream_reader(my_csv, format);
 ```
 
 ### Indexing by Column Names
