@@ -85,7 +85,9 @@ namespace csv {
 
             // Final score is equal to the largest 
             // row size times rows of that size
-            for (auto& [row_size, row_count] : row_tally) {
+            for (auto& pair : row_tally) {
+                auto row_size = pair.first;
+                auto row_count = pair.second;
                 double score = (double)(row_size * row_count);
                 if (score > final_score) {
                     final_score = score;
@@ -153,6 +155,8 @@ namespace csv {
     /** Allows parsing stream sources such as std::stringstream or std::ifstream */
     CSV_INLINE CSVReader::CSVReader(std::stringstream& source, CSVFormat format) : 
         _format(format) { // TODO: Use this setting again  unicode_bom_scan(!format.unicode_detect) {
+        using Parser = internals::BasicStreamParser<std::stringstream>;
+
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
@@ -167,7 +171,8 @@ namespace csv {
 
         auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
-        this->parser = std::make_unique<internals::BasicStreamParser<std::stringstream>>(source, parse_flags, ws_flags);
+        // For C++11
+        this->parser = std::unique_ptr<Parser>(new Parser(source, parse_flags, ws_flags));
         this->parser->set_col_names(this->col_names);
 
         // Read initial chunk to get metadata
@@ -191,6 +196,7 @@ namespace csv {
      */
     CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
+        using Parser = internals::BasicMmapParser;
 
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
@@ -215,8 +221,8 @@ namespace csv {
 
         auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
 
-        this->parser = std::make_unique<internals::BasicMmapParser>(
-            filename, parse_flags, ws_flags);
+        // For C++11
+        this->parser = std::unique_ptr<Parser>(new Parser(filename, parse_flags, ws_flags));
         this->parser->set_col_names(this->col_names);
 
         // Read initial chunk to get metadata

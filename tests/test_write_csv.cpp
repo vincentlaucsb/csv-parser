@@ -87,7 +87,11 @@ struct Time {
 };
 
 TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
+    #ifdef CSV_HAS_CXX14
     Time time = { "5", "30" };
+    #else
+    std::string time = "5:30";
+    #endif
     std::stringstream output, correct_output;
     auto csv_writer = make_csv_writer(output);
 

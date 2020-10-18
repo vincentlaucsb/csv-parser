@@ -17,7 +17,7 @@ namespace csv {
     namespace internals {
         /** to_string() for unsigned integers */
         template<typename T,
-            std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+            csv::enable_if_t<std::is_unsigned<T>::value, int> = 0>
         inline std::string to_string(T value) {
             std::string digits_reverse = "";
 
@@ -34,7 +34,7 @@ namespace csv {
         /** to_string() for signed integers */
         template<
             typename T,
-            std::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0
+            csv::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0
         >
         inline std::string to_string(T value) {
             if (value >= 0)
@@ -46,7 +46,7 @@ namespace csv {
         /** to_string() for floating point numbers */
         template<
             typename T,
-            std::enable_if_t<std::is_floating_point<T>::value, int> = 0
+            csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
         inline std::string to_string(T value) {
             std::string result;
@@ -143,7 +143,7 @@ namespace csv {
             typename T, typename Alloc, template <typename, typename> class Container,
 
             // Avoid conflicting with tuples with two elements
-            std::enable_if_t<std::is_class<Alloc>::value, int> = 0
+            csv::enable_if_t<std::is_class<Alloc>::value, int> = 0
         >
             DelimWriter& operator<<(const Container<T, Alloc>& record) {
             const size_t ilen = record.size();
@@ -161,7 +161,7 @@ namespace csv {
     private:
         template<
             typename T,
-            std::enable_if_t<
+            csv::enable_if_t<
                 !std::is_convertible<T, std::string>::value
                 && !std::is_convertible<T, csv::string_view>::value
             , int> = 0
@@ -172,7 +172,7 @@ namespace csv {
 
         template<
             typename T,
-            std::enable_if_t<
+            csv::enable_if_t<
                 std::is_convertible<T, std::string>::value
                 || std::is_convertible<T, csv::string_view>::value
             , int> = 0
@@ -239,8 +239,8 @@ namespace csv {
             out << std::endl;
         }
 
-        bool quote_minimal;
         OutputStream & out;
+        bool quote_minimal;
     };
 
     /** An alias for csv::DelimWriter for writing standard CSV files

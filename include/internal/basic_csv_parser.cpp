@@ -108,7 +108,7 @@ namespace csv {
                     break;
 
                 case ParseFlags::QUOTE_ESCAPE_QUOTE:
-                    if (i + 1 == in.size()) return 0;
+                    if (i + 1 == in.size()) return this->current_row_start();
                     else if (i + 1 < in.size()) {
                         auto next_ch = parse_flag(in[i + 1]);
                         if (next_ch >= ParseFlags::DELIMITER) {
