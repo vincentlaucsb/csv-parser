@@ -160,20 +160,9 @@ namespace csv {
         if (!format.col_names.empty()) {
             this->set_col_names(format.col_names);
         }
-        
-        internals::ParseFlagMap parse_flags;
-        if (format.no_quote) {
-            parse_flags = internals::make_parse_flags(format.get_delim());
-        }
-        else {
-            parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-        }
 
-        auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
-
-        // For C++11
-        this->parser = std::unique_ptr<Parser>(new Parser(source, parse_flags, ws_flags));
-        this->parser->set_col_names(this->col_names);
+        this->parser = std::unique_ptr<Parser>(new Parser(source, format, 
+            col_names)); // For C++11
 
         // Read initial chunk to get metadata
         this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
@@ -210,20 +199,8 @@ namespace csv {
             this->set_col_names(format.col_names);
         }
 
-        internals::ParseFlagMap parse_flags;
-
-        if (format.no_quote) {
-            parse_flags = internals::make_parse_flags(format.get_delim());
-        }
-        else {
-            parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-        }
-
-        auto ws_flags = internals::make_ws_flags(format.trim_chars.data(), format.trim_chars.size());
-
-        // For C++11
-        this->parser = std::unique_ptr<Parser>(new Parser(filename, parse_flags, ws_flags));
-        this->parser->set_col_names(this->col_names);
+        this->parser = std::unique_ptr<Parser>(
+            new Parser(filename, format, this->col_names)); // For C++11
 
         // Read initial chunk to get metadata
         this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);

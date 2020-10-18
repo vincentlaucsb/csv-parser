@@ -118,6 +118,21 @@ namespace csv {
 
         public:
             IBasicCSVParser() = default;
+            IBasicCSVParser(const CSVFormat& format, const ColNamesPtr& col_names = nullptr) {
+                if (format.no_quote) {
+                    _parse_flags = internals::make_parse_flags(format.get_delim());
+                }
+                else {
+                    _parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+                }
+
+                _ws_flags = internals::make_ws_flags(
+                    format.trim_chars.data(), format.trim_chars.size()
+                );
+
+                this->_col_names = col_names;
+            }
+
             IBasicCSVParser(internals::ParseFlagMap parse_flags, internals::WhitespaceMap ws_flags) :
                 _parse_flags(parse_flags), _ws_flags(ws_flags) {};
 
@@ -139,7 +154,7 @@ namespace csv {
             void set_output(RowCollection& records) { this->_records = &records; }
 
             void set_col_names(const ColNamesPtr& _col_names) {
-                this->col_names = _col_names;
+                this->_col_names = _col_names;
             }
             
             CONSTEXPR bool utf8_bom() const { return this->_utf8_bom; }
@@ -162,14 +177,14 @@ namespace csv {
             void reset_data_ptr() {
                 this->data_ptr = std::make_shared<RawCSVData>();
                 this->data_ptr->parse_flags = this->_parse_flags;
-                this->data_ptr->col_names = this->col_names;
+                this->data_ptr->col_names = this->_col_names;
                 this->fields = &(this->data_ptr->fields);
             }
 
             size_t parse();
             void trim_utf8_bom();
 
-            ColNamesPtr col_names = nullptr;
+            ColNamesPtr _col_names = nullptr;
             CSVFieldArray* fields = nullptr;
 
             /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
@@ -207,6 +222,10 @@ namespace csv {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
+            BasicStreamParser(TStream& source, const CSVFormat& format,
+                const ColNamesPtr& col_names = nullptr)
+                : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
+
             BasicStreamParser(
                 TStream& source,
                 internals::ParseFlagMap parse_flags,
@@ -259,11 +278,9 @@ namespace csv {
 
         class BasicMmapParser : public IBasicCSVParser {
         public:
-            BasicMmapParser(
-                csv::string_view filename,
-                internals::ParseFlagMap parse_flags,
-                internals::WhitespaceMap ws_flags
-            ) : IBasicCSVParser(parse_flags, ws_flags) {
+            BasicMmapParser(csv::string_view filename, const CSVFormat& format,
+                const ColNamesPtr& col_names = nullptr)
+                : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
                 this->file_size = internals::get_file_size(filename);
             };

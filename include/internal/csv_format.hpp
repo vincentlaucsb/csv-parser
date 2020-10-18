@@ -11,8 +11,11 @@
 #include "compatibility.hpp"
 
 namespace csv {
+    namespace internals {
+        class IBasicCSVParser;
+    }
+
     class CSVReader;
-    class IBasicCSVParser;
 
     /** Determines how to handle rows that are shorter or longer than the majority */
     enum class VariableColumnPolicy {
@@ -141,7 +144,7 @@ namespace csv {
         }
 
         friend CSVReader;
-        friend IBasicCSVParser;
+        friend internals::IBasicCSVParser;
         
     private:
         /**< Throws an error if delimiters and trim characters overlap */
