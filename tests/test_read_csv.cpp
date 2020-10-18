@@ -489,7 +489,9 @@ TEST_CASE("Empty CSV", "[read_empty_csv]") {
         CSVReader reader(source);
         REQUIRE(reader.empty());
 
-        for (auto& row : reader);
+        for (auto& row : reader) {
+            (void)row;
+        }
 
         // We want to make sure that no exceptions are thrown
         REQUIRE(reader.n_rows() == 0);

@@ -135,7 +135,7 @@ namespace csv {
             bool eof() { return this->_eof; }
 
             /** Parse the next block of data */
-            virtual void next() = 0;
+            virtual void next(size_t bytes) = 0;
 
             /** Indicate the last block of data has been parsed */
             void end_feed();
@@ -245,7 +245,7 @@ namespace csv {
 
             ~BasicStreamParser() {}
 
-            void next() override {
+            void next(size_t bytes = ITERATION_CHUNK_SIZE) override {
                 if (this->eof()) return;
 
                 this->reset_data_ptr();
@@ -261,7 +261,7 @@ namespace csv {
                 }
 
                 // Read data into buffer
-                size_t length = std::min(source_size - stream_pos, internals::ITERATION_CHUNK_SIZE);
+                size_t length = std::min(source_size - stream_pos, bytes);
                 std::unique_ptr<char[]> buff(new char[length]);
                 _source.seekg(stream_pos, std::ios::beg);
                 _source.read(buff.get(), length);
@@ -301,7 +301,7 @@ namespace csv {
 
             ~BasicMmapParser() {}
 
-            void next() override;
+            void next(size_t bytes) override;
 
         private:
             std::string _filename;

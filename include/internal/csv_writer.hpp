@@ -236,6 +236,7 @@ namespace csv {
         /** Base case for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index == sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            (void)record;
             out << std::endl;
         }
 

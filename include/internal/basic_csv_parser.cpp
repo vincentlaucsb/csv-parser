@@ -200,14 +200,14 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Specializations
 #endif
-        CSV_INLINE void BasicMmapParser::next() {
+        CSV_INLINE void BasicMmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
             // Reset parser state
             this->field_start = UNINITIALIZED_FIELD;
             this->field_length = 0;
             this->reset_data_ptr();
 
             // Create memory map
-            size_t length = std::min(this->source_size - this->mmap_pos, csv::internals::ITERATION_CHUNK_SIZE);
+            size_t length = std::min(this->source_size - this->mmap_pos, bytes);
             std::error_code error;
             this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
             this->mmap_pos += length;

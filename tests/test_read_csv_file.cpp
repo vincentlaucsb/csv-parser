@@ -74,8 +74,10 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
 
     // Test using memory mapped IO and std::ifstream
     std::vector<CSVReader> readers = {};
+    std::ifstream infile(path, std::ios::binary);
+
     readers.emplace_back(path, CSVFormat()); // Memory mapped
-    readers.emplace_back(std::ifstream(path, std::ios::binary), CSVFormat());
+    readers.emplace_back(infile, CSVFormat());
 
     for (auto& reader : readers) {
         CSVRow row;

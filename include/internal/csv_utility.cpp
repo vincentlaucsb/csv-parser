@@ -40,7 +40,7 @@ namespace csv {
 
     /** A shorthand for csv::parse_no_header() */
     CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
-        return parse_no_header(csv::string_view(in));
+        return parse_no_header(csv::string_view(in, n));
     }
 
     /**

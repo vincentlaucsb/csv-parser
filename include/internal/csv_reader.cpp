@@ -246,7 +246,7 @@ namespace csv {
         this->records.notify_all();
 
         this->parser->set_output(this->records);
-        this->parser->next();
+        this->parser->next(bytes);
 
         if (!this->header_trimmed) {
             this->trim_header();
