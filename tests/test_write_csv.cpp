@@ -98,13 +98,13 @@ TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
     csv_writer << std::make_tuple("One", 2, "Three", 4.0, time)
         << std::make_tuple("One", (short)2, "Three", 4.0f, time)
         << std::make_tuple(-1, -2.0)
-        << std::make_tuple(20.2, -20.2)
+        << std::make_tuple(20.2, -20.3)
         << std::make_tuple(0.0, 0.0f, 0);
 
     correct_output << "One,2,Three,4.0,5:30" << std::endl
         << "One,2,Three,4.0,5:30" << std::endl
         << "-1,-2.0" << std::endl
-        << "20.20,-20.20" << std::endl
+        << "20.19999,-20.30000" << std::endl
         << "0.0,0.0,0" << std::endl;
 
     REQUIRE(output.str() == correct_output.str());

@@ -6556,7 +6556,7 @@ namespace csv {
             size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
 
             result += ".";
-            result += (decimal == 0) ? "0" : to_string(integral);
+            result += (decimal == 0) ? "0" : to_string(decimal);
 
             return result;
         }
@@ -7307,7 +7307,7 @@ namespace csv {
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
      */
-    CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) {
+	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
         auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
 
