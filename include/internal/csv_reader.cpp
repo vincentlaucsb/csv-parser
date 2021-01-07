@@ -12,8 +12,9 @@ namespace csv {
             for (size_t i = 0; i < row.size(); i++) {
                 ret << row[i];
                 if (i + 1 < row.size()) ret << delim;
-                else ret << std::endl;
+                else ret << '\n';
             }
+            ret.flush();
 
             return ret.str();
         }
