@@ -81,6 +81,7 @@ namespace csv {
      *  @tparam Quote        The quote character
      *  @tparam Flush        True: flush after every writing function,
      *                       false: you need to flush explicitly if needed.
+     *                       In both cases the destructor will flush.
      *
      *  @par Hint
      *  Use the aliases csv::CSVWriter<OutputStream> to write CSV
@@ -273,7 +274,7 @@ namespace csv {
      *  @note Use `csv::make_csv_writer()` to in instatiate this class over
      *        an actual output stream.
      */
-    template<class OutputStream, bool Flush=true>
+    template<class OutputStream, bool Flush = true>
     using CSVWriter = DelimWriter<OutputStream, ',', '"', Flush>;
 
     /** Class for writing tab-separated values files
@@ -284,7 +285,7 @@ namespace csv {
      *  @note Use `csv::make_tsv_writer()` to in instatiate this class over
      *        an actual output stream.
      */
-    template<class OutputStream, bool Flush=true>
+    template<class OutputStream, bool Flush = true>
     using TSVWriter = DelimWriter<OutputStream, '\t', '"', Flush>;
 
     /** Return a csv::CSVWriter over the output stream */
