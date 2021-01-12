@@ -127,7 +127,7 @@ $(document).ready(function(){initNavTree('csv__writer_8hpp.html','');});
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1DelimWriter.html">csv::DelimWriter&lt; OutputStream, Delim, Quote &gt;</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classcsv_1_1DelimWriter.html">csv::DelimWriter&lt; OutputStream, Delim, Quote, Flush &gt;</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class for writing delimiter separated values files.  <a href="classcsv_1_1DelimWriter.html#details">More...</a><br/></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -149,24 +149,34 @@ Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="member-group"></a>
 CSV Writing</h2></td></tr>
-<tr class="memitem:adccb487e5fe7205bbe0dddae31a9676a"><td class="memTemplParams" colspan="2">template&lt;class OutputStream &gt; </td></tr>
-<tr class="memitem:adccb487e5fe7205bbe0dddae31a9676a"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#adccb487e5fe7205bbe0dddae31a9676a">csv::CSVWriter</a> = DelimWriter&lt; OutputStream, ',', '&quot;'&gt;</td></tr>
-<tr class="memdesc:adccb487e5fe7205bbe0dddae31a9676a"><td class="mdescLeft">&#160;</td><td class="mdescRight">An alias for <a class="el" href="classcsv_1_1DelimWriter.html" title="Class for writing delimiter separated values files. ">csv::DelimWriter</a> for writing standard CSV files.  <a href="#adccb487e5fe7205bbe0dddae31a9676a">More...</a><br/></td></tr>
-<tr class="separator:adccb487e5fe7205bbe0dddae31a9676a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adceff6defcbe44f09ee45a1348f82e95"><td class="memTemplParams" colspan="2">template&lt;class OutputStream &gt; </td></tr>
-<tr class="memitem:adceff6defcbe44f09ee45a1348f82e95"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#adceff6defcbe44f09ee45a1348f82e95">csv::TSVWriter</a> = DelimWriter&lt; OutputStream, '\t', '&quot;'&gt;</td></tr>
-<tr class="memdesc:adceff6defcbe44f09ee45a1348f82e95"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class for writing tab-separated values files.  <a href="#adceff6defcbe44f09ee45a1348f82e95">More...</a><br/></td></tr>
-<tr class="separator:adceff6defcbe44f09ee45a1348f82e95"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad9ce00a1b58fbb26487df9fdc2691ba4"><td class="memTemplParams" colspan="2">template&lt;class OutputStream , bool Flush = true&gt; </td></tr>
+<tr class="memitem:ad9ce00a1b58fbb26487df9fdc2691ba4"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ad9ce00a1b58fbb26487df9fdc2691ba4">csv::CSVWriter</a> = DelimWriter&lt; OutputStream, ',', '&quot;', Flush&gt;</td></tr>
+<tr class="memdesc:ad9ce00a1b58fbb26487df9fdc2691ba4"><td class="mdescLeft">&#160;</td><td class="mdescRight">An alias for <a class="el" href="classcsv_1_1DelimWriter.html" title="Class for writing delimiter separated values files. ">csv::DelimWriter</a> for writing standard CSV files.  <a href="#ad9ce00a1b58fbb26487df9fdc2691ba4">More...</a><br/></td></tr>
+<tr class="separator:ad9ce00a1b58fbb26487df9fdc2691ba4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a72e814eade630a43c387759eb61a6daa"><td class="memTemplParams" colspan="2">template&lt;class OutputStream , bool Flush = true&gt; </td></tr>
+<tr class="memitem:a72e814eade630a43c387759eb61a6daa"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#a72e814eade630a43c387759eb61a6daa">csv::TSVWriter</a> = DelimWriter&lt; OutputStream, '\t', '&quot;', Flush&gt;</td></tr>
+<tr class="memdesc:a72e814eade630a43c387759eb61a6daa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class for writing tab-separated values files.  <a href="#a72e814eade630a43c387759eb61a6daa">More...</a><br/></td></tr>
+<tr class="separator:a72e814eade630a43c387759eb61a6daa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac898b00028894c380b013b32891e1cc9"><td class="memTemplParams" colspan="2"><a class="anchor" id="ac898b00028894c380b013b32891e1cc9"></a>
 template&lt;class OutputStream &gt; </td></tr>
 <tr class="memitem:ac898b00028894c380b013b32891e1cc9"><td class="memTemplItemLeft" align="right" valign="top">CSVWriter&lt; OutputStream &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ac898b00028894c380b013b32891e1cc9">csv::make_csv_writer</a> (OutputStream &amp;out, bool quote_minimal=true)</td></tr>
-<tr class="memdesc:ac898b00028894c380b013b32891e1cc9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a <a class="el" href="namespacecsv.html#adccb487e5fe7205bbe0dddae31a9676a" title="An alias for csv::DelimWriter for writing standard CSV files. ">csv::CSVWriter</a> over the output stream. <br/></td></tr>
+<tr class="memdesc:ac898b00028894c380b013b32891e1cc9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a <a class="el" href="namespacecsv.html#ad9ce00a1b58fbb26487df9fdc2691ba4" title="An alias for csv::DelimWriter for writing standard CSV files. ">csv::CSVWriter</a> over the output stream. <br/></td></tr>
 <tr class="separator:ac898b00028894c380b013b32891e1cc9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acd2205eaa69a27ef59cc1b980327c2fd"><td class="memTemplParams" colspan="2"><a class="anchor" id="acd2205eaa69a27ef59cc1b980327c2fd"></a>
+template&lt;class OutputStream &gt; </td></tr>
+<tr class="memitem:acd2205eaa69a27ef59cc1b980327c2fd"><td class="memTemplItemLeft" align="right" valign="top">CSVWriter&lt; OutputStream, false &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#acd2205eaa69a27ef59cc1b980327c2fd">csv::make_csv_writer_buffered</a> (OutputStream &amp;out, bool quote_minimal=true)</td></tr>
+<tr class="memdesc:acd2205eaa69a27ef59cc1b980327c2fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a buffered <a class="el" href="namespacecsv.html#ad9ce00a1b58fbb26487df9fdc2691ba4" title="An alias for csv::DelimWriter for writing standard CSV files. ">csv::CSVWriter</a> over the output stream (does not auto flush) <br/></td></tr>
+<tr class="separator:acd2205eaa69a27ef59cc1b980327c2fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae638c9cb22a92e399dab403774d6785b"><td class="memTemplParams" colspan="2"><a class="anchor" id="ae638c9cb22a92e399dab403774d6785b"></a>
 template&lt;class OutputStream &gt; </td></tr>
 <tr class="memitem:ae638c9cb22a92e399dab403774d6785b"><td class="memTemplItemLeft" align="right" valign="top">TSVWriter&lt; OutputStream &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ae638c9cb22a92e399dab403774d6785b">csv::make_tsv_writer</a> (OutputStream &amp;out, bool quote_minimal=true)</td></tr>
-<tr class="memdesc:ae638c9cb22a92e399dab403774d6785b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a <a class="el" href="namespacecsv.html#adceff6defcbe44f09ee45a1348f82e95" title="Class for writing tab-separated values files. ">csv::TSVWriter</a> over the output stream. <br/></td></tr>
+<tr class="memdesc:ae638c9cb22a92e399dab403774d6785b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a <a class="el" href="namespacecsv.html#a72e814eade630a43c387759eb61a6daa" title="Class for writing tab-separated values files. ">csv::TSVWriter</a> over the output stream. <br/></td></tr>
 <tr class="separator:ae638c9cb22a92e399dab403774d6785b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac150b7870a2c1d8ba9008dca104effc8"><td class="memTemplParams" colspan="2"><a class="anchor" id="ac150b7870a2c1d8ba9008dca104effc8"></a>
+template&lt;class OutputStream &gt; </td></tr>
+<tr class="memitem:ac150b7870a2c1d8ba9008dca104effc8"><td class="memTemplItemLeft" align="right" valign="top">TSVWriter&lt; OutputStream, false &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacecsv.html#ac150b7870a2c1d8ba9008dca104effc8">csv::make_tsv_writer_buffered</a> (OutputStream &amp;out, bool quote_minimal=true)</td></tr>
+<tr class="memdesc:ac150b7870a2c1d8ba9008dca104effc8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return a buffered <a class="el" href="namespacecsv.html#a72e814eade630a43c387759eb61a6daa" title="Class for writing tab-separated values files. ">csv::TSVWriter</a> over the output stream (does not auto flush) <br/></td></tr>
+<tr class="separator:ac150b7870a2c1d8ba9008dca104effc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A standalone header file for writing delimiter-separated files. </p>

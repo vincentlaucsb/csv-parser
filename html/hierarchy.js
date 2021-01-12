@@ -9,7 +9,7 @@ var hierarchy =
     [ "csv::CSVReader", "classcsv_1_1CSVReader.html", null ],
     [ "csv::CSVRow", "classcsv_1_1CSVRow.html", null ],
     [ "csv::CSVStat", "classcsv_1_1CSVStat.html", null ],
-    [ "csv::DelimWriter< OutputStream, Delim, Quote >", "classcsv_1_1DelimWriter.html", null ],
+    [ "csv::DelimWriter< OutputStream, Delim, Quote, Flush >", "classcsv_1_1DelimWriter.html", null ],
     [ "csv::internals::GuessScore", "structcsv_1_1internals_1_1GuessScore.html", null ],
     [ "csv::internals::IBasicCSVParser", "classcsv_1_1internals_1_1IBasicCSVParser.html", [
       [ "csv::internals::MmapParser", "classcsv_1_1internals_1_1MmapParser.html", null ],

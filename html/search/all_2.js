@@ -51,7 +51,7 @@ var searchData=
   ['csvrow',['CSVRow',['../classcsv_1_1CSVRow.html#aff38a83e42b6b9c74d71eb859fa3a651',1,'csv::CSVRow']]],
   ['csvstat',['CSVStat',['../classcsv_1_1CSVStat.html#a2cec7de1953c190edb0afc5e53c44dff',1,'csv::CSVStat::CSVStat(csv::string_view filename, CSVFormat format=CSVFormat::guess_csv())'],['../classcsv_1_1CSVStat.html#aee1460e66bae1496bc0b783027d33497',1,'csv::CSVStat::CSVStat(std::stringstream &amp;source, CSVFormat format=CSVFormat())']]],
   ['csvstat',['CSVStat',['../classcsv_1_1CSVStat.html',1,'csv']]],
-  ['csvwriter',['CSVWriter',['../namespacecsv.html#adccb487e5fe7205bbe0dddae31a9676a',1,'csv']]],
+  ['csvwriter',['CSVWriter',['../namespacecsv.html#ad9ce00a1b58fbb26487df9fdc2691ba4',1,'csv']]],
   ['get_3c_20csv_3a_3astring_5fview_20_3e',['get&lt; csv::string_view &gt;',['../namespacecsv.html#ae07cbb707983a9f9fe23d47705e727b4',1,'csv']]],
   ['get_3c_20std_3a_3astring_20_3e',['get&lt; std::string &gt;',['../namespacecsv.html#a8e4b2059eb3aeb76866ed863c5c7d67f',1,'csv']]],
   ['internals',['internals',['../namespacecsv_1_1internals.html',1,'csv']]]
