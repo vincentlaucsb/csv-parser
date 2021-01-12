@@ -79,6 +79,9 @@ namespace csv {
      *  @tparam OutputStream The output stream, e.g. `std::ofstream`, `std::stringstream`
      *  @tparam Delim        The delimiter character
      *  @tparam Quote        The quote character
+     *  @tparam Flush        True: flush after every writing function,
+     *                       false: you need to flush explicitly if needed.
+     *                       In both cases the destructor will flush.
      *
      *  @par Hint
      *  Use the aliases csv::CSVWriter<OutputStream> to write CSV
@@ -91,7 +94,7 @@ namespace csv {
      *  @par Example w/ std::tuple
      *  @snippet test_write_csv.cpp CSV Writer Tuple Example
      */
-    template<class OutputStream, char Delim, char Quote>
+    template<class OutputStream, char Delim, char Quote, bool Flush>
     class DelimWriter {
     public:
         /** Construct a DelimWriter over the specified output stream
@@ -108,6 +111,13 @@ namespace csv {
          */
         DelimWriter(const std::string& filename) : DelimWriter(std::ifstream(filename)) {};
 
+        /** Destructor will flush remaining data
+         *
+         */
+        ~DelimWriter() {
+            out.flush();
+        }
+
         /** Format a sequence of strings and write to CSV according to RFC 4180
          *
          *  @warning This does not check to make sure row lengths are consistent
@@ -123,7 +133,7 @@ namespace csv {
                 if (i + 1 != Size) out << Delim;
             }
 
-            out << std::endl;
+            end_out();
             return *this;
         }
 
@@ -154,8 +164,15 @@ namespace csv {
                 i++;
             }
 
-            out << std::endl;
+            end_out();
             return *this;
+        }
+
+        /** Flushes the written data
+         *
+         */
+        void flush() {
+            out.flush();
         }
 
     private:
@@ -237,7 +254,13 @@ namespace csv {
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index == sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
             (void)record;
-            out << std::endl;
+            end_out();
+        }
+
+        /** Ends a line in 'out' and flushes, if Flush is true.*/
+        void end_out() {
+            out << '\n';
+            IF_CONSTEXPR(Flush) out.flush();
         }
 
         OutputStream & out;
@@ -251,19 +274,19 @@ namespace csv {
      *  @note Use `csv::make_csv_writer()` to in instatiate this class over
      *        an actual output stream.
      */
-    template<class OutputStream>
-    using CSVWriter = DelimWriter<OutputStream, ',', '"'>;
+    template<class OutputStream, bool Flush = true>
+    using CSVWriter = DelimWriter<OutputStream, ',', '"', Flush>;
 
     /** Class for writing tab-separated values files
-*
+    *
      *  @sa csv::DelimWriter::write_row()
      *  @sa csv::DelimWriter::operator<<()
      *
      *  @note Use `csv::make_tsv_writer()` to in instatiate this class over
      *        an actual output stream.
      */
-    template<class OutputStream>
-    using TSVWriter = DelimWriter<OutputStream, '\t', '"'>;
+    template<class OutputStream, bool Flush = true>
+    using TSVWriter = DelimWriter<OutputStream, '\t', '"', Flush>;
 
     /** Return a csv::CSVWriter over the output stream */
     template<class OutputStream>
@@ -271,10 +294,22 @@ namespace csv {
         return CSVWriter<OutputStream>(out, quote_minimal);
     }
 
+    /** Return a buffered csv::CSVWriter over the output stream (does not auto flush) */
+    template<class OutputStream>
+    inline CSVWriter<OutputStream, false> make_csv_writer_buffered(OutputStream& out, bool quote_minimal=true) {
+        return CSVWriter<OutputStream, false>(out, quote_minimal);
+    }
+
     /** Return a csv::TSVWriter over the output stream */
     template<class OutputStream>
     inline TSVWriter<OutputStream> make_tsv_writer(OutputStream& out, bool quote_minimal=true) {
         return TSVWriter<OutputStream>(out, quote_minimal);
+    }
+
+    /** Return a buffered csv::TSVWriter over the output stream (does not auto flush) */
+    template<class OutputStream>
+    inline TSVWriter<OutputStream, false> make_tsv_writer_buffered(OutputStream& out, bool quote_minimal=true) {
+        return TSVWriter<OutputStream, false>(out, quote_minimal);
     }
     ///@}
 }
