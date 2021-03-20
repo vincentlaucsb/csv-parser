@@ -10,8 +10,8 @@
 #include <deque>
 
 #if defined(_WIN32)
-# include <Windows.h>
 # define WIN32_LEAN_AND_MEAN
+# include <Windows.h>
 # undef max
 # undef min
 #elif defined(__linux__)
