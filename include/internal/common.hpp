@@ -10,12 +10,12 @@
 #include <deque>
 
 #if defined(_WIN32)
-#include <Windows.h>
-#define WIN32_LEAN_AND_MEAN
-#undef max
-#undef min
+# include <Windows.h>
+# define WIN32_LEAN_AND_MEAN
+# undef max
+# undef min
 #elif defined(__linux__)
-#include <unistd.h>
+# include <unistd.h>
 #endif
 
  /** Helper macro which should be #defined as "inline"
