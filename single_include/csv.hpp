@@ -6959,6 +6959,8 @@ namespace csv {
                     if (this->field_length == 0) {
                         quote_escape = true;
                         data_pos++;
+                        if (field_start == UNINITIALIZED_FIELD && !ws_flag(in[data_pos]))
+                            field_start = (int)(data_pos - current_row_start());
                         break;
                     }
 
