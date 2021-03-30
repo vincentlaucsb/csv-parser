@@ -1828,12 +1828,14 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
 #include <deque>
 
 #if defined(_WIN32)
-#include <Windows.h>
-#define WIN32_LEAN_AND_MEAN
-#undef max
-#undef min
+# ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+# endif
+# include <Windows.h>
+# undef max
+# undef min
 #elif defined(__linux__)
-#include <unistd.h>
+# include <unistd.h>
 #endif
 
  /** Helper macro which should be #defined as "inline"
