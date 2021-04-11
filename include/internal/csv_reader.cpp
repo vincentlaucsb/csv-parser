@@ -30,7 +30,7 @@ namespace csv {
             auto trim_chars = format.get_trim_chars();
             std::stringstream source(head.data());
             RowCollection rows;
-            
+
             StreamParser<std::stringstream> parser(source, format);
             parser.set_output(rows);
             parser.next();
@@ -71,7 +71,7 @@ namespace csv {
             double final_score = 0;
             size_t header_row = 0;
 
-            // Final score is equal to the largest 
+            // Final score is equal to the largest
             // row size times rows of that size
             for (auto& pair : row_tally) {
                 auto row_size = pair.first;
@@ -174,7 +174,7 @@ namespace csv {
     CSV_INLINE CSVFormat CSVReader::get_format() const {
         CSVFormat new_format = this->_format;
 
-        // Since users are normally not allowed to set 
+        // Since users are normally not allowed to set
         // column names and header row simulatenously,
         // we will set the backing variables directly here
         new_format.col_names = this->col_names->get_col_names();
@@ -205,12 +205,12 @@ namespace csv {
 
     CSV_INLINE void CSVReader::trim_header() {
         if (!this->header_trimmed) {
-            for (int i = 0; i <= this->_format.header && !this->records.empty(); i++) {
+            for (int i = 0; i <= this->_format.header && !this->records->empty(); i++) {
                 if (i == this->_format.header && this->col_names->empty()) {
-                    this->set_col_names(this->records.pop_front());
+                    this->set_col_names(this->records->pop_front());
                 }
                 else {
-                    this->records.pop_front();
+                    this->records->pop_front();
                 }
             }
 
@@ -240,9 +240,9 @@ namespace csv {
      */
     CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
         // Tell read_row() to listen for CSV rows
-        this->records.notify_all();
+        this->records->notify_all();
 
-        this->parser->set_output(this->records);
+        this->parser->set_output(*this->records);
         this->parser->next(bytes);
 
         if (!this->header_trimmed) {
@@ -250,7 +250,7 @@ namespace csv {
         }
 
         // Tell read_row() to stop waiting
-        this->records.kill_all();
+        this->records->kill_all();
 
         return true;
     }
@@ -271,10 +271,10 @@ namespace csv {
      */
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         while (true) {
-            if (this->records.empty()) {
-                if (this->records.is_waitable())
+            if (this->records->empty()) {
+                if (this->records->is_waitable())
                     // Reading thread is currently active => wait for it to populate records
-                    this->records.wait();
+                    this->records->wait();
                 else if (this->parser->eof())
                     // End of file and no more records
                     return false;
@@ -286,9 +286,9 @@ namespace csv {
                     this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
                 }
             }
-            else if (this->records.front().size() != this->n_cols &&
+            else if (this->records->front().size() != this->n_cols &&
                 this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
-                auto errored_row = this->records.pop_front();
+                auto errored_row = this->records->pop_front();
 
                 if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
                     if (errored_row.size() < this->n_cols)
@@ -298,12 +298,12 @@ namespace csv {
                 }
             }
             else {
-                row = std::move(this->records.pop_front());
+                row = std::move(this->records->pop_front());
                 this->_n_rows++;
                 return true;
             }
         }
-    
+
         return false;
     }
 }

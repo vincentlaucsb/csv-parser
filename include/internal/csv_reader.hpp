@@ -156,7 +156,7 @@ namespace csv {
         std::vector<std::string> get_col_names() const;
         int index_of(csv::string_view col_name) const;
         ///@}
-        
+
         /** @name CSV Metadata: Attributes */
         ///@{
         /** Whether or not the file or stream contains valid CSV rows,
@@ -199,7 +199,7 @@ namespace csv {
         std::unique_ptr<internals::IBasicCSVParser> parser = nullptr;
 
         /** Queue of parsed CSV rows */
-        RowCollection records = RowCollection(100);
+        std::unique_ptr<RowCollection> records{new RowCollection(100)};
 
         size_t n_cols = 0;  /**< The number of columns in this CSV */
         size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
