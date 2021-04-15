@@ -75,17 +75,9 @@ namespace csv {
         return ret;
     }
 
-    CSV_INLINE void CSVStat::calc() {
-        constexpr size_t CALC_CHUNK_SIZE = 5000;
-
-        while (true) {
-            /** Chunk rows */
-            for (auto& row : reader) {
-                if (this->records.size() < CALC_CHUNK_SIZE) {
-                    this->records.push_back(std::move(row));
-                }
-            }
-
+    CSV_INLINE void CSVStat::calcChunk() {
+        /** Only create stats counters the first time **/
+        if (dtypes.empty()) {
             /** Go through all records and calculate specified statistics */
             for (size_t i = 0; i < this->get_col_names().size(); i++) {
                 dtypes.push_back({});
@@ -96,18 +88,34 @@ namespace csv {
                 maxes.push_back(NAN);
                 n.push_back(0);
             }
+        }
 
-            std::vector<std::thread> pool;
+        // Start threads
+        std::vector<std::thread> pool;
+        for (size_t i = 0; i < this->get_col_names().size(); i++)
+            pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
 
-            // Start threads
-            for (size_t i = 0; i < this->get_col_names().size(); i++)
-                pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
+        // Block until done
+        for (auto& th : pool)
+            th.join();
 
-            // Block until done
-            for (auto& th : pool)
-                th.join();
+        this->records.clear();
+    }
 
-            if (reader.eof()) break;
+    CSV_INLINE void CSVStat::calc() {
+        constexpr size_t CALC_CHUNK_SIZE = 5000;
+
+        for (auto& row : reader) {
+            this->records.push_back(std::move(row));
+
+            /** Chunk rows */
+            if (this->records.size() == CALC_CHUNK_SIZE) {
+                calcChunk();
+            }
+        }
+
+        if (!this->records.empty()) {
+          calcChunk();
         }
     }
 
