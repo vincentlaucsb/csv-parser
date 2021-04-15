@@ -24,6 +24,11 @@ TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]") {
         correct << "\"\"\"What does it mean to be RFC 4180 compliant?\"\" she asked.\"";
     }
 
+    SECTION("Leading and Trailing Quote Escape") {
+        writer << std::array<std::string, 1>({ "\"\"" });
+        correct << "\"\"\"\"\"\"";
+    }
+
     SECTION("Quote Minimal") {
         writer << std::array<std::string, 1>({ "This should not be quoted" });
         correct << "This should not be quoted";

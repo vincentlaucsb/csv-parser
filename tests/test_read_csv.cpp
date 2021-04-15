@@ -127,6 +127,30 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
 }
 //! [Parse Example]
 
+//! [Parse Example]
+TEST_CASE( "Test leading and trailing escaped quote", "[read_csv_quote]" ) {
+    // Per RFC 4180, escaped quotes should be doubled up
+    auto csv_string = GENERATE(as<std::string> {},
+        (
+            "A,B,C\r\n" // Header row
+            "123,345,\"\"\"234\"\"\""
+        )
+    );
+    
+    SECTION("Double escaped Quote") {
+        auto rows = parse(csv_string);
+
+        REQUIRE(rows.get_col_names() == vector<string>({ "A", "B", "C" }));
+
+        // Expected Results: Double quotes
+        vector<string> correct_row = { "123", "345", "\"234\"" };
+        for (auto& row : rows) {
+            REQUIRE(vector<string>(row) == correct_row);
+        }
+    }
+}
+//! [Parse Example]
+
 TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     auto row_str = GENERATE(as<std::string> {},
         "A,B,C\r\n" // Header row
