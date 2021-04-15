@@ -51,7 +51,7 @@ namespace csv {
         void dtype(CSVField&, const size_t&);
 
         void calc();
-        void calcChunk();
+        void calc_chunk();
         void calc_worker(const size_t&);
 
         CSVReader reader;

@@ -75,7 +75,7 @@ namespace csv {
         return ret;
     }
 
-    CSV_INLINE void CSVStat::calcChunk() {
+    CSV_INLINE void CSVStat::calc_chunk() {
         /** Only create stats counters the first time **/
         if (dtypes.empty()) {
             /** Go through all records and calculate specified statistics */
@@ -110,12 +110,12 @@ namespace csv {
 
             /** Chunk rows */
             if (this->records.size() == CALC_CHUNK_SIZE) {
-                calcChunk();
+                calc_chunk();
             }
         }
 
         if (!this->records.empty()) {
-          calcChunk();
+          calc_chunk();
         }
     }
 

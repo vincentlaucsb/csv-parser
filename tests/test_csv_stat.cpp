@@ -60,7 +60,8 @@ TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
 
 TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     CSVStat reader(PERSONS_CSV);
-    REQUIRE( ceil(reader.get_mean()[1]) == 42 );
+    REQUIRE(reader.get_maxes()[0] == 49999);
+    REQUIRE( ceil(reader.get_mean()[2]) == 42 );
 }
 
 TEST_CASE("Data Types - persons.csv", "test_dtypes_person]") {
