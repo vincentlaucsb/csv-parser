@@ -105,7 +105,7 @@ namespace csv {
             for (char cand_delim : delims) {
                 auto result = calculate_score(head, format.delimiter(cand_delim));
 
-                if (result.score > max_score) {
+                if ((size_t)result.score > max_score) {
                     max_score = (size_t)result.score;
                     current_delim = cand_delim;
                     header = result.header;
@@ -298,7 +298,7 @@ namespace csv {
                 }
             }
             else {
-                row = std::move(this->records->pop_front());
+                row = this->records->pop_front();
                 this->_n_rows++;
                 return true;
             }

@@ -270,7 +270,7 @@ namespace csv {
             /** Whether or not an attempt to find Unicode BOM has been made */
             bool unicode_bom_scan = false;
             bool _utf8_bom = false;
-            
+
             /** Where complete rows should be pushed to */
             RowCollection* _records = nullptr;
 
@@ -281,7 +281,7 @@ namespace csv {
             size_t& current_row_start() {
                 return this->current_row.data_start;
             }
-    
+
             void parse_field() noexcept;
 
             /** Finish parsing the current field */
@@ -305,7 +305,7 @@ namespace csv {
             StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
+            ) : IBasicCSVParser(format, col_names), _source(std::move(source)) {};
 
             StreamParser(
                 TStream& source,
