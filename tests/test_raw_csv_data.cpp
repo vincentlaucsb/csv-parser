@@ -6,7 +6,7 @@
 
 using namespace csv;
 using namespace csv::internals;
-using RowCollection = ThreadSafeDeque<CSVRow>;
+using RowCollectionTest = ThreadSafeDeque<CSVRow>;
 
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
     std::stringstream csv("A,B,C\r\n"
@@ -14,7 +14,7 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
         "1,2,3\r\n"
         "1,2,3");
 
-    RowCollection rows;
+    RowCollectionTest rows;
 
     StreamParser<std::stringstream> parser(
         csv,
@@ -61,7 +61,7 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
         "1,\"23\"\"34\",5\r\n"      // Another escaped quote
         "1,\"\",2\r\n");           // Empty Field
 
-    RowCollection rows;
+    RowCollectionTest rows;
 
     StreamParser<std::stringstream> parser(
         csv,
@@ -178,7 +178,7 @@ TEST_CASE("Test Parser Whitespace Trimming", "[test_csv_trim]") {
     SECTION("Parse Test") {
         using namespace std;
 
-        RowCollection rows;
+        RowCollectionTest rows;
 
         auto csv = std::stringstream(row_str);
         StreamParser<std::stringstream> parser(
@@ -207,7 +207,7 @@ TEST_CASE("Test Parser Whitespace Trimming w/ Empty Fields", "[test_raw_ws_trim]
     auto csv_string = GENERATE(from_range(make_whitespace_test_cases()));
 
     SECTION("Parse Test") {
-        RowCollection rows;
+        RowCollectionTest rows;
 
         auto csv = std::stringstream(csv_string);
         StreamParser<std::stringstream> parser(
