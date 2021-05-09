@@ -89,14 +89,14 @@ namespace csv {
     using enable_if_t = typename std::enable_if<B, T>::type;
 #endif
 
+#ifdef CSV_HAS_CXX17
+#if defined __GNUC__ && !defined __clang__  // gcc
     // Resolves g++ bug with regard to constexpr methods
     // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
-#if defined __GNUC__ && !defined __clang__
 #if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
 #define CONSTEXPR constexpr
 #endif
-#else
-#ifdef CSV_HAS_CXX17
+#else  // clang
 #define CONSTEXPR constexpr
 #endif
 #endif
