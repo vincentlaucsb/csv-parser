@@ -8,14 +8,14 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'cmake', 'valgrind', 'doxygen']
+          packages: ['g++-9', 'cmake', 'valgrind', 'doxygen']
     - os: linux
       env: STD=c++17
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-8', 'cmake', 'doxygen']
+          packages: ['g++-9', 'cmake', 'doxygen']
     - os: linux
       env: STD=c++14 MAIN_BUILD=true
       compiler: gcc
@@ -33,7 +33,7 @@ before_install:
   - pip3 install gcovr
 script:
   - export CSV_TEST_ROOT=$PWD/tests
-  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-8
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-9
   - make csv_coverage;
   
   # Memory leak check
