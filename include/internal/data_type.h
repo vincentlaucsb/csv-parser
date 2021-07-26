@@ -35,7 +35,7 @@ namespace csv {
     namespace internals {
         /** Compute 10 to the power of n */
         template<typename T>
-        HEDLEY_CONST CONSTEXPR
+        HEDLEY_CONST CONSTEXPR_14
         long double pow10(const T& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
@@ -52,7 +52,7 @@ namespace csv {
 
         /** Compute 10 to the power of n */
         template<>
-        HEDLEY_CONST CONSTEXPR
+        HEDLEY_CONST CONSTEXPR_14
         long double pow10(const unsigned& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
@@ -90,7 +90,7 @@ namespace csv {
         template<> inline DataType type_num<std::nullptr_t>() { return DataType::CSV_NULL; }
         template<> inline DataType type_num<std::string>() { return DataType::CSV_STRING; }
 
-        CONSTEXPR DataType data_type(csv::string_view in, long double* const out = nullptr);
+        CONSTEXPR_14 DataType data_type(csv::string_view in, long double* const out = nullptr);
 #endif
 
         /** Given a byte size, return the largest number than can be stored in
@@ -100,7 +100,7 @@ namespace csv {
          *  byte sizes
          */
         template<size_t Bytes>
-        CONSTEXPR long double get_int_max() {
+        CONSTEXPR_14 long double get_int_max() {
             static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
                 "Bytes must be a power of 2 below 8.");
 
@@ -131,7 +131,7 @@ namespace csv {
          *  an unsigned integer of that size
          */
         template<size_t Bytes>
-        CONSTEXPR long double get_uint_max() {
+        CONSTEXPR_14 long double get_uint_max() {
             static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
                 "Bytes must be a power of 2 below 8.");
 
@@ -159,34 +159,34 @@ namespace csv {
         }
 
         /** Largest number that can be stored in a 8-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT8_MAX = get_int_max<1>();
+        CONSTEXPR_VALUE_14 long double CSV_INT8_MAX = get_int_max<1>();
 
         /** Largest number that can be stored in a 16-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT16_MAX = get_int_max<2>();
+        CONSTEXPR_VALUE_14 long double CSV_INT16_MAX = get_int_max<2>();
 
         /** Largest number that can be stored in a 32-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT32_MAX = get_int_max<4>();
+        CONSTEXPR_VALUE_14 long double CSV_INT32_MAX = get_int_max<4>();
 
         /** Largest number that can be stored in a 64-bit integer */
-        CONSTEXPR_VALUE long double CSV_INT64_MAX = get_int_max<8>();
+        CONSTEXPR_VALUE_14 long double CSV_INT64_MAX = get_int_max<8>();
 
         /** Largest number that can be stored in a 8-bit ungisned integer */
-        CONSTEXPR_VALUE long double CSV_UINT8_MAX = get_uint_max<1>();
+        CONSTEXPR_VALUE_14 long double CSV_UINT8_MAX = get_uint_max<1>();
 
         /** Largest number that can be stored in a 16-bit unsigned integer */
-        CONSTEXPR_VALUE long double CSV_UINT16_MAX = get_uint_max<2>();
+        CONSTEXPR_VALUE_14 long double CSV_UINT16_MAX = get_uint_max<2>();
 
         /** Largest number that can be stored in a 32-bit unsigned integer */
-        CONSTEXPR_VALUE long double CSV_UINT32_MAX = get_uint_max<4>();
+        CONSTEXPR_VALUE_14 long double CSV_UINT32_MAX = get_uint_max<4>();
 
         /** Largest number that can be stored in a 64-bit unsigned integer */
-        CONSTEXPR_VALUE long double CSV_UINT64_MAX = get_uint_max<8>();
+        CONSTEXPR_VALUE_14 long double CSV_UINT64_MAX = get_uint_max<8>();
 
         /** Given a pointer to the start of what is start of
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        HEDLEY_PRIVATE CONSTEXPR
+        HEDLEY_PRIVATE CONSTEXPR_14
         DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
@@ -206,7 +206,7 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR
+        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR_14
         DataType _determine_integral_type(const long double& number) noexcept {
             // We can assume number is always non-negative
             assert(number >= 0);
@@ -234,7 +234,7 @@ namespace csv {
          *  @param[out] out Pointer to long double where results of numeric parsing
          *                  get stored
          */
-        CONSTEXPR
+        CONSTEXPR_14
         DataType data_type(csv::string_view in, long double* const out) {
             // Empty string --> NULL
             if (in.size() == 0)
