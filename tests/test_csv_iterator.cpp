@@ -82,7 +82,7 @@ TEST_CASE("Basic CSVReader Iterator Test", "[read_ints_iter]") {
     std::vector<std::string> col_names = {
         "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"
     };
-    size_t i = 1;
+    int i = 1;
 
     SECTION("Basic Iterator") {
         for (auto it = reader.begin(); it != reader.end(); ++it) {
@@ -113,7 +113,7 @@ TEST_CASE("CSVReader Iterator + std::max_elem", "[iter_max_elem]") {
     // The second file is a database of California state employee salaries
     CSVReader r1("./tests/data/fake_data/ints.csv"),
         r2("./tests/data/real_data/2015_StateDepartment.csv");
-    
+
     // Find largest number
     auto int_finder = [](CSVRow& left, CSVRow& right) {
         return (left["A"].get<int>() < right["A"].get<int>());
