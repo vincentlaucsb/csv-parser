@@ -11,7 +11,7 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
         int_str = std::to_string(i);
         int_list << int_str << "," << int_str << "," << int_str << "\r\n";
     }
-    
+
     // Expected results
     CSVFormat format;
     format.column_names({ "A", "B", "C" });
@@ -25,12 +25,12 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
     REQUIRE( reader.get_mins() == mins );
     REQUIRE( reader.get_maxes() == maxes );
     REQUIRE( reader.get_mean() == means );
-    REQUIRE( ceil(reader.get_variance()[0]) == 842 );
-    
+    REQUIRE( ceill(reader.get_variance()[0]) == 842 );
+
     // Make sure all integers between 1 and 100 have a count of 1
     for (int i = 1; i < 101; i++)
         REQUIRE( reader.get_counts()[0][std::to_string(i)] == 1 );
-    
+
     // Confirm column at pos 0 has 100 integers (type 2)
     REQUIRE( reader.get_dtypes()[0][DataType::CSV_INT8] == 100 );
 }
@@ -54,14 +54,14 @@ TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
         REQUIRE(reader.get_mean() == means);
         REQUIRE(reader.get_mins()[0] == 1);
         REQUIRE(reader.get_maxes()[0] == 100);
-        REQUIRE(ceil(reader.get_variance()[0]) == 842);
+        REQUIRE(ceill(reader.get_variance()[0]) == 842);
     }
 }
 
 TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     CSVStat reader(PERSONS_CSV);
     REQUIRE(reader.get_maxes()[0] == 49999);
-    REQUIRE( ceil(reader.get_mean()[2]) == 42 );
+    REQUIRE( ceill(reader.get_mean()[2]) == 42 );
 }
 
 TEST_CASE("Data Types - persons.csv", "test_dtypes_person]") {

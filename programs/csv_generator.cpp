@@ -9,6 +9,7 @@ int main(int argc, char** argv) {
     using namespace csv;
     std::uniform_real_distribution<double> d(1, 1000000);
     std::mt19937 gen;
+    gen.seed(time(0));
 
     if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " [file]" << std::endl;

@@ -15,6 +15,8 @@
 
 namespace csv {
     namespace internals {
+        static int DECIMAL_PLACES = 5;
+
         /** to_string() for unsigned integers */
         template<typename T,
             csv::enable_if_t<std::is_unsigned<T>::value, int> = 0>
@@ -48,23 +50,50 @@ namespace csv {
             typename T,
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
-        inline std::string to_string(T value) {
-            std::string result;
+            inline std::string to_string(T value) {
+                std::string result;
 
-            if (value < 0) result = "-";
-            
-            // Integral part
-            size_t integral = (size_t)(std::abs(value));
-            result += (integral == 0) ? "0" : to_string(integral);
+                T integral_part;
+                T fractional_part = std::abs(std::modf(value, &integral_part));
+                integral_part = std::abs(integral_part);
 
-            // Decimal part
-            size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
+                // Integral part
+                if (value < 0) result = "-";
 
-            result += ".";
-            result += (decimal == 0) ? "0" : to_string(decimal);
+                if (integral_part == 0) {
+                    result = "0";
+                }
+                else {
+                    for (short n_digits = log(integral_part) / log(10); n_digits + 1 > 0; n_digits --) {
+                        short digit = std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits);
+                        result += (char)('0' + digit);
+                    }
+                }
 
-            return result;
+                // Decimal part
+                result += ".";
+
+                if (fractional_part > 0) {
+                    fractional_part *= pow10(DECIMAL_PLACES);
+                    for (short n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
+                        short digit = std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1);
+                        result += (char)('0' + digit);
+                    }
+                }
+                else {
+                    result += "0";
+                }
+
+                return result;
         }
+    }
+
+    /** Sets how many places after the decimal will be written for floating point numbers
+     *
+     *  @param  precision   Number of decimal places
+     */
+    inline static void set_decimal_places(int precision) {
+        internals::DECIMAL_PLACES = precision;
     }
 
     /** @name CSV Writing */
@@ -102,6 +131,7 @@ namespace csv {
          *  @param  _out           Stream to write to
          *  @param  _quote_minimal Limit field quoting to only when necessary
         */
+
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
             : out(_out), quote_minimal(_quote_minimal) {};
 
@@ -213,7 +243,7 @@ namespace csv {
             bool quote_escape = false;
 
             for (auto ch : in) {
-                if (ch == Quote || ch == Delim) {
+                if (ch == Quote || ch == Delim || ch == '\r' || ch == '\n') {
                     quote_escape = true;
                     break;
                 }
@@ -222,9 +252,10 @@ namespace csv {
             if (!quote_escape) {
                 if (quote_minimal) return std::string(in);
                 else {
-                    std::string ret(Quote, 1);
+                    std::string ret(1, Quote);
                     ret += in.data();
                     ret += Quote;
+                    return ret;
                 }
             }
 

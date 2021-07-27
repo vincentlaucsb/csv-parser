@@ -74,31 +74,41 @@ namespace csv {
 #endif
 
 #ifdef CSV_HAS_CXX17
-#define IF_CONSTEXPR if constexpr
-#define CONSTEXPR_VALUE constexpr
+    #define IF_CONSTEXPR if constexpr
+    #define CONSTEXPR_VALUE constexpr
+
+    #define CONSTEXPR_17 constexpr
 #else
-#define IF_CONSTEXPR if
-#define CONSTEXPR_VALUE const
+    #define IF_CONSTEXPR if
+    #define CONSTEXPR_VALUE const
+
+    #define CONSTEXPR_17 inline
 #endif
 
 #ifdef CSV_HAS_CXX14
     template<bool B, class T = void>
     using enable_if_t = std::enable_if_t<B, T>;
+
+    #define CONSTEXPR_14 constexpr
+    #define CONSTEXPR_VALUE_14 constexpr
 #else
     template<bool B, class T = void>
     using enable_if_t = typename std::enable_if<B, T>::type;
+
+    #define CONSTEXPR_14 inline
+    #define CONSTEXPR_VALUE_14 const
 #endif
 
     // Resolves g++ bug with regard to constexpr methods
     // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
 #if defined __GNUC__ && !defined __clang__
-#if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
-#define CONSTEXPR constexpr
-#endif
-#else
-#ifdef CSV_HAS_CXX17
-#define CONSTEXPR constexpr
-#endif
+    #if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
+        #define CONSTEXPR constexpr
+    #endif
+    #else
+        #ifdef CSV_HAS_CXX17
+        #define CONSTEXPR constexpr
+    #endif
 #endif
 
 #ifndef CONSTEXPR
