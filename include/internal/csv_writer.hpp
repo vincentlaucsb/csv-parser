@@ -125,11 +125,12 @@ namespace csv {
      */
     template<class OutputStream, char Delim, char Quote, bool Flush>
     class DelimWriter {
-    pub        /** Construct a DelimWriter over the specified output stream
+    public:
+        /** Construct a DelimWriter over the specified output stream
          *
          *  @param  _out           Stream to write to
          *  @param  _quote_minimal Limit field quoting to only when necessary
-        */lic:
+        */
 
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
             : out(_out), quote_minimal(_quote_minimal) {};
