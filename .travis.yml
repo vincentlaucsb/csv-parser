@@ -64,7 +64,7 @@ before_install:
   - pip3 install gcovr
 script:
   - export CSV_TEST_ROOT=$PWD/tests
-  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=$CXX_COMPILER -DCSV_CXX_STANDARD=$CSV_CXX_STANDARD
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=$CXX_COMPILER  -DCMAKE_C_COMPILER=$C_COMPILER -DCSV_CXX_STANDARD=$CSV_CXX_STANDARD
   - make csv_coverage;
   
   # Memory leak check
