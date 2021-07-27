@@ -253,24 +253,24 @@ namespace csv {
         CONSTEXPR csv::string_view get_sv() const noexcept { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        CONSTEXPR bool is_null() noexcept { return type() == DataType::CSV_NULL; }
+        CONSTEXPR_14 bool is_null() noexcept { return type() == DataType::CSV_NULL; }
 
         /** Returns true if field is a non-numeric, non-empty string */
-        CONSTEXPR bool is_str() noexcept { return type() == DataType::CSV_STRING; }
+        CONSTEXPR_14 bool is_str() noexcept { return type() == DataType::CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        CONSTEXPR bool is_num() noexcept { return type() >= DataType::CSV_INT8; }
+        CONSTEXPR_14 bool is_num() noexcept { return type() >= DataType::CSV_INT8; }
 
         /** Returns true if field is an integer */
-        CONSTEXPR bool is_int() noexcept {
+        CONSTEXPR_14 bool is_int() noexcept {
             return (type() >= DataType::CSV_INT8) && (type() <= DataType::CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; };
+        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; };
 
         /** Return the type of the underlying CSV data */
-        CONSTEXPR DataType type() noexcept {
+        CONSTEXPR_14 DataType type() noexcept {
             this->get_value();
             return _type;
         }
@@ -279,7 +279,7 @@ namespace csv {
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
         DataType _type = DataType::UNKNOWN; /**< Cached data type value */
-        CONSTEXPR void get_value() noexcept {
+        CONSTEXPR_14 void get_value() noexcept {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */
@@ -419,13 +419,13 @@ namespace csv {
      *           CSVRow is still alive.
      */
     template<>
-    CONSTEXPR csv::string_view CSVField::get<csv::string_view>() {
+    CONSTEXPR_14 csv::string_view CSVField::get<csv::string_view>() {
         return this->sv;
     }
 
     /** Retrieve this field's value as a long double */
     template<>
-    CONSTEXPR long double CSVField::get<long double>() {
+    CONSTEXPR_14 long double CSVField::get<long double>() {
         if (!is_num())
             throw std::runtime_error(internals::ERROR_NAN);
 
