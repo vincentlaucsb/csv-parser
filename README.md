@@ -60,7 +60,7 @@ In addition to the [Features & Examples](#features--examples) below, a [fully-fl
 
 ## Integration
 
-This library was developed with Microsoft Visual Studio and is compatible with >g++ 6.0 and clang.
+This library was developed with Microsoft Visual Studio and is compatible with >g++ 7.5 and clang.
 All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
 
 ### C++ Version
@@ -342,6 +342,7 @@ stringstream ss; // Can also use ofstream, etc.
 auto writer = make_csv_writer(ss);
 // auto writer = make_tsv_writer(ss);               // For tab-separated files
 // DelimWriter<stringstream, '|', '"'> writer(ss);  // Your own custom format
+// set_decimal_places(2);                           // How many places after the decimal will be written for floats
 
 writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })

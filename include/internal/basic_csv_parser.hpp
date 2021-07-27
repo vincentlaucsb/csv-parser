@@ -27,7 +27,7 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter) {
+        HEDLEY_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter) {
             std::array<ParseFlags, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -48,7 +48,7 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+        HEDLEY_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
             std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
             ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
             return ret;
@@ -58,7 +58,7 @@ namespace csv {
          *  ASCII number for a character c and, v[i + 128] is true if
          *  c is a whitespace character
          */
-        HEDLEY_CONST CONSTEXPR WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
+        HEDLEY_CONST CONSTEXPR_14 WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
             std::array<bool, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -210,11 +210,11 @@ namespace csv {
             /** Indicate the last block of data has been parsed */
             void end_feed();
 
-            CONSTEXPR ParseFlags parse_flag(const char ch) const noexcept {
+            CONSTEXPR_17 ParseFlags parse_flag(const char ch) const noexcept {
                 return _parse_flags.data()[ch + 128];
             }
 
-            CONSTEXPR ParseFlags compound_parse_flag(const char ch) const noexcept {
+            CONSTEXPR_17 ParseFlags compound_parse_flag(const char ch) const noexcept {
                 return quote_escape_flag(parse_flag(ch), this->quote_escape);
             }
 
@@ -270,18 +270,18 @@ namespace csv {
             /** Whether or not an attempt to find Unicode BOM has been made */
             bool unicode_bom_scan = false;
             bool _utf8_bom = false;
-            
+
             /** Where complete rows should be pushed to */
             RowCollection* _records = nullptr;
 
-            CONSTEXPR bool ws_flag(const char ch) const noexcept {
+            CONSTEXPR_17 bool ws_flag(const char ch) const noexcept {
                 return _ws_flags.data()[ch + 128];
             }
 
             size_t& current_row_start() {
                 return this->current_row.data_start;
             }
-    
+
             void parse_field() noexcept;
 
             /** Finish parsing the current field */
@@ -305,7 +305,7 @@ namespace csv {
             StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
+            ) : IBasicCSVParser(format, col_names), _source(std::move(source)) {};
 
             StreamParser(
                 TStream& source,

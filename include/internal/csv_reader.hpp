@@ -81,10 +81,10 @@ namespace csv {
             iterator(CSVReader*, CSVRow&&);
 
             /** Access the CSVRow held by the iterator */
-            CONSTEXPR reference operator*() { return this->row; }
+            CONSTEXPR_14 reference operator*() { return this->row; }
 
             /** Return a pointer to the CSVRow the iterator has stopped at */
-            CONSTEXPR pointer operator->() { return &(this->row); }
+            CONSTEXPR_14 pointer operator->() { return &(this->row); }
 
             iterator& operator++();   /**< Pre-increment iterator */
             iterator operator++(int); /**< Post-increment ierator */
