@@ -10,14 +10,14 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-9', 'cmake', 'valgrind', 'doxygen']
     - os: linux
-      env: STD=c++17 CSV_CXX_STANDARD=17 CXX_COMPILER=g++-9
+      env: STD=c++14 CSV_CXX_STANDARD=14 CXX_COMPILER=g++-9
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-9', 'cmake', 'doxygen']
     - os: linux
-      env: STD=c++14 CSV_CXX_STANDARD=14 MAIN_BUILD=true CXX_COMPILER=g++-9
+      env: STD=c++17 CSV_CXX_STANDARD=17 MAIN_BUILD=true CXX_COMPILER=g++-9
       compiler: gcc
       addons:
         apt:
@@ -25,7 +25,29 @@ matrix:
           packages: ['g++-9', 'cmake', 'valgrind', 'doxygen']
     - os: linux
       dist: focal
+      env: CSV_CXX_STANDARD=11 MAIN_BUILD=true CXX_COMPILER=clang-11
+      compiler: clang
+      addons:
+         apt:
+          sources:
+          - sourceline: 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+            key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+          packages:
+          - clang-11
+    - os: linux
+      dist: focal
       env: CSV_CXX_STANDARD=14 MAIN_BUILD=true CXX_COMPILER=clang-11
+      compiler: clang
+      addons:
+         apt:
+          sources:
+          - sourceline: 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+            key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+          packages:
+          - clang-11
+    - os: linux
+      dist: focal
+      env: CSV_CXX_STANDARD=17 MAIN_BUILD=true CXX_COMPILER=clang-11
       compiler: clang
       addons:
          apt:
