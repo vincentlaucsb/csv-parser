@@ -48,22 +48,41 @@ namespace csv {
             typename T,
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
-        inline std::string to_string(T value) {
-            std::string result;
+            inline std::string to_string(T value) {
+                std::string result;
 
-            if (value < 0) result = "-";
-            
-            // Integral part
-            size_t integral = (size_t)(std::abs(value));
-            result += (integral == 0) ? "0" : to_string(integral);
+                T integral_part;
+                T fractional_part = std::abs(std::modf(value, &integral_part));
+                integral_part = std::abs(integral_part);
 
-            // Decimal part
-            size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
+                // Integral part
+                if (value < 0) result = "-";
 
-            result += ".";
-            result += (decimal == 0) ? "0" : to_string(decimal);
+                if (integral_part == 0) {
+                    result = "0";
+                }
+                else {
+                    for (short n_digits = log(integral_part) / log(10); n_digits + 1 > 0; n_digits --) {
+                        short digit = std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits);
+                        result += (char)('0' + digit);
+                    }
+                }
 
-            return result;
+                // Decimal part
+                result += ".";
+
+                if (fractional_part > 0) {
+                    fractional_part *= 1e5;
+                    for (short n_digits = 5; n_digits > 0; n_digits--) {
+                        short digit = std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1);
+                        result += (char)('0' + digit);
+                    }
+                }
+                else {
+                    result += "0";
+                }
+
+                return result;
         }
     }
 

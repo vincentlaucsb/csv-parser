@@ -6551,10 +6551,17 @@ namespace csv {
             std::string result;
 
             if (value < 0) result = "-";
-            
+
+            T abs_value = std::abs(value);
+            T integral = abs_value;
+
             // Integral part
-            size_t integral = (size_t)(std::abs(value));
-            result += (integral == 0) ? "0" : to_string(integral);
+            while (integral >= (T)1.0) {
+                results += (char)('0' + (integral % 10));
+                integral /= 10;
+            }
+            
+            result = std::string(digits_reverse.rbegin(), digits_reverse.rend())
 
             // Decimal part
             size_t decimal = (size_t)(((double)std::abs(value) - (double)integral) * 100000);
