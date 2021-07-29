@@ -1,5 +1,5 @@
 # Vince's CSV Parser
-[![Build Status](https://travis-ci.org/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.org/vincentlaucsb/csv-parser)
+[![Build Status](https://travis-ci.com/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.com/vincentlaucsb/csv-parser)
 
  * [Motivation](#motivation)
  * [Documentation](#documentation)
