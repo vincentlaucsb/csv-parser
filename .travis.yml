@@ -3,28 +3,59 @@ language:
 matrix:
   include:
     - os: linux
-      env: STD=c++11 CSV_CXX_STANDARD=11 MAIN_BUILD=true
+      env: STD=c++11 CSV_CXX_STANDARD=11 MAIN_BUILD=true CXX_COMPILER=g++-9 C_COMPILER=gcc-9
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-9', 'cmake', 'valgrind', 'doxygen']
     - os: linux
-      env: STD=c++17 CSV_CXX_STANDARD=17
+      env: STD=c++14 CSV_CXX_STANDARD=14 CXX_COMPILER=g++-9 C_COMPILER=gcc-9
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-9', 'cmake', 'doxygen']
     - os: linux
-      env: STD=c++14 CSV_CXX_STANDARD=14 MAIN_BUILD=true
+      env: STD=c++17 CSV_CXX_STANDARD=17 MAIN_BUILD=true CXX_COMPILER=g++-9 C_COMPILER=gcc-9
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-9', 'cmake', 'valgrind', 'doxygen']
-    #- os: linux
-    #  env: CXX=clang++
+    - os: linux
+      dist: focal
+      env: CSV_CXX_STANDARD=11 MAIN_BUILD=true CXX_COMPILER=clang++-11 C_COMPILER=clang-11
+      compiler: clang
+      addons:
+         apt:
+          sources:
+          - sourceline: 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+            key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+          packages:
+          - clang-11
+    - os: linux
+      dist: focal
+      env: CSV_CXX_STANDARD=14 MAIN_BUILD=true CXX_COMPILER=clang++-11 C_COMPILER=clang-11
+      compiler: clang
+      addons:
+         apt:
+          sources:
+          - sourceline: 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+            key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+          packages:
+          - clang-11
+    - os: linux
+      dist: focal
+      env: CSV_CXX_STANDARD=17 MAIN_BUILD=true CXX_COMPILER=clang++-11 C_COMPILER=clang-11
+      compiler: clang
+      addons:
+         apt:
+          sources:
+          - sourceline: 'deb http://apt.llvm.org/focal/ llvm-toolchain-focal-11 main'
+            key_url: https://apt.llvm.org/llvm-snapshot.gpg.key
+          packages:
+          - clang-11
 dist: trusty
 sudo: required
 before_install:
@@ -33,7 +64,7 @@ before_install:
   - pip3 install gcovr
 script:
   - export CSV_TEST_ROOT=$PWD/tests
-  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++-9 -DCSV_CXX_STANDARD=$CSV_CXX_STANDARD
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=$CXX_COMPILER  -DCMAKE_C_COMPILER=$C_COMPILER -DCSV_CXX_STANDARD=$CSV_CXX_STANDARD
   - make csv_coverage;
   
   # Memory leak check
