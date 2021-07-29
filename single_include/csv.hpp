@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.1.2
+CSV for C++, version 2.1.3
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -4693,6 +4693,8 @@ namespace csv {
      *  Intended for functions and methods.
      */
 
+#define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
+
 #if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
 #define CSV_HAS_CXX17
 #endif
@@ -4818,22 +4820,22 @@ namespace csv {
 
         // Assumed to be true by parsing functions: allows for testing
         // if an item is DELIMITER or NEWLINE with a >= statement
-        static_assert(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
+        STATIC_ASSERT(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
 
         /** Optimizations for reducing branching in parsing loop
          *
          *  Idea: The meaning of all non-quote characters changes depending
          *  on whether or not the parser is in a quote-escaped mode (0 or 1)
          */
-        static_assert(quote_escape_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
-        static_assert(quote_escape_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
-        static_assert(quote_escape_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
-        static_assert(quote_escape_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
 
-        static_assert(quote_escape_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
-        static_assert(quote_escape_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
-        static_assert(quote_escape_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
-        static_assert(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         /** An array which maps ASCII chars to a parsing flag */
         using ParseFlagMap = std::array<ParseFlags, 256>;
@@ -5363,7 +5365,7 @@ namespace csv {
                     return DataType::CSV_STRING;
                     break;
                 default:
-                    short digit = current - '0';
+                    short digit = static_cast<short>(current - '0');
                     if (digit >= 0 && digit <= 9) {
                         // Process digit
                         has_digit = true;
@@ -5597,6 +5599,9 @@ namespace csv {
 
             return static_cast<T>(this->value);
         }
+
+        /** Parse a hexadecimal value, returning false if the value is not hex. */
+        bool try_parse_hex(int& parsedValue);
 
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return
@@ -6089,7 +6094,7 @@ namespace csv {
             /** Whether or not an attempt to find Unicode BOM has been made */
             bool unicode_bom_scan = false;
             bool _utf8_bom = false;
-            
+
             /** Where complete rows should be pushed to */
             RowCollection* _records = nullptr;
 
@@ -6100,7 +6105,7 @@ namespace csv {
             size_t& current_row_start() {
                 return this->current_row.data_start;
             }
-    
+
             void parse_field() noexcept;
 
             /** Finish parsing the current field */
@@ -6124,7 +6129,7 @@ namespace csv {
             StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : _source(std::move(source)), IBasicCSVParser(format, col_names) {};
+            ) : IBasicCSVParser(format, col_names), _source(std::move(source)) {};
 
             StreamParser(
                 TStream& source,
@@ -6209,6 +6214,7 @@ namespace csv {
         };
     }
 }
+
 
 /** The all encompassing namespace */
 namespace csv {
@@ -6573,8 +6579,9 @@ namespace csv {
                     result = "0";
                 }
                 else {
-                    for (short n_digits = log(integral_part) / log(10); n_digits + 1 > 0; n_digits --) {
-                        short digit = std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits);
+                    for (short n_digits = static_cast<short>(log(integral_part) / log(10));
+                         n_digits + 1 > 0; n_digits --) {
+                        short digit = static_cast<short>(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
                         result += (char)('0' + digit);
                     }
                 }
@@ -6583,9 +6590,9 @@ namespace csv {
                 result += ".";
 
                 if (fractional_part > 0) {
-                    fractional_part *= pow10(DECIMAL_PLACES);
-                    for (short n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
-                        short digit = std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1);
+                    fractional_part *= static_cast<T>(pow10(DECIMAL_PLACES));
+                    for (short n_digits = static_cast<short>(DECIMAL_PLACES); n_digits > 0; n_digits--) {
+                        short digit = static_cast<short>(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
                         result += (char)('0' + digit);
                     }
                 }
@@ -7037,7 +7044,7 @@ namespace csv {
                     if (this->field_length == 0) {
                         quote_escape = true;
                         data_pos++;
-                        if (field_start == UNINITIALIZED_FIELD && !ws_flag(in[data_pos]))
+                        if (field_start == UNINITIALIZED_FIELD && data_pos < in.size() && !ws_flag(in[data_pos]))
                             field_start = (int)(data_pos - current_row_start());
                         break;
                     }
@@ -7345,7 +7352,7 @@ namespace csv {
             for (char cand_delim : delims) {
                 auto result = calculate_score(head, format.delimiter(cand_delim));
 
-                if (result.score > max_score) {
+                if ((size_t)result.score > max_score) {
                     max_score = (size_t)result.score;
                     current_delim = cand_delim;
                     header = result.header;
@@ -7538,7 +7545,7 @@ namespace csv {
                 }
             }
             else {
-                row = std::move(this->records->pop_front());
+                row = this->records->pop_front();
                 this->_n_rows++;
                 return true;
             }
@@ -7564,7 +7571,7 @@ namespace csv {
             if (this->records->empty()) return this->end();
         }
 
-        CSVReader::iterator ret(this, std::move(this->records->pop_front()));
+        CSVReader::iterator ret(this, this->records->pop_front());
         return ret;
     }
 
@@ -7707,6 +7714,72 @@ namespace csv {
         }
 
         return field_str.substr(0, field.length);
+    }
+
+    CSV_INLINE bool CSVField::try_parse_hex(int& parsedValue) {
+        size_t start = 0, end = 0;
+
+        // Trim out whitespace chars
+        for (; start < this->sv.size() && this->sv[start] == ' '; start++);
+        for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
+        
+        unsigned long long int value = 0;
+
+        size_t digits = (end - start);
+        size_t base16_exponent = digits - 1;
+
+        if (digits == 0) return false;
+
+        for (const auto& ch : this->sv.substr(start, digits)) {
+            int digit = 0;
+
+            switch (ch) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                digit = static_cast<int>(ch - '0');
+                break;
+            case 'a':
+            case 'A':
+                digit = 10;
+                break;
+            case 'b':
+            case 'B':
+                digit = 11;
+                break;
+            case 'c':
+            case 'C':
+                digit = 12;
+                break;
+            case 'd':
+            case 'D':
+                digit = 13;
+                break;
+            case 'e':
+            case 'E':
+                digit = 14;
+                break;
+            case 'f':
+            case 'F':
+                digit = 15;
+                break;
+            default:
+                return false;
+            }
+
+            value += digit * pow(16, base16_exponent);
+            base16_exponent--;
+        }
+
+        parsedValue = value;
+        return true;
     }
 
 #ifdef _MSC_VER

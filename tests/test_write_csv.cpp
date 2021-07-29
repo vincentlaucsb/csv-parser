@@ -17,6 +17,7 @@ TEST_CASE("Numeric Converter Tests", "[test_convert_number]") {
 
     // Test setting precision
     REQUIRE(csv::internals::to_string(1.234) == "1.23400");
+    REQUIRE(csv::internals::to_string(20.0045) == "20.00450");
 
     set_decimal_places(2);
     REQUIRE(csv::internals::to_string(1.234) == "1.23");

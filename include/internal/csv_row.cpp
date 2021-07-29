@@ -98,6 +98,72 @@ namespace csv {
         return field_str.substr(0, field.length);
     }
 
+    CSV_INLINE bool CSVField::try_parse_hex(int& parsedValue) {
+        size_t start = 0, end = 0;
+
+        // Trim out whitespace chars
+        for (; start < this->sv.size() && this->sv[start] == ' '; start++);
+        for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
+        
+        unsigned long long int value = 0;
+
+        size_t digits = (end - start);
+        size_t base16_exponent = digits - 1;
+
+        if (digits == 0) return false;
+
+        for (const auto& ch : this->sv.substr(start, digits)) {
+            int digit = 0;
+
+            switch (ch) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                digit = static_cast<int>(ch - '0');
+                break;
+            case 'a':
+            case 'A':
+                digit = 10;
+                break;
+            case 'b':
+            case 'B':
+                digit = 11;
+                break;
+            case 'c':
+            case 'C':
+                digit = 12;
+                break;
+            case 'd':
+            case 'D':
+                digit = 13;
+                break;
+            case 'e':
+            case 'E':
+                digit = 14;
+                break;
+            case 'f':
+            case 'F':
+                digit = 15;
+                break;
+            default:
+                return false;
+            }
+
+            value += digit * pow(16, base16_exponent);
+            base16_exponent--;
+        }
+
+        parsedValue = value;
+        return true;
+    }
+
 #ifdef _MSC_VER
 #pragma region CSVRow Iterator
 #endif

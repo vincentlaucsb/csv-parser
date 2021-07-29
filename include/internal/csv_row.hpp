@@ -214,6 +214,9 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
+        /** Parse a hexadecimal value, returning false if the value is not hex. */
+        bool try_parse_hex(int& parsedValue);
+
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return
          *  false.

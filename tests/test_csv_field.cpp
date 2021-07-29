@@ -88,6 +88,41 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
     REQUIRE(euler.get<long double>() == 2.718l);
 }
 
+TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
+    int value = 0;
+
+    SECTION("Valid Hex Values") {
+        std::unordered_map<std::string, int> test_cases = {
+            {"  A   ", 10},
+            {"0A", 10},
+            {"0B", 11},
+            {"0C", 12},
+            {"0D", 13},
+            {"0E", 14},
+            {"0F", 15},
+            {"FF", 255},
+            {"B00B5", 721077},
+            {"D3ADB33F", 3551376191},
+            {"  D3ADB33F  ", 3551376191}
+        };
+
+        for (auto& _case : test_cases) {
+            REQUIRE(CSVField(_case.first).try_parse_hex(value));
+            REQUIRE(value == _case.second);
+        }
+    }
+
+    SECTION("Invalid Values") {
+        std::vector<std::string> invalid_test_cases = {
+            "", "    ", "carneasda", "carne asada", "0fg"
+        };
+
+        for (auto& _case : invalid_test_cases) {
+            REQUIRE(CSVField(_case).try_parse_hex(value) == false);
+        }
+    }
+}
+
 TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",
     unsigned char, unsigned short, unsigned int, unsigned long long int,
     signed char, short, int, long long int) {
