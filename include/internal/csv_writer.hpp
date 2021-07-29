@@ -64,9 +64,9 @@ namespace csv {
                     result = "0";
                 }
                 else {
-                    for (int n_digits = static_cast<int>(log(integral_part) / log(10));
+                    for (int n_digits = (int)(log(integral_part) / log(10));
                          n_digits + 1 > 0; n_digits --) {
-                        int digit = static_cast<int>(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
+                        int digit = (int)(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
                         result += (char)('0' + digit);
                     }
                 }
@@ -75,9 +75,9 @@ namespace csv {
                 result += ".";
 
                 if (fractional_part > 0) {
-                    fractional_part *= static_cast<T>(pow10(DECIMAL_PLACES));
+                    fractional_part *= (T)(pow10(DECIMAL_PLACES));
                     for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
-                        int digit = static_cast<int>(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
+                        int digit = (int)(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
                         result += (char)('0' + digit);
                     }
                 }

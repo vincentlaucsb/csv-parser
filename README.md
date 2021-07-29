@@ -194,6 +194,12 @@ for (auto& row: reader) {
         // numbers cannot be converted to unsigned types
         row["timestamp"].get<int>();
         
+        // You can also attempt to parse hex values
+        int value;
+        if (row["hexValue"].try_parse_hex(value)) {
+            std::cout << "Hex value is " << value << std::endl;
+        }
+
         // ..
     }
 }
