@@ -5882,7 +5882,7 @@ namespace csv {
          *  ASCII number for a character c and, v[i + 128] is true if
          *  c is a whitespace character
          */
-        HEDLEY_CONST CONSTEXPR_14 WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
+        HEDLEY_CONST CONSTEXPR_17 WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
             std::array<bool, 256> ret = {};
             for (int i = -128; i < 128; i++) {
                 const int arr_idx = i + 128;
@@ -6579,9 +6579,9 @@ namespace csv {
                     result = "0";
                 }
                 else {
-                    for (short n_digits = static_cast<short>(log(integral_part) / log(10));
+                    for (int n_digits = static_cast<int>(log(integral_part) / log(10));
                          n_digits + 1 > 0; n_digits --) {
-                        short digit = static_cast<short>(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
+                        int digit = static_cast<int>(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
                         result += (char)('0' + digit);
                     }
                 }
@@ -6591,8 +6591,8 @@ namespace csv {
 
                 if (fractional_part > 0) {
                     fractional_part *= static_cast<T>(pow10(DECIMAL_PLACES));
-                    for (short n_digits = static_cast<short>(DECIMAL_PLACES); n_digits > 0; n_digits--) {
-                        short digit = static_cast<short>(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
+                    for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
+                        int digit = static_cast<int>(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
                         result += (char)('0' + digit);
                     }
                 }
