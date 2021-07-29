@@ -214,6 +214,9 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
+        /** Parse a hexadecimal value, returning false if the value is not hex. */
+        bool try_parse_hex(int& parsedValue);
+
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return
          *  false.
@@ -228,7 +231,7 @@ namespace csv {
          *  @sa      csv::CSVField::operator==(csv::string_view other)
          */
         template<typename T>
-        CONSTEXPR bool operator==(T other) const noexcept
+        CONSTEXPR_14 bool operator==(T other) const noexcept
         {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");

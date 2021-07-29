@@ -52,6 +52,8 @@ namespace csv {
      *  Intended for functions and methods.
      */
 
+#define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
+
 #if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
 #define CSV_HAS_CXX17
 #endif
@@ -177,22 +179,22 @@ namespace csv {
 
         // Assumed to be true by parsing functions: allows for testing
         // if an item is DELIMITER or NEWLINE with a >= statement
-        static_assert(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
+        STATIC_ASSERT(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
 
         /** Optimizations for reducing branching in parsing loop
          *
          *  Idea: The meaning of all non-quote characters changes depending
          *  on whether or not the parser is in a quote-escaped mode (0 or 1)
          */
-        static_assert(quote_escape_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
-        static_assert(quote_escape_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
-        static_assert(quote_escape_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
-        static_assert(quote_escape_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
 
-        static_assert(quote_escape_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
-        static_assert(quote_escape_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
-        static_assert(quote_escape_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
-        static_assert(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         /** An array which maps ASCII chars to a parsing flag */
         using ParseFlagMap = std::array<ParseFlags, 256>;

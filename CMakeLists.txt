@@ -59,8 +59,8 @@ if (CSV_DEVELOPER)
     # More error messages.
     if (UNIX)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-        -Wall -Werror -Wextra -Wshadow -Wsign-compare \
-        -Wshadow -Wwrite-strings -Wpointer-arith -Winit-self \
+        -Wall -Werror -Wextra -Wsign-compare \
+        -Wwrite-strings -Wpointer-arith -Winit-self \
         -Wconversion -Wno-sign-conversion")
     endif()
 
@@ -98,16 +98,16 @@ if (CSV_DEVELOPER)
     add_subdirectory("tests")
 
     # Code coverage
-    find_program( GCOV_PATH gcov )
-    if(GCOV_PATH)
-        set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/modules")
-        include(CodeCoverage)
-        append_coverage_compiler_flags()
-        set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
-        setup_target_for_coverage_gcovr_html(
-          NAME csv_coverage
-          EXECUTABLE csv_test
-          EXCLUDE "tests/*"
-        )
-    endif()
+    #find_program( GCOV_PATH gcov )
+    #if(GCOV_PATH)
+    #    set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/modules")
+    #    include(CodeCoverage)
+    #    append_coverage_compiler_flags()
+    #    set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
+    #    setup_target_for_coverage_gcovr_html(
+    #      NAME csv_coverage
+    #      EXECUTABLE csv_test
+    #      EXCLUDE "tests/*"
+    #    )
+    #endif()
 endif()
