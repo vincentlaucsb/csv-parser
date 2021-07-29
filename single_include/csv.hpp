@@ -5617,7 +5617,7 @@ namespace csv {
          *  @sa      csv::CSVField::operator==(csv::string_view other)
          */
         template<typename T>
-        CONSTEXPR bool operator==(T other) const noexcept
+        CONSTEXPR_14 bool operator==(T other) const noexcept
         {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
@@ -6566,6 +6566,10 @@ namespace csv {
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
             inline std::string to_string(T value) {
+#ifdef __clang__
+            return std::to_string(value);
+#else
+            // TODO: Figure out why the below code doesn't work on clang
                 std::string result;
 
                 T integral_part;
@@ -6579,9 +6583,9 @@ namespace csv {
                     result = "0";
                 }
                 else {
-                    for (int n_digits = static_cast<int>(log(integral_part) / log(10));
+                    for (int n_digits = (int)(log(integral_part) / log(10));
                          n_digits + 1 > 0; n_digits --) {
-                        int digit = static_cast<int>(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
+                        int digit = (int)(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
                         result += (char)('0' + digit);
                     }
                 }
@@ -6590,9 +6594,9 @@ namespace csv {
                 result += ".";
 
                 if (fractional_part > 0) {
-                    fractional_part *= static_cast<T>(pow10(DECIMAL_PLACES));
+                    fractional_part *= (T)(pow10(DECIMAL_PLACES));
                     for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
-                        int digit = static_cast<int>(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
+                        int digit = (int)(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
                         result += (char)('0' + digit);
                     }
                 }
@@ -6601,6 +6605,7 @@ namespace csv {
                 }
 
                 return result;
+#endif
         }
     }
 

@@ -51,6 +51,10 @@ namespace csv {
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
             inline std::string to_string(T value) {
+#ifdef __clang__
+            return std::to_string(value);
+#else
+            // TODO: Figure out why the below code doesn't work on clang
                 std::string result;
 
                 T integral_part;
@@ -86,6 +90,7 @@ namespace csv {
                 }
 
                 return result;
+#endif
         }
     }
 
