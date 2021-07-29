@@ -51,10 +51,6 @@ namespace csv {
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
             inline std::string to_string(T value) {
-#ifdef __clang__
-            return std::to_string(value);
-#else
-            // TODO: Figure out why the below code doesn't work on clang
                 std::string result;
 
                 T integral_part;
@@ -68,7 +64,7 @@ namespace csv {
                     result = "0";
                 }
                 else {
-                    for (int n_digits = (int)(log(integral_part) / log(10));
+                    for (int n_digits = (int)(std::log(integral_part) / std::log(10));
                          n_digits + 1 > 0; n_digits --) {
                         int digit = (int)(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
                         result += (char)('0' + digit);
@@ -90,7 +86,6 @@ namespace csv {
                 }
 
                 return result;
-#endif
         }
     }
 
