@@ -305,7 +305,7 @@ namespace csv {
                     return DataType::CSV_STRING;
                     break;
                 default:
-                    short digit = current - '0';
+                    short digit = static_cast<short>(current - '0');
                     if (digit >= 0 && digit <= 9) {
                         // Process digit
                         has_digit = true;

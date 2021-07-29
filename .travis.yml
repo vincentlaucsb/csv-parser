@@ -3,7 +3,7 @@ language:
 matrix:
   include:
     - os: linux
-      env: STD=c++11 CSV_CXX_STANDARD=11 MAIN_BUILD=true CXX_COMPILER=g++-9 C_COMPILER=gcc-9
+      env: STD=c++11 CSV_CXX_STANDARD=11 CXX_COMPILER=g++-9 C_COMPILER=gcc-9
       compiler: gcc
       addons:
         apt:
@@ -25,7 +25,7 @@ matrix:
           packages: ['g++-9', 'cmake', 'valgrind', 'doxygen']
     - os: linux
       dist: focal
-      env: CSV_CXX_STANDARD=11 MAIN_BUILD=true CXX_COMPILER=clang++-11 C_COMPILER=clang-11
+      env: CSV_CXX_STANDARD=11 CXX_COMPILER=clang++-11 C_COMPILER=clang-11
       compiler: clang
       addons:
          apt:
@@ -36,7 +36,7 @@ matrix:
           - clang-11
     - os: linux
       dist: focal
-      env: CSV_CXX_STANDARD=14 MAIN_BUILD=true CXX_COMPILER=clang++-11 C_COMPILER=clang-11
+      env: CSV_CXX_STANDARD=14 CXX_COMPILER=clang++-11 C_COMPILER=clang-11
       compiler: clang
       addons:
          apt:
@@ -47,7 +47,7 @@ matrix:
           - clang-11
     - os: linux
       dist: focal
-      env: CSV_CXX_STANDARD=17 MAIN_BUILD=true CXX_COMPILER=clang++-11 C_COMPILER=clang-11
+      env: CSV_CXX_STANDARD=17 CXX_COMPILER=clang++-11 C_COMPILER=clang-11
       compiler: clang
       addons:
          apt:
