@@ -1,9 +1,13 @@
-# Custom Settigns
+# Custom Settings
 CMakeLists2.txt
 
 # Build
 bin/
 build/
+
+# Build: Python
+*.pyc
+*.pyd
 
 # Doxygen
 docs/html

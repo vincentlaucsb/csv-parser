@@ -7,7 +7,7 @@ else()
 	set(CMAKE_CXX_STANDARD 17)
 endif(CSV_CXX_STANDARD)
 
-option(BUILD_PYTHON "Build python binding" ON)
+option(BUILD_PYTHON "Build Python Binding" OFF)
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
@@ -50,7 +50,7 @@ add_subdirectory(${CSV_SOURCE_DIR})
 
 # build the python binding for the library 
 if (${BUILD_PYTHON})
-    message("Building python bindings for the library.")
+    message("Building Python bindings for the library.")
     add_subdirectory(python)
 endif()
 
