@@ -268,7 +268,7 @@ namespace csv {
                     }
                     break;
                 case '-':
-                    if (!neg_allowed) {
+                    if (!ws_allowed) {
                         // Ex: '510-123-4567'
                         return DataType::CSV_STRING;
                     }
