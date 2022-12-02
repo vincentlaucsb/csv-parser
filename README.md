@@ -354,7 +354,7 @@ writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })
     << list<string>({ "to", "write", "documentation." });
 
-writer << array<string, 2>({ "The quick brown", "fox", "jumps over the lazy dog" });
+writer << array<string, 3>({ "The quick brown", "fox", "jumps over the lazy dog" });
 writer << make_tuple(1, 2.0, "Three");
 ...
 ```
