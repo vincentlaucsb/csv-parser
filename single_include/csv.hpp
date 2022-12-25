@@ -7774,11 +7774,11 @@ namespace csv {
                 return false;
             }
 
-            value += digit * pow(16, base16_exponent);
+            value += digit * static_cast<int>(pow(16, base16_exponent));
             base16_exponent--;
         }
 
-        parsedValue = value;
+        parsedValue = static_cast<int>(value);
         return true;
     }
 
