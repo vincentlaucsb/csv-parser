@@ -7774,7 +7774,7 @@ namespace csv {
                 return false;
             }
 
-            value += digit * static_cast<int>(pow(16, base16_exponent));
+            value += digit * static_cast<int>(pow(16, static_cast<int>(base16_exponent)));
             base16_exponent--;
         }
 
