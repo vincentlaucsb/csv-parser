@@ -170,7 +170,7 @@ namespace csv {
                     if (c >= 0x00 && c <= 0x1f)
                     {
                         // print character c as \uxxxx
-                        sprintf_s(&result[pos + 1], result_size - pos - 1, "u%04x", int(c));
+                        snprintf(&result[pos + 1], result_size - pos - 1, "u%04x", int(c));
                         pos += 6;
                         // overwrite trailing null character
                         result[pos] = '\\';
