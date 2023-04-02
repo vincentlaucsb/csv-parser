@@ -94,7 +94,8 @@ namespace csv {
             }
 
             // create a result string of necessary size
-            std::string result(s.size() + space, '\\');
+            size_t result_size = s.size() + space;
+            std::string result(result_size, '\\');
             std::size_t pos = 0;
 
             for (const auto& c : s)
@@ -169,7 +170,7 @@ namespace csv {
                     if (c >= 0x00 && c <= 0x1f)
                     {
                         // print character c as \uxxxx
-                        sprintf(&result[pos + 1], "u%04x", int(c));
+                        sprintf_s(&result[pos + 1], result_size - pos - 1, "u%04x", int(c));
                         pos += 6;
                         // overwrite trailing null character
                         result[pos] = '\\';
