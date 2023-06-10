@@ -68,7 +68,7 @@ namespace csv {
                     result += "0";
                 }
                 else {
-                    for (int n_digits = (int)(std::log(integral_part) / std::log(10));
+                    for (int n_digits = (int)(std::log10(integral_part));
                          n_digits + 1 > 0; n_digits --) {
                         int digit = (int)(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
                         result += (char)('0' + digit);
