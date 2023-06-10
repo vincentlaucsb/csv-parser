@@ -65,7 +65,7 @@ namespace csv {
                 if (value < 0) result = "-";
 
                 if (integral_part == 0) {
-                    result = "0";
+                    result += "0";
                 }
                 else {
                     for (int n_digits = (int)(std::log(integral_part) / std::log(10));
