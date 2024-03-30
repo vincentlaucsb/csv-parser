@@ -241,9 +241,9 @@ namespace csv {
                 return DataType::CSV_NULL;
 
             bool ws_allowed = true,
-                neg_allowed = true,
                 dot_allowed = true,
                 digit_allowed = true,
+                is_negative = false,
                 has_digit = false,
                 prob_float = false;
 
@@ -273,7 +273,7 @@ namespace csv {
                         return DataType::CSV_STRING;
                     }
 
-                    neg_allowed = false;
+                    is_negative = true;
                     break;
                 case '.':
                     if (!dot_allowed) {
@@ -297,7 +297,7 @@ namespace csv {
 
                         return _process_potential_exponential(
                             in.substr(exponent_start_idx),
-                            neg_allowed ? integral_part + decimal_part : -(integral_part + decimal_part),
+                            is_negative ? -(integral_part + decimal_part) : integral_part + decimal_part,
                             out
                         );
                     }
@@ -331,7 +331,7 @@ namespace csv {
             if (has_digit) {
                 long double number = integral_part + decimal_part;
                 if (out) {
-                    *out = neg_allowed ? number : -number;
+                    *out = is_negative ? -number : number;
                 }
 
                 return prob_float ? DataType::CSV_DOUBLE : _determine_integral_type(number);
