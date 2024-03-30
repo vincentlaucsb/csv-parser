@@ -164,3 +164,9 @@ TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
         REQUIRE(data_type(butchered) == DataType::CSV_STRING);
     }
 }
+
+TEST_CASE( "Parse numbers with dash as string", "[regression_double]" ) {
+  std::string s("510-123-4567");
+  long double out;
+  REQUIRE(data_type(s, &out) == DataType::CSV_STRING);
+}
