@@ -5301,9 +5301,9 @@ namespace csv {
                 return DataType::CSV_NULL;
 
             bool ws_allowed = true,
-                neg_allowed = true,
                 dot_allowed = true,
                 digit_allowed = true,
+                is_negative = false,
                 has_digit = false,
                 prob_float = false;
 
@@ -5333,7 +5333,7 @@ namespace csv {
                         return DataType::CSV_STRING;
                     }
 
-                    neg_allowed = false;
+                    is_negative = true;
                     break;
                 case '.':
                     if (!dot_allowed) {
@@ -5357,7 +5357,7 @@ namespace csv {
 
                         return _process_potential_exponential(
                             in.substr(exponent_start_idx),
-                            neg_allowed ? integral_part + decimal_part : -(integral_part + decimal_part),
+                            is_negative ? -(integral_part + decimal_part) : integral_part + decimal_part,
                             out
                         );
                     }
@@ -5391,7 +5391,7 @@ namespace csv {
             if (has_digit) {
                 long double number = integral_part + decimal_part;
                 if (out) {
-                    *out = neg_allowed ? number : -number;
+                    *out = is_negative ? -number : number;
                 }
 
                 return prob_float ? DataType::CSV_DOUBLE : _determine_integral_type(number);
@@ -6532,6 +6532,27 @@ namespace csv {
     namespace internals {
         static int DECIMAL_PLACES = 5;
 
+        /** 
+         * Calculate the number of digits in a number
+         */
+        template<
+            typename T,
+            csv::enable_if_t<std::is_arithmetic<T>::value, int> = 0
+        >
+        int num_digits(T x)
+        {
+            x = abs(x);
+
+            int digits = 0;
+
+            while (x >= 1) {
+                x /= 10;
+                digits++;
+            }
+
+            return digits;
+        }
+
         /** to_string() for unsigned integers */
         template<typename T,
             csv::enable_if_t<std::is_unsigned<T>::value, int> = 0>
@@ -6566,6 +6587,10 @@ namespace csv {
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
             inline std::string to_string(T value) {
+#ifdef __clang__
+            return std::to_string(value);
+#else
+            // TODO: Figure out why the below code doesn't work on clang
                 std::string result;
 
                 T integral_part;
@@ -6576,12 +6601,12 @@ namespace csv {
                 if (value < 0) result = "-";
 
                 if (integral_part == 0) {
+
                     result = "0";
                 }
                 else {
-                    for (int n_digits = (int)(std::log(integral_part) / std::log(10));
-                         n_digits + 1 > 0; n_digits --) {
-                        int digit = (int)(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
+                    for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
+                        int digit = (int)(std::fmod(integral_part, pow10(n_digits)) / pow10(n_digits - 1));
                         result += (char)('0' + digit);
                     }
                 }
@@ -6601,6 +6626,7 @@ namespace csv {
                 }
 
                 return result;
+#endif
         }
     }
 
@@ -6608,9 +6634,11 @@ namespace csv {
      *
      *  @param  precision   Number of decimal places
      */
+#ifndef __clang___
     inline static void set_decimal_places(int precision) {
         internals::DECIMAL_PLACES = precision;
     }
+#endif
 
     /** @name CSV Writing */
     ///@{
@@ -7723,7 +7751,7 @@ namespace csv {
         for (; start < this->sv.size() && this->sv[start] == ' '; start++);
         for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
         
-        unsigned long long int value = 0;
+        unsigned long long int value_ = 0;
 
         size_t digits = (end - start);
         size_t base16_exponent = digits - 1;
@@ -7774,11 +7802,11 @@ namespace csv {
                 return false;
             }
 
-            value += digit * pow(16, base16_exponent);
+            value_ += digit * pow(16, base16_exponent);
             base16_exponent--;
         }
 
-        parsedValue = value;
+        parsedValue = value_;
         return true;
     }
 
@@ -7972,7 +8000,8 @@ namespace csv {
             }
 
             // create a result string of necessary size
-            std::string result(s.size() + space, '\\');
+            size_t result_size = s.size() + space;
+            std::string result(result_size, '\\');
             std::size_t pos = 0;
 
             for (const auto& c : s)
@@ -8047,7 +8076,7 @@ namespace csv {
                     if (c >= 0x00 && c <= 0x1f)
                     {
                         // print character c as \uxxxx
-                        sprintf(&result[pos + 1], "u%04x", int(c));
+                        snprintf(&result[pos + 1], result_size - pos - 1, "u%04x", int(c));
                         pos += 6;
                         // overwrite trailing null character
                         result[pos] = '\\';
@@ -8137,6 +8166,7 @@ namespace csv {
         return ret;
     }
 }
+
 /** @file
  *  Calculates statistics from CSV files
  */

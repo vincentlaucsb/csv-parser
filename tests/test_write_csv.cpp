@@ -11,20 +11,38 @@ using std::vector;
 using std::string;
 
 #ifndef __clang__
-TEST_CASE("Numeric Converter Tests", "[test_convert_number]") {
-    // Large numbers: integer larger than uint64 capacity
-    REQUIRE(csv::internals::to_string(200000000000000000000.0) == "200000000000000000000.0");
-    REQUIRE(csv::internals::to_string(310000000000000000000.0) == "310000000000000000000.0");
+TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
+    SECTION("num_digits") {
+        REQUIRE(csv::internals::num_digits(99.0) == 2);
+        REQUIRE(csv::internals::num_digits(100.0) == 3);
+    }
 
-    // Test setting precision
-    REQUIRE(csv::internals::to_string(1.234) == "1.23400");
-    REQUIRE(csv::internals::to_string(20.0045) == "20.00450");
+    SECTION("Large Numbers") {
+        // Large numbers: integer larger than uint64 capacity
+        REQUIRE(csv::internals::to_string(200000000000000000000.0) == "200000000000000000000.0");
+        REQUIRE(csv::internals::to_string(310000000000000000000.0) == "310000000000000000000.0");
+    }
 
-    set_decimal_places(2);
-    REQUIRE(csv::internals::to_string(1.234) == "1.23");
+    SECTION("Custom Precision") {
+        // Test setting precision
+        REQUIRE(csv::internals::to_string(1.234) == "1.23400");
+        REQUIRE(csv::internals::to_string(20.0045) == "20.00450");
 
-    // Reset
-    set_decimal_places(5);
+        set_decimal_places(2);
+        REQUIRE(csv::internals::to_string(1.234) == "1.23");
+
+        // Reset
+        set_decimal_places(5);
+    }
+
+    SECTION("Numbers Close to 10^n - Regression") {
+        REQUIRE(csv::internals::to_string(10.0) == "10.0");
+        REQUIRE(csv::internals::to_string(100.0) == "100.0");
+        REQUIRE(csv::internals::to_string(1000.0) == "1000.0");
+        REQUIRE(csv::internals::to_string(10000.0) == "10000.0");
+        REQUIRE(csv::internals::to_string(100000.0) == "100000.0");
+        REQUIRE(csv::internals::to_string(1000000.0) == "1000000.0");
+    }
 }
 #endif
 

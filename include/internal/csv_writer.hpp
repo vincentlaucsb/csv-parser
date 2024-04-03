@@ -17,6 +17,27 @@ namespace csv {
     namespace internals {
         static int DECIMAL_PLACES = 5;
 
+        /** 
+         * Calculate the number of digits in a number
+         */
+        template<
+            typename T,
+            csv::enable_if_t<std::is_arithmetic<T>::value, int> = 0
+        >
+        int num_digits(T x)
+        {
+            x = abs(x);
+
+            int digits = 0;
+
+            while (x >= 1) {
+                x /= 10;
+                digits++;
+            }
+
+            return digits;
+        }
+
         /** to_string() for unsigned integers */
         template<typename T,
             csv::enable_if_t<std::is_unsigned<T>::value, int> = 0>
@@ -65,12 +86,12 @@ namespace csv {
                 if (value < 0) result = "-";
 
                 if (integral_part == 0) {
+
                     result = "0";
                 }
                 else {
-                    for (int n_digits = (int)(std::log(integral_part) / std::log(10));
-                         n_digits + 1 > 0; n_digits --) {
-                        int digit = (int)(std::fmod(integral_part, pow10(n_digits + 1)) / pow10(n_digits));
+                    for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
+                        int digit = (int)(std::fmod(integral_part, pow10(n_digits)) / pow10(n_digits - 1));
                         result += (char)('0' + digit);
                     }
                 }
