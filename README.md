@@ -1,5 +1,5 @@
 # Vince's CSV Parser
-[![Build Status](https://travis-ci.com/vincentlaucsb/csv-parser.svg?branch=master)](https://travis-ci.com/vincentlaucsb/csv-parser)
+[![CMake on Windows](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml)
 
  * [Motivation](#motivation)
  * [Documentation](#documentation)
@@ -281,7 +281,7 @@ CSVFormat format;
 
 // Default: Silently ignoring rows with missing or extraneous columns
 format.variable_columns(false); // Short-hand
-format.variable_columns(VariableColumnPolicy::IGNORE);
+format.variable_columns(VariableColumnPolicy::IGNORE_ROW);
 
 // Case 2: Keeping variable-length rows
 format.variable_columns(true); // Short-hand
