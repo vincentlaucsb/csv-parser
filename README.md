@@ -56,7 +56,7 @@ do not hesitate to report it.
 
 ## Documentation
 
-In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](https://vincentlaucsb.github.io/csv-parser/html/) contains more examples, details, interesting features, and instructions for less common use cases.
+In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](https://vincela.com/csv/) contains more examples, details, interesting features, and instructions for less common use cases.
 
 ## Integration
 
@@ -85,6 +85,10 @@ add_executable(<your program> ...)
 target_link_libraries(<your program> csv)
 
 ```
+
+#### Avoid cloning with FetchContent
+Don't want to clone? No problem. There's also [a simple example documenting how to use CMake's FetchContent module to integrate this library](https://github.com/vincentlaucsb/csv-parser/wiki/Example:-Using-csv%E2%80%90parser-with-CMake-and-FetchContent).
+
 
 ## Features & Examples
 ### Reading an Arbitrarily Large File (with Iterators)
