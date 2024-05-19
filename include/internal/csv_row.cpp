@@ -215,9 +215,16 @@ namespace csv {
     CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
         // Pre-increment operator
         this->i++;
-        if (this->i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](i));
+        if (this->i < (int)this->daddy->size()) {
+            if (this->fields.find(this->i) == this->fields.end()) {
+
+                auto newField = std::make_shared<CSVField>(
+                    this->daddy->operator[](i));
+                this->fields[this->i] = newField;
+            }
+
+            this->field = this->fields[this->i];
+        }
         else // Reached the end of row
             this->field = nullptr;
         return *this;
@@ -233,8 +240,14 @@ namespace csv {
     CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
         // Pre-decrement operator
         this->i--;
-        this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
+        if (this->fields.find(this->i) == this->fields.end()) {
+            auto newField = std::make_shared<CSVField>(
+                this->daddy->operator[](i));
+            this->fields[this->i] = newField;
+        }
+
+
+        this->field = this->fields[i];
         return *this;
     }
 

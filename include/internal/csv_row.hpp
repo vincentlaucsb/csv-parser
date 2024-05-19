@@ -376,6 +376,10 @@ namespace csv {
             const CSVRow * daddy = nullptr;            // Pointer to parent
             std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
             int i = 0;                                 // Index of current field
+
+            // Field cache: prevents CSVFields from going out of scope while we are still using them
+            std::unordered_map<size_t, std::shared_ptr<CSVField>> fields =
+                std::unordered_map<size_t, std::shared_ptr<CSVField>>();
         };
 
         /** A reverse iterator over the contents of a CSVRow. */
