@@ -7,7 +7,7 @@ using namespace csv::internals;
 
 TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
     std::string a("1"), b(" 2018   "), c(" -69 ");
-    long double out;
+    long double out = 0d;
 
     REQUIRE(data_type(a, &out) == DataType::CSV_INT8);
     REQUIRE(out == 1);
@@ -37,7 +37,7 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
         float_b("       -3.14            "),
         e("2.71828");
 
-    long double out;
+    long double out = 0d;
     
     REQUIRE(data_type(float_a, &out) == DataType::CSV_DOUBLE);
     REQUIRE(is_equal(out, 3.14L));
@@ -51,7 +51,7 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
 
 TEST_CASE("Integer Size Recognition", "[int_sizes]") {
     std::string s;
-    long double out;
+    long double out = 0d;
 
     SECTION("Boundary Values") {
         s = std::to_string((long long)csv::internals::CSV_INT8_MAX);
@@ -87,7 +87,7 @@ TEST_CASE("Integer Size Recognition", "[int_sizes]") {
 
 TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
     std::string s("0.15");
-    long double out;
+    long double out = 0d;
     REQUIRE(data_type(s, &out) == DataType::CSV_DOUBLE);
     REQUIRE(is_equal(out, 0.15L));
 }
@@ -107,7 +107,7 @@ TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
 //! [Parse Scientific Notation]
 TEST_CASE("Parse Scientific Notation", "[e_notation]") {
     // Test parsing e notation
-    long double out;
+    long double out = 0d;
 
     REQUIRE(data_type("1E-06", &out) == DataType::CSV_DOUBLE);
     REQUIRE(is_equal(out, 0.000001L));
@@ -145,7 +145,7 @@ TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diver
         "4.55e+0000005", "4.55E+0000005");
 
     SECTION("Recognize 455 thousand") {
-        long double out;
+        long double out = 0d;
         REQUIRE(data_type(number, &out) == DataType::CSV_DOUBLE);
         REQUIRE(is_equal(out, 455000.0L));
     }
@@ -167,6 +167,6 @@ TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
 
 TEST_CASE( "Parse numbers with dash as string", "[regression_double]" ) {
   std::string s("510-123-4567");
-  long double out;
+  long double out = 0d;
   REQUIRE(data_type(s, &out) == DataType::CSV_STRING);
 }
