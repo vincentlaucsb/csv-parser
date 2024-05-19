@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.2.1
+CSV for C++, version 2.2.2
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -5723,15 +5723,7 @@ namespace csv {
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVField;
             using difference_type = int;
-
-            // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-            // but using shared_ptr as pointer type won't compile in g++
-#ifdef _MSC_BUILD
             using pointer = std::shared_ptr<CSVField>;
-#else
-            using pointer = CSVField * ;
-#endif
-
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
 #endif
@@ -6927,268 +6919,391 @@ namespace csv {
     ///@}
 }
 
-/** @file
- *  Implements JSON serialization abilities
- */
-
 
 namespace csv {
-    /*
-    The implementations for json_extra_space() and json_escape_string()
-    were modified from source code for JSON for Modern C++.
-
-    The respective license is below:
-
-    The code is licensed under the [MIT
-    License](http://opensource.org/licenses/MIT):
-    
-    Copyright &copy; 2013-2015 Niels Lohmann.
-    
-    Permission is hereby granted, free of charge, to any person
-    obtaining a copy of this software and associated documentation files
-    (the "Software"), to deal in the Software without restriction,
-    including without limitation the rights to use, copy, modify, merge,
-    publish, distribute, sublicense, and/or sell copies of the Software,
-    and to permit persons to whom the Software is furnished to do so,
-    subject to the following conditions:
-    
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-    
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-    BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-    */
-
     namespace internals {
-        /*!
-         @brief calculates the extra space to escape a JSON string
+        CSV_INLINE size_t get_file_size(csv::string_view filename) {
+            std::ifstream infile(std::string(filename), std::ios::binary);
+            const auto start = infile.tellg();
+            infile.seekg(0, std::ios::end);
+            const auto end = infile.tellg();
 
-         @param[in] s  the string to escape
-         @return the number of characters required to escape string @a s
+            return end - start;
+        }
 
-         @complexity Linear in the length of string @a s.
-        */
-        static std::size_t json_extra_space(csv::string_view& s) noexcept
+        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
+            return get_csv_head(filename, get_file_size(filename));
+        }
+
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
+            const size_t bytes = 500000;
+
+            std::error_code error;
+            size_t length = std::min((size_t)file_size, bytes);
+            auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
+
+            if (error) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            return std::string(mmap.begin(), mmap.end());
+        }
+
+#ifdef _MSC_VER
+#pragma region IBasicCVParser
+#endif
+        CSV_INLINE IBasicCSVParser::IBasicCSVParser(
+            const CSVFormat& format,
+            const ColNamesPtr& col_names
+        ) : _col_names(col_names) {
+            if (format.no_quote) {
+                _parse_flags = internals::make_parse_flags(format.get_delim());
+            }
+            else {
+                _parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
+            }
+
+            _ws_flags = internals::make_ws_flags(
+                format.trim_chars.data(), format.trim_chars.size()
+            );
+        }
+
+        CSV_INLINE void IBasicCSVParser::end_feed() {
+            using internals::ParseFlags;
+
+            bool empty_last_field = this->data_ptr
+                && this->data_ptr->_data
+                && !this->data_ptr->data.empty()
+                && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+
+            // Push field
+            if (this->field_length > 0 || empty_last_field) {
+                this->push_field();
+            }
+
+            // Push row
+            if (this->current_row.size() > 0)
+                this->push_row();
+        }
+
+        CSV_INLINE void IBasicCSVParser::parse_field() noexcept {
+            using internals::ParseFlags;
+            auto& in = this->data_ptr->data;
+
+            // Trim off leading whitespace
+            while (data_pos < in.size() && ws_flag(in[data_pos]))
+                data_pos++;
+
+            if (field_start == UNINITIALIZED_FIELD)
+                field_start = (int)(data_pos - current_row_start());
+
+            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
+            // sequences, use the loop below to avoid having to go through the outer
+            // switch statement as much as possible
+            while (data_pos < in.size() && compound_parse_flag(in[data_pos]) == ParseFlags::NOT_SPECIAL)
+                data_pos++;
+
+            field_length = data_pos - (field_start + current_row_start());
+
+            // Trim off trailing whitespace, this->field_length constraint matters
+            // when field is entirely whitespace
+            for (size_t j = data_pos - 1; ws_flag(in[j]) && this->field_length > 0; j--)
+                this->field_length--;
+        }
+
+        CSV_INLINE void IBasicCSVParser::push_field()
         {
-            std::size_t result = 0;
+            // Update
+            if (field_has_double_quote) {
+                fields->emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
+                    field_length,
+                    true
+                );
+                field_has_double_quote = false;
 
-
-            for (const auto& c : s)
-            {
-                switch (c)
-                {
-                case '"':
-                case '\\':
-                case '\b':
-                case '\f':
-                case '\n':
-                case '\r':
-                case '\t':
-                {
-                    // from c (1 byte) to \x (2 bytes)
-                    result += 1;
-                    break;
-                }
-
-
-                default:
-                {
-                    if (c >= 0x00 && c <= 0x1f)
-                    {
-                        // from c (1 byte) to \uxxxx (6 bytes)
-                        result += 5;
-                    }
-                    break;
-                }
-                }
+            }
+            else {
+                fields->emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
+                    field_length
+                );
             }
 
+            current_row.row_length++;
 
-            return result;
+            // Reset field state
+            field_start = UNINITIALIZED_FIELD;
+            field_length = 0;
         }
 
-        CSV_INLINE std::string json_escape_string(csv::string_view s) noexcept
+        /** @return The number of characters parsed that belong to complete rows */
+        CSV_INLINE size_t IBasicCSVParser::parse()
         {
-            const auto space = json_extra_space(s);
-            if (space == 0)
-            {
-                return std::string(s);
-            }
+            using internals::ParseFlags;
 
-            // create a result string of necessary size
-            size_t result_size = s.size() + space;
-            std::string result(result_size, '\\');
-            std::size_t pos = 0;
+            this->quote_escape = false;
+            this->data_pos = 0;
+            this->current_row_start() = 0;
+            this->trim_utf8_bom();
 
-            for (const auto& c : s)
-            {
-                switch (c)
-                {
-                // quotation mark (0x22)
-                case '"':
-                {
-                    result[pos + 1] = '"';
-                    pos += 2;
+            auto& in = this->data_ptr->data;
+            while (this->data_pos < in.size()) {
+                switch (compound_parse_flag(in[this->data_pos])) {
+                case ParseFlags::DELIMITER:
+                    this->push_field();
+                    this->data_pos++;
                     break;
-                }
 
+                case ParseFlags::NEWLINE:
+                    this->data_pos++;
 
-                // reverse solidus (0x5c)
-                case '\\':
-                {
-                    // nothing to change
-                    pos += 2;
+                    // Catches CRLF (or LFLF)
+                    if (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
+                        this->data_pos++;
+
+                    // End of record -> Write record
+                    this->push_field();
+                    this->push_row();
+
+                    // Reset
+                    this->current_row = CSVRow(data_ptr, this->data_pos, fields->size());
                     break;
-                }
 
-
-                // backspace (0x08)
-                case '\b':
-                {
-                    result[pos + 1] = 'b';
-                    pos += 2;
+                case ParseFlags::NOT_SPECIAL:
+                    this->parse_field();
                     break;
-                }
 
-
-                // formfeed (0x0c)
-                case '\f':
-                {
-                    result[pos + 1] = 'f';
-                    pos += 2;
-                    break;
-                }
-
-
-                // newline (0x0a)
-                case '\n':
-                {
-                    result[pos + 1] = 'n';
-                    pos += 2;
-                    break;
-                }
-
-
-                // carriage return (0x0d)
-                case '\r':
-                {
-                    result[pos + 1] = 'r';
-                    pos += 2;
-                    break;
-                }
-
-
-                // horizontal tab (0x09)
-                case '\t':
-                {
-                    result[pos + 1] = 't';
-                    pos += 2;
-                    break;
-                }
-
-
-                default:
-                {
-                    if (c >= 0x00 && c <= 0x1f)
-                    {
-                        // print character c as \uxxxx
-                        snprintf(&result[pos + 1], result_size - pos - 1, "u%04x", int(c));
-                        pos += 6;
-                        // overwrite trailing null character
-                        result[pos] = '\\';
+                case ParseFlags::QUOTE_ESCAPE_QUOTE:
+                    if (data_pos + 1 == in.size()) return this->current_row_start();
+                    else if (data_pos + 1 < in.size()) {
+                        auto next_ch = parse_flag(in[data_pos + 1]);
+                        if (next_ch >= ParseFlags::DELIMITER) {
+                            quote_escape = false;
+                            data_pos++;
+                            break;
+                        }
+                        else if (next_ch == ParseFlags::QUOTE) {
+                            // Case: Escaped quote
+                            data_pos += 2;
+                            this->field_length += 2;
+                            this->field_has_double_quote = true;
+                            break;
+                        }
                     }
-                    else
-                    {
-                        // all other characters are added as-is
-                        result[pos++] = c;
-                    }
+                    
+                    // Case: Unescaped single quote => not strictly valid but we'll keep it
+                    this->field_length++;
+                    data_pos++;
+
                     break;
-                }
+
+                default: // Quote (currently not quote escaped)
+                    if (this->field_length == 0) {
+                        quote_escape = true;
+                        data_pos++;
+                        if (field_start == UNINITIALIZED_FIELD && data_pos < in.size() && !ws_flag(in[data_pos]))
+                            field_start = (int)(data_pos - current_row_start());
+                        break;
+                    }
+
+                    // Case: Unescaped quote
+                    this->field_length++;
+                    data_pos++;
+
+                    break;
                 }
             }
 
-            return result;
-        }
-    }
-
-    /** Convert a CSV row to a JSON object, i.e.
-     *  `{"col1":"value1","col2":"value2"}`
-     *
-     *  @note All strings are properly escaped. Numeric values are not quoted.
-     *  @param[in] subset A subset of columns to contain in the JSON.
-     *                    Leave empty for original columns.
-     */
-    CSV_INLINE std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
-        std::vector<std::string> col_names = subset;
-        if (subset.empty()) {
-            col_names = this->data ? this->get_col_names() : std::vector<std::string>({});
+            return this->current_row_start();
         }
 
-        const size_t _n_cols = col_names.size();
-        std::string ret = "{";
-        
-        for (size_t i = 0; i < _n_cols; i++) {
-            auto& col = col_names[i];
-            auto field = this->operator[](col);
-
-            // TODO: Possible performance enhancements by caching escaped column names
-            ret += '"' + internals::json_escape_string(col) + "\":";
-
-            // Add quotes around strings but not numbers
-            if (field.is_num())
-                 ret += internals::json_escape_string(field.get<csv::string_view>());
-            else
-                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
-
-            // Do not add comma after last string
-            if (i + 1 < _n_cols)
-                ret += ',';
+        CSV_INLINE void IBasicCSVParser::push_row() {
+            current_row.row_length = fields->size() - current_row.fields_start;
+            this->_records->push_back(std::move(current_row));
         }
 
-        ret += '}';
-        return ret;
-    }
-
-    /** Convert a CSV row to a JSON array, i.e.
-     *  `["value1","value2",...]`
-     *
-     *  @note All strings are properly escaped. Numeric values are not quoted.
-     *  @param[in] subset A subset of columns to contain in the JSON.
-     *                    Leave empty for all columns.
-     */
-    CSV_INLINE std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
-        std::vector<std::string> col_names = subset;
-        if (subset.empty())
-            col_names = this->data ? this->get_col_names() : std::vector<std::string>({});
-
-        const size_t _n_cols = col_names.size();
-        std::string ret = "[";
-
-        for (size_t i = 0; i < _n_cols; i++) {
-            auto field = this->operator[](col_names[i]);
-
-            // Add quotes around strings but not numbers
-            if (field.is_num())
-                ret += internals::json_escape_string(field.get<csv::string_view>());
-            else
-                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
-
-            // Do not add comma after last string
-            if (i + 1 < _n_cols)
-                ret += ',';
+        CSV_INLINE void IBasicCSVParser::reset_data_ptr() {
+            this->data_ptr = std::make_shared<RawCSVData>();
+            this->data_ptr->parse_flags = this->_parse_flags;
+            this->data_ptr->col_names = this->_col_names;
+            this->fields = &(this->data_ptr->fields);
         }
 
-        ret += ']';
-        return ret;
+        CSV_INLINE void IBasicCSVParser::trim_utf8_bom() {
+            auto& data = this->data_ptr->data;
+
+            if (!this->unicode_bom_scan && data.size() >= 3) {
+                if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
+                    this->data_pos += 3; // Remove BOM from input string
+                    this->_utf8_bom = true;
+                }
+
+                this->unicode_bom_scan = true;
+            }
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
+
+#ifdef _MSC_VER
+#pragma region Specializations
+#endif
+        CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
+            // Reset parser state
+            this->field_start = UNINITIALIZED_FIELD;
+            this->field_length = 0;
+            this->reset_data_ptr();
+
+            // Create memory map
+            size_t length = std::min(this->source_size - this->mmap_pos, bytes);
+            std::error_code error;
+            this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
+            this->mmap_pos += length;
+            if (error) throw error;
+
+            auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
+
+            // Create string view
+            this->data_ptr->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
+
+            // Parse
+            this->current_row = CSVRow(this->data_ptr);
+            size_t remainder = this->parse();            
+
+            if (this->mmap_pos == this->source_size || no_chunk()) {
+                this->_eof = true;
+                this->end_feed();
+            }
+
+            this->mmap_pos -= (length - remainder);
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
     }
 }
 
+
+namespace csv {
+    namespace internals {
+        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
+            return this->col_names;
+        }
+
+        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
+            this->col_names = cnames;
+
+            for (size_t i = 0; i < cnames.size(); i++) {
+                this->col_pos[cnames[i]] = i;
+            }
+        }
+
+        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
+            auto pos = this->col_pos.find(col_name.data());
+            if (pos != this->col_pos.end())
+                return (int)pos->second;
+
+            return CSV_NOT_FOUND;
+        }
+
+        CSV_INLINE size_t ColNames::size() const noexcept {
+            return this->col_names.size();
+        }
+
+    }
+}
+/** @file
+ *  Defines an object used to store CSV format settings
+ */
+
+#include <algorithm>
+#include <set>
+
+
+namespace csv {
+    CSV_INLINE CSVFormat& CSVFormat::delimiter(char delim) {
+        this->possible_delimiters = { delim };
+        this->assert_no_char_overlap();
+        return *this;
+    }
+
+    CSV_INLINE CSVFormat& CSVFormat::delimiter(const std::vector<char> & delim) {
+        this->possible_delimiters = delim;
+        this->assert_no_char_overlap();
+        return *this;
+    }
+
+    CSV_INLINE CSVFormat& CSVFormat::quote(char quote) {
+        this->no_quote = false;
+        this->quote_char = quote;
+        this->assert_no_char_overlap();
+        return *this;
+    }
+
+    CSV_INLINE CSVFormat& CSVFormat::trim(const std::vector<char> & chars) {
+        this->trim_chars = chars;
+        this->assert_no_char_overlap();
+        return *this;
+    }
+
+    CSV_INLINE CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
+        this->col_names = names;
+        this->header = -1;
+        return *this;
+    }
+
+    CSV_INLINE CSVFormat& CSVFormat::header_row(int row) {
+        if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
+
+        this->header = row;
+        this->col_names = {};
+        return *this;
+    }
+
+    CSV_INLINE void CSVFormat::assert_no_char_overlap()
+    {
+        auto delims = std::set<char>(
+            this->possible_delimiters.begin(), this->possible_delimiters.end()),
+            trims = std::set<char>(
+                this->trim_chars.begin(), this->trim_chars.end());
+
+        // Stores intersection of possible delimiters and trim characters
+        std::vector<char> intersection = {};
+
+        // Find which characters overlap, if any
+        std::set_intersection(
+            delims.begin(), delims.end(),
+            trims.begin(), trims.end(),
+            std::back_inserter(intersection));
+
+        // Make sure quote character is not contained in possible delimiters
+        // or whitespace characters
+        if (delims.find(this->quote_char) != delims.end() ||
+            trims.find(this->quote_char) != trims.end()) {
+            intersection.push_back(this->quote_char);
+        }
+
+        if (!intersection.empty()) {
+            std::string err_msg = "There should be no overlap between the quote character, "
+                "the set of possible delimiters "
+                "and the set of whitespace characters. Offending characters: ";
+
+            // Create a pretty error message with the list of overlapping
+            // characters
+            for (size_t i = 0; i < intersection.size(); i++) {
+                err_msg += "'";
+                err_msg += intersection[i];
+                err_msg += "'";
+
+                if (i + 1 < intersection.size())
+                    err_msg += ", ";
+            }
+
+            throw std::runtime_error(err_msg + '.');
+        }
+    }
+}
 /** @file
  *  @brief Defines functionality needed for basic CSV parsing
  */
@@ -7498,113 +7613,6 @@ namespace csv {
     }
 }
 
-
-namespace csv {
-    namespace internals {
-        CSV_INLINE std::vector<std::string> ColNames::get_col_names() const {
-            return this->col_names;
-        }
-
-        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
-            this->col_names = cnames;
-
-            for (size_t i = 0; i < cnames.size(); i++) {
-                this->col_pos[cnames[i]] = i;
-            }
-        }
-
-        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
-            auto pos = this->col_pos.find(col_name.data());
-            if (pos != this->col_pos.end())
-                return (int)pos->second;
-
-            return CSV_NOT_FOUND;
-        }
-
-        CSV_INLINE size_t ColNames::size() const noexcept {
-            return this->col_names.size();
-        }
-
-    }
-}
-#include <sstream>
-#include <vector>
-
-
-namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string
-     *
-     *  @return A collection of CSVRow objects
-     *
-     *  @par Example
-     *  @snippet tests/test_read_csv.cpp Parse Example
-     */
-    CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        std::stringstream stream(in.data());
-        return CSVReader(stream, format);
-    }
-
-    /** Parses a CSV string with no headers
-     *
-     *  @return A collection of CSVRow objects
-     */
-    CSV_INLINE CSVReader parse_no_header(csv::string_view in) {
-        CSVFormat format;
-        format.header_row(-1);
-
-        return parse(in, format);
-    }
-
-    /** Parse a RFC 4180 CSV string, returning a collection
-     *  of CSVRow objects
-     *
-     *  @par Example
-     *  @snippet tests/test_read_csv.cpp Escaped Comma
-     *
-     */
-    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
-        return parse(csv::string_view(in, n));
-    }
-
-    /** A shorthand for csv::parse_no_header() */
-    CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
-        return parse_no_header(csv::string_view(in, n));
-    }
-
-    /**
-     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] col_name  Column whose position we should resolve
-     *  @param[in] format    Format of the CSV file
-     */
-    CSV_INLINE int get_col_pos(
-        csv::string_view filename,
-        csv::string_view col_name,
-        const CSVFormat& format) {
-        CSVReader reader(filename, format);
-        return reader.index_of(col_name);
-    }
-
-    /** Get basic information about a CSV file
-     *  @include programs/csv_info.cpp
-     */
-    CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
-        CSVReader reader(filename);
-        CSVFormat format = reader.get_format();
-        for (auto it = reader.begin(); it != reader.end(); ++it);
-
-        CSVFileInfo info = {
-            filename,
-            reader.get_col_names(),
-            format.get_delim(),
-            reader.n_rows(),
-            reader.get_col_names().size()
-        };
-
-        return info;
-    }
-}
 /** @file
  *  Defines an input iterator for csv::CSVReader
  */
@@ -7664,271 +7672,6 @@ namespace csv {
         }
 
         return temp;
-    }
-}
-
-
-namespace csv {
-    namespace internals {
-        CSV_INLINE size_t get_file_size(csv::string_view filename) {
-            std::ifstream infile(std::string(filename), std::ios::binary);
-            const auto start = infile.tellg();
-            infile.seekg(0, std::ios::end);
-            const auto end = infile.tellg();
-
-            return end - start;
-        }
-
-        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
-            return get_csv_head(filename, get_file_size(filename));
-        }
-
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
-            const size_t bytes = 500000;
-
-            std::error_code error;
-            size_t length = std::min((size_t)file_size, bytes);
-            auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
-
-            if (error) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-            }
-
-            return std::string(mmap.begin(), mmap.end());
-        }
-
-#ifdef _MSC_VER
-#pragma region IBasicCVParser
-#endif
-        CSV_INLINE IBasicCSVParser::IBasicCSVParser(
-            const CSVFormat& format,
-            const ColNamesPtr& col_names
-        ) : _col_names(col_names) {
-            if (format.no_quote) {
-                _parse_flags = internals::make_parse_flags(format.get_delim());
-            }
-            else {
-                _parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
-            }
-
-            _ws_flags = internals::make_ws_flags(
-                format.trim_chars.data(), format.trim_chars.size()
-            );
-        }
-
-        CSV_INLINE void IBasicCSVParser::end_feed() {
-            using internals::ParseFlags;
-
-            bool empty_last_field = this->data_ptr
-                && this->data_ptr->_data
-                && !this->data_ptr->data.empty()
-                && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
-
-            // Push field
-            if (this->field_length > 0 || empty_last_field) {
-                this->push_field();
-            }
-
-            // Push row
-            if (this->current_row.size() > 0)
-                this->push_row();
-        }
-
-        CSV_INLINE void IBasicCSVParser::parse_field() noexcept {
-            using internals::ParseFlags;
-            auto& in = this->data_ptr->data;
-
-            // Trim off leading whitespace
-            while (data_pos < in.size() && ws_flag(in[data_pos]))
-                data_pos++;
-
-            if (field_start == UNINITIALIZED_FIELD)
-                field_start = (int)(data_pos - current_row_start());
-
-            // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-            // sequences, use the loop below to avoid having to go through the outer
-            // switch statement as much as possible
-            while (data_pos < in.size() && compound_parse_flag(in[data_pos]) == ParseFlags::NOT_SPECIAL)
-                data_pos++;
-
-            field_length = data_pos - (field_start + current_row_start());
-
-            // Trim off trailing whitespace, this->field_length constraint matters
-            // when field is entirely whitespace
-            for (size_t j = data_pos - 1; ws_flag(in[j]) && this->field_length > 0; j--)
-                this->field_length--;
-        }
-
-        CSV_INLINE void IBasicCSVParser::push_field()
-        {
-            // Update
-            if (field_has_double_quote) {
-                fields->emplace_back(
-                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
-                    field_length,
-                    true
-                );
-                field_has_double_quote = false;
-
-            }
-            else {
-                fields->emplace_back(
-                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
-                    field_length
-                );
-            }
-
-            current_row.row_length++;
-
-            // Reset field state
-            field_start = UNINITIALIZED_FIELD;
-            field_length = 0;
-        }
-
-        /** @return The number of characters parsed that belong to complete rows */
-        CSV_INLINE size_t IBasicCSVParser::parse()
-        {
-            using internals::ParseFlags;
-
-            this->quote_escape = false;
-            this->data_pos = 0;
-            this->current_row_start() = 0;
-            this->trim_utf8_bom();
-
-            auto& in = this->data_ptr->data;
-            while (this->data_pos < in.size()) {
-                switch (compound_parse_flag(in[this->data_pos])) {
-                case ParseFlags::DELIMITER:
-                    this->push_field();
-                    this->data_pos++;
-                    break;
-
-                case ParseFlags::NEWLINE:
-                    this->data_pos++;
-
-                    // Catches CRLF (or LFLF)
-                    if (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
-                        this->data_pos++;
-
-                    // End of record -> Write record
-                    this->push_field();
-                    this->push_row();
-
-                    // Reset
-                    this->current_row = CSVRow(data_ptr, this->data_pos, fields->size());
-                    break;
-
-                case ParseFlags::NOT_SPECIAL:
-                    this->parse_field();
-                    break;
-
-                case ParseFlags::QUOTE_ESCAPE_QUOTE:
-                    if (data_pos + 1 == in.size()) return this->current_row_start();
-                    else if (data_pos + 1 < in.size()) {
-                        auto next_ch = parse_flag(in[data_pos + 1]);
-                        if (next_ch >= ParseFlags::DELIMITER) {
-                            quote_escape = false;
-                            data_pos++;
-                            break;
-                        }
-                        else if (next_ch == ParseFlags::QUOTE) {
-                            // Case: Escaped quote
-                            data_pos += 2;
-                            this->field_length += 2;
-                            this->field_has_double_quote = true;
-                            break;
-                        }
-                    }
-                    
-                    // Case: Unescaped single quote => not strictly valid but we'll keep it
-                    this->field_length++;
-                    data_pos++;
-
-                    break;
-
-                default: // Quote (currently not quote escaped)
-                    if (this->field_length == 0) {
-                        quote_escape = true;
-                        data_pos++;
-                        if (field_start == UNINITIALIZED_FIELD && data_pos < in.size() && !ws_flag(in[data_pos]))
-                            field_start = (int)(data_pos - current_row_start());
-                        break;
-                    }
-
-                    // Case: Unescaped quote
-                    this->field_length++;
-                    data_pos++;
-
-                    break;
-                }
-            }
-
-            return this->current_row_start();
-        }
-
-        CSV_INLINE void IBasicCSVParser::push_row() {
-            current_row.row_length = fields->size() - current_row.fields_start;
-            this->_records->push_back(std::move(current_row));
-        }
-
-        CSV_INLINE void IBasicCSVParser::reset_data_ptr() {
-            this->data_ptr = std::make_shared<RawCSVData>();
-            this->data_ptr->parse_flags = this->_parse_flags;
-            this->data_ptr->col_names = this->_col_names;
-            this->fields = &(this->data_ptr->fields);
-        }
-
-        CSV_INLINE void IBasicCSVParser::trim_utf8_bom() {
-            auto& data = this->data_ptr->data;
-
-            if (!this->unicode_bom_scan && data.size() >= 3) {
-                if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
-                    this->data_pos += 3; // Remove BOM from input string
-                    this->_utf8_bom = true;
-                }
-
-                this->unicode_bom_scan = true;
-            }
-        }
-#ifdef _MSC_VER
-#pragma endregion
-#endif
-
-#ifdef _MSC_VER
-#pragma region Specializations
-#endif
-        CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
-            // Reset parser state
-            this->field_start = UNINITIALIZED_FIELD;
-            this->field_length = 0;
-            this->reset_data_ptr();
-
-            // Create memory map
-            size_t length = std::min(this->source_size - this->mmap_pos, bytes);
-            std::error_code error;
-            this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
-            this->mmap_pos += length;
-            if (error) throw error;
-
-            auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
-
-            // Create string view
-            this->data_ptr->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
-
-            // Parse
-            this->current_row = CSVRow(this->data_ptr);
-            size_t remainder = this->parse();            
-
-            if (this->mmap_pos == this->source_size || no_chunk()) {
-                this->_eof = true;
-                this->end_feed();
-            }
-
-            this->mmap_pos -= (length - remainder);
-        }
-#ifdef _MSC_VER
-#pragma endregion
-#endif
     }
 }
 
@@ -8137,12 +7880,7 @@ namespace csv {
     }
 
     CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-        #ifdef _MSC_BUILD
         return this->field;
-        #else
-        return this->field.get();
-        #endif
     }
 
     CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
@@ -8190,6 +7928,268 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma endregion CSVRow Iterator
 #endif
+}
+
+/** @file
+ *  Implements JSON serialization abilities
+ */
+
+
+namespace csv {
+    /*
+    The implementations for json_extra_space() and json_escape_string()
+    were modified from source code for JSON for Modern C++.
+
+    The respective license is below:
+
+    The code is licensed under the [MIT
+    License](http://opensource.org/licenses/MIT):
+    
+    Copyright &copy; 2013-2015 Niels Lohmann.
+    
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation files
+    (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of the Software,
+    and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
+    
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+    
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+    BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+    */
+
+    namespace internals {
+        /*!
+         @brief calculates the extra space to escape a JSON string
+
+         @param[in] s  the string to escape
+         @return the number of characters required to escape string @a s
+
+         @complexity Linear in the length of string @a s.
+        */
+        static std::size_t json_extra_space(csv::string_view& s) noexcept
+        {
+            std::size_t result = 0;
+
+
+            for (const auto& c : s)
+            {
+                switch (c)
+                {
+                case '"':
+                case '\\':
+                case '\b':
+                case '\f':
+                case '\n':
+                case '\r':
+                case '\t':
+                {
+                    // from c (1 byte) to \x (2 bytes)
+                    result += 1;
+                    break;
+                }
+
+
+                default:
+                {
+                    if (c >= 0x00 && c <= 0x1f)
+                    {
+                        // from c (1 byte) to \uxxxx (6 bytes)
+                        result += 5;
+                    }
+                    break;
+                }
+                }
+            }
+
+
+            return result;
+        }
+
+        CSV_INLINE std::string json_escape_string(csv::string_view s) noexcept
+        {
+            const auto space = json_extra_space(s);
+            if (space == 0)
+            {
+                return std::string(s);
+            }
+
+            // create a result string of necessary size
+            size_t result_size = s.size() + space;
+            std::string result(result_size, '\\');
+            std::size_t pos = 0;
+
+            for (const auto& c : s)
+            {
+                switch (c)
+                {
+                // quotation mark (0x22)
+                case '"':
+                {
+                    result[pos + 1] = '"';
+                    pos += 2;
+                    break;
+                }
+
+
+                // reverse solidus (0x5c)
+                case '\\':
+                {
+                    // nothing to change
+                    pos += 2;
+                    break;
+                }
+
+
+                // backspace (0x08)
+                case '\b':
+                {
+                    result[pos + 1] = 'b';
+                    pos += 2;
+                    break;
+                }
+
+
+                // formfeed (0x0c)
+                case '\f':
+                {
+                    result[pos + 1] = 'f';
+                    pos += 2;
+                    break;
+                }
+
+
+                // newline (0x0a)
+                case '\n':
+                {
+                    result[pos + 1] = 'n';
+                    pos += 2;
+                    break;
+                }
+
+
+                // carriage return (0x0d)
+                case '\r':
+                {
+                    result[pos + 1] = 'r';
+                    pos += 2;
+                    break;
+                }
+
+
+                // horizontal tab (0x09)
+                case '\t':
+                {
+                    result[pos + 1] = 't';
+                    pos += 2;
+                    break;
+                }
+
+
+                default:
+                {
+                    if (c >= 0x00 && c <= 0x1f)
+                    {
+                        // print character c as \uxxxx
+                        snprintf(&result[pos + 1], result_size - pos - 1, "u%04x", int(c));
+                        pos += 6;
+                        // overwrite trailing null character
+                        result[pos] = '\\';
+                    }
+                    else
+                    {
+                        // all other characters are added as-is
+                        result[pos++] = c;
+                    }
+                    break;
+                }
+                }
+            }
+
+            return result;
+        }
+    }
+
+    /** Convert a CSV row to a JSON object, i.e.
+     *  `{"col1":"value1","col2":"value2"}`
+     *
+     *  @note All strings are properly escaped. Numeric values are not quoted.
+     *  @param[in] subset A subset of columns to contain in the JSON.
+     *                    Leave empty for original columns.
+     */
+    CSV_INLINE std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
+        std::vector<std::string> col_names = subset;
+        if (subset.empty()) {
+            col_names = this->data ? this->get_col_names() : std::vector<std::string>({});
+        }
+
+        const size_t _n_cols = col_names.size();
+        std::string ret = "{";
+        
+        for (size_t i = 0; i < _n_cols; i++) {
+            auto& col = col_names[i];
+            auto field = this->operator[](col);
+
+            // TODO: Possible performance enhancements by caching escaped column names
+            ret += '"' + internals::json_escape_string(col) + "\":";
+
+            // Add quotes around strings but not numbers
+            if (field.is_num())
+                 ret += internals::json_escape_string(field.get<csv::string_view>());
+            else
+                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
+
+            // Do not add comma after last string
+            if (i + 1 < _n_cols)
+                ret += ',';
+        }
+
+        ret += '}';
+        return ret;
+    }
+
+    /** Convert a CSV row to a JSON array, i.e.
+     *  `["value1","value2",...]`
+     *
+     *  @note All strings are properly escaped. Numeric values are not quoted.
+     *  @param[in] subset A subset of columns to contain in the JSON.
+     *                    Leave empty for all columns.
+     */
+    CSV_INLINE std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
+        std::vector<std::string> col_names = subset;
+        if (subset.empty())
+            col_names = this->data ? this->get_col_names() : std::vector<std::string>({});
+
+        const size_t _n_cols = col_names.size();
+        std::string ret = "[";
+
+        for (size_t i = 0; i < _n_cols; i++) {
+            auto field = this->operator[](col_names[i]);
+
+            // Add quotes around strings but not numbers
+            if (field.is_num())
+                ret += internals::json_escape_string(field.get<csv::string_view>());
+            else
+                ret += '"' + internals::json_escape_string(field.get<csv::string_view>()) + '"';
+
+            // Do not add comma after last string
+            if (i + 1 < _n_cols)
+                ret += ',';
+        }
+
+        ret += ']';
+        return ret;
+    }
 }
 
 /** @file
@@ -8458,95 +8458,82 @@ namespace csv {
         return csv_dtypes;
     }
 }
-/** @file
- *  Defines an object used to store CSV format settings
- */
-
-#include <algorithm>
-#include <set>
+#include <sstream>
+#include <vector>
 
 
 namespace csv {
-    CSV_INLINE CSVFormat& CSVFormat::delimiter(char delim) {
-        this->possible_delimiters = { delim };
-        this->assert_no_char_overlap();
-        return *this;
+    /** Shorthand function for parsing an in-memory CSV string
+     *
+     *  @return A collection of CSVRow objects
+     *
+     *  @par Example
+     *  @snippet tests/test_read_csv.cpp Parse Example
+     */
+    CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
+        std::stringstream stream(in.data());
+        return CSVReader(stream, format);
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::delimiter(const std::vector<char> & delim) {
-        this->possible_delimiters = delim;
-        this->assert_no_char_overlap();
-        return *this;
+    /** Parses a CSV string with no headers
+     *
+     *  @return A collection of CSVRow objects
+     */
+    CSV_INLINE CSVReader parse_no_header(csv::string_view in) {
+        CSVFormat format;
+        format.header_row(-1);
+
+        return parse(in, format);
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::quote(char quote) {
-        this->no_quote = false;
-        this->quote_char = quote;
-        this->assert_no_char_overlap();
-        return *this;
+    /** Parse a RFC 4180 CSV string, returning a collection
+     *  of CSVRow objects
+     *
+     *  @par Example
+     *  @snippet tests/test_read_csv.cpp Escaped Comma
+     *
+     */
+    CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
+        return parse(csv::string_view(in, n));
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::trim(const std::vector<char> & chars) {
-        this->trim_chars = chars;
-        this->assert_no_char_overlap();
-        return *this;
+    /** A shorthand for csv::parse_no_header() */
+    CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
+        return parse_no_header(csv::string_view(in, n));
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
-        this->col_names = names;
-        this->header = -1;
-        return *this;
+    /**
+     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] col_name  Column whose position we should resolve
+     *  @param[in] format    Format of the CSV file
+     */
+    CSV_INLINE int get_col_pos(
+        csv::string_view filename,
+        csv::string_view col_name,
+        const CSVFormat& format) {
+        CSVReader reader(filename, format);
+        return reader.index_of(col_name);
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::header_row(int row) {
-        if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
+    /** Get basic information about a CSV file
+     *  @include programs/csv_info.cpp
+     */
+    CSV_INLINE CSVFileInfo get_file_info(const std::string& filename) {
+        CSVReader reader(filename);
+        CSVFormat format = reader.get_format();
+        for (auto it = reader.begin(); it != reader.end(); ++it);
 
-        this->header = row;
-        this->col_names = {};
-        return *this;
-    }
+        CSVFileInfo info = {
+            filename,
+            reader.get_col_names(),
+            format.get_delim(),
+            reader.n_rows(),
+            reader.get_col_names().size()
+        };
 
-    CSV_INLINE void CSVFormat::assert_no_char_overlap()
-    {
-        auto delims = std::set<char>(
-            this->possible_delimiters.begin(), this->possible_delimiters.end()),
-            trims = std::set<char>(
-                this->trim_chars.begin(), this->trim_chars.end());
-
-        // Stores intersection of possible delimiters and trim characters
-        std::vector<char> intersection = {};
-
-        // Find which characters overlap, if any
-        std::set_intersection(
-            delims.begin(), delims.end(),
-            trims.begin(), trims.end(),
-            std::back_inserter(intersection));
-
-        // Make sure quote character is not contained in possible delimiters
-        // or whitespace characters
-        if (delims.find(this->quote_char) != delims.end() ||
-            trims.find(this->quote_char) != trims.end()) {
-            intersection.push_back(this->quote_char);
-        }
-
-        if (!intersection.empty()) {
-            std::string err_msg = "There should be no overlap between the quote character, "
-                "the set of possible delimiters "
-                "and the set of whitespace characters. Offending characters: ";
-
-            // Create a pretty error message with the list of overlapping
-            // characters
-            for (size_t i = 0; i < intersection.size(); i++) {
-                err_msg += "'";
-                err_msg += intersection[i];
-                err_msg += "'";
-
-                if (i + 1 < intersection.size())
-                    err_msg += ", ";
-            }
-
-            throw std::runtime_error(err_msg + '.');
-        }
+        return info;
     }
 }
 
