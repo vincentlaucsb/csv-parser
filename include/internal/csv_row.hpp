@@ -374,7 +374,6 @@ namespace csv {
 
         private:
             const CSVRow * daddy = nullptr;            // Pointer to parent
-            internals::RawCSVDataPtr data = nullptr;
             std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
             int i = 0;                                 // Index of current field
         };

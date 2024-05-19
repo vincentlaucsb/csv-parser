@@ -197,8 +197,6 @@ namespace csv {
                 this->daddy->operator[](_i));
         else
             this->field = nullptr;
-
-        this->data = this->daddy->data;
     }
 
     CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
