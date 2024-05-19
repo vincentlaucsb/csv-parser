@@ -1,3 +1,4 @@
+#include <cstring>
 #include "catch.hpp"
 #include "csv.hpp"
 using namespace csv;
