@@ -17,6 +17,44 @@ namespace csv {
     namespace internals {
         static int DECIMAL_PLACES = 5;
 
+        /**
+         * Calculate the absolute value of a number
+         */
+        template<typename T = int>
+        inline T csv_abs(T x) {
+            return abs(x);
+        }
+
+        template<>
+        inline int csv_abs(int x) {
+            return abs(x);
+        }
+
+        template<>
+        inline long int csv_abs(long int x) {
+            return labs(x);
+        }
+
+        template<>
+        inline long long int csv_abs(long long int x) {
+            return llabs(x);
+        }
+
+        template<>
+        inline float csv_abs(float x) {
+            return fabsf(x);
+        }
+
+        template<>
+        inline double csv_abs(double x) {
+            return fabs(x);
+        }
+
+        template<>
+        inline long double csv_abs(long double x) {
+            return fabsl(x);
+        }
+
         /** 
          * Calculate the number of digits in a number
          */
@@ -26,7 +64,7 @@ namespace csv {
         >
         int num_digits(T x)
         {
-            x = abs(x);
+            x = csv_abs(x);
 
             int digits = 0;
 

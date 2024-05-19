@@ -4,7 +4,7 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "gcc-error" ]
   pull_request:
     branches: [ "master" ]
 
