@@ -6980,7 +6980,8 @@ namespace csv {
             bool empty_last_field = this->data_ptr
                 && this->data_ptr->_data
                 && !this->data_ptr->data.empty()
-                && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+                && (parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER
+                    || parse_flag(this->data_ptr->data.back()) == ParseFlags::QUOTE);
 
             // Push field
             if (this->field_length > 0 || empty_last_field) {

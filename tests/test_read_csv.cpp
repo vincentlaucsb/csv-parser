@@ -96,14 +96,22 @@ TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
 
 TEST_CASE("Test Escaped Newline & Empty Last Column", "[read_csv_empty_last_column]") {
     auto rows = "A,B,C,\r\n" // Header row
-        "123,\"234\n,345\",456,\r\n"
+        "123,\"234\n,345\",456,\"\"\r\n"
         "1,2,3,\r\n"
-        "1,2,3,"_csv;
+        "4,5,6,\"\""_csv;
 
     CSVRow row;
     rows.read_row(row);
     REQUIRE(vector<string>(row) ==
         vector<string>({ "123", "234\n,345", "456", "" }));
+
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "1", "2", "3", "" }));
+
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "4", "5", "6", ""}));
 }
 
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
