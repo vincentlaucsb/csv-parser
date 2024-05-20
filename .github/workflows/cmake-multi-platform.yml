@@ -4,7 +4,7 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master", "memory-fix-gcc" ]
+    branches: [ "master", "remove-werror" ]
   pull_request:
     branches: [ "master" ]
 
