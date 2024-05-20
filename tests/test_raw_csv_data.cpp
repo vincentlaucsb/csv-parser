@@ -1,4 +1,4 @@
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "internal/basic_csv_parser.hpp"
 #include "internal/csv_row.hpp"
 

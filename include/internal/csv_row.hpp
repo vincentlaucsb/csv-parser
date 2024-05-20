@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "common.hpp"
-#include "data_type.h"
+#include "data_type.hpp"
 #include "col_names.hpp"
 
 namespace csv {

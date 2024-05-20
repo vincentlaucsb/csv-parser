@@ -5085,6 +5085,7 @@ namespace csv {
         CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
         CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
         CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
+        CSV_BIGINT, /**< Value too big to fit in a 64-bit in */
         CSV_DOUBLE  /**< Floating point value */
     };
 
@@ -5280,7 +5281,7 @@ namespace csv {
             else if (number <= internals::CSV_INT64_MAX)
                 return DataType::CSV_INT64;
             else // Conversion to long long will cause an overflow
-                return DataType::CSV_DOUBLE;
+                return DataType::CSV_BIGINT;
         }
 
         /** Distinguishes numeric from other text values. Used by various
@@ -5326,6 +5327,12 @@ namespace csv {
                             return DataType::CSV_STRING;
                         }
                     }
+                    break;
+                case '+':
+                    if (!ws_allowed) {
+                        return DataType::CSV_STRING;
+                    }
+
                     break;
                 case '-':
                     if (!ws_allowed) {
@@ -6274,8 +6281,7 @@ namespace csv {
             CONSTEXPR_14 pointer operator->() { return &(this->row); }
 
             iterator& operator++();   /**< Pre-increment iterator */
-            iterator operator++(int); /**< Post-increment ierator */
-            iterator& operator--();
+            iterator operator++(int); /**< Post-increment iterator */
 
             /** Returns true if iterators were constructed from the same CSVReader
              *  and point to the same row

@@ -1,7 +1,7 @@
+#include <catch2/catch_all.hpp>
 #include <future>
 
 #include "csv.hpp"
-#include "catch.hpp"
 
 using namespace csv;
 using namespace csv::internals;

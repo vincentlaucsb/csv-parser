@@ -1,8 +1,17 @@
+include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.6.0
+) 
+
+FetchContent_MakeAvailable(Catch2)
+
 add_executable(csv_test "")
 target_sources(csv_test
     PRIVATE
         ${CSV_INCLUDE_DIR}/csv.hpp
-        catch.hpp
         main.cpp
         test_csv_field.cpp
         test_csv_field_array.cpp
@@ -20,6 +29,7 @@ target_sources(csv_test
         test_round_trip.cpp
     )
 target_link_libraries(csv_test csv)
+target_link_libraries(csv_test Catch2::Catch2WithMain)
 
 if(MSVC)
     # Workaround to enable debugging unit tests in Visual Studio

@@ -1,5 +1,5 @@
 #include <cstring>
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 using namespace csv;
 
@@ -81,7 +81,7 @@ TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     REQUIRE( ceill(reader.get_mean()[2]) == 42 );
 }
 
-TEST_CASE("Data Types - persons.csv", "test_dtypes_person]") {
+TEST_CASE("Data Types - persons.csv", "[test_dtypes_person]") {
     auto dtypes = csv_data_types(PERSONS_CSV);
 
     REQUIRE(dtypes["Full Name"] == DataType::CSV_STRING);

@@ -2,7 +2,7 @@
 #include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
-#include "data_type.h"
+#include "data_type.hpp"
 
 #include <string>
 #include <type_traits>

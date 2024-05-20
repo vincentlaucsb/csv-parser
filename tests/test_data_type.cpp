@@ -1,4 +1,4 @@
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 #include <string>
 
@@ -34,12 +34,16 @@ TEST_CASE( "Recognize Null Properly", "[dtype_null]" ) {
 
 TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
     std::string float_a("3.14"),
+        float_a1("+3.14"),
         float_b("       -3.14            "),
         e("2.71828");
 
     long double out = 0;
     
     REQUIRE(data_type(float_a, &out) == DataType::CSV_DOUBLE);
+    REQUIRE(is_equal(out, 3.14L));
+
+    REQUIRE(data_type(float_a1, &out) == DataType::CSV_DOUBLE);
     REQUIRE(is_equal(out, 3.14L));
 
     REQUIRE(data_type(float_b, &out) == DataType::CSV_DOUBLE);
@@ -81,7 +85,7 @@ TEST_CASE("Integer Size Recognition", "[int_sizes]") {
         // Case: Integer too large to fit in int64 --> store in long double
         s = std::to_string((long long)csv::internals::CSV_INT64_MAX);
         s.append("1");
-        REQUIRE(data_type(s, &out) == DataType::CSV_DOUBLE);
+        REQUIRE(data_type(s, &out) == DataType::CSV_BIGINT);
     }
 }
 

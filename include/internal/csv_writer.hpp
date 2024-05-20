@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "common.hpp"
-#include "data_type.h"
+#include "data_type.hpp"
 
 namespace csv {
     namespace internals {
