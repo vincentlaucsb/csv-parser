@@ -55,7 +55,10 @@ if (${BUILD_PYTHON})
 endif()
 
 ## Executables
-add_subdirectory("programs")
+option(CSV_BUILD_PROGRAMS "Allow to disable building of programs" ON)
+if (CSV_BUILD_PROGRAMS)
+    add_subdirectory("programs")
+endif()
 
 ## Developer settings
 if (CSV_DEVELOPER)
