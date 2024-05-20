@@ -7916,6 +7916,13 @@ namespace csv {
                     }
                 }
                 break;
+            case '+':
+                if (!ws_allowed) {
+                    _type = DataType::CSV_STRING;
+                    return false;
+                }
+
+                break;
             case '-':
                 if (!ws_allowed) {
                     // Ex: '510-123-4567'
