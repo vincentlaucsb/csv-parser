@@ -1,6 +1,6 @@
 // Tests for the CSVRow and CSVField Data Structures
 
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 using namespace csv;
 

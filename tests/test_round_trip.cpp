@@ -1,10 +1,10 @@
 /** Tests of both reading and writing */
 
 #include <array>
+#include <catch2/catch_all.hpp>
 #include <cstdio>
 #include <iostream>
 
-#include "catch.hpp"
 #include "csv.hpp"
 
 using namespace csv;

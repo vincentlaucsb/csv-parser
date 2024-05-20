@@ -18,7 +18,7 @@
 #include "../external/mio.hpp"
 #include "basic_csv_parser.hpp"
 #include "common.hpp"
-#include "data_type.h"
+#include "data_type.hpp"
 #include "csv_format.hpp"
 
 /** The all encompassing namespace */
@@ -87,8 +87,7 @@ namespace csv {
             CONSTEXPR_14 pointer operator->() { return &(this->row); }
 
             iterator& operator++();   /**< Pre-increment iterator */
-            iterator operator++(int); /**< Post-increment ierator */
-            iterator& operator--();
+            iterator operator++(int); /**< Post-increment iterator */
 
             /** Returns true if iterators were constructed from the same CSVReader
              *  and point to the same row

@@ -4,7 +4,7 @@
 
 #include <stdio.h> // remove()
 #include <sstream>
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 
 using namespace csv;
@@ -66,6 +66,16 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
     }
 
     REQUIRE(error_caught);
+}
+
+TEST_CASE("Test Read CSV where file does NOT end with newline", "[test_file_info_ints2]") {
+    CSVReader reader("./tests/data/fake_data/ints_doesnt_end_in_newline.csv");
+
+    auto row = reader.begin();
+    for (; row != reader.end(); row++) {} // skip to end
+
+    REQUIRE((*row)["A"] == 100);
+    REQUIRE((*row)["J"] == 100);
 }
 
 TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {

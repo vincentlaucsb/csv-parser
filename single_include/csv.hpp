@@ -1,11 +1,11 @@
 #pragma once
 /*
-CSV for C++, version 2.1.3
+CSV for C++, version 2.2.2
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
 
-Copyright (c) 2017-2020 Vincent La
+Copyright (c) 2017-2024 Vincent La
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -5085,6 +5085,7 @@ namespace csv {
         CSV_INT16,  /**< 16-bit integer (short on MSVC/GCC) */
         CSV_INT32,  /**< 32-bit integer (int on MSVC/GCC) */
         CSV_INT64,  /**< 64-bit integer (long long on MSVC/GCC) */
+        CSV_BIGINT, /**< Value too big to fit in a 64-bit in */
         CSV_DOUBLE  /**< Floating point value */
     };
 
@@ -5280,7 +5281,7 @@ namespace csv {
             else if (number <= internals::CSV_INT64_MAX)
                 return DataType::CSV_INT64;
             else // Conversion to long long will cause an overflow
-                return DataType::CSV_DOUBLE;
+                return DataType::CSV_BIGINT;
         }
 
         /** Distinguishes numeric from other text values. Used by various
@@ -5326,6 +5327,12 @@ namespace csv {
                             return DataType::CSV_STRING;
                         }
                     }
+                    break;
+                case '+':
+                    if (!ws_allowed) {
+                        return DataType::CSV_STRING;
+                    }
+
                     break;
                 case '-':
                     if (!ws_allowed) {
@@ -5733,15 +5740,7 @@ namespace csv {
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVField;
             using difference_type = int;
-
-            // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-            // but using shared_ptr as pointer type won't compile in g++
-#ifdef _MSC_BUILD
             using pointer = std::shared_ptr<CSVField>;
-#else
-            using pointer = CSVField * ;
-#endif
-
             using reference = CSVField & ;
             using iterator_category = std::random_access_iterator_tag;
 #endif
@@ -6292,8 +6291,7 @@ namespace csv {
             CONSTEXPR_14 pointer operator->() { return &(this->row); }
 
             iterator& operator++();   /**< Pre-increment iterator */
-            iterator operator++(int); /**< Post-increment ierator */
-            iterator& operator--();
+            iterator operator++(int); /**< Post-increment iterator */
 
             /** Returns true if iterators were constructed from the same CSVReader
              *  and point to the same row
@@ -6542,6 +6540,44 @@ namespace csv {
     namespace internals {
         static int DECIMAL_PLACES = 5;
 
+        /**
+         * Calculate the absolute value of a number
+         */
+        template<typename T = int>
+        inline T csv_abs(T x) {
+            return abs(x);
+        }
+
+        template<>
+        inline int csv_abs(int x) {
+            return abs(x);
+        }
+
+        template<>
+        inline long int csv_abs(long int x) {
+            return labs(x);
+        }
+
+        template<>
+        inline long long int csv_abs(long long int x) {
+            return llabs(x);
+        }
+
+        template<>
+        inline float csv_abs(float x) {
+            return fabsf(x);
+        }
+
+        template<>
+        inline double csv_abs(double x) {
+            return fabs(x);
+        }
+
+        template<>
+        inline long double csv_abs(long double x) {
+            return fabsl(x);
+        }
+
         /** 
          * Calculate the number of digits in a number
          */
@@ -6551,7 +6587,7 @@ namespace csv {
         >
         int num_digits(T x)
         {
-            x = abs(x);
+            x = csv_abs(x);
 
             int digits = 0;
 
@@ -6954,7 +6990,8 @@ namespace csv {
             bool empty_last_field = this->data_ptr
                 && this->data_ptr->_data
                 && !this->data_ptr->data.empty()
-                && parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER;
+                && (parse_flag(this->data_ptr->data.back()) == ParseFlags::DELIMITER
+                    || parse_flag(this->data_ptr->data.back()) == ParseFlags::QUOTE);
 
             // Push field
             if (this->field_length > 0 || empty_last_field) {
@@ -7761,7 +7798,7 @@ namespace csv {
         for (; start < this->sv.size() && this->sv[start] == ' '; start++);
         for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
         
-        unsigned long long int value_ = 0;
+        int value_ = 0;
 
         size_t digits = (end - start);
         size_t base16_exponent = digits - 1;
@@ -7812,7 +7849,7 @@ namespace csv {
                 return false;
             }
 
-            value_ += digit * pow(16, base16_exponent);
+            value_ += digit * (int)pow(16, (double)base16_exponent);
             base16_exponent--;
         }
 
@@ -7992,12 +8029,7 @@ namespace csv {
     }
 
     CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-        #ifdef _MSC_BUILD
         return this->field;
-        #else
-        return this->field.get();
-        #endif
     }
 
     CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {

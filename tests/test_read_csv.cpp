@@ -4,7 +4,7 @@
 
 #include <stdio.h> // remove()
 #include <sstream>
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 
 using namespace csv;
@@ -21,12 +21,22 @@ TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
         auto rows = "A,B,C\r\n" // Header row
             "123,234,345\r\n"
             "1,2,3\r\n"
-            "1,2,3"_csv;
+            "4,5,6"_csv;
 
         CSVRow row;
         rows.read_row(row);
         vector<string> first_row = { "123", "234", "345" };
         REQUIRE(vector<string>(row) == first_row);
+        
+        rows.read_row(row);
+        vector<string> second_row = { "1", "2", "3" };
+        REQUIRE(vector<string>(row) == second_row);
+
+        rows.read_row(row);
+        vector<string> third_row = { "4", "5", "6" };
+        REQUIRE(vector<string>(row) == third_row);
+
+        REQUIRE(rows.n_rows() == 3);
     }
 
     SECTION("Expected Results: No Header") {
@@ -82,6 +92,26 @@ TEST_CASE( "Test Escaped Newline", "[read_csv_newline]" ) {
     rows.read_row(row);
     REQUIRE( vector<string>(row) == 
         vector<string>({ "123", "234\n,345", "456" }) );
+}
+
+TEST_CASE("Test Escaped Newline & Empty Last Column", "[read_csv_empty_last_column]") {
+    auto rows = "A,B,C,\r\n" // Header row
+        "123,\"234\n,345\",456,\"\"\r\n"
+        "1,2,3,\r\n"
+        "4,5,6,\"\""_csv;
+
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "123", "234\n,345", "456", "" }));
+
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "1", "2", "3", "" }));
+
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "4", "5", "6", ""}));
 }
 
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {

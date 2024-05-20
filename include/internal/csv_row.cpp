@@ -105,7 +105,7 @@ namespace csv {
         for (; start < this->sv.size() && this->sv[start] == ' '; start++);
         for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
         
-        unsigned long long int value_ = 0;
+        int value_ = 0;
 
         size_t digits = (end - start);
         size_t base16_exponent = digits - 1;
@@ -156,7 +156,7 @@ namespace csv {
                 return false;
             }
 
-            value_ += digit * pow(16, base16_exponent);
+            value_ += digit * (int)pow(16, (double)base16_exponent);
             base16_exponent--;
         }
 
@@ -336,12 +336,7 @@ namespace csv {
     }
 
     CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        // Using CSVField * as pointer type causes segfaults in MSVC debug builds
-        #ifdef _MSC_BUILD
         return this->field;
-        #else
-        return this->field.get();
-        #endif
     }
 
     CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {

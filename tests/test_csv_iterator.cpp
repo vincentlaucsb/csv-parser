@@ -2,7 +2,7 @@
 // Tests for the CSVRow Iterators and CSVReader Iterators
 //
 
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 using namespace csv;
 

@@ -55,7 +55,10 @@ if (${BUILD_PYTHON})
 endif()
 
 ## Executables
-add_subdirectory("programs")
+option(CSV_BUILD_PROGRAMS "Allow to disable building of programs" ON)
+if (CSV_BUILD_PROGRAMS)
+    add_subdirectory("programs")
+endif()
 
 ## Developer settings
 if (CSV_DEVELOPER)
@@ -67,7 +70,7 @@ if (CSV_DEVELOPER)
     # More error messages.
     if (UNIX)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-        -Wall -Werror -Wextra -Wsign-compare \
+        -Wall -Wextra -Wsign-compare \
         -Wwrite-strings -Wpointer-arith -Winit-self \
         -Wconversion -Wno-sign-conversion")
     endif()

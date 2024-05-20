@@ -1,5 +1,5 @@
 #include "csv.hpp"
-#include "catch.hpp"
+#include <catch2/catch_all.hpp>
 #include <cmath>
 #include <iostream>
 using namespace csv;

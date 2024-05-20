@@ -1,8 +1,25 @@
-#include "catch.hpp"
+#include <cstring>
+#include <catch2/catch_all.hpp>
 #include "csv.hpp"
 using namespace csv;
 
 const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";
+
+// Regression test for #208: Try to parse an empty file shouldn't result in a SEGFAULT
+TEST_CASE("Empty File", "[read_csv_stat_empty]") {
+    bool error_caught = false;
+
+    try {
+        CSVStat stats("./tests/data/fake_data/empty.csv");
+        stats.get_mins();
+    }
+    catch (std::runtime_error& err) {
+        error_caught = true;
+        REQUIRE(strcmp(err.what(), "Cannot open file ./tests/data/fake_data/empty.csv") == 0);
+    }
+
+    REQUIRE(error_caught);
+}
 
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
@@ -64,7 +81,7 @@ TEST_CASE( "Statistics - persons.csv", "[test_stat_person]" ) {
     REQUIRE( ceill(reader.get_mean()[2]) == 42 );
 }
 
-TEST_CASE("Data Types - persons.csv", "test_dtypes_person]") {
+TEST_CASE("Data Types - persons.csv", "[test_dtypes_person]") {
     auto dtypes = csv_data_types(PERSONS_CSV);
 
     REQUIRE(dtypes["Full Name"] == DataType::CSV_STRING);
