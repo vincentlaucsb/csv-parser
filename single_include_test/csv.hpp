@@ -1,6 +1,6 @@
 #pragma once
 /*
-CSV for C++, version 2.2.2
+CSV for C++, version 2.2.3
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -6627,7 +6627,7 @@ namespace csv {
             return std::to_string(value);
 #else
             // TODO: Figure out why the below code doesn't work on clang
-                std::string result;
+                std::string result = "";
 
                 T integral_part;
                 T fractional_part = std::abs(std::modf(value, &integral_part));
@@ -6637,8 +6637,7 @@ namespace csv {
                 if (value < 0) result = "-";
 
                 if (integral_part == 0) {
-
-                    result = "0";
+                    result += "0";
                 }
                 else {
                     for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
@@ -7065,8 +7064,8 @@ namespace csv {
                 case ParseFlags::NEWLINE:
                     this->data_pos++;
 
-                    // Catches CRLF (or LFLF)
-                    if (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
+                    // Catches CRLF (or LFLF, CRCRLF, or any other non-sensical combination of newlines)
+                    while (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
                         this->data_pos++;
 
                     // End of record -> Write record
@@ -7636,6 +7635,7 @@ namespace csv {
             if (this->records->empty()) return this->end();
         }
 
+        this->_n_rows++;
         CSVReader::iterator ret(this, this->records->pop_front());
         return ret;
     }
