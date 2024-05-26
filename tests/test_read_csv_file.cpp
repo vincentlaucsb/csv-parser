@@ -45,12 +45,6 @@ TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwri
 // get_file_info()
 TEST_CASE("get_file_info() Test", "[test_file_info]") {
     SECTION("ints.csv") {
-        CSVReader reader("./tests/data/fake_data/ints.csv");
-        CSVRow row;
-        while (reader.read_row(row)) {
-            std::cout << row[0] << " " << reader.n_rows() << std::endl;
-        }
-
         CSVFileInfo info = get_file_info(
             "./tests/data/fake_data/ints.csv");
 
