@@ -15,6 +15,7 @@ namespace csv {
             if (this->records->empty()) return this->end();
         }
 
+        this->_n_rows++;
         CSVReader::iterator ret(this, this->records->pop_front());
         return ret;
     }

@@ -44,13 +44,29 @@ TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwri
 
 // get_file_info()
 TEST_CASE("get_file_info() Test", "[test_file_info]") {
-    CSVFileInfo info = get_file_info(
-        "./tests/data/real_data/2009PowerStatus.txt");
-        
-    REQUIRE(info.delim == '|');
-    REQUIRE(info.n_rows == 37960); // Can confirm with Excel
-    REQUIRE(info.n_cols == 3);
-    REQUIRE(info.col_names == vector<string>({"ReportDt", "Unit", "Power"}));
+    SECTION("ints.csv") {
+        CSVReader reader("./tests/data/fake_data/ints.csv");
+        CSVRow row;
+        while (reader.read_row(row)) {
+            std::cout << row[0] << " " << reader.n_rows() << std::endl;
+        }
+
+        CSVFileInfo info = get_file_info(
+            "./tests/data/fake_data/ints.csv");
+
+        REQUIRE(info.delim == ',');
+        REQUIRE(info.n_rows == 100);
+    }
+
+    SECTION("2009PowerStatus.txt") {
+        CSVFileInfo info = get_file_info(
+            "./tests/data/real_data/2009PowerStatus.txt");
+
+        REQUIRE(info.delim == '|');
+        REQUIRE(info.n_rows == 37960); // Can confirm with Excel
+        REQUIRE(info.n_cols == 3);
+        REQUIRE(info.col_names == vector<string>({ "ReportDt", "Unit", "Power" }));
+    }
 }
 
 TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
