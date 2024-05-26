@@ -114,7 +114,7 @@ namespace csv {
             return std::to_string(value);
 #else
             // TODO: Figure out why the below code doesn't work on clang
-                std::string result;
+                std::string result = "";
 
                 T integral_part;
                 T fractional_part = std::abs(std::modf(value, &integral_part));
@@ -124,8 +124,7 @@ namespace csv {
                 if (value < 0) result = "-";
 
                 if (integral_part == 0) {
-
-                    result = "0";
+                    result += "0";
                 }
                 else {
                     for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
