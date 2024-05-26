@@ -2,6 +2,8 @@
 #include "csv.hpp"
 #include <string>
 
+#include "./shared/float_test_cases.hpp"
+
 using namespace csv;
 using namespace csv::internals;
 
@@ -33,24 +35,20 @@ TEST_CASE( "Recognize Null Properly", "[dtype_null]" ) {
 }
 
 TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
-    std::string float_a("3.14"),
-        float_a1("+3.14"),
-        float_b("       -3.14            "),
-        e("2.71828");
+    using std::make_tuple;
 
-    long double out = 0;
-    
-    REQUIRE(data_type(float_a, &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 3.14L));
+    SECTION("Parse One Float") {
+        std::string input;
+        long double out = 0;
+        long double expected = 0;
 
-    REQUIRE(data_type(float_a1, &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 3.14L));
+        std::tie(input, expected) =
+            GENERATE(table<std::string, long double>(
+                csv_test::FLOAT_TEST_CASES));
 
-    REQUIRE(data_type(float_b, &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, -3.14L));
-
-    REQUIRE(data_type(e, &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 2.71828L));
+        REQUIRE(data_type(input, &out) == DataType::CSV_DOUBLE);
+        REQUIRE(is_equal(out, expected));
+    }
 }
 
 TEST_CASE("Integer Size Recognition", "[int_sizes]") {
