@@ -16,7 +16,7 @@ TEST_CASE( "Test Parse Flags", "[test_parse_flags]" ) {
 }
 
 // Test Main Functions
-TEST_CASE( "Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
+TEST_CASE("Test Reading CSV From Direct Input", "[read_csv_direct]" ) {
     SECTION("Expected Results") {
         auto rows = "A,B,C\r\n" // Header row
             "123,234,345\r\n"
@@ -180,6 +180,60 @@ TEST_CASE( "Test leading and trailing escaped quote", "[read_csv_quote]" ) {
     }
 }
 //! [Parse Example]
+
+// Verify the CSV parser can handle any arbitrary line endings composed of carriage return & newline
+TEST_CASE("Cursed Newlines", "[read_csv_cursed_newline]") {
+    auto row_str = GENERATE(as<std::string> {},
+        (
+            // Windows style
+            "A,B,C\r\n" // Header row
+            "123,234,345\r\n"
+            "1,2,3\r\n"
+            "4,5,6",
+
+            // Unix style
+            "A,B,C\n" // Header row
+            "123,234,345\n"
+            "1,2,3\n"
+            "4,5,6",
+
+            // Eww brother what is that...
+            "A,B,C\r\r\n" // Header row
+            "123,234,345\r\r\n"
+            "1,2,3\r\r\n"
+            "4,5,6",
+
+            // Doubled-up Windows style (ridiculous: but I'm sure it exists somewhere)
+            "A,B,C\r\n\r\n" // Header row
+            "123,234,345\r\n\r\n"
+            "1,2,3\r\n\r\n"
+            "4,5,6"
+        )
+    );
+
+    // Set CSVFormat to KEEP all rows, even empty ones (because there shouldn't be any)
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    auto rows = parse(row_str, format);
+
+    CSVRow row;
+    rows.read_row(row);
+    vector<string> first_row = { "123", "234", "345" };
+    REQUIRE(vector<string>(row) == first_row);
+    REQUIRE(row["A"] == "123");
+    REQUIRE(row["B"] == "234");
+    REQUIRE(row["C"] == "345");
+
+    rows.read_row(row);
+    vector<string> second_row = { "1", "2", "3" };
+    REQUIRE(vector<string>(row) == second_row);
+
+    rows.read_row(row);
+    vector<string> third_row = { "4", "5", "6" };
+    REQUIRE(vector<string>(row) == third_row);
+
+    REQUIRE(rows.n_rows() == 3);
+}
 
 TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {
     auto row_str = GENERATE(as<std::string> {},
