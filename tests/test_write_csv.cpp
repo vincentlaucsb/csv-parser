@@ -35,6 +35,12 @@ TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
         set_decimal_places(5);
     }
 
+    SECTION("Decimal Numbers x where -1 < x < 0") {
+        REQUIRE(csv::internals::to_string(-0.25) == "-0.25000");
+        REQUIRE(csv::internals::to_string(-0.625) == "-0.62500");
+        REQUIRE(csv::internals::to_string(-0.666) == "-0.66600");
+    }
+
     SECTION("Numbers Close to 10^n - Regression") {
         REQUIRE(csv::internals::to_string(10.0) == "10.0");
         REQUIRE(csv::internals::to_string(100.0) == "100.0");

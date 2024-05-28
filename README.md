@@ -43,6 +43,7 @@ However, in reality we know that RFC 4180 is just a suggestion, and there's many
  * Automatic delimiter guessing
  * Ability to ignore comments in leading rows and elsewhere
  * Ability to handle rows of different lengths
+ * Ability to handle arbitrary line endings (as long as they are some combination of carriage return and newline)
 
 By default, rows of variable length are silently ignored, although you may elect to keep them or throw an error.
 

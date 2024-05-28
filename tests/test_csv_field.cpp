@@ -2,7 +2,10 @@
 #include <catch2/catch_all.hpp>
 #include <cmath>
 #include <iostream>
+
 using namespace csv;
+
+#include "./shared/float_test_cases.hpp"
 
 TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]",
     signed char, short int, int, long long int, double, long double) {
@@ -80,12 +83,27 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Integral Value to Int", "[test_csv_field_
 }
 
 TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]") {
-    CSVField euler("2.718");
-    REQUIRE(euler.get<>() == "2.718");
-    REQUIRE(euler.get<csv::string_view>() == "2.718");
-    REQUIRE(euler.get<float>() == 2.718f);
-    REQUIRE(euler.get<double>() == 2.718);
-    REQUIRE(euler.get<long double>() == 2.718l);
+    SECTION("Test get() with various float types") {
+        CSVField euler("2.718");
+        REQUIRE(euler.get<>() == "2.718");
+        REQUIRE(euler.get<csv::string_view>() == "2.718");
+        REQUIRE(euler.get<float>() == 2.718f);
+        REQUIRE(euler.get<double>() == 2.718);
+        REQUIRE(euler.get<long double>() == 2.718l);
+    }
+
+    SECTION("Test get() with various values") {
+        std::string input;
+        long double expected = 0;
+
+        std::tie(input, expected) =
+            GENERATE(table<std::string, long double>(
+                csv_test::FLOAT_TEST_CASES));
+
+        CSVField testField(input);
+
+        REQUIRE(internals::is_equal(testField.get<long double>(), expected));
+    }
 }
 
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
