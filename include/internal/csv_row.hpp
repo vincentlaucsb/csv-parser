@@ -217,15 +217,11 @@ namespace csv {
         /** Parse a hexadecimal value, returning false if the value is not hex. */
         bool try_parse_hex(int& parsedValue);
 
-        // non-breaking change: 
-        // implementation is essentially a clone of data_type(csv::string_view in, long double* const out)
-        // but it looks for all specified decimal symbols.
-        // (decimalsymbols is call-by-reference to avoid unnecessary and time consuming string copy)
         /** Parse a value, returning false if the value is not decimal.
          *  If true it also sets the private members _type and value.
-         *  Accepts all specified characters as decimal symbol (and only those).
+         *  Decimal symbol may be given explicitly, default is '.'.
          */
-        bool try_parse_decimal(long double& dVal, const string& decimalsymbols);
+        bool try_parse_decimal(long double& dVal, const char decimalsymbol = '.');
 
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return

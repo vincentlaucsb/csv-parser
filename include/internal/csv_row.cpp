@@ -164,142 +164,26 @@ namespace csv {
         return true;
     }
 
-    // try_parse_decimal is essentially a clone of data_type(csv::string_view in, long double* const out)
-    // but it looks for all specified decimal symbols
+    // try_parse_decimal uses the specified decimal symbol and
     // also sets the private members _type and value
-    CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const string& decimalsymbols) {
-        // Empty string --> NULL
-        if (sv.size() == 0) {
-            _type = DataType::CSV_NULL;
-            return false;
-        }
-
-        bool ws_allowed = true,
-            dot_allowed = true,
-            digit_allowed = true,
-            is_negative = false,
-            has_digit = false,
-            prob_float = false;
-
-        unsigned places_after_decimal = 0;
-        long double integral_part = 0,
-            decimal_part = 0;
-        char csvdecimalsymbol = '\0';
-
-        for (size_t i = 0, ilen = sv.size(); i < ilen; i++) {
-            const char& current = sv[i];
-
-            if (dot_allowed) {
-            	// check for any of the specified decimal symbols
-                const char* p = decimalsymbols.c_str();
-                while (*p != '\0' && *p != current)
-                    p++;
-
-                csvdecimalsymbol = *p ? *p : '\0';
-
-                if (current == csvdecimalsymbol) {
-                    if (!dot_allowed) {
-                        _type = DataType::CSV_STRING;
-                        return false;
-                    }
-
-                    dot_allowed = false;
-                    prob_float = true;
-                    continue;
-                }
-            }
-
-            switch (current) {
-            case ' ':
-                if (!ws_allowed) {
-                    if (isdigit(sv[i - 1])) {
-                        digit_allowed = false;
-                        ws_allowed = true;
-                    }
-                    else {
-                        // Ex: '510 123 4567'
-                        _type = DataType::CSV_STRING;
-                        return false;
-                    }
-                }
-                break;
-            case '+':
-                if (!ws_allowed) {
-                    _type = DataType::CSV_STRING;
+    CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalsymbol) {
+        // If field has already been parsed to empty, no need to do it aagin:
+        if (this->_type == DataType::CSV_NULL)
                     return false;
-                }
 
-                break;
-            case '-':
-                if (!ws_allowed) {
-                    // Ex: '510-123-4567'
-                    _type = DataType::CSV_STRING;
-                    return false;
-                }
+        // Not yet parsed or possibly parsed with other decimalsymbol
+        if (this->_type == DataType::UNKNOWN || this->_type == DataType::CSV_STRING || this->_type == DataType::CSV_DOUBLE)
+            this->_type = internals::data_type(this->sv, &this->value, decimalsymbol); // parse again
 
-                is_negative = true;
-                break;
-            case 'e':
-            case 'E':
-                // Process scientific notation
-                if (prob_float || (i && i + 1 < ilen && isdigit(sv[i - 1]))) {
-                    size_t exponent_start_idx = i + 1;
-                    prob_float = true;
+        // Integral types are not affected by decimalsymbol and need not be parsed again
 
-                    // Strip out plus sign
-                    if (sv[i + 1] == '+') {
-                        exponent_start_idx++;
-                    }
-
-                    _type = internals::_process_potential_exponential(
-                        sv.substr(exponent_start_idx),
-                        is_negative ? -(integral_part + decimal_part) : integral_part + decimal_part,
-                        &dVal
-                    );
-                    this->value = dVal;
-                    return true;
-                }
-
-                _type = DataType::CSV_STRING;
-                return false;
-                break;
-            default:
-                short digit = static_cast<short>(current - '0');
-                if (digit >= 0 && digit <= 9) {
-                    // Process digit
-                    has_digit = true;
-
-                    if (!digit_allowed) {
-                        _type = DataType::CSV_STRING;
-                        return false;
-                    }
-                    else if (ws_allowed) // Ex: '510 456'
-                        ws_allowed = false;
-
-                    // Build current number
-                    if (prob_float)
-                        decimal_part += digit / internals::pow10(++places_after_decimal);
-                    else
-                        integral_part = (integral_part * 10) + digit;
-                }
-                else {
-                    _type = DataType::CSV_STRING;
-                    return false;
-                }
-            }
-        }
-
-        // No non-numeric/non-whitespace characters found
-        if (has_digit) {
-            long double number = integral_part + decimal_part;
-
-            this->value = dVal = is_negative ? -number : number;
-            _type = prob_float ? DataType::CSV_DOUBLE : internals::_determine_integral_type(number);
+        // Either we already had an integral type before, or we we just got any numeric type now.
+        if (this->_type >= DataType::CSV_INT8 && this->_type <= DataType::CSV_DOUBLE) {
+            dVal = this->value;
             return true;
         }
 
-        // Just whitespace
-        _type = DataType::CSV_NULL;
+        // CSV_NULL or CSV_STRING, not numeric
         return false;
     }
 
