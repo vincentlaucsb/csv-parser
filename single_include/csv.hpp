@@ -5151,7 +5151,8 @@ namespace csv {
         template<> inline DataType type_num<std::nullptr_t>() { return DataType::CSV_NULL; }
         template<> inline DataType type_num<std::string>() { return DataType::CSV_STRING; }
 
-        CONSTEXPR_14 DataType data_type(csv::string_view in, long double* const out = nullptr);
+        CONSTEXPR_14 DataType data_type(csv::string_view in, long double* const out = nullptr, 
+            const char decimalsymbol = '.');
 #endif
 
         /** Given a byte size, return the largest number than can be stored in
@@ -5294,9 +5295,11 @@ namespace csv {
          *  @param[in]  in  String value to be examined
          *  @param[out] out Pointer to long double where results of numeric parsing
          *                  get stored
+         *  @param[in]  decimalsymbol  the character separating integral and decimal part,
+         *                             defaults to '.' if omitted
          */
         CONSTEXPR_14
-        DataType data_type(csv::string_view in, long double* const out) {
+        DataType data_type(csv::string_view in, long double* const out, const char decimalsymbol) {
             // Empty string --> NULL
             if (in.size() == 0)
                 return DataType::CSV_NULL;
@@ -5342,14 +5345,8 @@ namespace csv {
 
                     is_negative = true;
                     break;
-                case '.':
-                    if (!dot_allowed) {
-                        return DataType::CSV_STRING;
-                    }
-
-                    dot_allowed = false;
-                    prob_float = true;
-                    break;
+                // case decimalsymbol: not allowed because decimalsymbol is not a literal,
+                // it is handled in the default block
                 case 'e':
                 case 'E':
                     // Process scientific notation
@@ -5387,6 +5384,11 @@ namespace csv {
                             decimal_part += digit / pow10(++places_after_decimal);
                         else
                             integral_part = (integral_part * 10) + digit;
+                    }
+                    // case decimalymbol: not allowed because decimalsymbol is not a literal. 
+                    else if (dot_allowed && current == decimalsymbol) {
+                            dot_allowed = false;
+                            prob_float = true;
                     }
                     else {
                         return DataType::CSV_STRING;
@@ -5609,6 +5611,12 @@ namespace csv {
 
         /** Parse a hexadecimal value, returning false if the value is not hex. */
         bool try_parse_hex(int& parsedValue);
+
+        /** Parse a value, returning false if the value is not decimal.
+         *  If true it also sets the private members _type and value.
+         *  Decimal symbol may be given explicitly, default is '.'.
+         */
+        bool try_parse_decimal(long double& dVal, const char decimalsymbol = '.');
 
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return
@@ -7845,6 +7853,29 @@ namespace csv {
 
         parsedValue = value_;
         return true;
+    }
+
+    // try_parse_decimal uses the specified decimal symbol and
+    // also sets the private members _type and value
+    CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalsymbol) {
+        // If field has already been parsed to empty, no need to do it aagin:
+        if (this->_type == DataType::CSV_NULL)
+            return false;
+
+        // Not yet parsed or possibly parsed with other decimalsymbol
+        if (this->_type == DataType::UNKNOWN || this->_type == DataType::CSV_STRING || this->_type == DataType::CSV_DOUBLE)
+            this->_type = internals::data_type(this->sv, &this->value, decimalsymbol); // parse again
+
+        // Integral types are not affected by decimalsymbol and need not be parsed again
+
+        // Either we already had an integral type before, or we we just got any numeric type now.
+        if (this->_type >= DataType::CSV_INT8 && this->_type <= DataType::CSV_DOUBLE) {
+            dVal = this->value;
+            return true;
+        }
+
+        // CSV_NULL or CSV_STRING, not numeric
+        return false;
     }
 
 #ifdef _MSC_VER

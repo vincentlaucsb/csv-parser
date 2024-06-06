@@ -217,6 +217,12 @@ namespace csv {
         /** Parse a hexadecimal value, returning false if the value is not hex. */
         bool try_parse_hex(int& parsedValue);
 
+        /** Parse a value, returning false if the value is not decimal.
+         *  If true it also sets the private members _type and value.
+         *  Decimal symbol may be given explicitly, default is '.'.
+         */
+        bool try_parse_decimal(long double& dVal, const char decimalsymbol = '.');
+
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return
          *  false.
