@@ -235,11 +235,11 @@ namespace csv {
          *  @param[in]  in  String value to be examined
          *  @param[out] out Pointer to long double where results of numeric parsing
          *                  get stored
-         *  @param[in]  decimalsymbol  the character separating integral and decimal part,
+         *  @param[in]  decimalSymbol  the character separating integral and decimal part,
          *                             defaults to '.' if omitted
          */
         CONSTEXPR_14
-        DataType data_type(csv::string_view in, long double* const out, const char decimalsymbol) {
+        DataType data_type(csv::string_view in, long double* const out, const char decimalSymbol) {
             // Empty string --> NULL
             if (in.size() == 0)
                 return DataType::CSV_NULL;
@@ -285,7 +285,7 @@ namespace csv {
 
                     is_negative = true;
                     break;
-                // case decimalsymbol: not allowed because decimalsymbol is not a literal,
+                // case decimalSymbol: not allowed because decimalSymbol is not a literal,
                 // it is handled in the default block
                 case 'e':
                 case 'E':
@@ -325,10 +325,10 @@ namespace csv {
                         else
                             integral_part = (integral_part * 10) + digit;
                     }
-                    // case decimalymbol: not allowed because decimalsymbol is not a literal. 
-                    else if (dot_allowed && current == decimalsymbol) {
-                            dot_allowed = false;
-                            prob_float = true;
+                    // case decimalSymbol: not allowed because decimalSymbol is not a literal. 
+                    else if (dot_allowed && current == decimalSymbol) {
+                        dot_allowed = false;
+                        prob_float = true;
                     }
                     else {
                         return DataType::CSV_STRING;

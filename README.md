@@ -205,6 +205,12 @@ for (auto& row: reader) {
             std::cout << "Hex value is " << value << std::endl;
         }
 
+        // Non-imperial decimal numbers can be handled this way
+        long double decimalValue;
+        if (row["decimalNumber"].try_parse_decimal(decimalValue, ',')) {
+            std::cout << "Decimal value is " << decimalValue << std::endl;
+        }
+
         // ..
     }
 }

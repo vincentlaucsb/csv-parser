@@ -164,18 +164,16 @@ namespace csv {
         return true;
     }
 
-    // try_parse_decimal uses the specified decimal symbol and
-    // also sets the private members _type and value
-    CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalsymbol) {
+    CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
         // If field has already been parsed to empty, no need to do it aagin:
         if (this->_type == DataType::CSV_NULL)
                     return false;
 
-        // Not yet parsed or possibly parsed with other decimalsymbol
+        // Not yet parsed or possibly parsed with other decimalSymbol
         if (this->_type == DataType::UNKNOWN || this->_type == DataType::CSV_STRING || this->_type == DataType::CSV_DOUBLE)
-            this->_type = internals::data_type(this->sv, &this->value, decimalsymbol); // parse again
+            this->_type = internals::data_type(this->sv, &this->value, decimalSymbol); // parse again
 
-        // Integral types are not affected by decimalsymbol and need not be parsed again
+        // Integral types are not affected by decimalSymbol and need not be parsed again
 
         // Either we already had an integral type before, or we we just got any numeric type now.
         if (this->_type >= DataType::CSV_INT8 && this->_type <= DataType::CSV_DOUBLE) {

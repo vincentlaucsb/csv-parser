@@ -141,6 +141,47 @@ TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
     }
 }
 
+
+TEST_CASE("CSVField try_parse_decimal()", "[test_csv_field_parse_hex]") {
+    SECTION("Test try_parse_decimal() with non-numeric value") {
+        long double output = 0;
+        std::string input = "stroustrup";
+        CSVField testField(input);
+
+        REQUIRE(testField.try_parse_decimal(output, ',') == false);
+        REQUIRE(testField.type() == DataType::CSV_STRING);
+    }
+
+    SECTION("Test try_parse_decimal() with integer value") {
+        long double output = 0;
+        std::string input = "2024";
+        CSVField testField(input);
+
+        REQUIRE(testField.try_parse_decimal(output, ',') == true);
+        REQUIRE(testField.type() == DataType::CSV_INT16);
+        REQUIRE(internals::is_equal(output, 2024.0l));
+    }
+
+    SECTION("Test try_parse_decimal() with various valid values") {
+        std::string input;
+        long double output = 0;
+        long double expected = 0;
+
+        std::tie(input, expected) =
+            GENERATE(table<std::string, long double>(
+                csv_test::FLOAT_TEST_CASES));
+
+        // Replace '.' with ','
+        std::replace(input.begin(), input.end(), '.', ',');
+
+        CSVField testField(input);
+
+        REQUIRE(testField.try_parse_decimal(output, ',') == true);
+        REQUIRE(testField.type() == DataType::CSV_DOUBLE);
+        REQUIRE(internals::is_equal(output, expected));
+    }
+}
+
 TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",
     unsigned char, unsigned short, unsigned int, unsigned long long int,
     signed char, short, int, long long int) {
