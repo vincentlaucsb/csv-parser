@@ -6238,7 +6238,7 @@ namespace csv {
             size_t header;
         };
 
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     }
@@ -7359,7 +7359,7 @@ namespace csv {
             return CSVRow(std::move(rows[format.get_header()]));
         }
 
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format) {
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format) {
             // Frequency counter of row length
             std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
 
