@@ -4,6 +4,7 @@
 
 #pragma once
 #include <cmath>
+#include <deque>
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
@@ -73,14 +74,13 @@ namespace csv {
             // CSVFieldArrays may be moved
             CSVFieldList(CSVFieldList&& other) :
                 _single_buffer_capacity(other._single_buffer_capacity) {
-                buffers = std::move(other.buffers);
+
+                for (auto&& buffer : other.buffers) {
+                    this->buffers.emplace_back(std::move(buffer));
+                }
+
                 _current_buffer_size = other._current_buffer_size;
                 _back = other._back;
-            }
-
-            ~CSVFieldList() {
-                for (auto& buffer : buffers)
-                    delete[] buffer;
             }
 
             template <class... Args>
@@ -102,7 +102,14 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            std::vector<RawCSVField*> buffers = {};
+            /**
+             * Prefer std::deque over std::vector because it does not
+             * reallocate upon expansion, allowing pointers to its members
+             * to remain valid & avoiding potential race conditions when 
+             * CSVFieldList is accesssed simulatenously by a reading thread and
+             * a writing thread
+             */
+            std::deque<std::unique_ptr<RawCSVField[]>> buffers = {};
 
             /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
@@ -113,7 +120,6 @@ namespace csv {
             /** Allocate a new page of memory */
             void allocate();
         };
-
 
         /** A class for storing raw CSV data and associated metadata */
         struct RawCSVData {

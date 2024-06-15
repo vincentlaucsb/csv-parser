@@ -15,10 +15,10 @@ namespace csv {
         }
 
         CSV_INLINE void CSVFieldList::allocate() {
-            RawCSVField * buffer = new RawCSVField[_single_buffer_capacity];
-            buffers.push_back(buffer);
+            buffers.push_back(std::unique_ptr<RawCSVField[]>(new RawCSVField[_single_buffer_capacity]));
+
             _current_buffer_size = 0;
-            _back = &(buffers.back()[0]);
+            _back = buffers.back().get();
         }
     }
 
