@@ -4,7 +4,7 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master", "remove-werror" ]
+    branches: [ "master", "memory-fix-csvfieldlist" ]
   pull_request:
     branches: [ "master" ]
 

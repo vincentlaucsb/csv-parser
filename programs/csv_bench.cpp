@@ -21,8 +21,15 @@ int main(int argc, char** argv) {
     std::chrono::duration<double> diff = end - start;
 
     std::cout << "Parsing took (including disk IO): " << diff.count() << std::endl;
+    std::cout << "Dimensions: " << info.n_rows << " rows x " << info.n_cols << " columns " << std::endl;
+    std::cout << "Columns: ";
+    for (auto& col : info.col_names) {
+        std::cout << " " << col;
+    }
+    std::cout << std::endl;
 
     // Benchmark 2: Parsing Only
+    /*
     std::ifstream csv(filename);
     std::stringstream buffer;
     buffer << csv.rdbuf();
@@ -35,6 +42,7 @@ int main(int argc, char** argv) {
     diff = end - start;
 
     std::cout << "Parsing took: " << diff.count() << std::endl;
+    */
 
     return 0;
 }
