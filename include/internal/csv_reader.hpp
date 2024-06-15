@@ -34,7 +34,7 @@ namespace csv {
             size_t header;
         };
 
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, CSVFormat format);
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
 
         CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     }
