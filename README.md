@@ -25,15 +25,17 @@
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
 
 ### Performance and Memory Requirements
-With the deluge of large datasets available, a performant CSV parser is a necessity. By using overlapped threads, memory mapped IO, and 
-efficient data structures, this parser can quickly tackle large CSV files. Furthermore, this parser has a minimal memory footprint and
-can handle larger-than-RAM files.
+A high performance CSV parser allows you to take advantage of the deluge of large datasets available. By using overlapped threads, memory mapped IO, and 
+minimal memory allocation, this parser can quickly tackle large CSV files--even if they are larger than RAM.
+
+In fact, [according to Visual Studio's profier](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
+CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
 
 #### Show me the numbers
-On my computer (Intel Core i7-8550U @ 1.80GHz/Toshiba XG5 SSD), this parser can read
- * the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.26 seconds (269 MBps)
- * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 2.1 seconds (667 MBps)
- * a [1.24GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 5 seconds (248 MBps)
+On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz/Western Digital Blue 5400RPM HDD), this parser can read
+ * the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.19 seconds (360 MBps)
+ * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 1.18 seconds (1.2 GBps)
+ * a [2.9GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 8.49 seconds (352 MBps)
 
 ### Robust Yet Flexible
 #### RFC 4180 and Beyond
