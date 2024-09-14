@@ -136,6 +136,9 @@ namespace csv {
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
             internals::WhitespaceMap ws_flags;
+
+            /** where in Stream we start */
+            uint64_t _stream_pos = {};
         };
 
         using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
@@ -323,6 +326,9 @@ namespace csv {
 
         /** Return the number of fields in this row */
         CONSTEXPR size_t size() const noexcept { return row_length; }
+
+        /** Where in the Stream we start */
+        size_t current_row_start() const { return data->_stream_pos + data_start; }
 
         /** @name Value Retrieval */
         ///@{

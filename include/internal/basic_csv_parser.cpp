@@ -235,6 +235,7 @@ namespace csv {
             this->field_start = UNINITIALIZED_FIELD;
             this->field_length = 0;
             this->reset_data_ptr();
+            this->data_ptr->_stream_pos = this->mmap_pos;
 
             // Create memory map
             size_t length = std::min(this->source_size - this->mmap_pos, bytes);

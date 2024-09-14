@@ -321,6 +321,7 @@ namespace csv {
                 if (this->eof()) return;
 
                 this->reset_data_ptr();
+                this->data_ptr->_stream_pos = this->stream_pos;
                 this->data_ptr->_data = std::make_shared<std::string>();
 
                 if (source_size == 0) {
