@@ -117,7 +117,7 @@ else()
     "AnyNewerVersion"
     DISABLE_VERSION_SUFFIX
     ON
-    # DEPENDENCIES ""
+    DEPENDENCIES "Threads;"
   )
 endif()
 
