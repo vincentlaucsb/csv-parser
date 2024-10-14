@@ -4838,10 +4838,10 @@ namespace csv {
         STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         /** An array which maps ASCII chars to a parsing flag */
-        using ParseFlagMap = std::array<ParseFlags, 256>;
+        using ParseFlagMap = std::array<ParseFlags, 384>;
 
         /** An array which maps ASCII chars to a flag indicating if it is whitespace */
-        using WhitespaceMap = std::array<bool, 256>;
+        using WhitespaceMap = std::array<bool, 384>;
     }
 
     /** Integer indicating a requested column wasn't found. */
@@ -5867,19 +5867,11 @@ namespace csv {
          *  the CSVReader::ParseFlags enum
          */
         HEDLEY_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter) {
-            std::array<ParseFlags, 256> ret = {};
-            for (int i = -128; i < 128; i++) {
-                const int arr_idx = i + 128;
-                char ch = char(i);
-
-                if (ch == delimiter)
-                    ret[arr_idx] = ParseFlags::DELIMITER;
-                else if (ch == '\r' || ch == '\n')
-                    ret[arr_idx] = ParseFlags::NEWLINE;
-                else
-                    ret[arr_idx] = ParseFlags::NOT_SPECIAL;
-            }
-
+            std::array<ParseFlags, 384> ret = {};
+            for (auto& e: ret) { e = ParseFlags::NOT_SPECIAL; }
+            ret[delimiter + 128] = ParseFlags::DELIMITER;
+            ret['\r' + 128] = ParseFlags::NEWLINE;
+            ret['\n' + 128] = ParseFlags::NEWLINE;
             return ret;
         }
 
@@ -5888,7 +5880,7 @@ namespace csv {
          *  the CSVReader::ParseFlags enum
          */
         HEDLEY_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
-            std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
+            std::array<ParseFlags, 384> ret = make_parse_flags(delimiter);
             ret[(size_t)quote_char + 128] = ParseFlags::QUOTE;
             return ret;
         }
@@ -5898,19 +5890,11 @@ namespace csv {
          *  c is a whitespace character
          */
         HEDLEY_CONST CONSTEXPR_17 WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
-            std::array<bool, 256> ret = {};
-            for (int i = -128; i < 128; i++) {
-                const int arr_idx = i + 128;
-                char ch = char(i);
-                ret[arr_idx] = false;
-
-                for (size_t j = 0; j < n_chars; j++) {
-                    if (ws_chars[j] == ch) {
-                        ret[arr_idx] = true;
-                    }
-                }
+            std::array<bool, 384> ret = {};
+            for (auto& e: ret) { e = false; }
+            for (int i = 0; i < n_chars; i++) {
+                ret[ws_chars[i] + 128] = true;
             }
-
             return ret;
         }
 

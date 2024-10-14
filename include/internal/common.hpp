@@ -197,10 +197,10 @@ namespace csv {
         STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         /** An array which maps ASCII chars to a parsing flag */
-        using ParseFlagMap = std::array<ParseFlags, 256>;
+        using ParseFlagMap = std::array<ParseFlags, 384>;
 
         /** An array which maps ASCII chars to a flag indicating if it is whitespace */
-        using WhitespaceMap = std::array<bool, 256>;
+        using WhitespaceMap = std::array<bool, 384>;
     }
 
     /** Integer indicating a requested column wasn't found. */
