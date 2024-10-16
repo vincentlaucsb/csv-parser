@@ -6494,6 +6494,7 @@ namespace csv {
         void calc_worker(const size_t&);
 
         CSVReader reader;
+        size_t n_cols;
         std::deque<CSVRow> records = {};
     };
 }
@@ -8261,7 +8262,7 @@ namespace csv {
     /** Return current means */
     CSV_INLINE std::vector<long double> CSVStat::get_mean() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+        for (size_t i = 0; i < this->n_cols; i++) {
             ret.push_back(this->rolling_means[i]);
         }
         return ret;
@@ -8270,7 +8271,7 @@ namespace csv {
     /** Return current variances */
     CSV_INLINE std::vector<long double> CSVStat::get_variance() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+        for (size_t i = 0; i < this->n_cols; i++) {
             ret.push_back(this->rolling_vars[i]/(this->n[i] - 1));
         }
         return ret;
@@ -8279,7 +8280,7 @@ namespace csv {
     /** Return current mins */
     CSV_INLINE std::vector<long double> CSVStat::get_mins() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+        for (size_t i = 0; i < this->n_cols; i++) {
             ret.push_back(this->mins[i]);
         }
         return ret;
@@ -8288,7 +8289,7 @@ namespace csv {
     /** Return current maxes */
     CSV_INLINE std::vector<long double> CSVStat::get_maxes() const {
         std::vector<long double> ret;        
-        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+        for (size_t i = 0; i < this->n_cols; i++) {
             ret.push_back(this->maxes[i]);
         }
         return ret;
@@ -8297,7 +8298,7 @@ namespace csv {
     /** Get counts for each column */
     CSV_INLINE std::vector<CSVStat::FreqCount> CSVStat::get_counts() const {
         std::vector<FreqCount> ret;
-        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+        for (size_t i = 0; i < this->n_cols; i++) {
             ret.push_back(this->counts[i]);
         }
         return ret;
@@ -8306,7 +8307,7 @@ namespace csv {
     /** Get data type counts for each column */
     CSV_INLINE std::vector<CSVStat::TypeCount> CSVStat::get_dtypes() const {
         std::vector<TypeCount> ret;        
-        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+        for (size_t i = 0; i < this->n_cols; i++) {
             ret.push_back(this->dtypes[i]);
         }
         return ret;
@@ -8316,7 +8317,7 @@ namespace csv {
         /** Only create stats counters the first time **/
         if (dtypes.empty()) {
             /** Go through all records and calculate specified statistics */
-            for (size_t i = 0; i < this->get_col_names().size(); i++) {
+            for (size_t i = 0; i < this->n_cols; i++) {
                 dtypes.push_back({});
                 counts.push_back({});
                 rolling_means.push_back(0);
@@ -8329,7 +8330,7 @@ namespace csv {
 
         // Start threads
         std::vector<std::thread> pool;
-        for (size_t i = 0; i < this->get_col_names().size(); i++)
+        for (size_t i = 0; i < this->n_cols; i++)
             pool.push_back(std::thread(&CSVStat::calc_worker, this, i));
 
         // Block until done
@@ -8341,6 +8342,8 @@ namespace csv {
 
     CSV_INLINE void CSVStat::calc() {
         constexpr size_t CALC_CHUNK_SIZE = 5000;
+
+        this->n_cols = reader.get_col_names().size();
 
         for (auto& row : reader) {
             this->records.push_back(std::move(row));
@@ -8365,7 +8368,7 @@ namespace csv {
         auto current_record = this->records.begin();
 
         for (size_t processed = 0; current_record != this->records.end(); processed++) {
-            if (current_record->size() == this->get_col_names().size()) {
+            if (current_record->size() == this->n_cols) {
                 auto current_field = (*current_record)[i];
 
                 // Optimization: Don't count() if there's too many distinct values in the first 1000 rows

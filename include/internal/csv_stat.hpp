@@ -55,6 +55,7 @@ namespace csv {
         void calc_worker(const size_t&);
 
         CSVReader reader;
+        size_t n_cols;
         std::deque<CSVRow> records = {};
     };
 }
