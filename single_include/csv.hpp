@@ -5369,6 +5369,24 @@ namespace csv {
 
                     return DataType::CSV_STRING;
                     break;
+                case 'i':
+                case 'I':
+                    if(i + 2 < ilen && in[i + 1] == 'n' && in[i+2] == 'f') {
+                        if (out) {
+                            *out = is_negative ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
+                        }
+                        return DataType::CSV_DOUBLE;
+                    }
+                    return DataType::CSV_STRING;
+                case 'n':
+                case 'N':
+                    if(i + 2 < ilen && in[i + 1] == 'a' && std::tolower(in[i + 2]) == 'n') {
+                        if (out) {
+                            *out = is_negative ? -std::numeric_limits<double>::quiet_NaN() : std::numeric_limits<double>::quiet_NaN();
+                        }
+                        return DataType::CSV_DOUBLE;
+                    }
+                    return DataType::CSV_STRING;
                 default:
                     short digit = static_cast<short>(current - '0');
                     if (digit >= 0 && digit <= 9) {
