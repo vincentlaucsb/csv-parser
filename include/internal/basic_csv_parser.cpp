@@ -139,8 +139,8 @@ namespace csv {
                 case ParseFlags::NEWLINE:
                     this->data_pos++;
 
-                    // Catches CRLF (or LFLF, CRCRLF, or any other non-sensical combination of newlines)
-                    while (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
+                    // Catches CRLF Only (not skip LFLF, CRCRLF, or any other non-sensical combination of newlines)
+                    if (this->data_pos < in.size() && in[this->data_pos-1] == '\r' and in[this->data_pos] == '\n')
                         this->data_pos++;
 
                     // End of record -> Write record

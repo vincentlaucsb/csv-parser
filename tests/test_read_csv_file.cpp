@@ -57,7 +57,8 @@ TEST_CASE("get_file_info() Test", "[test_file_info]") {
             "./tests/data/real_data/2009PowerStatus.txt");
 
         REQUIRE(info.delim == '|');
-        REQUIRE(info.n_rows == 37960); // Can confirm with Excel
+        // REQUIRE(info.n_rows == 37960); // Can confirm with Excel
+        REQUIRE(info.n_rows == 37961); // not skip CRCRLF
         REQUIRE(info.n_cols == 3);
         REQUIRE(info.col_names == vector<string>({ "ReportDt", "Unit", "Power" }));
     }
