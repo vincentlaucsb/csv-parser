@@ -134,9 +134,9 @@ namespace csv {
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
         CSVReader& operator=(CSVReader&& other) = default;
         ~CSVReader() {
-            if (this->read_csv_worker.joinable()) {
-                this->read_csv_worker.join();
-            }
+            // if (this->read_csv_worker.joinable()) {
+            //     this->read_csv_worker.join();
+            // }
         }
 
         /** @name Retrieving CSV Rows */
@@ -216,13 +216,14 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
-        std::thread read_csv_worker; /**< Worker thread for read_csv() */
+        // std::thread read_csv_worker; /**< Worker thread for read_csv() */
         ///@}
 
         /** Read initial chunk to get metadata */
         void initial_read() {
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-            this->read_csv_worker.join();
+            // this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+            // this->read_csv_worker.join();
+            this->read_csv(internals::ITERATION_CHUNK_SIZE);
         }
 
         void trim_header();

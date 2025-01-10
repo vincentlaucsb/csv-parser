@@ -280,10 +280,12 @@ namespace csv {
                     return false;
                 else {
                     // Reading thread is not active => start another one
-                    if (this->read_csv_worker.joinable())
-                        this->read_csv_worker.join();
+                    // if (this->read_csv_worker.joinable())
+                    //     this->read_csv_worker.join();
 
-                    this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                    // this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                    this->read_csv(internals::ITERATION_CHUNK_SIZE);
+
                 }
             }
             else if (this->records->front().size() != this->n_cols &&
