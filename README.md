@@ -374,6 +374,3 @@ writer << make_tuple(1, 2.0, "Three");
 
 You can pass in arbitrary types into `DelimWriter` by defining a conversion function
 for that type to `std::string`.
-
-## Contributing
-Bug reports, feature requests, and so on are always welcome. Feel free to leave a note in the Issues section.
