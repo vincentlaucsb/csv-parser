@@ -27,12 +27,26 @@ if(CSV_DEVELOPER)
 			return 0;
 		}
 	" haveCharconv)
+	
+	check_cxx_source_compiles("
+		#include <charconv>
+		
+		int main(int argc, char** argv) {
+			const char* str = \"123.456\";
+			long double d;
+			std::from_chars(str, str + 7, d);
+			return 0;
+		}
+	" FROM_CHARS_SUPPORT_DOUBLE)
 
 	if(haveCharconv)
 		add_executable(csv_generator ${CMAKE_CURRENT_LIST_DIR}/csv_generator.cpp)
 		target_link_libraries(csv_generator csv)
 
 		# Benchmarks for data_type() function
+		if(FROM_CHARS_SUPPORT_DOUBLE)
+			add_definitions(-DFROM_CHARS_SUPPORT_DOUBLE)
+		endif()
 		add_executable(data_type_bench ${CMAKE_CURRENT_LIST_DIR}/data_type_bench.cpp)
 		target_link_libraries(data_type_bench csv)
 
