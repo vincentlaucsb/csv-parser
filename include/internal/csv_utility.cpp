@@ -12,7 +12,7 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        std::stringstream stream(in.data());
+        std::stringstream stream(std::string(in.data(), in.length()));
         return CSVReader(stream, format);
     }
 
