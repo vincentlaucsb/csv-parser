@@ -139,8 +139,8 @@ namespace csv {
                 case ParseFlags::NEWLINE:
                     this->data_pos++;
 
-                    // Catches CRLF (or LFLF, CRCRLF, or any other non-sensical combination of newlines)
-                    while (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
+                    // Catches CRLF Only (not skip LFLF, CRCRLF, or any other non-sensical combination of newlines)
+                    if (this->data_pos < in.size() && in[this->data_pos-1] == '\r' and in[this->data_pos] == '\n')
                         this->data_pos++;
 
                     // End of record -> Write record
@@ -235,6 +235,7 @@ namespace csv {
             this->field_start = UNINITIALIZED_FIELD;
             this->field_length = 0;
             this->reset_data_ptr();
+            this->data_ptr->_stream_pos = this->mmap_pos;
 
             // Create memory map
             size_t length = std::min(this->source_size - this->mmap_pos, bytes);

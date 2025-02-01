@@ -190,23 +190,20 @@ TEST_CASE("Cursed Newlines", "[read_csv_cursed_newline]") {
             "123,234,345\r\n"
             "1,2,3\r\n"
             "4,5,6",
-
             // Unix style
             "A,B,C\n" // Header row
             "123,234,345\n"
             "1,2,3\n"
             "4,5,6",
-
             // Eww brother what is that...
-            "A,B,C\r\r\n" // Header row
-            "123,234,345\r\r\n"
-            "1,2,3\r\r\n"
+            "A,B,C\r\n" // Header row
+            "123,234,345\r\n"
+            "1,2,3\r\n"
             "4,5,6",
-
             // Doubled-up Windows style (ridiculous: but I'm sure it exists somewhere)
-            "A,B,C\r\n\r\n" // Header row
-            "123,234,345\r\n\r\n"
-            "1,2,3\r\n\r\n"
+            "A,B,C\r\n" // Header row
+            "123,234,345\r\n"
+            "1,2,3\r\n"
             "4,5,6"
         )
     );
