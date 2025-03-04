@@ -78,7 +78,7 @@ namespace csv {
             if (value.empty()) {
                 bool prev_ch_quote = false;
                 for (size_t i = 0; i < field.length; i++) {
-                    if (this->data->parse_flags[field_str[i] + 128] == ParseFlags::QUOTE) {
+                    if (this->data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
                         if (prev_ch_quote) {
                             prev_ch_quote = false;
                             continue;
