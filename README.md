@@ -7,6 +7,7 @@
    * [C++ Version](#c-version)
    * [Single Header](#single-header)
    * [CMake Instructions](#cmake-instructions)
+   * [Bazel Instructions](#bazel-instructions)
  * [Features & Examples](#features--examples)
    * [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
       * [Memory Mapped Files vs. Streams](#memory-mapped-files-vs-streams)
@@ -92,6 +93,16 @@ target_link_libraries(<your program> csv)
 #### Avoid cloning with FetchContent
 Don't want to clone? No problem. There's also [a simple example documenting how to use CMake's FetchContent module to integrate this library](https://github.com/vincentlaucsb/csv-parser/wiki/Example:-Using-csv%E2%80%90parser-with-CMake-and-FetchContent).
 
+### Bazel Instructions
+
+This library is now available on the Bazel Central Registry. To use it:
+
+-   Add the desired version (check the [Bazel Central Registry](https://registry.bazel.build/modules/csv-parser) for the latest) to your project's `MODULE.bazel`. For example:
+    ```bazel
+    bazel_dep(name = "csv-parser", version = "1.2.3") # Replace 1.2.3 with the actual latest version
+    ```
+-   Add `"@csv-parser"` to the `deps = []` section of your `cc_library` or `cc_binary` build rule.
+-   And that's it! You can include the "csv.hpp" header in your project and it's ready to go.
 
 ## Features & Examples
 ### Reading an Arbitrarily Large File (with Iterators)
