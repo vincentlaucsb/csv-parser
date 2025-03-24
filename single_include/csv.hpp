@@ -8321,8 +8321,8 @@ namespace csv {
                 counts.push_back({});
                 rolling_means.push_back(0);
                 rolling_vars.push_back(0);
-                mins.push_back(NAN);
-                maxes.push_back(NAN);
+                mins.push_back(std::numeric_limits<long double>::quiet_NaN());
+                maxes.push_back(std::numeric_limits<long double>::quiet_NaN());
                 n.push_back(0);
             }
         }
