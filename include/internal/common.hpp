@@ -54,11 +54,11 @@ namespace csv {
 
 #define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
 
-#if CMAKE_CXX_STANDARD == 17 || __cplusplus >= 201703L
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || __cplusplus >= 201703L
 #define CSV_HAS_CXX17
 #endif
 
-#if CMAKE_CXX_STANDARD >= 14 || __cplusplus >= 	201402L
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || __cplusplus >= 201402L
 #define CSV_HAS_CXX14
 #endif
 
