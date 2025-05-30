@@ -205,4 +205,7 @@ namespace csv {
 
     /** Integer indicating a requested column wasn't found. */
     constexpr int CSV_NOT_FOUND = -1;
+
+    /** Offset to convert char into array index. */
+    constexpr unsigned CHAR_OFFSET = std::is_same<char, unsigned char>::value ? 0 : 128;
 }
