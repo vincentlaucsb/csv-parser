@@ -1,4 +1,5 @@
 #include <charconv>
+#include <chrono>
 #include <algorithm>
 #include "csv.hpp"
 #ifndef NDEBUG
