@@ -19,11 +19,17 @@ long double get_max(std::string file, std::string column, bool use_std) {
 
         if (use_std) {
             auto _field = field.get<std::string_view>();
+#ifdef FROM_CHARS_SUPPORT_DOUBLE
             auto data = _field.data();
             std::from_chars(
                 data, data + _field.size(),
                 out
             );
+#else
+            std::string str(_field);
+            std::stringstream ss(str);
+            ss >> out;
+#endif
         }
         else {
             out = field.get<long double>();
