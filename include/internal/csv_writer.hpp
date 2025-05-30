@@ -205,7 +205,9 @@ namespace csv {
          *
          *  @param[out] filename  File to write to
          */
-        DelimWriter(const std::string& filename) : DelimWriter(std::ifstream(filename)) {};
+        DelimWriter(const std::string& filename) : out(inner_os) {
+            inner_os.open(filename, std::ios::out);
+        };
 
         /** Destructor will flush remaining data
          *
@@ -361,6 +363,7 @@ namespace csv {
         }
 
         OutputStream & out;
+        std::ofstream inner_os;
         bool quote_minimal;
     };
 
