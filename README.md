@@ -1,6 +1,5 @@
 # Vince's CSV Parser
 [![CMake on Windows](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml)
-<iframe src="https://github.com/sponsors/vincentlaucsb/button" title="Sponsor vincentlaucsb" height="32" width="114" style="border: 0; border-radius: 6px;"></iframe>
 
  * [Motivation](#motivation)
  * [Documentation](#documentation)
