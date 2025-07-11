@@ -1,5 +1,6 @@
 # Vince's CSV Parser
 [![CMake on Windows](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml)
+<iframe src="https://github.com/sponsors/vincentlaucsb/button" title="Sponsor vincentlaucsb" height="32" width="114" style="border: 0; border-radius: 6px;"></iframe>
 
  * [Motivation](#motivation)
  * [Documentation](#documentation)
@@ -60,6 +61,10 @@ do not hesitate to report it.
 ## Documentation
 
 In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](https://vincela.com/csv/) contains more examples, details, interesting features, and instructions for less common use cases.
+
+## Sponsors
+If you use this library for work, please [become a sponsor](https://github.com/sponsors/vincentlaucsb). Your donation
+will fund continued maintenance and development of the project.
 
 ## Integration
 
