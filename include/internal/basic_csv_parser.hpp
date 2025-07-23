@@ -83,6 +83,16 @@ namespace csv {
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
 
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int>  = 0>
+        std::string get_csv_head(TStream &source) {
+            auto tellg = source.tellg();
+            std::string head;
+            std::getline(source, head);
+            source.seekg(tellg);
+            return head;
+        }
+
         /** Read the first 500KB of a CSV file */
         CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
 
