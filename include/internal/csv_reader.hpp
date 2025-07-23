@@ -82,9 +82,11 @@ namespace csv {
 
             /** Access the CSVRow held by the iterator */
             CONSTEXPR_14 reference operator*() { return this->row; }
+            CONSTEXPR_14 reference operator*() const { return const_cast<reference>(this->row); }
 
             /** Return a pointer to the CSVRow the iterator has stopped at */
             CONSTEXPR_14 pointer operator->() { return &(this->row); }
+            CONSTEXPR_14 pointer operator->() const { return const_cast<pointer>(&(this->row)); }
 
             iterator& operator++();   /**< Pre-increment iterator */
             iterator operator++(int); /**< Post-increment iterator */
