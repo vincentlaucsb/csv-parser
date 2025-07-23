@@ -119,8 +119,16 @@ namespace csv {
          */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
-        CSVReader(TStream& source, CSVFormat format = CSVFormat()) : _format(format) {
+        CSVReader(TStream &source, CSVFormat format = CSVFormat::guess_csv()) : _format(format) {
+            auto head = internals::get_csv_head(source);
             using Parser = internals::StreamParser<TStream>;
+
+            if (format.guess_delim()) {
+                auto guess_result = internals::_guess_format(head, format.possible_delimiters);
+                format.delimiter(guess_result.delim);
+                format.header = guess_result.header_row;
+                this->_format = format;
+            }
 
             if (!format.col_names.empty())
                 this->set_col_names(format.col_names);
