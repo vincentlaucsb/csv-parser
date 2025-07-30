@@ -28,6 +28,7 @@ target_sources(csv_test
         test_raw_csv_data.cpp
         test_round_trip.cpp
         test_csv_delimeter.cpp
+        test_csv_ranges.cpp
     )
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)
