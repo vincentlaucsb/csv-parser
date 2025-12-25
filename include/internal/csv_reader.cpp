@@ -242,11 +242,18 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records->notify_all();
 
-        this->parser->set_output(*this->records);
-        this->parser->next(bytes);
+        try {
+            this->parser->set_output(*this->records);
+            this->parser->next(bytes);
 
-        if (!this->header_trimmed) {
-            this->trim_header();
+            if (!this->header_trimmed) {
+                this->trim_header();
+            }
+        }
+        catch (...) {
+            // Never allow exceptions to escape the worker thread, or std::terminate will be invoked.
+            // Store the exception and rethrow from the consumer thread (read_row / iterator).
+            this->set_read_csv_exception(std::current_exception());
         }
 
         // Tell read_row() to stop waiting
@@ -272,19 +279,29 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         while (true) {
             if (this->records->empty()) {
-                if (this->records->is_waitable())
+                if (this->records->is_waitable()) {
                     // Reading thread is currently active => wait for it to populate records
                     this->records->wait();
-                else if (this->parser->eof())
+                    continue;
+                }
+
+                // Reading thread is not active
+                if (this->read_csv_worker.joinable())
+                    this->read_csv_worker.join();
+
+                // If the worker thread failed, rethrow the error here
+                this->rethrow_read_csv_exception_if_any();
+
+                if (this->parser->eof())
                     // End of file and no more records
                     return false;
-                else {
-                    // Reading thread is not active => start another one
-                    if (this->read_csv_worker.joinable())
-                        this->read_csv_worker.join();
 
-                    this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-                }
+                // Start another reading thread
+                // Mark as waitable before starting the thread to avoid a race where
+                // read_row() observes is_waitable()==false immediately after thread creation.
+                this->records->notify_all();
+                this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                continue;
             }
             else if (this->records->front().size() != this->n_cols &&
                 this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {

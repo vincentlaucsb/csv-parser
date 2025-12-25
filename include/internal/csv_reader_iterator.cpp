@@ -10,6 +10,7 @@ namespace csv {
         if (this->records->empty()) {
             this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
             this->read_csv_worker.join();
+            this->rethrow_read_csv_exception_if_any();
 
             // Still empty => return end iterator
             if (this->records->empty()) return this->end();
