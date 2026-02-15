@@ -70,6 +70,7 @@ namespace csv {
 
             double final_score = 0;
             size_t header_row = 0;
+            size_t mode_row_length = 0;
 
             // Final score is equal to the largest
             // row size times rows of that size
@@ -79,8 +80,17 @@ namespace csv {
                 double score = (double)(row_size * row_count);
                 if (score > final_score) {
                     final_score = score;
+                    mode_row_length = row_size;
                     header_row = row_when[row_size];
                 }
+            }
+
+            // Heuristic: If first row has >= columns than mode, use it as header
+            // This handles headers with optional columns, trailing delimiters, etc.
+            // while still supporting CSVs with comment lines before the header
+            size_t first_row_length = rows.size() > 0 ? rows[0].size() : 0;
+            if (first_row_length >= mode_row_length && first_row_length > 0) {
+                header_row = 0;
             }
 
             return {
@@ -91,10 +101,13 @@ namespace csv {
 
         /** Guess the delimiter used by a delimiter-separated values file */
         CSV_INLINE CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims) {
-            /** For each delimiter, find out which row length was most common.
-             *  The delimiter with the longest mode row length wins.
-             *  Then, the line number of the header row is the first row with
-             *  the mode row length.
+            /** For each delimiter, find out which row length was most common (mode).
+             *  The delimiter with the highest score (row_length × count) wins.
+             *  
+             *  Header detection: If first row has >= columns than mode, use row 0.
+             *  Otherwise use the first row with the mode length.
+             *  
+             *  See csv::guess_format() public API documentation for detailed heuristic explanation.
              */
 
             CSVFormat format;
@@ -159,7 +172,13 @@ namespace csv {
         if (format.guess_delim()) {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
             format.delimiter(guess_result.delim);
-            format.header = guess_result.header_row;
+            // Only override header if user hasn't explicitly called no_header()
+            // Note: column_names() also sets header=-1, but it populates col_names,
+            // so we can distinguish: no_header() means header=-1 && col_names.empty()
+            if (format.header != -1 || !format.col_names.empty()) {
+                format.header = guess_result.header_row;
+            }
+            
             this->_format = format;
         }
 
@@ -239,6 +258,17 @@ namespace csv {
      * @see CSVReader::read_row()
      */
     CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
+        // WORKER THREAD FUNCTION: Runs asynchronously to read CSV chunks
+        //
+        // Threading model:
+        // 1. notify_all() - signals read_row() that worker is active
+        // 2. parser->next() - reads and parses bytes (10MB chunks)
+        // 3. kill_all() - signals read_row() that worker is done
+        //
+        // Exception handling: Exceptions thrown here MUST propagate to the calling
+        // thread via std::exception_ptr. Bug #282 fixed cases where exceptions were
+        // swallowed, causing std::terminate() instead of proper error handling.
+        
         // Tell read_row() to listen for CSV rows
         this->records->notify_all();
 

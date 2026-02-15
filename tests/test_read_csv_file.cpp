@@ -1,5 +1,12 @@
 /** @file
- *  Tests for CSV parsing
+ *  Tests for CSV parsing from files
+ * 
+ *  These tests validate basic CSV reading functionality. When testing I/O behavior,
+ *  both code paths should be validated:
+ *  - CSVReader(filename) → memory-mapped I/O
+ *  - CSVReader(std::istream&) → stream-based reading
+ * 
+ *  See test_round_trip.cpp and test_error_handling.cpp for examples of dual-path testing.
  */
 
 #include <stdio.h> // remove()
