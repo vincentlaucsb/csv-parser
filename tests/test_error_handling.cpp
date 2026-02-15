@@ -7,24 +7,6 @@
  *  - No field corruption at chunk boundaries
  */
 
-/**
- * Error Handling Tests - Exception Propagation & Threading
- * 
- * These tests validate fixes from PR #282 which addressed critical exception handling bugs:
- * 
- * 1. Worker thread throwing std::error_code instead of std::system_error
- *    - Caused std::terminate() because exceptions weren't properly caught
- * 
- * 2. Exception propagation missing from worker thread
- *    - Worker thread exceptions were swallowed, causing silent failures
- * 
- * 3. Chunk boundary race condition
- *    - Field boundaries at 10MB transitions could corrupt data
- * 
- * All tests verify that exceptions properly propagate from worker threads to calling code
- * and that both mmap and stream code paths handle errors correctly.
- */
-
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
 #include <fstream>
@@ -32,15 +14,6 @@
 #include <cstdio> // For std::remove
 
 using namespace csv;
-
-// RAII helper to ensure test files are always cleaned up, even if REQUIRE fails
-struct FileGuard {
-    std::string filename;
-    explicit FileGuard(std::string fname) : filename(std::move(fname)) {}
-    ~FileGuard() { std::remove(filename.c_str()); }
-    FileGuard(const FileGuard&) = delete;
-    FileGuard& operator=(const FileGuard&) = delete;
-};
 
 TEST_CASE("Mmap errors throw catchable std::system_error", "[error_handling][mmap]") {
     SECTION("Non-existent file throws catchable exception") {
@@ -141,7 +114,6 @@ TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling]
 TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integrity]") {
     SECTION("Large file with known values around chunk boundary") {
         std::string test_file = "./tests/data/temp_chunk_boundary_test.csv";
-        FileGuard cleanup(test_file);  // Ensures file is deleted even if test fails
         
         // Create CSV larger than chunk size to test boundary handling
         // internals::ITERATION_CHUNK_SIZE is typically 10MB
@@ -219,6 +191,9 @@ TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integ
         
         // Verify we found critical rows (they weren't lost due to corruption)
         REQUIRE(found_critical_200k);
+        
+        // Clean up
+        std::remove(test_file.c_str());
         
         // Verify we read all rows
         REQUIRE(row_count >= 200000);

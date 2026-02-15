@@ -1,12 +1,5 @@
 /** @file
- *  Tests for CSV parsing from files
- * 
- *  These tests validate basic CSV reading functionality. When testing I/O behavior,
- *  both code paths should be validated:
- *  - CSVReader(filename) → memory-mapped I/O
- *  - CSVReader(std::istream&) → stream-based reading
- * 
- *  See test_round_trip.cpp and test_error_handling.cpp for examples of dual-path testing.
+ *  Tests for CSV parsing
  */
 
 #include <stdio.h> // remove()
@@ -99,38 +92,32 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
     constexpr auto path = "./tests/data/real_data/2015_StateDepartment.csv";
 
-    // Test using memory mapped IO and std::ifstream
-    std::vector<CSVReader> readers = {};
-    std::ifstream infile(path, std::ios::binary);
+    // Expected Results
+    vector<string> col_names = {
+        "Year", "Entity Type", "Entity Group", "Entity Name",
+        "Department / Subdivision", "Position", "Elected Official",
+        "Judicial", "Other Positions", "Min Classification Salary",
+        "Max Classification Salary", "Reported Base Wage", "Regular Pay",
+        "Overtime Pay", "Lump-Sum Pay", "Other Pay", "Total Wages",
+        "Defined Benefit Plan Contribution", "Employees Retirement Cost Covered",
+        "Deferred Compensation Plan", "Health Dental Vision",
+        "Total Retirement and Health Cost", "Pension Formula",
+        "Entity URL", "Entity Population", "Last Updated",
+        "Entity County", "Special District Activities"
+    };
 
-    readers.emplace_back(path, CSVFormat()); // Memory mapped
-    readers.emplace_back(infile, CSVFormat());
+    vector<string> first_row = {
+        "2015","State Department","","Administrative Law, Office of","",
+        "Assistant Chief Counsel","False","False","","112044","129780",""
+        ,"133020.06","0","2551.59","2434.8","138006.45","34128.65","0","0"
+        ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
+        "08/02/2016","",""
+    };
 
-    for (auto& reader : readers) {
+    // Test logic extracted to lambda to avoid CSVReader copy constructor issue
+    auto test_reader = [&](CSVReader& reader) {
         CSVRow row;
         reader.read_row(row); // Populate row with first line
-
-        // Expected Results
-        vector<string> col_names = {
-            "Year", "Entity Type", "Entity Group", "Entity Name",
-            "Department / Subdivision", "Position", "Elected Official",
-            "Judicial", "Other Positions", "Min Classification Salary",
-            "Max Classification Salary", "Reported Base Wage", "Regular Pay",
-            "Overtime Pay", "Lump-Sum Pay", "Other Pay", "Total Wages",
-            "Defined Benefit Plan Contribution", "Employees Retirement Cost Covered",
-            "Deferred Compensation Plan", "Health Dental Vision",
-            "Total Retirement and Health Cost", "Pension Formula",
-            "Entity URL", "Entity Population", "Last Updated",
-            "Entity County", "Special District Activities"
-        };
-
-        vector<string> first_row = {
-            "2015","State Department","","Administrative Law, Office of","",
-            "Assistant Chief Counsel","False","False","","112044","129780",""
-            ,"133020.06","0","2551.59","2434.8","138006.45","34128.65","0","0"
-            ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
-            "08/02/2016","",""
-        };
 
         REQUIRE(vector<string>(row) == first_row);
         REQUIRE(reader.get_col_names() == col_names);
@@ -138,6 +125,17 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
         // Skip to end
         while (reader.read_row(row));
         REQUIRE(reader.n_rows() == 246497);
+    };
+
+    SECTION("Memory mapped file") {
+        CSVReader reader(path, CSVFormat());
+        test_reader(reader);
+    }
+
+    SECTION("std::ifstream") {
+        std::ifstream infile(path, std::ios::binary);
+        CSVReader reader(infile, CSVFormat());
+        test_reader(reader);
     }
 }
 
