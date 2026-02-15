@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -266,10 +267,33 @@ namespace csv {
         std::thread read_csv_worker; /**< Worker thread for read_csv() */
         ///@}
 
+        /** If the worker thread throws, store it here and rethrow on the consumer thread. */
+        std::exception_ptr read_csv_exception = nullptr;
+        std::mutex read_csv_exception_lock;
+
+        void set_read_csv_exception(std::exception_ptr eptr) {
+            std::lock_guard<std::mutex> lock(this->read_csv_exception_lock);
+            this->read_csv_exception = std::move(eptr);
+        }
+
+        std::exception_ptr take_read_csv_exception() {
+            std::lock_guard<std::mutex> lock(this->read_csv_exception_lock);
+            auto eptr = this->read_csv_exception;
+            this->read_csv_exception = nullptr;
+            return eptr;
+        }
+
+        void rethrow_read_csv_exception_if_any() {
+            if (auto eptr = this->take_read_csv_exception()) {
+                std::rethrow_exception(eptr);
+            }
+        }
+
         /** Read initial chunk to get metadata */
         void initial_read() {
             this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
             this->read_csv_worker.join();
+            this->rethrow_read_csv_exception_if_any();
         }
 
         void trim_header();

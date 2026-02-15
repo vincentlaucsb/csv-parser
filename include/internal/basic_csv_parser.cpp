@@ -1,5 +1,7 @@
 #include "basic_csv_parser.hpp"
 
+#include <system_error>
+
 namespace csv {
     namespace internals {
         CSV_INLINE size_t get_file_size(csv::string_view filename) {
@@ -245,11 +247,18 @@ namespace csv {
             this->reset_data_ptr();
 
             // Create memory map
-            size_t length = std::min(this->source_size - this->mmap_pos, bytes);
+            const size_t offset = this->mmap_pos;
+            const size_t length = std::min(this->source_size - offset, bytes);
             std::error_code error;
-            this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(mio::make_mmap_source(this->_filename, this->mmap_pos, length, error));
+            auto mmap = mio::make_mmap_source(this->_filename, offset, length, error);
+            if (error) {
+                std::string msg = "Memory mapping failed during CSV parsing: file='" + this->_filename
+                    + "' offset=" + std::to_string(offset)
+                    + " length=" + std::to_string(length);
+                throw std::system_error(error, msg);
+            }
+            this->data_ptr->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(mmap));
             this->mmap_pos += length;
-            if (error) throw error;
 
             auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr->_data.get());
 
