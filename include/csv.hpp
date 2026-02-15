@@ -1,10 +1,10 @@
 /*
-CSV for C++, version 2.3.0
+CSV for C++, version 2.4.0
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
 
-Copyright (c) 2017-2024 Vincent La
+Copyright (c) 2017-2026 Vincent La
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

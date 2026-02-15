@@ -20,6 +20,7 @@
 #include <iostream>
 
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
 
 using namespace csv;
 
@@ -29,6 +30,8 @@ using namespace csv;
 
 TEST_CASE("Simple Buffered Integer Round Trip Test", "[test_roundtrip_int]") {
     auto filename = "round_trip.csv";
+    FileGuard cleanup(filename);
+    
     std::ofstream outfile(filename, std::ios::binary);
     auto writer = make_csv_writer_buffered(outfile);
 
@@ -62,12 +65,12 @@ TEST_CASE("Simple Buffered Integer Round Trip Test", "[test_roundtrip_int]") {
     }
 
     REQUIRE(reader.n_rows() == n_rows);
-
-    remove(filename);
 }
 
 TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
     auto filename = "round_trip.csv";
+    FileGuard cleanup(filename);
+    
     std::ofstream outfile(filename, std::ios::binary);
     auto writer = make_csv_writer(outfile);
 
@@ -100,8 +103,6 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
     }
 
     REQUIRE(reader.n_rows() == n_rows);
-
-    remove(filename);
 }
 
 // ==============================================================================
@@ -111,6 +112,7 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
 TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") {
     // This test uses DIFFERENT values in each column to detect cross-field corruption
     auto filename = "round_trip_distinct.csv";
+    FileGuard cleanup(filename);
     
     // Write the CSV file
     {
@@ -171,8 +173,6 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
         CSVReader reader(infile, CSVFormat());
         validate_reader(reader);
     }
-
-    remove(filename);
 }
 
 // ==============================================================================
@@ -183,7 +183,8 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
     // Stress test: quoted fields with embedded delimiters, newlines, and escaped quotes
     // This tests the parser's ability to handle complex quoting scenarios across chunk boundaries
     auto filename = "round_trip_quoted.csv";
-    
+
+    FileGuard cleanup(filename);
     // Write the CSV file with challenging content
     {
         std::ofstream outfile(filename, std::ios::binary);
@@ -196,19 +197,19 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
         for (size_t i = 0; i < n_rows; i++) {
             // Create progressively challenging fields
             auto id = internals::to_string(i);
-            
+
             // Field with embedded comma (requires quoting)
             auto with_comma = "value," + internals::to_string(i) + ",data";
-            
+
             // Field with embedded newline (requires quoting)
             auto with_newline = "line1\nline2_" + internals::to_string(i);
-            
+
             // Field with embedded quote (requires quoting and escaping)
             auto with_quote = "quoted\"value\"" + internals::to_string(i);
-            
+
             // Empty field
             auto empty = std::string("");
-            
+
             writer << std::array<std::string, 5>({ id, with_comma, with_newline, with_quote, empty });
         }
     }
@@ -221,29 +222,29 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
         for (auto& row : reader) {
             // Verify field count
             REQUIRE(row.size() == 5);
-            
+
             // Verify id field
             REQUIRE(row["id"].get<size_t>() == i);
-            
+
             // Verify field with embedded comma (should NOT be split!)
             auto expected_comma = "value," + internals::to_string(i) + ",data";
             REQUIRE(row["with_comma"].get<std::string>() == expected_comma);
-            
+
             // Verify field with embedded newline (should be preserved!)
             auto expected_newline = "line1\nline2_" + internals::to_string(i);
             REQUIRE(row["with_newline"].get<std::string>() == expected_newline);
-            
+
             // Verify field with escaped quotes (should be unescaped to single quotes)
             auto expected_quote = "quoted\"value\"" + internals::to_string(i);
             REQUIRE(row["with_quote"].get<std::string>() == expected_quote);
-            
+
             // Verify empty field
             REQUIRE(row["empty"].get<std::string>() == "");
-            
+
             i++;
         }
         REQUIRE(reader.n_rows() == expected_rows);
-    };
+        };
 
     SECTION("Memory-mapped file path") {
         CSVReader reader(filename);
@@ -255,6 +256,4 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
         CSVReader reader(infile, CSVFormat());
         validate_reader(reader);
     }
-
-    remove(filename);
 }

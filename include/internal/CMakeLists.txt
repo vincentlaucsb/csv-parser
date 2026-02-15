@@ -20,7 +20,10 @@ target_sources(csv
 		csv_utility.cpp
 		csv_utility.hpp
 		csv_writer.hpp
-		"data_type.hpp"
+		data_type.hpp
+		raw_csv_data.hpp
+		raw_csv_data.cpp
+		thread_safe_deque.hpp
 		)
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)

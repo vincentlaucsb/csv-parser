@@ -4,11 +4,9 @@
 
 #pragma once
 #include <cmath>
-#include <deque>
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
-#include <unordered_map>
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -16,7 +14,7 @@
 
 #include "common.hpp"
 #include "data_type.hpp"
-#include "col_names.hpp"
+#include "raw_csv_data.hpp"
 
 namespace csv {
     namespace internals {
@@ -29,130 +27,6 @@ namespace csv {
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
         std::string json_escape_string(csv::string_view s) noexcept;
-
-        /** A barebones class used for describing CSV fields */
-        struct RawCSVField {
-            RawCSVField() = default;
-            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) {
-                start = _start;
-                length = _length;
-                has_double_quote = _double_quote;
-            }
-
-            /** The start of the field, relative to the beginning of the row */
-            size_t start;
-
-            /** The length of the row, ignoring quote escape characters */
-            size_t length; 
-
-            /** Whether or not the field contains an escaped quote */
-            bool has_double_quote;
-        };
-
-        /** A class used for efficiently storing RawCSVField objects and expanding as necessary
-         *
-         *  @par Implementation
-         *  Uses std::deque<unique_ptr<RawCSVField[]>> instead of std::deque<RawCSVField> for
-         *  performance. This design keeps adjacent fields in page-aligned chunks (~170 fields/chunk),
-         *  providing better cache locality when accessing sequential fields in a row.
-         *  
-         *  Standard std::deque uses smaller, implementation-defined chunks which increases pointer
-         *  indirection and reduces cache efficiency for CSV parsing workloads.
-         *
-         *  @par Thread Safety
-         *  This class may be safely read from multiple threads and written to from one,
-         *  as long as the writing thread does not actively touch fields which are being
-         *  read.
-         *
-         *  @par Historical Bug (Issue #278, fixed Feb 2026)
-         *  Move constructor previously left _back pointing to moved-from buffer memory, causing
-         *  memory corruption on next emplace_back(). Now properly recalculates _back pointer
-         *  to point into the new buffers after move.
-         */
-        class CSVFieldList {
-        public:
-            /** Construct a CSVFieldList which allocates blocks of a certain size */
-            CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
-                _single_buffer_capacity(single_buffer_capacity) {
-                this->allocate();
-            }
-
-            // No copy constructor
-            CSVFieldList(const CSVFieldList& other) = delete;
-
-            // CSVFieldArrays may be moved
-            CSVFieldList(CSVFieldList&& other) :
-                _single_buffer_capacity(other._single_buffer_capacity) {
-
-                this->buffers = std::move(other.buffers);
-                _current_buffer_size = other._current_buffer_size;
-                
-                // Recalculate _back pointer to point into OUR buffers, not the moved-from ones
-                if (!this->buffers.empty()) {
-                    _back = this->buffers.back().get() + _current_buffer_size;
-                } else {
-                    _back = nullptr;
-                }
-                
-                // Invalidate moved-from state to prevent use-after-move bugs
-                other._back = nullptr;
-                other._current_buffer_size = 0;
-            }
-
-            template <class... Args>
-            void emplace_back(Args&&... args) {
-                if (this->_current_buffer_size == this->_single_buffer_capacity) {
-                    this->allocate();
-                }
-
-                *(_back++) = RawCSVField(std::forward<Args>(args)...);
-                _current_buffer_size++;
-            }
-
-            size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
-            }
-
-            RawCSVField& operator[](size_t n) const;
-
-        private:
-            const size_t _single_buffer_capacity;
-
-            /**
-             * Prefer std::deque over std::vector because it does not
-             * reallocate upon expansion, allowing pointers to its members
-             * to remain valid & avoiding potential race conditions when 
-             * CSVFieldList is accesssed simulatenously by a reading thread and
-             * a writing thread
-             */
-            std::deque<std::unique_ptr<RawCSVField[]>> buffers = {};
-
-            /** Number of items in the current buffer */
-            size_t _current_buffer_size = 0;
-
-            /** Pointer to the current empty field */
-            RawCSVField* _back = nullptr;
-
-            /** Allocate a new page of memory */
-            void allocate();
-        };
-
-        /** A class for storing raw CSV data and associated metadata */
-        struct RawCSVData {
-            std::shared_ptr<void> _data = nullptr;
-            csv::string_view data = "";
-
-            internals::CSVFieldList fields;
-
-            // TODO: Consider replacing with a more thread-safe structure
-            std::unordered_map<size_t, std::string> double_quote_fields = {};
-
-            internals::ColNamesPtr col_names = nullptr;
-            internals::ParseFlagMap parse_flags;
-            internals::WhitespaceMap ws_flags;
-        };
-
-        using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
     }
 
     /**

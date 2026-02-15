@@ -39,9 +39,27 @@ CSVReader reader(infile, format);
 |------|----------|
 | `csv_reader.hpp` | Mmap vs stream constructors |
 | `csv_reader.cpp` | Delimiter guessing, header detection |
+| `basic_csv_parser.hpp` | Parser base class (IBasicCSVParser, MmapParser, StreamParser) |
 | `basic_csv_parser.cpp` | Chunk transitions, worker thread |
-| `csv_row.hpp` | CSVFieldList (custom chunking for cache locality) |
+| `raw_csv_data.hpp` | Internal parser data structures (RawCSVField, CSVFieldList, RawCSVData) |
+| `thread_safe_deque.hpp` | Producer-consumer queue for parser→main thread communication |
+| `csv_row.hpp` | Public API types (CSVField, CSVRow) |
 | `test_round_trip.cpp` | Exemplar test patterns |
+
+## Data Flow: Parser → Row API
+
+```
+Parser Thread                      Main Thread
+     ↓                                  ↓
+RawCSVData (shared_ptr) ─────────────→ CSVRow
+     ↓                                  ↓
+CSVFieldList → RawCSVField[]       CSVField (lazy unescaping)
+     ↓
+ThreadSafeDeque<CSVRow>
+(producer-consumer queue)
+```
+
+**Thread Safety:** Parser populates `RawCSVData`, pushes `CSVRow` to `ThreadSafeDeque`, main thread pops and reads. The `CSVFieldList` uses chunked allocation (~170 fields/chunk) for cache locality. See `raw_csv_data.hpp` and `thread_safe_deque.hpp` for implementation details.
 
 ## Common Pitfalls
 
