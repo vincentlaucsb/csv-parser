@@ -9,9 +9,9 @@
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
 #include <fstream>
 #include <sstream>
-#include <cstdio> // For std::remove
 
 using namespace csv;
 
@@ -114,6 +114,7 @@ TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling]
 TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integrity]") {
     SECTION("Large file with known values around chunk boundary") {
         std::string test_file = "./tests/data/temp_chunk_boundary_test.csv";
+        FileGuard cleanup(test_file);
         
         // Create CSV larger than chunk size to test boundary handling
         // internals::ITERATION_CHUNK_SIZE is typically 10MB
@@ -191,9 +192,6 @@ TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integ
         
         // Verify we found critical rows (they weren't lost due to corruption)
         REQUIRE(found_critical_200k);
-        
-        // Clean up
-        std::remove(test_file.c_str());
         
         // Verify we read all rows
         REQUIRE(row_count >= 200000);

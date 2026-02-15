@@ -149,8 +149,15 @@ namespace csv {
         const int PAGE_SIZE = 4096;
 #endif
 
-        /** For functions that lazy load a large CSV, this determines how
-         *  many bytes are read at a time
+        /** Chunk size for lazy-loading large CSV files
+         * 
+         * The worker thread reads this many bytes at a time (10MB).
+         * 
+         * CRITICAL INVARIANT: Field boundaries at chunk transitions must be preserved.
+         * Bug #280 was caused by fields spanning chunk boundaries being corrupted.
+         * 
+         * @note Tests must write >10MB of data to cross chunk boundaries
+         * @see basic_csv_parser.cpp MmapParser::next() for chunk transition logic
          */
         constexpr size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 

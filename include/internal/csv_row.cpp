@@ -7,21 +7,6 @@
 #include "csv_row.hpp"
 
 namespace csv {
-    namespace internals {
-        CSV_INLINE RawCSVField& CSVFieldList::operator[](size_t n) const {
-            const size_t page_no = n / _single_buffer_capacity;
-            const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
-            return this->buffers[page_no][buffer_idx];
-        }
-
-        CSV_INLINE void CSVFieldList::allocate() {
-            buffers.push_back(std::unique_ptr<RawCSVField[]>(new RawCSVField[_single_buffer_capacity]));
-
-            _current_buffer_size = 0;
-            _back = buffers.back().get();
-        }
-    }
-
     /** Return a CSVField object corrsponding to the nth value in the row.
      *
      *  @note This method performs bounds checking, and will throw an
@@ -75,20 +60,26 @@ namespace csv {
 
         if (field.has_double_quote) {
             auto& value = this->data->double_quote_fields[field_index];
+            // Double-check locking: minimize lock contention by checking before acquiring lock
             if (value.empty()) {
-                bool prev_ch_quote = false;
-                for (size_t i = 0; i < field.length; i++) {
-                    if (this->data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                        if (prev_ch_quote) {
-                            prev_ch_quote = false;
-                            continue;
-                        }
-                        else {
-                            prev_ch_quote = true;
-                        }
-                    }
+                std::lock_guard<std::mutex> lock(this->data->double_quote_init_lock);
 
-                    value += field_str[i];
+                // Check again after acquiring lock in case another thread initialized it
+                if (value.empty()) {
+                    bool prev_ch_quote = false;
+                    for (size_t i = 0; i < field.length; i++) {
+                        if (this->data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                            if (prev_ch_quote) {
+                                prev_ch_quote = false;
+                                continue;
+                            }
+                            else {
+                                prev_ch_quote = true;
+                            }
+                        }
+
+                        value += field_str[i];
+                    }
                 }
             }
 

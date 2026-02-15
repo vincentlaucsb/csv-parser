@@ -44,7 +44,26 @@ namespace csv {
         csv::string_view filename,
         const CSVFormat format = CSVFormat::guess_csv());
 
-    /** Guess the delimiter used by a delimiter-separated values file */
+    /** @brief Guess the delimiter and header row of a CSV file
+     *
+     *  @param[in] filename  Path to CSV file
+     *  @param[in] delims    Candidate delimiters to test
+     *  @return CSVGuessResult containing the detected delimiter and header row index
+     *
+     *  **Heuristic:** For each candidate delimiter, calculate a score based on
+     *  the most common row length (mode). The delimiter with the highest score wins.
+     *  
+     *  **Header Detection:**
+     *  - If the first row has >= columns than the mode, it's treated as the header
+     *  - Otherwise, the first row with the mode length is treated as the header
+     *  
+     *  This approach handles:
+     *  - Headers with trailing delimiters or optional columns (wider than data rows)
+     *  - Comment lines before the actual header (first row shorter than mode)
+     *  - Standard CSVs where first row is the header
+     *  
+     *  @note Score = (row_length × count_of_rows_with_that_length)
+     */
     CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
@@ -110,13 +129,26 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
+        /** @brief Construct CSVReader from filename using memory-mapped I/O
+         * 
+         * CODE PATH 1 of 2: Uses MmapParser with mio library for maximum performance.
+         * This is fundamentally different from the stream-based constructor below.
+         * 
+         * @note Bugs can exist in this path independently of the stream path (and vice versa)
+         * @note When writing tests that validate I/O behavior, BOTH paths must be tested
+         * @see StreamParser for the alternative implementation
+         */
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
 
-        /** Allows parsing stream sources such as `std::stringstream` or `std::ifstream`
+        /** @brief Construct CSVReader from std::istream
+         * 
+         * CODE PATH 2 of 2: Uses StreamParser with different internal implementation than
+         * the memory-mapped constructor above. Issue #281 was specific to THIS path only.
          *
          *  @tparam TStream An input stream deriving from `std::istream`
-         *  @note   Currently this constructor requires special CSV dialects to be manually
-         *          specified.
+         *  @note CSV format guessing works differently here - must manually specify dialect
+         *  @note When writing tests that validate I/O behavior, BOTH paths must be tested
+         *  @see MmapParser for the memory-mapped alternative
          */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
@@ -127,7 +159,12 @@ namespace csv {
             if (format.guess_delim()) {
                 auto guess_result = internals::_guess_format(head, format.possible_delimiters);
                 format.delimiter(guess_result.delim);
-                format.header = guess_result.header_row;
+                // Only override header if user hasn't explicitly called no_header()
+                // Note: column_names() also sets header=-1, but it populates col_names,
+                // so we can distinguish: no_header() means header=-1 && col_names.empty()
+                if (format.header != -1 || !format.col_names.empty()) {
+                    format.header = guess_result.header_row;
+                }
                 this->_format = format;
             }
 

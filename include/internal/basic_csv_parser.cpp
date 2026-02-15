@@ -233,6 +233,14 @@ namespace csv {
 #pragma region Specializations
 #endif
         CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
+            // CRITICAL SECTION: Chunk Transition Logic
+            // This function reads 10MB chunks and must correctly handle fields that span
+            // chunk boundaries. The 'remainder' calculation below ensures partial fields
+            // are preserved for the next chunk.
+            //
+            // Bug #280: Field corruption occurred here when chunk transitions incorrectly
+            // split multi-byte characters or field boundaries.
+            
             // Reset parser state
             this->field_start = UNINITIALIZED_FIELD;
             this->field_length = 0;
