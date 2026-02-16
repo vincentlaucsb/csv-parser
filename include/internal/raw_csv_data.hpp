@@ -8,11 +8,12 @@
  */
 
 #pragma once
-#include <map>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 #include "common.hpp"
 #include "col_names.hpp"
@@ -63,6 +64,13 @@ namespace csv {
             /** Construct a CSVFieldList which allocates blocks of a certain size */
             CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
+                const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
+                _block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
+                _blocks = std::unique_ptr<std::atomic<RawCSVField*>[]>(new std::atomic<RawCSVField*>[_block_capacity]);
+                for (size_t i = 0; i < _block_capacity; i++) {
+                    _blocks[i].store(nullptr, std::memory_order_relaxed);
+                }
+
                 this->allocate();
             }
 
@@ -71,28 +79,27 @@ namespace csv {
 
             // CSVFieldArrays may be moved
             CSVFieldList(CSVFieldList&& other) :
-                _single_buffer_capacity(other._single_buffer_capacity) {
+                _single_buffer_capacity(other._single_buffer_capacity),
+                _block_capacity(other._block_capacity) {
 
-                this->buffers = std::move(other.buffers);
+                this->_blocks = std::move(other._blocks);
+                this->_owned_blocks = std::move(other._owned_blocks);
                 _current_buffer_size = other._current_buffer_size;
                 _current_block = other._current_block;
-                
-                // Recalculate _back pointer to point into OUR buffers, not the moved-from ones
-                if (!this->buffers.empty()) {
-                    auto it = this->buffers.find(_current_block);
-                    if (it != this->buffers.end() && it->second) {
-                        _back = it->second.get() + _current_buffer_size;
-                    } else {
-                        _back = nullptr;
-                    }
+
+                // Recalculate _back pointer to point into OUR blocks, not the moved-from ones
+                if (this->_blocks) {
+                    RawCSVField* block = this->_blocks[_current_block].load(std::memory_order_acquire);
+                    _back = block ? (block + _current_buffer_size) : nullptr;
                 } else {
                     _back = nullptr;
                 }
-                
+
                 // Invalidate moved-from state to prevent use-after-move bugs
                 other._back = nullptr;
                 other._current_buffer_size = 0;
                 other._current_block = 0;
+                other._block_capacity = 0;
             }
 
             template <class... Args>
@@ -114,28 +121,22 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            /** Map of block indices to RawCSVField arrays.
-             * 
-             *  std::map is ideal for thread-safe concurrent access: insertions never invalidate
-             *  references/pointers to existing elements (guaranteed by C++ standard §26.2.6).
-             *  This eliminates the need for mutex locks during concurrent read-during-write.
-             * 
-             *  Unlike std::deque, whose internal map can reallocate (invalidating ALL operator[]
-             *  calls even for old elements), std::map provides stable element access.
-             * 
-             *  Performance: O(log n) access where n = blocks per 10MB chunk. Pathological case
-             *  (1-char rows): 10MB / 2 bytes = 5M fields / 170 per block ≈ 29K blocks.
-             *  log₂(29K) ≈ 15 comparisons << mutex contention cost.
-             * 
-             *  See: Issue #217, PR #237, v2.3.0 (June 2024); Sanitizer fixes Feb 2026
-             */
-            std::map<size_t, std::unique_ptr<RawCSVField[]>> buffers = {};
+            /** Fixed-size table of block pointers for lock-free read access. */
+            std::unique_ptr<std::atomic<RawCSVField*>[]> _blocks = nullptr;
+
+            /** Owned blocks (writer thread only), used for lifetime management. */
+            std::vector<std::unique_ptr<RawCSVField[]>> _owned_blocks = {};
+            // _owned_blocks may reallocate, but RawCSVField[] allocations stay put;
+            // _blocks holds raw pointers to those allocations, so readers remain valid.
 
             /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
 
-            /** Current block number */
+            /** Current block index */
             size_t _current_block = 0;
+
+            /** Number of block slots available in _blocks */
+            size_t _block_capacity = 0;
 
             /** Pointer to the current empty field */
             RawCSVField* _back = nullptr;
