@@ -4,7 +4,7 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master", "memory-fix-csvfieldlist" ]
+    branches: [ "master", "feb-15-2026" ]
   pull_request:
     branches: [ "master" ]
 

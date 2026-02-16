@@ -1,0 +1,117 @@
+name: Memory and Thread Sanitizers
+
+on:
+  push:
+    branches: [ "master", "feb-15-2026" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  sanitizers:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread, undefined]
+        cxx_standard: [17, 20]
+        include:
+          - sanitizer: address
+            flag: "-fsanitize=address -fno-omit-frame-pointer"
+            name: "AddressSanitizer"
+          - sanitizer: thread
+            flag: "-fsanitize=thread"
+            name: "ThreadSanitizer"
+          - sanitizer: undefined
+            flag: "-fsanitize=undefined -fno-omit-frame-pointer"
+            name: "UndefinedBehaviorSanitizer"
+    
+    env:
+      ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1"
+      TSAN_OPTIONS: "halt_on_error=1"
+      UBSAN_OPTIONS: "halt_on_error=1"
+    
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libstdc++11-dev
+    
+    - name: Configure CMake with ${{ matrix.name }}
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCSV_CXX_STANDARD=${{ matrix.cxx_standard }} \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_FLAGS="${{ matrix.flag }} -g" \
+          -DCMAKE_C_FLAGS="${{ matrix.flag }} -g"
+    
+    - name: Build with ${{ matrix.name }}
+      run: cmake --build build --config Debug
+    
+    - name: Test with ${{ matrix.name }}
+      working-directory: build
+      run: ctest --output-on-failure -VV
+      timeout-minutes: 20
+    
+    - name: Upload sanitizer logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sanitizer-logs-${{ matrix.sanitizer }}-std${{ matrix.cxx_standard }}
+        path: build/Testing/
+
+  valgrind:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake valgrind
+    
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCSV_CXX_STANDARD=17 \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_FLAGS="-g -O1" \
+          -DCMAKE_C_FLAGS="-g -O1"
+    
+    - name: Build
+      run: cmake --build build --config Debug
+    
+    - name: Test with Valgrind
+      working-directory: build
+      run: |
+        ctest --output-on-failure \
+          -LE process_thread \
+          --preconfigure-timeout 30 \
+          --schedule-random
+      env:
+        CTEST_COMMAND: valgrind --leak-check=full --error-exitcode=1
+      timeout-minutes: 60
+    
+    - name: Upload Valgrind results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgrind-results
+        path: build/Testing/
