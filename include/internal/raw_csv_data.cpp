@@ -8,7 +8,7 @@ namespace csv {
     namespace internals {
         CSV_INLINE RawCSVField& CSVFieldList::operator[](size_t n) const {
             const size_t page_no = n / _single_buffer_capacity;
-            const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
+            const size_t buffer_idx = n % _single_buffer_capacity;
             return this->buffers.at(page_no)[buffer_idx];
         }
 

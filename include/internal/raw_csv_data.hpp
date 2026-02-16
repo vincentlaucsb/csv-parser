@@ -79,7 +79,12 @@ namespace csv {
                 
                 // Recalculate _back pointer to point into OUR buffers, not the moved-from ones
                 if (!this->buffers.empty()) {
-                    _back = this->buffers[_current_block].get() + _current_buffer_size;
+                    auto it = this->buffers.find(_current_block);
+                    if (it != this->buffers.end() && it->second) {
+                        _back = it->second.get() + _current_buffer_size;
+                    } else {
+                        _back = nullptr;
+                    }
                 } else {
                     _back = nullptr;
                 }
