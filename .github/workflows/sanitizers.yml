@@ -51,8 +51,8 @@ jobs:
           -DCSV_CXX_STANDARD=${{ matrix.cxx_standard }} \
           -DCMAKE_CXX_COMPILER=g++ \
           -DCMAKE_C_COMPILER=gcc \
-          -DCMAKE_CXX_FLAGS="${{ matrix.flag }} -g -fno-profile-arcs -fno-test-coverage" \
-          -DCMAKE_C_FLAGS="${{ matrix.flag }} -g -fno-profile-arcs -fno-test-coverage"
+          -DCMAKE_CXX_FLAGS="${{ matrix.flag }} -g" \
+          -DCMAKE_C_FLAGS="${{ matrix.flag }} -g"
     
     - name: Build with ${{ matrix.name }}
       run: cmake --build build --config Debug
@@ -92,8 +92,8 @@ jobs:
           -DCSV_CXX_STANDARD=17 \
           -DCMAKE_CXX_COMPILER=g++ \
           -DCMAKE_C_COMPILER=gcc \
-          -DCMAKE_CXX_FLAGS="-g -O1 -fno-profile-arcs -fno-test-coverage" \
-          -DCMAKE_C_FLAGS="-g -O1 -fno-profile-arcs -fno-test-coverage"
+          -DCMAKE_CXX_FLAGS="-g -O1" \
+          -DCMAKE_C_FLAGS="-g -O1"
     
     - name: Build
       run: cmake --build build --config Debug
