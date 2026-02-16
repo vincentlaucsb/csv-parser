@@ -9,6 +9,7 @@
 
 #pragma once
 #include <atomic>
+#include <cassert>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -108,6 +109,7 @@ namespace csv {
                     this->allocate();
                 }
 
+                assert(_back != nullptr);
                 *(_back++) = RawCSVField(std::forward<Args>(args)...);
                 _current_buffer_size++;
             }

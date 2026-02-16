@@ -23,6 +23,8 @@ namespace csv {
                 _current_block++;
             }
 
+            assert(_current_block < _block_capacity);
+
             std::unique_ptr<RawCSVField[]> block(new RawCSVField[_single_buffer_capacity]);
             RawCSVField* block_ptr = block.get();
             this->_owned_blocks.push_back(std::move(block));

@@ -15,7 +15,11 @@ namespace csv {
     namespace internals {
         /** A std::deque wrapper which allows multiple read and write threads to concurrently
          *  access it along with providing read threads the ability to wait for the deque
-         *  to become populated
+         *  to become populated.
+         *
+         *  Concurrency strategy: writer-side mutations (push_back/pop_front) are locked;
+         *  hot-path flags (empty/is_waitable) are atomic; operator[] and iterators are
+         *  not synchronized and must not run concurrently with writers.
          */
         template<typename T>
         class ThreadSafeDeque {
@@ -32,11 +36,6 @@ namespace csv {
                 this->_is_empty.store(source.empty(), std::memory_order_release);
             }
 
-            void clear() noexcept { 
-                this->data.clear(); 
-                this->_is_empty.store(true, std::memory_order_release);
-            }
-
             bool empty() const noexcept {
                 return this->_is_empty.load(std::memory_order_acquire);
             }
@@ -46,6 +45,11 @@ namespace csv {
                 return this->data.front();
             }
 
+            /** NOTE: operator[] is not synchronized.
+             *  Only call when no concurrent push_back/pop_front can occur.
+             *  std::deque can reallocate its internal map on push_back, which
+             *  makes concurrent operator[] access undefined behavior.
+             */
             T& operator[](size_t n) {
                 return this->data[n];
             }
@@ -102,15 +106,13 @@ namespace csv {
 
             /** Tell listeners that this deque is actively being pushed to */
             void notify_all() {
-                std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_is_waitable = true;
+                this->_is_waitable.store(true, std::memory_order_release);
                 this->_cond.notify_all();
             }
 
             /** Tell all listeners to stop */
             void kill_all() {
-                std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_is_waitable = false;
+                this->_is_waitable.store(false, std::memory_order_release);
                 this->_cond.notify_all();
             }
 
