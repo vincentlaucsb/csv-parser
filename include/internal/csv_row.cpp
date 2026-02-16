@@ -203,7 +203,7 @@ namespace csv {
 
     CSV_INLINE HEDLEY_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), i(_i) {
+        : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
                 this->daddy->operator[](_i));

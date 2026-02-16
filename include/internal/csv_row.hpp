@@ -267,9 +267,10 @@ namespace csv {
 #endif
 
         private:
-            const CSVRow * daddy = nullptr;            // Pointer to parent
-            std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
-            int i = 0;                                 // Index of current field
+            const CSVRow * daddy = nullptr;                      // Pointer to parent
+            internals::RawCSVDataPtr data = nullptr;             // Keep data alive for lifetime of iterator
+            std::shared_ptr<CSVField> field = nullptr;           // Current field pointed at
+            int i = 0;                                           // Index of current field
         };
 
         /** A reverse iterator over the contents of a CSVRow. */
