@@ -87,6 +87,11 @@ namespace csv {
                 lock.unlock();
             }
 
+            size_t size() const noexcept {
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                return this->data.size();
+            }
+
             typename std::deque<T>::iterator begin() noexcept {
                 return this->data.begin();
             }
