@@ -147,6 +147,17 @@ However, `std::ifstream` may also be used as well as in-memory sources via `std:
 **Note**: Currently CSV guessing only works for memory-mapped files. The CSV dialect
 must be manually defined for other sources.
 
+**Note on Iterator Type**: `CSVReader::iterator` is an **input iterator**, not a forward iterator.
+This design enables streaming large CSV files without loading them entirely into memory.
+While some algorithms requiring forward iterators (e.g., `std::max_element`) may work in practice,
+only input iterator algorithms are guaranteed to work reliably. If you need guaranteed forward-iterator
+or random-access support, collect rows into a container first:
+```cpp
+std::vector<CSVRow> rows;
+for (auto& row : reader) rows.push_back(row);
+// Now use std::max_element or other forward-iterator algorithms reliably
+```
+
 ```cpp
 CSVFormat format;
 // custom formatting options go here
