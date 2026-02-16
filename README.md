@@ -231,9 +231,15 @@ for (auto& row: reader) {
         row["timestamp"].get<int>();
         
         // You can also attempt to parse hex values
-        int value;
+        long long value;
         if (row["hexValue"].try_parse_hex(value)) {
             std::cout << "Hex value is " << value << std::endl;
+        }
+
+        // Or specify a different integer type
+        int smallValue;
+        if (row["smallHex"].try_parse_hex<int>(smallValue)) {
+            std::cout << "Small hex value is " << smallValue << std::endl;
         }
 
         // Non-imperial decimal numbers can be handled this way

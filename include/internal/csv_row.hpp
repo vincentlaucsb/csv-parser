@@ -14,6 +14,7 @@
 
 #include "common.hpp"
 #include "data_type.hpp"
+#include "parse_hex.hpp"
 #include "raw_csv_data.hpp"
 
 namespace csv {
@@ -108,8 +109,15 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
-        /** Parse a hexadecimal value, returning false if the value is not hex. */
-        bool try_parse_hex(int& parsedValue);
+        /** Parse a hexadecimal value, returning false if the value is not hex.
+         *  @tparam T An integral type (int, long, long long, etc.)
+         */
+        template<typename T = long long>
+        bool try_parse_hex(T& parsedValue) {
+            static_assert(std::is_integral<T>::value,
+                "try_parse_hex only works with integral types (int, long, long long, etc.)");
+            return internals::try_parse_hex(this->sv, parsedValue);
+        }
 
         /** Attempts to parse a decimal (or integer) value using the given symbol,
          *  returning `true` if the value is numeric.
@@ -289,6 +297,11 @@ namespace csv {
     private:
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;
+
+        /** Iterator-safe field access using explicit data pointer 
+         *  (prevents accessing freed data when CSVRow is reassigned)
+         */
+        csv::string_view get_field_safe(size_t index, internals::RawCSVDataPtr _data) const;
 
         internals::RawCSVDataPtr data;
 

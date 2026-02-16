@@ -107,10 +107,10 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
 }
 
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
-    int value = 0;
+    long long value = 0;
 
     SECTION("Valid Hex Values") {
-        std::unordered_map<std::string, int> test_cases = {
+        std::unordered_map<std::string, long long> test_cases = {
             {"  A   ", 10},
             {"0A", 10},
             {"0B", 11},
