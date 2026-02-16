@@ -147,16 +147,30 @@ However, `std::ifstream` may also be used as well as in-memory sources via `std:
 **Note**: Currently CSV guessing only works for memory-mapped files. The CSV dialect
 must be manually defined for other sources.
 
-**Note on Iterator Type**: `CSVReader::iterator` is an **input iterator**, not a forward iterator.
-This design enables streaming large CSV files without loading them entirely into memory.
-While some algorithms requiring forward iterators (e.g., `std::max_element`) may work in practice,
-only input iterator algorithms are guaranteed to work reliably. If you need guaranteed forward-iterator
-or random-access support, collect rows into a container first:
+**⚠️ IMPORTANT - Iterator Type and Memory Safety**:  
+`CSVReader::iterator` is an **input iterator** (`std::input_iterator_tag`), NOT a forward iterator.
+This design enables streaming large CSV files (50+ GB) without loading them entirely into memory.
+
+**Why Forward Iterator Algorithms Don't Work**:
+- As the iterator advances, underlying data chunks are automatically freed to bound memory usage
+- Algorithms like `std::max_element` require ForwardIterator semantics (multi-pass, hold multiple positions)
+- Using such algorithms directly on `CSVReader::iterator` will cause **heap-use-after-free** when the
+  algorithm tries to access iterators pointing to already-freed data chunks
+- While it may appear to work with small files that fit in a single chunk, it WILL fail with larger files
+
+**✅ Correct Approach for ForwardIterator Algorithms**:
 ```cpp
-std::vector<CSVRow> rows;
-for (auto& row : reader) rows.push_back(row);
-// Now use std::max_element or other forward-iterator algorithms reliably
+// Copy rows to vector first (enables multi-pass iteration)
+CSVReader reader("large_file.csv");
+std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+// Now safely use any algorithm requiring ForwardIterator
+auto max_row = std::max_element(rows.begin(), rows.end(), 
+    [](const CSVRow& a, const CSVRow& b) { 
+        return a["salary"].get<double>() < b["salary"].get<double>(); 
+    });
 ```
+
 
 ```cpp
 CSVFormat format;
