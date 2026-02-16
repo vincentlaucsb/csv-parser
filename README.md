@@ -1,25 +1,33 @@
 # Vince's CSV Parser
-[![CMake on Windows](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml)
+[![CMake on Windows](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/vincentlaucsb/csv-parser/actions/workflows/cmake-multi-platform.yml) [![Memory and Thread Sanitizers](https://github.com/vincentlaucsb/csv-parser/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/vincentlaucsb/csv-parser/actions/workflows/sanitizers.yml)
 
- * [Motivation](#motivation)
- * [Documentation](#documentation)
- * [Integration](#integration)
-   * [C++ Version](#c-version)
-   * [Single Header](#single-header)
-   * [CMake Instructions](#cmake-instructions)
- * [Features & Examples](#features--examples)
-   * [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
-      * [Memory Mapped Files vs. Streams](#memory-mapped-files-vs-streams)
-   * [Indexing by Column Names](#indexing-by-column-names)
-   * [Numeric Conversions](#numeric-conversions)
-   * [Specifying the CSV Format](#specifying-the-csv-format)
-      * [Trimming Whitespace](#trimming-whitespace)
-      * [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
-      * [Setting Column Names](#setting-column-names)
-   * [Converting to JSON](#converting-to-json)
-   * [Parsing an In-Memory String](#parsing-an-in-memory-string)
-   * [Writing CSV Files](#writing-csv-files)
- * [Contributing](#contributing)
+- [Vince's CSV Parser](#vinces-csv-parser)
+  - [Motivation](#motivation)
+    - [Performance and Memory Requirements](#performance-and-memory-requirements)
+      - [Show me the numbers](#show-me-the-numbers)
+    - [Robust Yet Flexible](#robust-yet-flexible)
+      - [RFC 4180 and Beyond](#rfc-4180-and-beyond)
+      - [Encoding](#encoding)
+    - [Well Tested](#well-tested)
+  - [Documentation](#documentation)
+  - [Sponsors](#sponsors)
+  - [Integration](#integration)
+    - [C++ Version](#c-version)
+    - [Single Header](#single-header)
+    - [CMake Instructions](#cmake-instructions)
+      - [Avoid cloning with FetchContent](#avoid-cloning-with-fetchcontent)
+  - [Features \& Examples](#features--examples)
+    - [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
+      - [Memory-Mapped Files vs. Streams](#memory-mapped-files-vs-streams)
+    - [Indexing by Column Names](#indexing-by-column-names)
+    - [Numeric Conversions](#numeric-conversions)
+    - [Converting to JSON](#converting-to-json)
+    - [Specifying the CSV Format](#specifying-the-csv-format)
+      - [Trimming Whitespace](#trimming-whitespace)
+      - [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
+      - [Setting Column Names](#setting-column-names)
+    - [Parsing an In-Memory String](#parsing-an-in-memory-string)
+    - [Writing CSV Files](#writing-csv-files)
 
 ## Motivation
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
@@ -54,8 +62,11 @@ This CSV parser is encoding-agnostic and will handle ANSI and UTF-8 encoded file
 It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte order marks.
 
 ### Well Tested
-This CSV parser has an extensive test suite and is checked for memory safety with Valgrind. If you still manage to find a bug,
-do not hesitate to report it.
+This CSV parser has:
+ * An extensive Catch2 test suite
+ * Address, thread safety, and undefined behavior checks with ASan, TSan, and Valgrind (see [GitHub Actions](https://github.com/vincentlaucsb/csv-parser/actions))
+
+If you still manage to find a bug, do not hesitate to report it.
 
 ## Documentation
 
