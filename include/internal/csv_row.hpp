@@ -213,6 +213,8 @@ namespace csv {
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
         CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
             : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds, size_t _row_length)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds), row_length(_row_length) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
