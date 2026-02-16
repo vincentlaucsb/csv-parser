@@ -6,6 +6,7 @@
  */
 
 #pragma once
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -98,7 +99,7 @@ namespace csv {
             }
 
         private:
-            bool _is_waitable = false;
+            std::atomic<bool> _is_waitable{ false };
             size_t _notify_size;
             std::mutex _lock;
             std::condition_variable _cond;
