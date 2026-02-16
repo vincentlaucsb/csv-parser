@@ -24,19 +24,25 @@ namespace csv {
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
                 this->_notify_size = other._notify_size;
+                this->_is_empty.store(other._is_empty.load(std::memory_order_acquire), std::memory_order_release);
             }
 
             ThreadSafeDeque(const std::deque<T>& source) : ThreadSafeDeque() {
                 this->data = source;
+                this->_is_empty.store(source.empty(), std::memory_order_release);
             }
 
-            void clear() noexcept { this->data.clear(); }
+            void clear() noexcept { 
+                this->data.clear(); 
+                this->_is_empty.store(true, std::memory_order_release);
+            }
 
             bool empty() const noexcept {
-                return this->data.empty();
+                return this->_is_empty.load(std::memory_order_acquire);
             }
 
             T& front() noexcept {
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 return this->data.front();
             }
 
@@ -47,8 +53,9 @@ namespace csv {
             void push_back(T&& item) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 this->data.push_back(std::move(item));
+                this->_is_empty.store(false, std::memory_order_release);
 
-                if (this->size() >= _notify_size) {
+                if (this->data.size() >= _notify_size) {
                     this->_cond.notify_all();
                 }
             }
@@ -57,10 +64,14 @@ namespace csv {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 T item = std::move(data.front());
                 data.pop_front();
+                
+                // Update empty flag if we just emptied the deque
+                if (this->data.empty()) {
+                    this->_is_empty.store(true, std::memory_order_release);
+                }
+                
                 return item;
             }
-
-            size_t size() const noexcept { return this->data.size(); }
 
             /** Returns true if a thread is actively pushing items to this deque */
             constexpr bool is_waitable() const noexcept { return this->_is_waitable; }
@@ -72,7 +83,7 @@ namespace csv {
                 }
 
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_cond.wait(lock, [this] { return this->size() >= _notify_size || !this->is_waitable(); });
+                this->_cond.wait(lock, [this] { return this->data.size() >= _notify_size || !this->is_waitable(); });
                 lock.unlock();
             }
 
@@ -99,9 +110,10 @@ namespace csv {
             }
 
         private:
-            std::atomic<bool> _is_waitable{ false };
+            std::atomic<bool> _is_empty{ true };     // Lock-free empty() check  
+            std::atomic<bool> _is_waitable{ false }; // Lock-free is_waitable() check
             size_t _notify_size;
-            std::mutex _lock;
+            mutable std::mutex _lock;
             std::condition_variable _cond;
             std::deque<T> data;
         };
