@@ -55,7 +55,6 @@ namespace csv {
             throw std::runtime_error("Index out of bounds.");
 
         const size_t field_index = this->fields_start + index;
-        // Copy field to avoid holding reference during potential deque reallocation
         auto field = this->data->fields[field_index];
         auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
 
@@ -98,8 +97,6 @@ namespace csv {
             throw std::runtime_error("Index out of bounds.");
 
         const size_t field_index = this->fields_start + index;
-        
-        // Copy field to avoid holding reference during potential deque reallocation
         auto field = _data->fields[field_index];
         auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
 

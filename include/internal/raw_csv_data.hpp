@@ -8,7 +8,7 @@
  */
 
 #pragma once
-#include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -75,10 +75,11 @@ namespace csv {
 
                 this->buffers = std::move(other.buffers);
                 _current_buffer_size = other._current_buffer_size;
+                _current_block = other._current_block;
                 
                 // Recalculate _back pointer to point into OUR buffers, not the moved-from ones
                 if (!this->buffers.empty()) {
-                    _back = this->buffers.back().get() + _current_buffer_size;
+                    _back = this->buffers[_current_block].get() + _current_buffer_size;
                 } else {
                     _back = nullptr;
                 }
@@ -86,6 +87,7 @@ namespace csv {
                 // Invalidate moved-from state to prevent use-after-move bugs
                 other._back = nullptr;
                 other._current_buffer_size = 0;
+                other._current_block = 0;
             }
 
             template <class... Args>
@@ -99,7 +101,7 @@ namespace csv {
             }
 
             size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
+                return this->_current_buffer_size + (_current_block * this->_single_buffer_capacity);
             }
 
             RawCSVField& operator[](size_t n) const;
@@ -107,24 +109,28 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            /** Deque of pointers to RawCSVField arrays.
+            /** Map of block indices to RawCSVField arrays.
              * 
-             *  std::deque is critical for thread safety: unlike std::vector, it never reallocates
-             *  existing elements when expanding. This prevents a race condition where:
-             *  1. Reading thread accesses a RawCSVField via pointer
-             *  2. Parsing thread pushes to at-capacity std::vector
-             *  3. std::vector reallocates → reading thread accesses deallocated memory
+             *  std::map is ideal for thread-safe concurrent access: insertions never invalidate
+             *  references/pointers to existing elements (guaranteed by C++ standard §26.2.6).
+             *  This eliminates the need for mutex locks during concurrent read-during-write.
              * 
-             *  Using std::deque also improves performance by avoiding reallocation costs.
-             *  Memory locality is preserved because we store pointers to RawCSVField[], not
-             *  the objects themselves.
+             *  Unlike std::deque, whose internal map can reallocate (invalidating ALL operator[]
+             *  calls even for old elements), std::map provides stable element access.
              * 
-             *  See: Issue #217, PR #237, v2.3.0 (June 2024)
+             *  Performance: O(log n) access where n = blocks per 10MB chunk. Pathological case
+             *  (1-char rows): 10MB / 2 bytes = 5M fields / 170 per block ≈ 29K blocks.
+             *  log₂(29K) ≈ 15 comparisons << mutex contention cost.
+             * 
+             *  See: Issue #217, PR #237, v2.3.0 (June 2024); Sanitizer fixes Feb 2026
              */
-            std::deque<std::unique_ptr<RawCSVField[]>> buffers = {};
+            std::map<size_t, std::unique_ptr<RawCSVField[]>> buffers = {};
 
             /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
+
+            /** Current block number */
+            size_t _current_block = 0;
 
             /** Pointer to the current empty field */
             RawCSVField* _back = nullptr;
