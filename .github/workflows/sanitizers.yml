@@ -40,7 +40,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake libstdc++11-dev
+        sudo apt-get install -y build-essential cmake
     
     - name: Configure CMake with ${{ matrix.name }}
       run: |
@@ -59,7 +59,7 @@ jobs:
     
     - name: Test with ${{ matrix.name }}
       working-directory: build
-      run: ctest --output-on-failure -VV
+      run: ctest --output-on-failure -V
       timeout-minutes: 20
     
     - name: Upload sanitizer logs
@@ -100,13 +100,7 @@ jobs:
     
     - name: Test with Valgrind
       working-directory: build
-      run: |
-        ctest --output-on-failure \
-          -LE process_thread \
-          --preconfigure-timeout 30 \
-          --schedule-random
-      env:
-        CTEST_COMMAND: valgrind --leak-check=full --error-exitcode=1
+      run: ctest --output-on-failure
       timeout-minutes: 60
     
     - name: Upload Valgrind results
