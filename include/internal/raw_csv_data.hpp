@@ -8,11 +8,13 @@
  */
 
 #pragma once
-#include <deque>
+#include <atomic>
+#include <cassert>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 #include "common.hpp"
 #include "col_names.hpp"
@@ -63,6 +65,13 @@ namespace csv {
             /** Construct a CSVFieldList which allocates blocks of a certain size */
             CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
+                const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
+                _block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
+                _blocks = std::unique_ptr<std::atomic<RawCSVField*>[]>(new std::atomic<RawCSVField*>[_block_capacity]);
+                for (size_t i = 0; i < _block_capacity; i++) {
+                    _blocks[i].store(nullptr, std::memory_order_relaxed);
+                }
+
                 this->allocate();
             }
 
@@ -71,21 +80,27 @@ namespace csv {
 
             // CSVFieldArrays may be moved
             CSVFieldList(CSVFieldList&& other) :
-                _single_buffer_capacity(other._single_buffer_capacity) {
+                _single_buffer_capacity(other._single_buffer_capacity),
+                _block_capacity(other._block_capacity) {
 
-                this->buffers = std::move(other.buffers);
+                this->_blocks = std::move(other._blocks);
+                this->_owned_blocks = std::move(other._owned_blocks);
                 _current_buffer_size = other._current_buffer_size;
-                
-                // Recalculate _back pointer to point into OUR buffers, not the moved-from ones
-                if (!this->buffers.empty()) {
-                    _back = this->buffers.back().get() + _current_buffer_size;
+                _current_block = other._current_block;
+
+                // Recalculate _back pointer to point into OUR blocks, not the moved-from ones
+                if (this->_blocks) {
+                    RawCSVField* block = this->_blocks[_current_block].load(std::memory_order_acquire);
+                    _back = block ? (block + _current_buffer_size) : nullptr;
                 } else {
                     _back = nullptr;
                 }
-                
+
                 // Invalidate moved-from state to prevent use-after-move bugs
                 other._back = nullptr;
                 other._current_buffer_size = 0;
+                other._current_block = 0;
+                other._block_capacity = 0;
             }
 
             template <class... Args>
@@ -94,12 +109,13 @@ namespace csv {
                     this->allocate();
                 }
 
+                assert(_back != nullptr);
                 *(_back++) = RawCSVField(std::forward<Args>(args)...);
                 _current_buffer_size++;
             }
 
             size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
+                return this->_current_buffer_size + (_current_block * this->_single_buffer_capacity);
             }
 
             RawCSVField& operator[](size_t n) const;
@@ -107,24 +123,22 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            /** Deque of pointers to RawCSVField arrays.
-             * 
-             *  std::deque is critical for thread safety: unlike std::vector, it never reallocates
-             *  existing elements when expanding. This prevents a race condition where:
-             *  1. Reading thread accesses a RawCSVField via pointer
-             *  2. Parsing thread pushes to at-capacity std::vector
-             *  3. std::vector reallocates → reading thread accesses deallocated memory
-             * 
-             *  Using std::deque also improves performance by avoiding reallocation costs.
-             *  Memory locality is preserved because we store pointers to RawCSVField[], not
-             *  the objects themselves.
-             * 
-             *  See: Issue #217, PR #237, v2.3.0 (June 2024)
-             */
-            std::deque<std::unique_ptr<RawCSVField[]>> buffers = {};
+            /** Fixed-size table of block pointers for lock-free read access. */
+            std::unique_ptr<std::atomic<RawCSVField*>[]> _blocks = nullptr;
+
+            /** Owned blocks (writer thread only), used for lifetime management. */
+            std::vector<std::unique_ptr<RawCSVField[]>> _owned_blocks = {};
+            // _owned_blocks may reallocate, but RawCSVField[] allocations stay put;
+            // _blocks holds raw pointers to those allocations, so readers remain valid.
 
             /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
+
+            /** Current block index */
+            size_t _current_block = 0;
+
+            /** Number of block slots available in _blocks */
+            size_t _block_capacity = 0;
 
             /** Pointer to the current empty field */
             RawCSVField* _back = nullptr;

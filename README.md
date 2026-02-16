@@ -147,6 +147,31 @@ However, `std::ifstream` may also be used as well as in-memory sources via `std:
 **Note**: Currently CSV guessing only works for memory-mapped files. The CSV dialect
 must be manually defined for other sources.
 
+**⚠️ IMPORTANT - Iterator Type and Memory Safety**:  
+`CSVReader::iterator` is an **input iterator** (`std::input_iterator_tag`), NOT a forward iterator.
+This design enables streaming large CSV files (50+ GB) without loading them entirely into memory.
+
+**Why Forward Iterator Algorithms Don't Work**:
+- As the iterator advances, underlying data chunks are automatically freed to bound memory usage
+- Algorithms like `std::max_element` require ForwardIterator semantics (multi-pass, hold multiple positions)
+- Using such algorithms directly on `CSVReader::iterator` will cause **heap-use-after-free** when the
+  algorithm tries to access iterators pointing to already-freed data chunks
+- While it may appear to work with small files that fit in a single chunk, it WILL fail with larger files
+
+**✅ Correct Approach for ForwardIterator Algorithms**:
+```cpp
+// Copy rows to vector first (enables multi-pass iteration)
+CSVReader reader("large_file.csv");
+std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+// Now safely use any algorithm requiring ForwardIterator
+auto max_row = std::max_element(rows.begin(), rows.end(), 
+    [](const CSVRow& a, const CSVRow& b) { 
+        return a["salary"].get<double>() < b["salary"].get<double>(); 
+    });
+```
+
+
 ```cpp
 CSVFormat format;
 // custom formatting options go here
@@ -206,9 +231,15 @@ for (auto& row: reader) {
         row["timestamp"].get<int>();
         
         // You can also attempt to parse hex values
-        int value;
+        long long value;
         if (row["hexValue"].try_parse_hex(value)) {
             std::cout << "Hex value is " << value << std::endl;
+        }
+
+        // Or specify a different integer type
+        int smallValue;
+        if (row["smallHex"].try_parse_hex<int>(smallValue)) {
+            std::cout << "Small hex value is " << smallValue << std::endl;
         }
 
         // Non-imperial decimal numbers can be handled this way

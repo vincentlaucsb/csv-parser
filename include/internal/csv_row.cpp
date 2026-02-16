@@ -55,7 +55,7 @@ namespace csv {
             throw std::runtime_error("Index out of bounds.");
 
         const size_t field_index = this->fields_start + index;
-        auto& field = this->data->fields[field_index];
+        auto field = this->data->fields[field_index];
         auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
 
         if (field.has_double_quote) {
@@ -89,70 +89,46 @@ namespace csv {
         return field_str.substr(0, field.length);
     }
 
-    CSV_INLINE bool CSVField::try_parse_hex(int& parsedValue) {
-        size_t start = 0, end = 0;
+    CSV_INLINE csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
+    {
+        using internals::ParseFlags;
 
-        // Trim out whitespace chars
-        for (; start < this->sv.size() && this->sv[start] == ' '; start++);
-        for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
-        
-        int value_ = 0;
+        if (index >= this->size())
+            throw std::runtime_error("Index out of bounds.");
 
-        size_t digits = (end - start);
-        size_t base16_exponent = digits - 1;
+        const size_t field_index = this->fields_start + index;
+        auto field = _data->fields[field_index];
+        auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
 
-        if (digits == 0) return false;
+        if (field.has_double_quote) {
+            auto& value = _data->double_quote_fields[field_index];
+            // Double-check locking: minimize lock contention by checking before acquiring lock
+            if (value.empty()) {
+                std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
 
-        for (const auto& ch : this->sv.substr(start, digits)) {
-            int digit = 0;
+                // Check again after acquiring lock in case another thread initialized it
+                if (value.empty()) {
+                    bool prev_ch_quote = false;
+                    for (size_t i = 0; i < field.length; i++) {
+                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                            if (prev_ch_quote) {
+                                prev_ch_quote = false;
+                                continue;
+                            }
+                            else {
+                                prev_ch_quote = true;
+                            }
+                        }
 
-            switch (ch) {
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                digit = static_cast<int>(ch - '0');
-                break;
-            case 'a':
-            case 'A':
-                digit = 10;
-                break;
-            case 'b':
-            case 'B':
-                digit = 11;
-                break;
-            case 'c':
-            case 'C':
-                digit = 12;
-                break;
-            case 'd':
-            case 'D':
-                digit = 13;
-                break;
-            case 'e':
-            case 'E':
-                digit = 14;
-                break;
-            case 'f':
-            case 'F':
-                digit = 15;
-                break;
-            default:
-                return false;
+                        value += field_str[i];
+                    }
+                }
             }
 
-            value_ += digit * (int)pow(16, (double)base16_exponent);
-            base16_exponent--;
+            return csv::string_view(value);
         }
 
-        parsedValue = value_;
-        return true;
+        return field_str.substr(0, field.length);
     }
 
     CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
@@ -203,10 +179,10 @@ namespace csv {
 
     CSV_INLINE HEDLEY_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), i(_i) {
+        : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](_i));
+                CSVField(this->daddy->get_field_safe(_i, this->data)));
         else
             this->field = nullptr;
     }
@@ -224,7 +200,7 @@ namespace csv {
         this->i++;
         if (this->i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](i));
+                CSVField(this->daddy->get_field_safe(i, this->data)));
         else // Reached the end of row
             this->field = nullptr;
         return *this;
@@ -241,7 +217,7 @@ namespace csv {
         // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
+            CSVField(this->daddy->get_field_safe(this->i, this->data)));
         return *this;
     }
 

@@ -14,6 +14,7 @@
 
 #include "common.hpp"
 #include "data_type.hpp"
+#include "parse_hex.hpp"
 #include "raw_csv_data.hpp"
 
 namespace csv {
@@ -108,8 +109,15 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
-        /** Parse a hexadecimal value, returning false if the value is not hex. */
-        bool try_parse_hex(int& parsedValue);
+        /** Parse a hexadecimal value, returning false if the value is not hex.
+         *  @tparam T An integral type (int, long, long long, etc.)
+         */
+        template<typename T = long long>
+        bool try_parse_hex(T& parsedValue) {
+            static_assert(std::is_integral<T>::value,
+                "try_parse_hex only works with integral types (int, long, long long, etc.)");
+            return internals::try_parse_hex(this->sv, parsedValue);
+        }
 
         /** Attempts to parse a decimal (or integer) value using the given symbol,
          *  returning `true` if the value is numeric.
@@ -205,6 +213,8 @@ namespace csv {
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
         CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
             : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds, size_t _row_length)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds), row_length(_row_length) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
@@ -267,9 +277,10 @@ namespace csv {
 #endif
 
         private:
-            const CSVRow * daddy = nullptr;            // Pointer to parent
-            std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
-            int i = 0;                                 // Index of current field
+            const CSVRow * daddy = nullptr;                      // Pointer to parent
+            internals::RawCSVDataPtr data = nullptr;             // Keep data alive for lifetime of iterator
+            std::shared_ptr<CSVField> field = nullptr;           // Current field pointed at
+            int i = 0;                                           // Index of current field
         };
 
         /** A reverse iterator over the contents of a CSVRow. */
@@ -288,6 +299,11 @@ namespace csv {
     private:
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;
+
+        /** Iterator-safe field access using explicit data pointer 
+         *  (prevents accessing freed data when CSVRow is reassigned)
+         */
+        csv::string_view get_field_safe(size_t index, internals::RawCSVDataPtr _data) const;
 
         internals::RawCSVDataPtr data;
 

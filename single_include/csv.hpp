@@ -5423,6 +5423,87 @@ namespace csv {
     }
 }
 /** @file
+ *  @brief Implements Functions related to hexadecimal parsing
+ */
+
+#include <type_traits>
+#include <cmath>
+
+
+namespace csv {
+    namespace internals {
+        template<typename T>
+        bool try_parse_hex(csv::string_view sv, T& parsedValue) {
+            static_assert(std::is_integral<T>::value, 
+                "try_parse_hex only works with integral types (int, long, long long, etc.)");
+            
+            size_t start = 0, end = 0;
+
+            // Trim out whitespace chars
+            for (; start < sv.size() && sv[start] == ' '; start++);
+            for (end = start; end < sv.size() && sv[end] != ' '; end++);
+            
+            T value_ = 0;
+
+            size_t digits = (end - start);
+            size_t base16_exponent = digits - 1;
+
+            if (digits == 0) return false;
+
+            for (const auto& ch : sv.substr(start, digits)) {
+                int digit = 0;
+
+                switch (ch) {
+                    case '0':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                        digit = static_cast<int>(ch - '0');
+                        break;
+                    case 'a':
+                    case 'A':
+                        digit = 10;
+                        break;
+                    case 'b':
+                    case 'B':
+                        digit = 11;
+                        break;
+                    case 'c':
+                    case 'C':
+                        digit = 12;
+                        break;
+                    case 'd':
+                    case 'D':
+                        digit = 13;
+                        break;
+                    case 'e':
+                    case 'E':
+                        digit = 14;
+                        break;
+                    case 'f':
+                    case 'F':
+                        digit = 15;
+                        break;
+                    default:
+                        return false;
+                }
+
+                value_ += digit * (T)pow(16, (double)base16_exponent);
+                base16_exponent--;
+            }
+
+            parsedValue = value_;
+            return true;
+        }
+    }
+}
+/** @file
  *  @brief Internal data structures for CSV parsing
  * 
  *  This file contains the low-level structures used by the parser to store
@@ -5431,11 +5512,13 @@ namespace csv {
  *  Data flow: Parser → RawCSVData → CSVRow → CSVField
  */
 
-#include <deque>
+#include <atomic>
+#include <cassert>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 
 namespace csv {
@@ -5484,6 +5567,13 @@ namespace csv {
             /** Construct a CSVFieldList which allocates blocks of a certain size */
             CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
+                const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
+                _block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
+                _blocks = std::unique_ptr<std::atomic<RawCSVField*>[]>(new std::atomic<RawCSVField*>[_block_capacity]);
+                for (size_t i = 0; i < _block_capacity; i++) {
+                    _blocks[i].store(nullptr, std::memory_order_relaxed);
+                }
+
                 this->allocate();
             }
 
@@ -5492,21 +5582,27 @@ namespace csv {
 
             // CSVFieldArrays may be moved
             CSVFieldList(CSVFieldList&& other) :
-                _single_buffer_capacity(other._single_buffer_capacity) {
+                _single_buffer_capacity(other._single_buffer_capacity),
+                _block_capacity(other._block_capacity) {
 
-                this->buffers = std::move(other.buffers);
+                this->_blocks = std::move(other._blocks);
+                this->_owned_blocks = std::move(other._owned_blocks);
                 _current_buffer_size = other._current_buffer_size;
-                
-                // Recalculate _back pointer to point into OUR buffers, not the moved-from ones
-                if (!this->buffers.empty()) {
-                    _back = this->buffers.back().get() + _current_buffer_size;
+                _current_block = other._current_block;
+
+                // Recalculate _back pointer to point into OUR blocks, not the moved-from ones
+                if (this->_blocks) {
+                    RawCSVField* block = this->_blocks[_current_block].load(std::memory_order_acquire);
+                    _back = block ? (block + _current_buffer_size) : nullptr;
                 } else {
                     _back = nullptr;
                 }
-                
+
                 // Invalidate moved-from state to prevent use-after-move bugs
                 other._back = nullptr;
                 other._current_buffer_size = 0;
+                other._current_block = 0;
+                other._block_capacity = 0;
             }
 
             template <class... Args>
@@ -5515,12 +5611,13 @@ namespace csv {
                     this->allocate();
                 }
 
+                assert(_back != nullptr);
                 *(_back++) = RawCSVField(std::forward<Args>(args)...);
                 _current_buffer_size++;
             }
 
             size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
+                return this->_current_buffer_size + (_current_block * this->_single_buffer_capacity);
             }
 
             RawCSVField& operator[](size_t n) const;
@@ -5528,24 +5625,22 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            /** Deque of pointers to RawCSVField arrays.
-             * 
-             *  std::deque is critical for thread safety: unlike std::vector, it never reallocates
-             *  existing elements when expanding. This prevents a race condition where:
-             *  1. Reading thread accesses a RawCSVField via pointer
-             *  2. Parsing thread pushes to at-capacity std::vector
-             *  3. std::vector reallocates → reading thread accesses deallocated memory
-             * 
-             *  Using std::deque also improves performance by avoiding reallocation costs.
-             *  Memory locality is preserved because we store pointers to RawCSVField[], not
-             *  the objects themselves.
-             * 
-             *  See: Issue #217, PR #237, v2.3.0 (June 2024)
-             */
-            std::deque<std::unique_ptr<RawCSVField[]>> buffers = {};
+            /** Fixed-size table of block pointers for lock-free read access. */
+            std::unique_ptr<std::atomic<RawCSVField*>[]> _blocks = nullptr;
+
+            /** Owned blocks (writer thread only), used for lifetime management. */
+            std::vector<std::unique_ptr<RawCSVField[]>> _owned_blocks = {};
+            // _owned_blocks may reallocate, but RawCSVField[] allocations stay put;
+            // _blocks holds raw pointers to those allocations, so readers remain valid.
 
             /** Number of items in the current buffer */
             size_t _current_buffer_size = 0;
+
+            /** Current block index */
+            size_t _current_block = 0;
+
+            /** Number of block slots available in _blocks */
+            size_t _block_capacity = 0;
 
             /** Pointer to the current empty field */
             RawCSVField* _back = nullptr;
@@ -5674,8 +5769,15 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
-        /** Parse a hexadecimal value, returning false if the value is not hex. */
-        bool try_parse_hex(int& parsedValue);
+        /** Parse a hexadecimal value, returning false if the value is not hex.
+         *  @tparam T An integral type (int, long, long long, etc.)
+         */
+        template<typename T = long long>
+        bool try_parse_hex(T& parsedValue) {
+            static_assert(std::is_integral<T>::value,
+                "try_parse_hex only works with integral types (int, long, long long, etc.)");
+            return internals::try_parse_hex(this->sv, parsedValue);
+        }
 
         /** Attempts to parse a decimal (or integer) value using the given symbol,
          *  returning `true` if the value is numeric.
@@ -5771,6 +5873,8 @@ namespace csv {
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
         CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
             : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds, size_t _row_length)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds), row_length(_row_length) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
@@ -5833,9 +5937,10 @@ namespace csv {
 #endif
 
         private:
-            const CSVRow * daddy = nullptr;            // Pointer to parent
-            std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
-            int i = 0;                                 // Index of current field
+            const CSVRow * daddy = nullptr;                      // Pointer to parent
+            internals::RawCSVDataPtr data = nullptr;             // Keep data alive for lifetime of iterator
+            std::shared_ptr<CSVField> field = nullptr;           // Current field pointed at
+            int i = 0;                                           // Index of current field
         };
 
         /** A reverse iterator over the contents of a CSVRow. */
@@ -5854,6 +5959,11 @@ namespace csv {
     private:
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;
+
+        /** Iterator-safe field access using explicit data pointer 
+         *  (prevents accessing freed data when CSVRow is reassigned)
+         */
+        csv::string_view get_field_safe(size_t index, internals::RawCSVDataPtr _data) const;
 
         internals::RawCSVDataPtr data;
 
@@ -5925,6 +6035,7 @@ inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) 
  *  Parser thread pushes rows, main thread pops them.
  */
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -5933,7 +6044,11 @@ namespace csv {
     namespace internals {
         /** A std::deque wrapper which allows multiple read and write threads to concurrently
          *  access it along with providing read threads the ability to wait for the deque
-         *  to become populated
+         *  to become populated.
+         *
+         *  Concurrency strategy: writer-side mutations (push_back/pop_front) are locked;
+         *  hot-path flags (empty/is_waitable) are atomic; operator[] and iterators are
+         *  not synchronized and must not run concurrently with writers.
          */
         template<typename T>
         class ThreadSafeDeque {
@@ -5942,22 +6057,28 @@ namespace csv {
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
                 this->_notify_size = other._notify_size;
+                this->_is_empty.store(other._is_empty.load(std::memory_order_acquire), std::memory_order_release);
             }
 
             ThreadSafeDeque(const std::deque<T>& source) : ThreadSafeDeque() {
                 this->data = source;
+                this->_is_empty.store(source.empty(), std::memory_order_release);
             }
 
-            void clear() noexcept { this->data.clear(); }
-
             bool empty() const noexcept {
-                return this->data.empty();
+                return this->_is_empty.load(std::memory_order_acquire);
             }
 
             T& front() noexcept {
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 return this->data.front();
             }
 
+            /** NOTE: operator[] is not synchronized.
+             *  Only call when no concurrent push_back/pop_front can occur.
+             *  std::deque can reallocate its internal map on push_back, which
+             *  makes concurrent operator[] access undefined behavior.
+             */
             T& operator[](size_t n) {
                 return this->data[n];
             }
@@ -5965,8 +6086,9 @@ namespace csv {
             void push_back(T&& item) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 this->data.push_back(std::move(item));
+                this->_is_empty.store(false, std::memory_order_release);
 
-                if (this->size() >= _notify_size) {
+                if (this->data.size() >= _notify_size) {
                     this->_cond.notify_all();
                 }
             }
@@ -5975,10 +6097,14 @@ namespace csv {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 T item = std::move(data.front());
                 data.pop_front();
+                
+                // Update empty flag if we just emptied the deque
+                if (this->data.empty()) {
+                    this->_is_empty.store(true, std::memory_order_release);
+                }
+                
                 return item;
             }
-
-            size_t size() const noexcept { return this->data.size(); }
 
             /** Returns true if a thread is actively pushing items to this deque */
             constexpr bool is_waitable() const noexcept { return this->_is_waitable; }
@@ -5990,8 +6116,13 @@ namespace csv {
                 }
 
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_cond.wait(lock, [this] { return this->size() >= _notify_size || !this->is_waitable(); });
+                this->_cond.wait(lock, [this] { return this->data.size() >= _notify_size || !this->is_waitable(); });
                 lock.unlock();
+            }
+
+            size_t size() const noexcept {
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                return this->data.size();
             }
 
             typename std::deque<T>::iterator begin() noexcept {
@@ -6004,22 +6135,21 @@ namespace csv {
 
             /** Tell listeners that this deque is actively being pushed to */
             void notify_all() {
-                std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_is_waitable = true;
+                this->_is_waitable.store(true, std::memory_order_release);
                 this->_cond.notify_all();
             }
 
             /** Tell all listeners to stop */
             void kill_all() {
-                std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_is_waitable = false;
+                this->_is_waitable.store(false, std::memory_order_release);
                 this->_cond.notify_all();
             }
 
         private:
-            bool _is_waitable = false;
+            std::atomic<bool> _is_empty{ true };     // Lock-free empty() check  
+            std::atomic<bool> _is_waitable{ false }; // Lock-free is_waitable() check
             size_t _notify_size;
-            std::mutex _lock;
+            mutable std::mutex _lock;
             std::condition_variable _cond;
             std::deque<T> data;
         };
@@ -6374,6 +6504,34 @@ namespace csv {
          *
          * @par Using with `<algorithm>` library
          * @snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
+         * 
+         * @warning STREAMING CONSTRAINT - DO NOT ATTEMPT TO CACHE ALL DATA
+         * This iterator is intentionally std::input_iterator_tag (single-pass) to support
+         * streaming large CSV files that may exceed available RAM (e.g., 50+ GB files).
+         * 
+         * @par CRITICAL DESIGN CONSTRAINT:
+         * - The underlying RawCSVData chunks are automatically freed as the iterator advances
+         * - Only the CURRENT row's data is kept alive (via CSVRow's RawCSVDataPtr member)
+         * - Previous chunks are freed to allow unlimited file sizes with bounded memory
+         * 
+         * @par WHY FORWARD ITERATOR IS NOT POSSIBLE:
+         * - ForwardIterator requires multi-pass guarantees (can hold multiple valid positions)
+         * - Supporting this would require caching ALL RawCSVDataPtr chunks in the iterator
+         * - This defeats the streaming purpose: a 50 GB CSV would require 50+ GB of RAM
+         * - The entire library design depends on automatic chunk cleanup for memory efficiency
+         * 
+         * @par IMPLICATIONS FOR ALGORITHM USE:
+         * - Algorithms requiring ForwardIterator (std::max_element, std::sort, etc.) may
+         *   appear to work in tests with small files, but will cause heap-use-after-free
+         *   when the algorithm tries to access iterators pointing to freed chunks
+         * - CORRECT approach: Copy rows to std::vector first, then use algorithms
+         * - Example: auto rows = std::vector<CSVRow>(reader.begin(), reader.end());
+         *            auto max_row = std::max_element(rows.begin(), rows.end(), ...);
+         * 
+         * @par FOR AI AGENTS AND MAINTAINERS:
+         * If you encounter heap-use-after-free with ForwardIterator algorithms, the solution
+         * is NOT to cache all RawCSVDataPtr chunks - this violates the fundamental streaming
+         * architecture. Instead, document the limitation or provide vector-based workarounds.
          */
         class iterator {
         public:
@@ -7293,7 +7451,9 @@ namespace csv {
         }
 
         CSV_INLINE void IBasicCSVParser::push_row() {
-            current_row.row_length = fields->size() - current_row.fields_start;
+            size_t row_len = fields->size() - current_row.fields_start;
+            // Set row_length before pushing (immutable once created)
+            current_row.row_length = row_len;
             this->_records->push_back(std::move(current_row));
         }
 
@@ -7969,7 +8129,7 @@ namespace csv {
             throw std::runtime_error("Index out of bounds.");
 
         const size_t field_index = this->fields_start + index;
-        auto& field = this->data->fields[field_index];
+        auto field = this->data->fields[field_index];
         auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
 
         if (field.has_double_quote) {
@@ -8003,70 +8163,46 @@ namespace csv {
         return field_str.substr(0, field.length);
     }
 
-    CSV_INLINE bool CSVField::try_parse_hex(int& parsedValue) {
-        size_t start = 0, end = 0;
+    CSV_INLINE csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
+    {
+        using internals::ParseFlags;
 
-        // Trim out whitespace chars
-        for (; start < this->sv.size() && this->sv[start] == ' '; start++);
-        for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
-        
-        int value_ = 0;
+        if (index >= this->size())
+            throw std::runtime_error("Index out of bounds.");
 
-        size_t digits = (end - start);
-        size_t base16_exponent = digits - 1;
+        const size_t field_index = this->fields_start + index;
+        auto field = _data->fields[field_index];
+        auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
 
-        if (digits == 0) return false;
+        if (field.has_double_quote) {
+            auto& value = _data->double_quote_fields[field_index];
+            // Double-check locking: minimize lock contention by checking before acquiring lock
+            if (value.empty()) {
+                std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
 
-        for (const auto& ch : this->sv.substr(start, digits)) {
-            int digit = 0;
+                // Check again after acquiring lock in case another thread initialized it
+                if (value.empty()) {
+                    bool prev_ch_quote = false;
+                    for (size_t i = 0; i < field.length; i++) {
+                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                            if (prev_ch_quote) {
+                                prev_ch_quote = false;
+                                continue;
+                            }
+                            else {
+                                prev_ch_quote = true;
+                            }
+                        }
 
-            switch (ch) {
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                digit = static_cast<int>(ch - '0');
-                break;
-            case 'a':
-            case 'A':
-                digit = 10;
-                break;
-            case 'b':
-            case 'B':
-                digit = 11;
-                break;
-            case 'c':
-            case 'C':
-                digit = 12;
-                break;
-            case 'd':
-            case 'D':
-                digit = 13;
-                break;
-            case 'e':
-            case 'E':
-                digit = 14;
-                break;
-            case 'f':
-            case 'F':
-                digit = 15;
-                break;
-            default:
-                return false;
+                        value += field_str[i];
+                    }
+                }
             }
 
-            value_ += digit * (int)pow(16, (double)base16_exponent);
-            base16_exponent--;
+            return csv::string_view(value);
         }
 
-        parsedValue = value_;
-        return true;
+        return field_str.substr(0, field.length);
     }
 
     CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
@@ -8117,10 +8253,10 @@ namespace csv {
 
     CSV_INLINE HEDLEY_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), i(_i) {
+        : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](_i));
+                CSVField(this->daddy->get_field_safe(_i, this->data)));
         else
             this->field = nullptr;
     }
@@ -8138,7 +8274,7 @@ namespace csv {
         this->i++;
         if (this->i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](i));
+                CSVField(this->daddy->get_field_safe(i, this->data)));
         else // Reached the end of row
             this->field = nullptr;
         return *this;
@@ -8155,7 +8291,7 @@ namespace csv {
         // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
+            CSVField(this->daddy->get_field_safe(this->i, this->data)));
         return *this;
     }
 
@@ -8791,19 +8927,34 @@ namespace csv {
  */
 
 
+#include <cassert>
+
 namespace csv {
     namespace internals {
         CSV_INLINE RawCSVField& CSVFieldList::operator[](size_t n) const {
             const size_t page_no = n / _single_buffer_capacity;
-            const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
-            return this->buffers[page_no][buffer_idx];
+            const size_t buffer_idx = n % _single_buffer_capacity;
+
+            assert(page_no < _block_capacity);
+            RawCSVField* block = this->_blocks[page_no].load(std::memory_order_acquire);
+            assert(block != nullptr);
+            return block[buffer_idx];
         }
 
         CSV_INLINE void CSVFieldList::allocate() {
-            buffers.push_back(std::unique_ptr<RawCSVField[]>(new RawCSVField[_single_buffer_capacity]));
+            if (_back != nullptr) {
+                _current_block++;
+            }
 
+            assert(_current_block < _block_capacity);
+
+            std::unique_ptr<RawCSVField[]> block(new RawCSVField[_single_buffer_capacity]);
+            RawCSVField* block_ptr = block.get();
+            this->_owned_blocks.push_back(std::move(block));
+
+            this->_blocks[_current_block].store(block_ptr, std::memory_order_release);
             _current_buffer_size = 0;
-            _back = buffers.back().get();
+            _back = block_ptr;
         }
     }
 }

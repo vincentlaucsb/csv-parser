@@ -85,6 +85,34 @@ namespace csv {
          *
          * @par Using with `<algorithm>` library
          * @snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
+         * 
+         * @warning STREAMING CONSTRAINT - DO NOT ATTEMPT TO CACHE ALL DATA
+         * This iterator is intentionally std::input_iterator_tag (single-pass) to support
+         * streaming large CSV files that may exceed available RAM (e.g., 50+ GB files).
+         * 
+         * @par CRITICAL DESIGN CONSTRAINT:
+         * - The underlying RawCSVData chunks are automatically freed as the iterator advances
+         * - Only the CURRENT row's data is kept alive (via CSVRow's RawCSVDataPtr member)
+         * - Previous chunks are freed to allow unlimited file sizes with bounded memory
+         * 
+         * @par WHY FORWARD ITERATOR IS NOT POSSIBLE:
+         * - ForwardIterator requires multi-pass guarantees (can hold multiple valid positions)
+         * - Supporting this would require caching ALL RawCSVDataPtr chunks in the iterator
+         * - This defeats the streaming purpose: a 50 GB CSV would require 50+ GB of RAM
+         * - The entire library design depends on automatic chunk cleanup for memory efficiency
+         * 
+         * @par IMPLICATIONS FOR ALGORITHM USE:
+         * - Algorithms requiring ForwardIterator (std::max_element, std::sort, etc.) may
+         *   appear to work in tests with small files, but will cause heap-use-after-free
+         *   when the algorithm tries to access iterators pointing to freed chunks
+         * - CORRECT approach: Copy rows to std::vector first, then use algorithms
+         * - Example: auto rows = std::vector<CSVRow>(reader.begin(), reader.end());
+         *            auto max_row = std::max_element(rows.begin(), rows.end(), ...);
+         * 
+         * @par FOR AI AGENTS AND MAINTAINERS:
+         * If you encounter heap-use-after-free with ForwardIterator algorithms, the solution
+         * is NOT to cache all RawCSVDataPtr chunks - this violates the fundamental streaming
+         * architecture. Instead, document the limitation or provide vector-based workarounds.
          */
         class iterator {
         public:

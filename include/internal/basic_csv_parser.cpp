@@ -202,7 +202,9 @@ namespace csv {
         }
 
         CSV_INLINE void IBasicCSVParser::push_row() {
-            current_row.row_length = fields->size() - current_row.fields_start;
+            size_t row_len = fields->size() - current_row.fields_start;
+            // Set row_length before pushing (immutable once created)
+            current_row.row_length = row_len;
             this->_records->push_back(std::move(current_row));
         }
 
