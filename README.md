@@ -5,10 +5,12 @@
   - [Motivation](#motivation)
     - [Performance and Memory Requirements](#performance-and-memory-requirements)
       - [Show me the numbers](#show-me-the-numbers)
+      - [Chunk Size Tuning](#chunk-size-tuning)
     - [Robust Yet Flexible](#robust-yet-flexible)
       - [RFC 4180 and Beyond](#rfc-4180-and-beyond)
       - [Encoding](#encoding)
     - [Well Tested](#well-tested)
+      - [Bug Reports](#bug-reports)
   - [Documentation](#documentation)
   - [Sponsors](#sponsors)
   - [Integration](#integration)
@@ -45,6 +47,22 @@ On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz/Western Digital B
  * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 1.18 seconds (1.2 GBps)
  * a [2.9GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 8.49 seconds (352 MBps)
 
+#### Chunk Size Tuning
+
+By default, the parser reads CSV data in 10MB chunks. This balance was determined through empirical testing to optimize throughput while minimizing memory overhead and thread synchronization costs.
+
+If you encounter rows larger than the chunk size, use `set_chunk_size()` to adjust:
+
+```cpp
+CSVReader reader("massive_rows.csv");
+reader.set_chunk_size(100 * 1024 * 1024);  // 100MB chunks
+for (auto& row : reader) {
+    // Process row
+}
+```
+
+**Tuning guidance:** The default 10MB provides good balance for typical workloads. Smaller chunks (e.g., 500KB) increase thread overhead without meaningful memory savings. Larger chunks (e.g., 100MB+) reduce thread coordination overhead but consume more memory and delay the first row. Feel free to experiment and measure with your own hardware and data patterns.
+
 ### Robust Yet Flexible
 #### RFC 4180 and Beyond
 This CSV parser is much more than a fancy string splitter, and parses all files following [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt).
@@ -73,12 +91,9 @@ Found a bug? Please report it! This project welcomes **genuine bug reports broug
  * ✅ Performance regressions in real-world scenarios
  * ✅ API issues that affect **practical, real-world use cases**
 
-Please **do not** open issues for:
- * ❌ Requests to support contrived edge cases with no real-world applicability
- * ❌ Demands to change documented behavior to match container semantics (this is a streaming library)
- * ❌ Theoretical "what if" scenarios that require rewriting the architecture
+Please keep reports grounded in real use cases—no contrived edge cases or philosophical debates about API design, thanks!
 
-**Note:** `CSVReader` uses `std::input_iterator_tag` for single-pass streaming of arbitrarily large files. If you need multi-pass iteration or random access, copy rows to a `std::vector` first. This is by design, not a bug.
+**Design Note:** `CSVReader` uses `std::input_iterator_tag` for single-pass streaming of arbitrarily large files. If you need multi-pass iteration or random access, copy rows to a `std::vector` first. This is by design, not a bug.
 
 ## Documentation
 
