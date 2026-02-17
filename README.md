@@ -66,7 +66,19 @@ This CSV parser has:
  * An extensive Catch2 test suite
  * Address, thread safety, and undefined behavior checks with ASan, TSan, and Valgrind (see [GitHub Actions](https://github.com/vincentlaucsb/csv-parser/actions))
 
-If you still manage to find a bug, do not hesitate to report it.
+#### Bug Reports
+Found a bug? Please report it! This project welcomes **genuine bug reports brought in good faith**:
+ * ✅ Crashes, memory leaks, data corruption, race conditions
+ * ✅ Incorrect parsing of valid CSV files
+ * ✅ Performance regressions in real-world scenarios
+ * ✅ API issues that affect **practical, real-world use cases**
+
+Please **do not** open issues for:
+ * ❌ Requests to support contrived edge cases with no real-world applicability
+ * ❌ Demands to change documented behavior to match container semantics (this is a streaming library)
+ * ❌ Theoretical "what if" scenarios that require rewriting the architecture
+
+**Note:** `CSVReader` uses `std::input_iterator_tag` for single-pass streaming of arbitrarily large files. If you need multi-pass iteration or random access, copy rows to a `std::vector` first. This is by design, not a bug.
 
 ## Documentation
 
