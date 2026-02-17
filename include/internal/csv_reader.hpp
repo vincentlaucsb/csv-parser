@@ -260,6 +260,31 @@ namespace csv {
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
 
+        /** @brief Set the size of chunks to read from the CSV in bytes
+         *
+         *  @param[in] size Chunk size in bytes (minimum: 10MB, default: 10MB)
+         *  @throws std::invalid_argument if size < 10MB (ITERATION_CHUNK_SIZE)
+         *
+         *  Use this to handle CSV files where a single row exceeds the default 10MB chunk size.
+         *  Larger chunks use more memory but allow parsing of larger individual rows.
+         *
+         *  Example:
+         *  @snippet tests/test_edge_cases_large_rows.cpp Set Chunk Size Example
+         *
+         *  @note Chunk size must be at least ITERATION_CHUNK_SIZE (10MB) to avoid
+         *  architectural constraints and ensure reliable parsing behavior.
+         */
+        void set_chunk_size(size_t size) {
+            if (size < internals::ITERATION_CHUNK_SIZE) {
+                throw std::invalid_argument(
+                    "Chunk size must be at least " +
+                    std::to_string(internals::ITERATION_CHUNK_SIZE) +
+                    " bytes (10MB). Provided: " + std::to_string(size)
+                );
+            }
+            this->_chunk_size = size;
+        }
+
         /** @name CSV Settings **/
         ///@{
         CSVFormat _format;
@@ -293,6 +318,8 @@ namespace csv {
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
         std::thread read_csv_worker; /**< Worker thread for read_csv() */
+        size_t _chunk_size = internals::ITERATION_CHUNK_SIZE; /**< Current chunk size in bytes */
+        bool _read_requested = false; /**< Flag to detect infinite read loops (Issue #218) */
         ///@}
 
         /** If the worker thread throws, store it here and rethrow on the consumer thread. */
@@ -319,7 +346,7 @@ namespace csv {
 
         /** Read initial chunk to get metadata */
         void initial_read() {
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
             this->read_csv_worker.join();
             this->rethrow_read_csv_exception_if_any();
         }

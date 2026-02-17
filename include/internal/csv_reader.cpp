@@ -326,11 +326,23 @@ namespace csv {
                     // End of file and no more records
                     return false;
 
+                // Detect infinite loop: A previous read was requested but records are still empty
+                // This typically means a single row is larger than the chunk size
+                if (this->_read_requested && this->records->empty()) {
+                    throw std::runtime_error(
+                        "End of file not reached and no more records parsed. "
+                        "This likely indicates a CSV row larger than the chunk size of " +
+                        std::to_string(this->_chunk_size) + " bytes. "
+                        "Use set_chunk_size() to increase the chunk size."
+                    );
+                }
+
                 // Start another reading thread
                 // Mark as waitable before starting the thread to avoid a race where
                 // read_row() observes is_waitable()==false immediately after thread creation.
                 this->records->notify_all();
-                this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
+                this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
+                this->_read_requested = true;
                 continue;
             }
             else if (this->records->front().size() != this->n_cols &&
@@ -347,6 +359,7 @@ namespace csv {
             else {
                 row = this->records->pop_front();
                 this->_n_rows++;
+                this->_read_requested = false;  // Reset flag on successful read
                 return true;
             }
         }
