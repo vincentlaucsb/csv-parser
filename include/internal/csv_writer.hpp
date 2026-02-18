@@ -5,6 +5,8 @@
 #pragma once
 #include <fstream>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -199,19 +201,27 @@ namespace csv {
         */
 
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
-            : out(_out), quote_minimal(_quote_minimal) {};
+            : out(&_out), quote_minimal(_quote_minimal) {};
 
         /** Construct a DelimWriter over the file
          *
          *  @param[out] filename  File to write to
          */
-        DelimWriter(const std::string& filename) : DelimWriter(std::ifstream(filename)) {};
+        template<typename T = OutputStream,
+            csv::enable_if_t<std::is_same<T, std::ofstream>::value, int> = 0>
+        DelimWriter(const std::string& filename, bool _quote_minimal = true)
+            : owned_out(new std::ofstream(filename, std::ios::out)),
+            out(owned_out.get()),
+            quote_minimal(_quote_minimal) {
+            if (!owned_out->is_open())
+                throw std::runtime_error("Failed to open file for writing: " + filename);
+        };
 
         /** Destructor will flush remaining data
          *
          */
         ~DelimWriter() {
-            out.flush();
+            out->flush();
         }
 
         /** Format a sequence of strings and write to CSV according to RFC 4180
@@ -225,8 +235,8 @@ namespace csv {
         template<typename T, size_t Size>
         DelimWriter& operator<<(const std::array<T, Size>& record) {
             for (size_t i = 0; i < Size; i++) {
-                out << csv_escape(record[i]);
-                if (i + 1 != Size) out << Delim;
+                (*out) << csv_escape(record[i]);
+                if (i + 1 != Size) (*out) << Delim;
             }
 
             end_out();
@@ -255,8 +265,8 @@ namespace csv {
             const size_t ilen = record.size();
             size_t i = 0;
             for (const auto& field : record) {
-                out << csv_escape(field);
-                if (i + 1 != ilen) out << Delim;
+                (*out) << csv_escape(field);
+                if (i + 1 != ilen) (*out) << Delim;
                 i++;
             }
 
@@ -268,7 +278,7 @@ namespace csv {
          *
          */
         void flush() {
-            out.flush();
+            out->flush();
         }
 
     private:
@@ -340,9 +350,9 @@ namespace csv {
         /** Recurisve template for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
-            out << csv_escape(std::get<Index>(record));
+            (*out) << csv_escape(std::get<Index>(record));
 
-            IF_CONSTEXPR (Index + 1 < sizeof...(T)) out << Delim;
+            IF_CONSTEXPR (Index + 1 < sizeof...(T)) (*out) << Delim;
 
             this->write_tuple<Index + 1>(record);
         }
@@ -356,11 +366,20 @@ namespace csv {
 
         /** Ends a line in 'out' and flushes, if Flush is true.*/
         void end_out() {
-            out << '\n';
-            IF_CONSTEXPR(Flush) out.flush();
+            (*out) << '\n';
+            IF_CONSTEXPR(Flush) out->flush();
         }
 
-        OutputStream & out;
+        /**
+         * An owned output stream, if the writer owns it.
+         * May be null if the writer does not own its output stream, i.e.
+         * if it was initialized with an output stream reference instead of a filename.
+         */
+        std::unique_ptr<OutputStream> owned_out;
+
+        /** Pointer to the output stream (which may or may not be owned by this writer). */
+        OutputStream* out;
+
         bool quote_minimal;
     };
 

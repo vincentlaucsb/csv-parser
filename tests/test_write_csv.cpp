@@ -1,4 +1,5 @@
 #include <stdio.h> // For remove()
+#include <fstream>
 #include <sstream>
 #include <queue>
 #include <list>
@@ -52,9 +53,44 @@ TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
 }
 #endif
 
-TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]") {
-    std::stringstream output, correct;
-    auto writer = make_csv_writer(output);
+namespace {
+    struct StringOutput {
+        std::stringstream stream;
+
+        std::string str() const {
+            return stream.str();
+        }
+    };
+
+    struct FileOutput {
+        std::string path;
+        std::ofstream stream;
+
+        FileOutput() {
+            static int counter = 0;
+            path = "test_write_csv_output_" + std::to_string(++counter) + ".csv";
+            stream.open(path, std::ios::out | std::ios::trunc);
+        }
+
+        ~FileOutput() {
+            stream.close();
+            std::remove(path.c_str());
+        }
+
+        std::string str() {
+            stream.flush();
+            std::ifstream in(path, std::ios::in);
+            std::stringstream buffer;
+            buffer << in.rdbuf();
+            return buffer.str();
+        }
+    };
+}
+
+TEMPLATE_TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]", StringOutput, FileOutput) {
+    TestType output;
+    std::stringstream correct;
+    auto writer = make_csv_writer(output.stream);
 
     SECTION("Escaped Comma") {
         writer << std::array<std::string, 1>({ "Furthermore, this should be quoted." });
@@ -85,9 +121,10 @@ TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]") {
     REQUIRE(output.str() == correct.str());
 }
 
-TEST_CASE("CSV Quote All", "[test_csv_quote_all]") {
-    std::stringstream output, correct;
-    auto writer = make_csv_writer(output, false);
+TEMPLATE_TEST_CASE("CSV Quote All", "[test_csv_quote_all]", StringOutput, FileOutput) {
+    TestType output;
+    std::stringstream correct;
+    auto writer = make_csv_writer(output.stream, false);
 
     writer << std::array<std::string, 1>({ "This should be quoted" });
     correct << "\"This should be quoted\"" << std::endl;
