@@ -104,6 +104,9 @@ In addition to the [Features & Examples](#features--examples) below, a [fully-fl
 If you use this library for work, please [become a sponsor](https://github.com/sponsors/vincentlaucsb). Your donation
 will fund continued maintenance and development of the project.
 
+Shameless plug: If you like this library, check out my side project
+[experiencer](https://github.com/vincentlaucsb/experiencer) — a WYSIWYG resume editor with clean HTML/CSS output.
+
 ## Integration
 
 This library was developed with Microsoft Visual Studio and is compatible with >g++ 7.5 and clang.
@@ -438,9 +441,13 @@ using namespace csv;
 
 ...
 
-// Create a DataFrame keyed by employee ID
+// Shortest form: pass a filename directly with DataFrameOptions
+DataFrame<int> df("employees.csv",
+    DataFrameOptions().set_key_column("employee_id"));
+
+// Or construct from an existing CSVReader (e.g. when you need a custom format)
 CSVReader reader("employees.csv");
-DataFrame<int> df(reader, "employee_id");
+DataFrame<int> df2(reader, "employee_id");
 
 // O(1) lookups by key
 auto salary = df[12345]["salary"].get<double>();
@@ -455,9 +462,23 @@ if (df.contains(99999)) {
 }
 ```
 
+**Using DataFrameOptions for Fine-Grained Control**
+```cpp
+// Configure key column, duplicate-key policy, and missing-key behaviour
+DataFrameOptions opts;
+opts.set_key_column("employee_id")
+    .set_duplicate_key_policy(
+        DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST)  // or OVERWRITE / THROW
+    .set_throw_on_missing_key(false);  // silently skip rows with no key value
+
+DataFrame<int> df("employees.csv", opts);
+```
+
 **Creating a DataFrame with a Custom Key Function**
 ```cpp
-// Create a composite key from two columns
+CSVReader reader("employees.csv");
+
+// Build a composite key from two columns
 auto make_key = [](const CSVRow& row) {
     return row["first_name"].get<std::string>() + "_" +
            row["last_name"].get<std::string>();
@@ -504,6 +525,7 @@ auto by_salary_range = df.group_by([](const CSVRow& row) {
 ```
 
 **Writing Back to CSV**
+
 Each `DataFrameRow` has an implicit conversion to `std::vector<std::string>`,
 which is convenient when using `CSVWriter`.
 
