@@ -33,6 +33,7 @@ jobs:
       with:
         language: ${{ matrix.language }}
         queries: security-and-quality
+        config-file: ./.github/codeql/codeql-config.yml
     
     - name: Install dependencies
       run: |

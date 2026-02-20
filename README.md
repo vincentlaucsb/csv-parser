@@ -39,7 +39,7 @@ There's plenty of other CSV parsers in the wild, but I had a hard time finding w
 A high performance CSV parser allows you to take advantage of the deluge of large datasets available. By using overlapped threads, memory mapped IO, and 
 minimal memory allocation, this parser can quickly tackle large CSV files--even if they are larger than RAM.
 
-In fact, [according to Visual Studio's profier](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
+In fact, [according to Visual Studio's profiler](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
 CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
 
 #### Show me the numbers
@@ -265,6 +265,12 @@ using namespace csv;
 CSVReader reader("very_big_file.csv");
 
 for (auto& row: reader) {
+    int timestamp = 0;
+    if (row["timestamp"].try_get(timestamp)) {
+        // Non-throwing conversion
+        std::cout << "Timestamp: " << timestamp << std::endl;
+    }
+
     if (row["timestamp"].is_int()) {
         // Can use get<>() with any integer type, but negative
         // numbers cannot be converted to unsigned types
@@ -342,7 +348,7 @@ format.delimiter('\t')
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out
 
-CSVReader reader("wierd_csv_dialect.csv", format);
+CSVReader reader("weird_csv_dialect.csv", format);
 
 for (auto& row: reader) {
     // Do stuff with rows here
@@ -422,7 +428,7 @@ for (auto& r: rows) {
 
 ### DataFrames for Random Access and Updates
 
-For files that fit comfortably in memory, `DataFrame` provides fast keyed access, in-place updates, and grouping operations—all built on the same high-performance parser.
+For files that fit comfortably in memory, `DataFrame` provides fast and powerful keyed access, in-place updates, and grouping operations—all built on the same high-performance parser. It uses the same parsing pipeline as `CSVReader` but retains the results in memory for random access.
 
 **Creating a DataFrame with Keyed Access**
 ```cpp
@@ -447,6 +453,20 @@ auto name = first_row["name"].get<std::string>();
 if (df.contains(99999)) {
     std::cout << "Employee exists" << std::endl;
 }
+```
+
+**Creating a DataFrame with a Custom Key Function**
+```cpp
+// Create a composite key from two columns
+auto make_key = [](const CSVRow& row) {
+    return row["first_name"].get<std::string>() + "_" +
+           row["last_name"].get<std::string>();
+};
+
+DataFrame<std::string> by_name(reader, make_key);
+
+// Lookups by composite key
+auto employee = by_name["Ada_Lovelace"]["department"].get<std::string>();
 ```
 
 **Updating Values**
@@ -484,6 +504,9 @@ auto by_salary_range = df.group_by([](const CSVRow& row) {
 ```
 
 **Writing Back to CSV**
+Each `DataFrameRow` has an implicit conversion to `std::vector<std::string>`,
+which is convenient when using `CSVWriter`.
+
 ```cpp
 // DataFrameRow has implicit conversion for CSVWriter compatibility
 auto writer = make_csv_writer(std::cout);
@@ -495,6 +518,10 @@ for (auto& row : df) {
 **When to Use DataFrame vs. CSVReader:**
 - **Use CSVReader** for: Large files (>1GB), streaming pipelines, minimal memory footprint
 - **Use DataFrame** for: Files that fit in RAM, frequent lookups/updates, grouping operations, data that needs random access
+
+**When Not to Use DataFrame:**
+- Extremely large files that do not fit in RAM
+- Streaming pipelines where you only need single-pass access
 
 Both options deliver the same parsing performance—DataFrame simply keeps the results in memory for convenience.
 
