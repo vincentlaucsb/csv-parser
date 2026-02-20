@@ -382,7 +382,7 @@ namespace csv {
          */
         template<
             typename KeyFunc,
-            typename ResultType = typename std::result_of<KeyFunc(const CSVRow&)>::type,
+            typename ResultType = invoke_result_t<KeyFunc, const CSVRow&>,
             csv::enable_if_t<std::is_convertible<ResultType, KeyType>::value, int> = 0
         >
         DataFrame(
@@ -403,7 +403,7 @@ namespace csv {
          */
         template<
             typename KeyFunc,
-            typename ResultType = typename std::result_of<KeyFunc(const CSVRow&)>::type,
+            typename ResultType = invoke_result_t<KeyFunc, const CSVRow&>,
             csv::enable_if_t<std::is_convertible<ResultType, KeyType>::value, int> = 0
         >
         DataFrame(
@@ -700,7 +700,7 @@ namespace csv {
                 }
             }
 
-            return (*this)[key][column].get<std::string>();
+            return (*this)[key][column].template get<std::string>();
         }
 
         /**
@@ -819,7 +819,7 @@ namespace csv {
          */
         template<
             typename GroupFunc,
-            typename GroupKey = typename std::result_of<GroupFunc(const CSVRow&)>::type,
+            typename GroupKey = invoke_result_t<GroupFunc, const CSVRow&>,
             csv::enable_if_t<
                 internals::is_hashable<GroupKey>::value &&
                 internals::is_equality_comparable<GroupKey>::value,
@@ -871,7 +871,7 @@ namespace csv {
                 }
 
                 if (!has_group_key) {
-                    group_key = rows[i].second[name].get<std::string>();
+                    group_key = rows[i].second[name].template get<std::string>();
                 }
 
                 grouped[group_key].push_back(i);

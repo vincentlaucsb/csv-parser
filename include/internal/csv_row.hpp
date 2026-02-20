@@ -110,6 +110,79 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
+        /** Attempts to retrieve the value as the requested type without throwing exceptions.
+         *
+         *  @param[out] out Output parameter that receives the converted value if successful
+         *  @return true if conversion succeeded, false otherwise
+         *
+         *  \par Valid options for T
+         *   - std::string or csv::string_view
+         *   - signed integral types (signed char, short, int, long int, long long int)
+         *   - floating point types (float, double, long double)
+         *   - unsigned integers are not supported at this time, but may be in a later release
+         *
+         *  \par When conversion fails (returns false)
+         *   - Converting non-numeric values to any numeric type
+         *   - Converting floating point values to integers
+         *   - Converting a large integer to a smaller type that will not hold it
+         *   - Converting negative values to unsigned types
+         *
+         *  @note This method is capable of parsing scientific E-notation.
+         *
+         *  @warning Currently, conversions to floating point types are not
+         *           checked for loss of precision
+         *
+         *  @warning Any string_views returned are only guaranteed to be valid
+         *           if the parent CSVRow is still alive.
+         *
+         *  Example:
+         *  @code
+         *  int value;
+         *  if (field.try_get(value)) {
+         *      // Use value safely
+         *  } else {
+         *      // Handle conversion failure
+         *  }
+         *  @endcode
+         */
+        template<typename T = std::string>
+        bool try_get(T& out) noexcept {
+            IF_CONSTEXPR(std::is_arithmetic<T>::value) {
+                // Check if value is numeric
+                if (this->type() <= DataType::CSV_STRING) {
+                    return false;
+                }
+            }
+
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                // Check for float-to-int conversion
+                if (this->is_float()) {
+                    return false;
+                }
+
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value < 0) {
+                        return false;
+                    }
+                }
+            }
+
+            // Check for overflow
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value > internals::get_uint_max<sizeof(T)>()) {
+                        return false;
+                    }
+                }
+                else if (internals::type_num<T>() < this->_type) {
+                    return false;
+                }
+            }
+
+            out = static_cast<T>(this->value);
+            return true;
+        }
+
         /** Parse a hexadecimal value, returning false if the value is not hex.
          *  @tparam T An integral type (int, long, long long, etc.)
          */
@@ -400,6 +473,30 @@ namespace csv {
             throw std::runtime_error(internals::ERROR_NAN);
 
         return this->value;
+    }
+
+    /** Non-throwing retrieval of field as std::string */
+    template<>
+    inline bool CSVField::try_get<std::string>(std::string& out) noexcept {
+        out = std::string(this->sv);
+        return true;
+    }
+
+    /** Non-throwing retrieval of field as csv::string_view */
+    template<>
+    CONSTEXPR_14 bool CSVField::try_get<csv::string_view>(csv::string_view& out) noexcept {
+        out = this->sv;
+        return true;
+    }
+
+    /** Non-throwing retrieval of field as long double */
+    template<>
+    CONSTEXPR_14 bool CSVField::try_get<long double>(long double& out) noexcept {
+        if (!is_num())
+            return false;
+
+        out = this->value;
+        return true;
     }
 #ifdef _MSC_VER
 #pragma endregion CSVField::get Specializations

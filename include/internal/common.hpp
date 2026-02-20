@@ -125,6 +125,14 @@ namespace csv {
     #define CONSTEXPR_VALUE_14 const
 #endif
 
+#ifdef CSV_HAS_CXX17
+    template<typename F, typename... Args>
+    using invoke_result_t = typename std::invoke_result<F, Args...>::type;
+#else
+    template<typename F, typename... Args>
+    using invoke_result_t = typename std::result_of<F(Args...)>::type;
+#endif
+
     // Resolves g++ bug with regard to constexpr methods
     // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
 #if defined __GNUC__ && !defined __clang__

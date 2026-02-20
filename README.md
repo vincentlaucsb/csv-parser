@@ -249,6 +249,7 @@ for (auto& row: reader) {
 If your CSV has lots of numeric values, you can also have this parser (lazily)
 convert them to the proper data type.
 
+ * `try_get<T>()` is a non-throwing version of `get<T>` which returns `bool` if the conversion was successful
  * Type checking is performed on conversions to prevent undefined behavior and integer overflow
    * Negative numbers cannot be blindly converted to unsigned integer types
  * `get<float>()`, `get<double>()`, and `get<long double>()` are capable of parsing numbers written in scientific notation.
