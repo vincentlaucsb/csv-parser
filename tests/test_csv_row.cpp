@@ -83,3 +83,39 @@ TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
     REQUIRE(row["C"] == 3);
     REQUIRE(internals::is_equal(row["D"].get<long double>(), 3.14L));
 }
+
+TEST_CASE("CSVRow::to_unordered_map", "[test_csv_row]") {
+    SECTION("Convert row to full map") {
+        CSVReader reader("./tests/data/fake_data/ints_squared.csv");
+        
+        for (auto& row : reader) {
+            auto row_map = row.to_unordered_map();
+            
+            REQUIRE(row_map.size() == 2);
+            REQUIRE(row_map.count("A") == 1);
+            REQUIRE(row_map.count("B") == 1);
+            
+            // Verify values are correct
+            int a_val = std::stoi(row_map["A"]);
+            int b_val = std::stoi(row_map["B"]);
+            REQUIRE(b_val == a_val * a_val);
+            
+            break;  // Just test first row
+        }
+    }
+
+    SECTION("Convert row to subset map") {
+        CSVReader reader("./tests/data/fake_data/ints_squared.csv");
+        
+        for (auto& row : reader) {
+            auto row_map = row.to_unordered_map({"A"});
+            
+            REQUIRE(row_map.size() == 1);
+            REQUIRE(row_map.count("A") == 1);
+            REQUIRE(row_map.count("B") == 0);
+            
+            REQUIRE(row_map["A"] == "1");
+            break;
+        }
+    }
+}

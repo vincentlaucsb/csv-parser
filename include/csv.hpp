@@ -29,6 +29,7 @@ SOFTWARE.
 #ifndef CSV_HPP
 #define CSV_HPP
 
+#include "internal/data_frame.hpp"
 #include "internal/csv_reader.hpp"
 #include "internal/csv_stat.hpp"
 #include "internal/csv_utility.hpp"

@@ -7,6 +7,7 @@
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#include <mutex>
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -234,6 +235,20 @@ namespace csv {
             return this->data->col_names->get_col_names();
         }
 
+        /** Convert this CSVRow into an unordered map.
+         *  The keys are the column names and the values are the corresponding field values.
+         */
+        std::unordered_map<std::string, std::string> to_unordered_map() const;
+
+        /** Convert this CSVRow into an unordered map.
+         *  The keys are the column names and the values are the corresponding field values.
+         * 
+         * @param[in] subset Vector of column names to include in the map.
+         */
+        std::unordered_map<std::string, std::string> to_unordered_map(
+            const std::vector<std::string>& subset
+        ) const;
+
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
          *  accessing data than using the [] operator.
@@ -297,6 +312,48 @@ namespace csv {
         ///@}
 
     private:
+        /** Shared implementation for field access (handles quoting and caching). */
+        inline csv::string_view get_field_impl(size_t index, const internals::RawCSVDataPtr& _data) const {
+            using internals::ParseFlags;
+
+            if (index >= this->size())
+                throw std::runtime_error("Index out of bounds.");
+
+            const size_t field_index = this->fields_start + index;
+            auto field = _data->fields[field_index];
+            auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
+
+            if (field.has_double_quote) {
+                auto& value = _data->double_quote_fields[field_index];
+                // Double-check locking: minimize lock contention by checking before acquiring lock
+                if (value.empty()) {
+                    std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
+
+                    // Check again after acquiring lock in case another thread initialized it
+                    if (value.empty()) {
+                        bool prev_ch_quote = false;
+                        for (size_t i = 0; i < field.length; i++) {
+                            if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                                if (prev_ch_quote) {
+                                    prev_ch_quote = false;
+                                    continue;
+                                }
+                                else {
+                                    prev_ch_quote = true;
+                                }
+                            }
+
+                            value += field_str[i];
+                        }
+                    }
+                }
+
+                return csv::string_view(value);
+            }
+
+            return field_str.substr(0, field.length);
+        }
+
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;
 

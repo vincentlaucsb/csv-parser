@@ -1,5 +1,6 @@
 # Custom Settings
 CMakeLists2.txt
+.personal-todo.md
 
 # Build
 bin/

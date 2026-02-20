@@ -7,6 +7,7 @@
 #include "csv_row.hpp"
 
 namespace csv {
+
     /** Return a CSVField object corrsponding to the nth value in the row.
      *
      *  @note This method performs bounds checking, and will throw an
@@ -47,88 +48,44 @@ namespace csv {
         return ret;
     }
 
-    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
-    {
-        using internals::ParseFlags;
+    /** Build a map from column names to values for a given row. */
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
+        std::unordered_map<std::string, std::string> row_map;
+        row_map.reserve(this->size());
 
-        if (index >= this->size())
-            throw std::runtime_error("Index out of bounds.");
-
-        const size_t field_index = this->fields_start + index;
-        auto field = this->data->fields[field_index];
-        auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
-
-        if (field.has_double_quote) {
-            auto& value = this->data->double_quote_fields[field_index];
-            // Double-check locking: minimize lock contention by checking before acquiring lock
-            if (value.empty()) {
-                std::lock_guard<std::mutex> lock(this->data->double_quote_init_lock);
-
-                // Check again after acquiring lock in case another thread initialized it
-                if (value.empty()) {
-                    bool prev_ch_quote = false;
-                    for (size_t i = 0; i < field.length; i++) {
-                        if (this->data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                            if (prev_ch_quote) {
-                                prev_ch_quote = false;
-                                continue;
-                            }
-                            else {
-                                prev_ch_quote = true;
-                            }
-                        }
-
-                        value += field_str[i];
-                    }
-                }
-            }
-
-            return csv::string_view(value);
+        for (size_t i = 0; i < this->size(); i++) {
+            auto col_name = (*this->data->col_names)[i];
+            row_map[col_name] = this->operator[](i).get<std::string>();
         }
 
-        return field_str.substr(0, field.length);
+        return row_map;
+    }
+
+    /**
+     * Build a map from column names to values for a given row.
+     * 
+     * @param[in] subset Vector of column names to include in the map.
+     */
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map(
+        const std::vector<std::string>& subset
+    ) const {
+        std::unordered_map<std::string, std::string> row_map;
+        row_map.reserve(subset.size());
+
+        for (const auto& col_name : subset)
+            row_map[col_name] = this->operator[](col_name).get<std::string>();
+
+        return row_map;
+    }
+
+    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
+    {
+        return this->get_field_impl(index, this->data);
     }
 
     CSV_INLINE csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
     {
-        using internals::ParseFlags;
-
-        if (index >= this->size())
-            throw std::runtime_error("Index out of bounds.");
-
-        const size_t field_index = this->fields_start + index;
-        auto field = _data->fields[field_index];
-        auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
-
-        if (field.has_double_quote) {
-            auto& value = _data->double_quote_fields[field_index];
-            // Double-check locking: minimize lock contention by checking before acquiring lock
-            if (value.empty()) {
-                std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
-
-                // Check again after acquiring lock in case another thread initialized it
-                if (value.empty()) {
-                    bool prev_ch_quote = false;
-                    for (size_t i = 0; i < field.length; i++) {
-                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                            if (prev_ch_quote) {
-                                prev_ch_quote = false;
-                                continue;
-                            }
-                            else {
-                                prev_ch_quote = true;
-                            }
-                        }
-
-                        value += field_str[i];
-                    }
-                }
-            }
-
-            return csv::string_view(value);
-        }
-
-        return field_str.substr(0, field.length);
+        return this->get_field_impl(index, _data);
     }
 
     CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
@@ -177,7 +134,7 @@ namespace csv {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    CSV_INLINE HEDLEY_NON_NULL(2)
+    CSV_INLINE CSV_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())

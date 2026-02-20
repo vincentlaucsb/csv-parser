@@ -1,3 +1,8 @@
+---
+paths:
+  - "tests/**/*"
+---
+
 # Testing Conventions for AI Agents
 
 ## Rule: Tests Should Expose Bugs, Not Assert Them

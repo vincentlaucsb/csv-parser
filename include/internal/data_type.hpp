@@ -36,7 +36,7 @@ namespace csv {
     namespace internals {
         /** Compute 10 to the power of n */
         template<typename T>
-        HEDLEY_CONST CONSTEXPR_14
+        CSV_CONST CONSTEXPR_14
         long double pow10(const T& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
@@ -53,7 +53,7 @@ namespace csv {
 
         /** Compute 10 to the power of n */
         template<>
-        HEDLEY_CONST CONSTEXPR_14
+        CSV_CONST CONSTEXPR_14
         long double pow10(const unsigned& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
@@ -126,7 +126,7 @@ namespace csv {
                 return (long double)std::numeric_limits<long long int>::max();
             }
 
-            HEDLEY_UNREACHABLE();
+            CSV_UNREACHABLE();
         }
 
         /** Given a byte size, return the largest number than can be stored in
@@ -157,7 +157,7 @@ namespace csv {
                 return (long double)std::numeric_limits<unsigned long long int>::max();
             }
 
-            HEDLEY_UNREACHABLE();
+            CSV_UNREACHABLE();
         }
 
         /** Largest number that can be stored in a 8-bit integer */
@@ -188,7 +188,7 @@ namespace csv {
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        HEDLEY_PRIVATE CONSTEXPR_14
+        CSV_PRIVATE CONSTEXPR_14
         DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
@@ -208,7 +208,7 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR_14
+        CSV_PRIVATE CSV_PURE CONSTEXPR_14
         DataType _determine_integral_type(const long double& number) noexcept {
             // We can assume number is always non-negative
             assert(number >= 0);
