@@ -29,6 +29,7 @@
       - [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
       - [Setting Column Names](#setting-column-names)
     - [Parsing an In-Memory String](#parsing-an-in-memory-string)
+    - [DataFrames for Random Access and Updates](#dataframes-for-random-access-and-updates)
     - [Writing CSV Files](#writing-csv-files)
 
 ## Motivation
@@ -417,6 +418,84 @@ for (auto& r: rows) {
 }
 
 ```
+
+### DataFrames for Random Access and Updates
+
+For files that fit comfortably in memory, `DataFrame` provides fast keyed access, in-place updates, and grouping operations—all built on the same high-performance parser.
+
+**Creating a DataFrame with Keyed Access**
+```cpp
+# include "csv.hpp"
+
+using namespace csv;
+
+...
+
+// Create a DataFrame keyed by employee ID
+CSVReader reader("employees.csv");
+DataFrame<int> df(reader, "employee_id");
+
+// O(1) lookups by key
+auto salary = df[12345]["salary"].get<double>();
+
+// Access by position also works
+auto first_row = df[0];
+auto name = first_row["name"].get<std::string>();
+
+// Check if a key exists
+if (df.contains(99999)) {
+    std::cout << "Employee exists" << std::endl;
+}
+```
+
+**Updating Values**
+```cpp
+// Updates are stored in an efficient overlay without copying the entire dataset
+df.set(12345, "salary", "95000");
+df.set(67890, "department", "Engineering");
+
+// Access methods return updated values transparently
+std::cout << df[12345]["salary"].get<std::string>(); // "95000"
+
+// Iterate with edits visible
+for (auto& row : df) {
+    std::cout << row["salary"].get<std::string>(); // Shows edited values
+}
+```
+
+**Grouping and Analysis**
+```cpp
+// Group by department
+auto groups = df.group_by("department");
+for (auto& [dept, row_indices] : groups) {
+    double total_salary = 0;
+    for (size_t i : row_indices) {
+        total_salary += df[i]["salary"].get<double>();
+    }
+    std::cout << dept << " total: $" << total_salary << std::endl;
+}
+
+// Group using a custom function
+auto by_salary_range = df.group_by([](const CSVRow& row) {
+    double salary = row["salary"].get<double>();
+    return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
+});
+```
+
+**Writing Back to CSV**
+```cpp
+// DataFrameRow has implicit conversion for CSVWriter compatibility
+auto writer = make_csv_writer(std::cout);
+for (auto& row : df) {
+    writer << row;  // Outputs edited values
+}
+```
+
+**When to Use DataFrame vs. CSVReader:**
+- **Use CSVReader** for: Large files (>1GB), streaming pipelines, minimal memory footprint
+- **Use DataFrame** for: Files that fit in RAM, frequent lookups/updates, grouping operations, data that needs random access
+
+Both options deliver the same parsing performance—DataFrame simply keeps the results in memory for convenience.
 
 ### Writing CSV Files
 

@@ -1823,6 +1823,7 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
 #include <vector>
 
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -1879,23 +1880,6 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
     #define CSV_UNREACHABLE() __assume(0)
 #else
     #define CSV_UNREACHABLE() abort()
-#endif
-
-#if defined(__cplusplus)
-    #if __cplusplus >= 201703L
-        #define CSV_CONSTEXPR_17 constexpr
-    #else
-        #define CSV_CONSTEXPR_17 inline
-    #endif
-
-    #if __cplusplus >= 201402L
-        #define CSV_CONSTEXPR_14 constexpr
-    #else
-        #define CSV_CONSTEXPR_14 inline
-    #endif
-#else
-    #define CSV_CONSTEXPR_17 inline
-    #define CSV_CONSTEXPR_14 inline
 #endif
 
 namespace csv {
@@ -5462,33 +5446,142 @@ namespace csv {
         bool throw_on_missing_key = true;
     };
 
+    /**
+     * Proxy class that wraps a CSVRow and intercepts field access to check for edits.
+     * Provides transparent access to both original and edited cell values.
+     */
+    template<typename KeyType>
+    class DataFrameRow {
+    public:
+        /** Default constructor (creates an unbound proxy). */
+        DataFrameRow() : row(nullptr), row_edits(nullptr), key_ptr(nullptr) {}
+
+        /** Construct a DataFrameRow wrapper. */
+        DataFrameRow(
+            const CSVRow* _row,
+            const std::unordered_map<std::string, std::string>* _edits,
+            const KeyType* _key
+        ) : row(_row), row_edits(_edits), key_ptr(_key) {}
+
+        /**
+         * Access a field by column name, checking edits first.
+         * 
+         * @param col Column name
+         * @return CSVField representing the field value (edited if present, otherwise original)
+         */
+        CSVField operator[](const std::string& col) const {
+            if (row_edits) {
+                auto it = row_edits->find(col);
+                if (it != row_edits->end()) {
+                    return CSVField(csv::string_view(it->second));
+                }
+            }
+            return (*row)[col];
+        }
+
+        /** Access a field by position (positional access never checks edits). */
+        CSVField operator[](size_t n) const {
+            return (*row)[n];
+        }
+
+        /** Get the number of fields in the row. */
+        size_t size() const { return row->size(); }
+
+        /** Check if the row is empty. */
+        bool empty() const { return row->empty(); }
+
+        /** Get column names. */
+        std::vector<std::string> get_col_names() const { return row->get_col_names(); }
+
+        /** Get the underlying CSVRow for compatibility. */
+        const CSVRow& get_underlying_row() const { return *row; }
+
+        /** Get the key for this row (only valid for keyed DataFrames). */
+        const KeyType& get_key() const { return *key_ptr; }
+
+        /** Convert to vector of strings for CSVWriter compatibility. */
+        operator std::vector<std::string>() const {
+            std::vector<std::string> result;
+            result.reserve(row->size());
+            
+            auto col_names = row->get_col_names();
+            for (size_t i = 0; i < row->size(); i++) {
+                // Check if this column has an edit
+                if (row_edits && i < col_names.size()) {
+                    auto it = row_edits->find(col_names[i]);
+                    if (it != row_edits->end()) {
+                        result.push_back(it->second);
+                        continue;
+                    }
+                }
+                // Use original value
+                result.push_back((*row)[i].get<std::string>());
+            }
+            return result;
+        }
+
+        /** Convert to JSON. */
+        std::string to_json(const std::vector<std::string>& subset = {}) const {
+            return row->to_json(subset);
+        }
+
+        /** Convert to JSON array. */
+        std::string to_json_array(const std::vector<std::string>& subset = {}) const {
+            return row->to_json_array(subset);
+        }
+
+    private:
+        const CSVRow* row;
+        const std::unordered_map<std::string, std::string>* row_edits;
+        const KeyType* key_ptr;
+    };
+
     template<typename KeyType = std::string>
     class DataFrame {
     public:
+        /** Type alias for internal row storage: pair of key and CSVRow. */
         using row_entry = std::pair<KeyType, CSVRow>;
 
-        /** Row-wise iterator over CSVRow entries. */
+        /** Row-wise iterator over DataFrameRow entries. Provides access to rows with edit support. */
         class iterator {
         public:
-            using value_type = CSVRow;
+            using value_type = DataFrameRow<KeyType>;
             using difference_type = std::ptrdiff_t;
-            using pointer = CSVRow*;
-            using reference = CSVRow&;
+            using pointer = const DataFrameRow<KeyType>*;
+            using reference = const DataFrameRow<KeyType>&;
             using iterator_category = std::random_access_iterator_tag;
 
             iterator() = default;
-            explicit iterator(typename std::vector<row_entry>::iterator it) : iter(it) {}
+            iterator(
+                typename std::vector<row_entry>::iterator it,
+                const std::unordered_map<KeyType, std::unordered_map<std::string, std::string>>* edits
+            ) : iter(it), edits_map(edits) {}
 
-            reference operator*() const { return iter->second; }
-            pointer operator->() const { return &iter->second; }
+            reference operator*() const {
+                const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+                if (edits_map) {
+                    auto it = edits_map->find(iter->first);
+                    if (it != edits_map->end()) {
+                        row_edits = &it->second;
+                    }
+                }
+                cached_row = DataFrameRow<KeyType>(&iter->second, row_edits, &iter->first);
+                return cached_row;
+            }
+
+            pointer operator->() const {
+                // Ensure cached_row is populated
+                operator*();
+                return &cached_row;
+            }
 
             iterator& operator++() { ++iter; return *this; }
             iterator operator++(int) { auto tmp = *this; ++iter; return tmp; }
             iterator& operator--() { --iter; return *this; }
             iterator operator--(int) { auto tmp = *this; --iter; return tmp; }
 
-            iterator operator+(difference_type n) const { return iterator(iter + n); }
-            iterator operator-(difference_type n) const { return iterator(iter - n); }
+            iterator operator+(difference_type n) const { return iterator(iter + n, edits_map); }
+            iterator operator-(difference_type n) const { return iterator(iter - n, edits_map); }
             difference_type operator-(const iterator& other) const { return iter - other.iter; }
 
             bool operator==(const iterator& other) const { return iter == other.iter; }
@@ -5496,29 +5589,50 @@ namespace csv {
 
         private:
             typename std::vector<row_entry>::iterator iter;
+            const std::unordered_map<KeyType, std::unordered_map<std::string, std::string>>* edits_map = nullptr;
+            mutable DataFrameRow<KeyType> cached_row;
         };
 
+        /** Row-wise const iterator over DataFrameRow entries. Provides read-only access to rows with edit support. */
         class const_iterator {
         public:
-            using value_type = const CSVRow;
+            using value_type = DataFrameRow<KeyType>;
             using difference_type = std::ptrdiff_t;
-            using pointer = const CSVRow*;
-            using reference = const CSVRow&;
+            using pointer = const DataFrameRow<KeyType>*;
+            using reference = const DataFrameRow<KeyType>&;
             using iterator_category = std::random_access_iterator_tag;
 
             const_iterator() = default;
-            explicit const_iterator(typename std::vector<row_entry>::const_iterator it) : iter(it) {}
+            const_iterator(
+                typename std::vector<row_entry>::const_iterator it,
+                const std::unordered_map<KeyType, std::unordered_map<std::string, std::string>>* edits
+            ) : iter(it), edits_map(edits) {}
 
-            reference operator*() const { return iter->second; }
-            pointer operator->() const { return &iter->second; }
+            reference operator*() const {
+                const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+                if (edits_map) {
+                    auto it = edits_map->find(iter->first);
+                    if (it != edits_map->end()) {
+                        row_edits = &it->second;
+                    }
+                }
+                cached_row = DataFrameRow<KeyType>(&iter->second, row_edits, &iter->first);
+                return cached_row;
+            }
+
+            pointer operator->() const {
+                // Ensure cached_row is populated
+                operator*();
+                return &cached_row;
+            }
 
             const_iterator& operator++() { ++iter; return *this; }
             const_iterator operator++(int) { auto tmp = *this; ++iter; return tmp; }
             const_iterator& operator--() { --iter; return *this; }
             const_iterator operator--(int) { auto tmp = *this; --iter; return tmp; }
 
-            const_iterator operator+(difference_type n) const { return const_iterator(iter + n); }
-            const_iterator operator-(difference_type n) const { return const_iterator(iter - n); }
+            const_iterator operator+(difference_type n) const { return const_iterator(iter + n, edits_map); }
+            const_iterator operator-(difference_type n) const { return const_iterator(iter - n, edits_map); }
             difference_type operator-(const const_iterator& other) const { return iter - other.iter; }
 
             bool operator==(const const_iterator& other) const { return iter == other.iter; }
@@ -5526,6 +5640,8 @@ namespace csv {
 
         private:
             typename std::vector<row_entry>::const_iterator iter;
+            const std::unordered_map<KeyType, std::unordered_map<std::string, std::string>>* edits_map = nullptr;
+            mutable DataFrameRow<KeyType> cached_row;
         };
 
         static_assert(
@@ -5545,16 +5661,36 @@ namespace csv {
 
         using DuplicateKeyPolicy = DataFrameOptions::DuplicateKeyPolicy;
 
+        /** Construct an empty DataFrame. */
         DataFrame() = default;
 
+        /**
+         * Construct an unkeyed DataFrame from a CSV reader.
+         * Rows are accessible by position only.
+         */
         explicit DataFrame(CSVReader& reader) {
             this->init_unkeyed_from_reader(reader);
         }
 
+        /**
+         * Construct a keyed DataFrame from a CSV reader with options.
+         * 
+         * @param reader CSV reader to consume
+         * @param options Configuration including key column and duplicate policies
+         * @throws std::runtime_error if key column is empty or not found
+         */
         explicit DataFrame(CSVReader& reader, const DataFrameOptions& options) {
             this->init_from_reader(reader, options);
         }
 
+        /**
+         * Construct a keyed DataFrame directly from a CSV file.
+         * 
+         * @param filename Path to the CSV file
+         * @param options Configuration including key column and duplicate policies
+         * @param format CSV format specification (defaults to auto-detection)
+         * @throws std::runtime_error if key column is empty or not found
+         */
         DataFrame(
             csv::string_view filename,
             const DataFrameOptions& options,
@@ -5564,6 +5700,15 @@ namespace csv {
             this->init_from_reader(reader, options);
         }
 
+        /**
+         * Construct a keyed DataFrame using a column name as the key.
+         * 
+         * @param reader CSV reader to consume
+         * @param _key_column Name of the column to use as the key
+         * @param policy How to handle duplicate keys (default: OVERWRITE)
+         * @param throw_on_missing_key Whether to throw if a key value cannot be parsed (default: true)
+         * @throws std::runtime_error if key column is empty or not found
+         */
         DataFrame(
             CSVReader& reader,
             const std::string& _key_column,
@@ -5577,6 +5722,14 @@ namespace csv {
                 .set_throw_on_missing_key(throw_on_missing_key)
         ) {}
 
+        /**
+         * Construct a keyed DataFrame using a custom key function.
+         * 
+         * @param reader CSV reader to consume
+         * @param key_func Function that extracts a key from each row
+         * @param policy How to handle duplicate keys (default: OVERWRITE)
+         * @throws std::runtime_error if policy is THROW and duplicate keys are encountered
+         */
         template<
             typename KeyFunc,
             typename ResultType = typename std::result_of<KeyFunc(const CSVRow&)>::type,
@@ -5591,6 +5744,13 @@ namespace csv {
             this->build_from_key_function(reader, key_func, policy);
         }
 
+        /**
+         * Construct a keyed DataFrame using a custom key function with options.
+         * 
+         * @param reader CSV reader to consume
+         * @param key_func Function that extracts a key from each row
+         * @param options Configuration for duplicate key policy
+         */
         template<
             typename KeyFunc,
             typename ResultType = typename std::result_of<KeyFunc(const CSVRow&)>::type,
@@ -5602,21 +5762,38 @@ namespace csv {
             const DataFrameOptions& options
         ) : DataFrame(reader, key_func, options.get_duplicate_key_policy()) {}
 
+        /** Get the number of rows in the DataFrame. */
         size_t size() const noexcept {
             return rows.size();
         }
 
+        /** Check if the DataFrame is empty (has no rows). */
         bool empty() const noexcept {
             return rows.empty();
         }
 
+        /** Get the number of rows in the DataFrame. Alias for size(). */
         size_t n_rows() const noexcept { return rows.size(); }
+        
+        /** Get the number of columns in the DataFrame. */
         size_t n_cols() const noexcept { return col_names.size(); }
 
+        /**
+         * Check if a column exists in the DataFrame.
+         * 
+         * @param name Column name to check
+         * @return true if the column exists, false otherwise
+         */
         bool has_column(const std::string& name) const {
             return std::find(col_names.begin(), col_names.end(), name) != col_names.end();
         }
 
+        /**
+         * Get the index of a column by name.
+         * 
+         * @param name Column name to find
+         * @return Column index (0-based) or CSV_NOT_FOUND if not found
+         */
         int index_of(const std::string& name) const {
             auto it = std::find(col_names.begin(), col_names.end(), name);
             if (it == col_names.end())
@@ -5624,87 +5801,244 @@ namespace csv {
             return static_cast<int>(std::distance(col_names.begin(), it));
         }
 
+        /** Get the column names in order. */
         const std::vector<std::string>& columns() const noexcept {
             return col_names;
         }
 
+        /** Get the name of the key column (empty string if unkeyed). */
         const std::string& key_name() const noexcept {
             return key_column;
         }
 
-        CSVRow& operator[](size_t i) {
+        /**
+         * Access a row by position (unchecked).
+         * 
+         * @param i Row index (0-based)
+         * @return DataFrameRow proxy with edit support
+         * @throws std::out_of_range if index is out of bounds (via std::vector::at)
+         */
+        DataFrameRow<KeyType> operator[](size_t i) {
             return this->iloc(i);
         }
 
-        const CSVRow& operator[](size_t i) const {
+        /** Access a row by position (unchecked, const version). */
+        DataFrameRow<KeyType> operator[](size_t i) const {
             return this->iloc(i);
         }
 
-        CSVRow& at(size_t i) { return rows.at(i).second; }
-        const CSVRow& at(size_t i) const { return rows.at(i).second; }
+        /**
+         * Access a row by position with bounds checking.
+         * 
+         * @param i Row index (0-based)
+         * @return DataFrameRow proxy with edit support
+         * @throws std::out_of_range if index is out of bounds
+         */
+        DataFrameRow<KeyType> at(size_t i) {
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            if (is_keyed) {
+                auto it = edits.find(rows.at(i).first);
+                if (it != edits.end()) row_edits = &it->second;
+            }
+            return DataFrameRow<KeyType>(&rows.at(i).second, row_edits, &rows.at(i).first);
+        }
+        
+        /** Access a row by position with bounds checking (const version). */
+        DataFrameRow<KeyType> at(size_t i) const {
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            if (is_keyed) {
+                auto it = edits.find(rows.at(i).first);
+                if (it != edits.end()) row_edits = &it->second;
+            }
+            return DataFrameRow<KeyType>(&rows.at(i).second, row_edits, &rows.at(i).first);
+        }
 
         /**
          * Access a row by its key.
          * 
-         * @throws std::runtime_error if the DataFrame was not created with a key column.
+         * @param key The row key to look up
+         * @return DataFrameRow proxy with edit support
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         * @throws std::out_of_range if the key is not found
          */
-        CSVRow& operator[](const KeyType& key) {
+        DataFrameRow<KeyType> operator[](const KeyType& key) {
             this->require_keyed_frame();
             auto position = this->position_of(key);
-            return rows[position].second;
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            auto it = edits.find(key);
+            if (it != edits.end()) row_edits = &it->second;
+            return DataFrameRow<KeyType>(&rows[position].second, row_edits, &rows[position].first);
         }
 
-        const CSVRow& operator[](const KeyType& key) const {
+        /** Access a row by its key (const version). */
+        DataFrameRow<KeyType> operator[](const KeyType& key) const {
             this->require_keyed_frame();
             auto position = this->position_of(key);
-            return rows[position].second;
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            auto it = edits.find(key);
+            if (it != edits.end()) row_edits = &it->second;
+            return DataFrameRow<KeyType>(&rows[position].second, row_edits, &rows[position].first);
         }
 
-        CSVRow& iloc(size_t i) {
-            return rows.at(i).second;
+        /**
+         * Access a row by position (iloc-style, pandas naming).
+         * 
+         * @param i Row index (0-based)
+         * @return DataFrameRow proxy with edit support
+         * @throws std::out_of_range if index is out of bounds
+         */
+        DataFrameRow<KeyType> iloc(size_t i) {
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            if (is_keyed) {
+                auto it = edits.find(rows.at(i).first);
+                if (it != edits.end()) row_edits = &it->second;
+            }
+            return DataFrameRow<KeyType>(&rows.at(i).second, row_edits, &rows.at(i).first);
         }
 
-        const CSVRow& iloc(size_t i) const {
-            return rows.at(i).second;
+        /** Access a row by position (const version). */
+        DataFrameRow<KeyType> iloc(size_t i) const {
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            if (is_keyed) {
+                auto it = edits.find(rows.at(i).first);
+                if (it != edits.end()) row_edits = &it->second;
+            }
+            return DataFrameRow<KeyType>(&rows.at(i).second, row_edits, &rows.at(i).first);
         }
 
-        CSVRow* try_get(size_t i) {
-            return this->try_get_by_index(*this, i);
+        /**
+         * Attempt to access a row by position without throwing.
+         * 
+         * @param i Row index (0-based)
+         * @param out Output parameter that receives the DataFrameRow if found
+         * @return true if the row exists, false otherwise
+         */
+        bool try_get(size_t i, DataFrameRow<KeyType>& out) {
+            if (i >= rows.size()) {
+                return false;
+            }
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            if (is_keyed) {
+                auto it = edits.find(rows[i].first);
+                if (it != edits.end()) row_edits = &it->second;
+            }
+            out = DataFrameRow<KeyType>(&rows[i].second, row_edits, &rows[i].first);
+            return true;
         }
 
-        const CSVRow* try_get(size_t i) const {
-            return this->try_get_by_index(*this, i);
+        /** Attempt to access a row by position without throwing (const version). */
+        bool try_get(size_t i, DataFrameRow<KeyType>& out) const {
+            if (i >= rows.size()) {
+                return false;
+            }
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            if (is_keyed) {
+                auto it = edits.find(rows[i].first);
+                if (it != edits.end()) row_edits = &it->second;
+            }
+            out = DataFrameRow<KeyType>(&rows[i].second, row_edits, &rows[i].first);
+            return true;
         }
 
+        /**
+         * Get the key for a row at a given position.
+         * 
+         * @param i Row index (0-based)
+         * @return Reference to the key
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         * @throws std::out_of_range if index is out of bounds
+         */
         const KeyType& key_at(size_t i) const {
             this->require_keyed_frame();
             return rows.at(i).first;
         }
 
+        /**
+         * Check if a key exists in the DataFrame.
+         * 
+         * @param key The key to check
+         * @return true if the key exists, false otherwise
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         */
         bool contains(const KeyType& key) const {
             this->require_keyed_frame();
             this->ensure_key_index();
             return key_index->find(key) != key_index->end();
         }
 
-        CSVRow& at(const KeyType& key) {
+        /**
+         * Access a row by its key with bounds checking.
+         * 
+         * @param key The row key to look up
+         * @return DataFrameRow proxy with edit support
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         * @throws std::out_of_range if the key is not found
+         */
+        DataFrameRow<KeyType> at(const KeyType& key) {
             this->require_keyed_frame();
-            return rows.at(this->position_of(key)).second;
+            auto position = this->position_of(key);
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            auto it = edits.find(key);
+            if (it != edits.end()) row_edits = &it->second;
+            return DataFrameRow<KeyType>(&rows.at(position).second, row_edits, &rows.at(position).first);
         }
 
-        const CSVRow& at(const KeyType& key) const {
+        /** Access a row by its key with bounds checking (const version). */
+        DataFrameRow<KeyType> at(const KeyType& key) const {
             this->require_keyed_frame();
-            return rows.at(this->position_of(key)).second;
+            auto position = this->position_of(key);
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            auto it = edits.find(key);
+            if (it != edits.end()) row_edits = &it->second;
+            return DataFrameRow<KeyType>(&rows.at(position).second, row_edits, &rows.at(position).first);
         }
 
-        CSVRow* try_get(const KeyType& key) {
-            return this->try_get_by_key(*this, key);
+        /**
+         * Attempt to access a row by key without throwing.
+         * 
+         * @param key The row key to look up
+         * @param out Output parameter that receives the DataFrameRow if found
+         * @return true if the key exists, false otherwise
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         */
+        bool try_get(const KeyType& key, DataFrameRow<KeyType>& out) {
+            this->require_keyed_frame();
+            this->ensure_key_index();
+            auto it = key_index->find(key);
+            if (it == key_index->end()) {
+                return false;
+            }
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            auto edit_it = edits.find(key);
+            if (edit_it != edits.end()) row_edits = &edit_it->second;
+            out = DataFrameRow<KeyType>(&rows[it->second].second, row_edits, &rows[it->second].first);
+            return true;
         }
 
-        const CSVRow* try_get(const KeyType& key) const {
-            return this->try_get_by_key(*this, key);
+        /** Attempt to access a row by key without throwing (const version). */
+        bool try_get(const KeyType& key, DataFrameRow<KeyType>& out) const {
+            this->require_keyed_frame();
+            this->ensure_key_index();
+            auto it = key_index->find(key);
+            if (it == key_index->end()) {
+                return false;
+            }
+            const std::unordered_map<std::string, std::string>* row_edits = nullptr;
+            auto edit_it = edits.find(key);
+            if (edit_it != edits.end()) row_edits = &edit_it->second;
+            out = DataFrameRow<KeyType>(&rows[it->second].second, row_edits, &rows[it->second].first);
+            return true;
         }
 
+        /**
+         * Get a cell value as a string, accounting for edits.
+         * 
+         * @param key The row key
+         * @param column The column name
+         * @return Cell value as a string (edited value if present, otherwise original)
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         * @throws std::out_of_range if the key is not found
+         */
         std::string get(const KeyType& key, const std::string& column) const {
             this->require_keyed_frame();
 
@@ -5719,12 +6053,28 @@ namespace csv {
             return (*this)[key][column].get<std::string>();
         }
 
+        /**
+         * Set a cell value (stored in edit overlay).
+         * 
+         * @param key The row key
+         * @param column The column name
+         * @param value The new value as a string
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         * @throws std::out_of_range if the key is not found
+         */
         void set(const KeyType& key, const std::string& column, const std::string& value) {
             this->require_keyed_frame();
             (void)this->position_of(key);
             edits[key][column] = value;
         }
 
+        /**
+         * Remove a row by its key.
+         * 
+         * @param key The row key to remove
+         * @return true if the row was removed, false if not found
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         */
         bool erase_row(const KeyType& key) {
             this->require_keyed_frame();
             this->ensure_key_index();
@@ -5740,15 +6090,30 @@ namespace csv {
             return true;
         }
 
+        /**
+         * Remove a row by its position.
+         * 
+         * @param i Row index (0-based)
+         * @return true if the row was removed, false if index out of bounds
+         */
         bool erase_row_at(size_t i) {
             if (i >= rows.size()) return false;
             if (is_keyed) edits.erase(rows[i].first);
-            
+
             rows.erase(rows.begin() + i);
             this->invalidate_key_index();
             return true;
         }
 
+        /**
+         * Set a cell value by position (stored in edit overlay).
+         * 
+         * @param i Row index (0-based)
+         * @param column The column name
+         * @param value The new value as a string
+         * @throws std::runtime_error if the DataFrame was not created with a key column
+         * @throws std::out_of_range if index is out of bounds
+         */
         void set_at(size_t i, const std::string& column, const std::string& value) {
             if (!is_keyed) {
                 throw std::runtime_error("This DataFrame was created without a key column.");
@@ -5759,7 +6124,15 @@ namespace csv {
             edits[rows[i].first][column] = value;
         }
 
-        /** Get all values from a column with type conversion. */
+        /**
+         * Extract all values from a column with type conversion.
+         * Accounts for edited values in the overlay.
+         * 
+         * @tparam T Target type for conversion (default: std::string)
+         * @param name Column name
+         * @return Vector of values converted to type T
+         * @throws std::runtime_error if column is not found
+         */
         template<typename T = std::string>
         std::vector<T> column(const std::string& name) const {
             if (std::find(col_names.begin(), col_names.end(), name) == col_names.end()) {
@@ -5789,8 +6162,10 @@ namespace csv {
 
         /**
          * Group row positions using an arbitrary grouping function.
-         *
-         * @returns Map of group key -> row positions in this DataFrame.
+         * 
+         * @tparam GroupFunc Callable that takes a CSVRow and returns a hashable key
+         * @param group_func Function to extract group key from each row
+         * @return Map of group key -> vector of row indices belonging to that group
          */
         template<
             typename GroupFunc,
@@ -5814,9 +6189,11 @@ namespace csv {
 
         /**
          * Group row positions by the value of a column.
-         *
-         * @param[in] name Column to group by
-         * @param[in] use_edits If true, group using edited values when present
+         * 
+         * @param name Column to group by
+         * @param use_edits If true, use edited values when present (default: true)
+         * @return Map of column value -> vector of row indices with that value
+         * @throws std::runtime_error if column is not found
          */
         std::unordered_map<std::string, std::vector<size_t>> group_by(
             const std::string& name,
@@ -5853,33 +6230,47 @@ namespace csv {
             return grouped;
         }
 
-        iterator begin() { return iterator(rows.begin()); }
-        iterator end() { return iterator(rows.end()); }
-        const_iterator begin() const { return const_iterator(rows.begin()); }
-        const_iterator end() const { return const_iterator(rows.end()); }
-        const_iterator cbegin() const { return const_iterator(rows.begin()); }
-        const_iterator cend() const { return const_iterator(rows.end()); }
+        /** Get iterator to the first row. */
+        iterator begin() { return iterator(rows.begin(), is_keyed ? &edits : nullptr); }
+        
+        /** Get iterator past the last row. */
+        iterator end() { return iterator(rows.end(), is_keyed ? &edits : nullptr); }
+        
+        /** Get const iterator to the first row. */
+        const_iterator begin() const { return const_iterator(rows.begin(), is_keyed ? &edits : nullptr); }
+        
+        /** Get const iterator past the last row. */
+        const_iterator end() const { return const_iterator(rows.end(), is_keyed ? &edits : nullptr); }
+        
+        /** Get const iterator to the first row (explicit). */
+        const_iterator cbegin() const { return const_iterator(rows.begin(), is_keyed ? &edits : nullptr); }
+        
+        /** Get const iterator past the last row (explicit). */
+        const_iterator cend() const { return const_iterator(rows.end(), is_keyed ? &edits : nullptr); }
 
     private:
-        template<typename Self>
-        static auto try_get_by_index(Self& self, size_t i)
-            -> decltype(&self.rows[0].second) {
-            if (i >= self.rows.size())
-                return nullptr;
-            return &self.rows[i].second;
-        }
+        /** Name of the key column (empty if unkeyed). */
+        std::string key_column;
+        
+        /** Whether this DataFrame was created with a key. */
+        bool is_keyed = false;
+        
+        /** Column names in order. */
+        std::vector<std::string> col_names;
+        
+        /** Internal storage: vector of (key, row) pairs. */
+        std::vector<row_entry> rows;
 
-        template<typename Self>
-        static auto try_get_by_key(Self& self, const KeyType& key)
-            -> decltype(&self.rows[0].second) {
-            self.require_keyed_frame();
-            self.ensure_key_index();
-            auto it = self.key_index->find(key);
-            if (it == self.key_index->end())
-                return nullptr;
-            return &self.rows[it->second].second;
-        }
+        /** Lazily-built index mapping keys to row positions (mutable for const methods). */
+        mutable std::unique_ptr<std::unordered_map<KeyType, size_t>> key_index;
 
+        /**
+         * Edit overlay: key -> column -> value.
+         * Sparse storage for cell modifications without mutating original row data.
+         */
+        std::unordered_map<KeyType, std::unordered_map<std::string, std::string>> edits;
+
+        /** Initialize an unkeyed DataFrame from a CSV reader. */
         void init_unkeyed_from_reader(CSVReader& reader) {
             this->col_names = reader.get_col_names();
             for (auto& row : reader) {
@@ -5887,6 +6278,7 @@ namespace csv {
             }
         }
 
+        /** Initialize a keyed DataFrame from a CSV reader using column-based key extraction. */
         void init_from_reader(CSVReader& reader, const DataFrameOptions& options) {
             this->is_keyed = true;
             this->key_column = options.get_key_column();
@@ -5920,21 +6312,7 @@ namespace csv {
             );
         }
 
-        std::string key_column;
-        bool is_keyed = false;
-        std::vector<std::string> col_names;
-        std::vector<row_entry> rows;
-
-        mutable std::unique_ptr<std::unordered_map<KeyType, size_t>> key_index;
-
-        /**
-         * A nested map that stores edits made to the DataFrame: key -> column -> value.
-         * 
-         * In practice, this should be sparse since most use cases will likely involve only a
-         * small number of edits relative to the total size of the DataFrame.
-         */
-        std::unordered_map<KeyType, std::unordered_map<std::string, std::string>> edits;
-
+        /** Build keyed DataFrame using a custom key extraction function. */
         template<typename KeyFunc>
         void build_from_key_function(
             CSVReader& reader,
@@ -5964,17 +6342,19 @@ namespace csv {
             }
         }
 
-        /** A helper that checks if the DataFrame has a key column */
+        /** Validate that this DataFrame was created with a key column. */
         void require_keyed_frame() const {
             if (!is_keyed) {
                 throw std::runtime_error("This DataFrame was created without a key column.");
             }
         }
 
+        /** Invalidate the lazy key index after structural changes. */
         void invalidate_key_index() {
             key_index.reset();
         }
 
+        /** Build the key index if it doesn't exist (lazy initialization). */
         void ensure_key_index() const {
             if (key_index) {
                 return;
@@ -5989,6 +6369,7 @@ namespace csv {
             }
         }
 
+        /** Find the position of a key in the rows vector. */
         size_t position_of(const KeyType& key) const {
             this->ensure_key_index();
             auto it = key_index->find(key);
@@ -6834,7 +7215,7 @@ namespace csv {
 
         CSV_INLINE const std::string& ColNames::operator[](size_t i) const {
             if (i >= this->col_names.size())
-                throw std::exception("Column index out of bounds.");
+                throw std::out_of_range("Column index out of bounds.");
 
             return this->col_names[i];
         }
@@ -7452,7 +7833,6 @@ namespace csv {
     {
         return this->get_field_impl(index, _data);
     }
-
 
     CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
         // If field has already been parsed to empty, no need to do it aagin:

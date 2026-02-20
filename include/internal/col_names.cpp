@@ -28,7 +28,7 @@ namespace csv {
 
         CSV_INLINE const std::string& ColNames::operator[](size_t i) const {
             if (i >= this->col_names.size())
-                throw std::exception("Column index out of bounds.");
+                throw std::out_of_range("Column index out of bounds.");
 
             return this->col_names[i];
         }
