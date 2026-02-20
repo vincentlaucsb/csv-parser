@@ -29,6 +29,7 @@
       - [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
       - [Setting Column Names](#setting-column-names)
     - [Parsing an In-Memory String](#parsing-an-in-memory-string)
+    - [DataFrames for Random Access and Updates](#dataframes-for-random-access-and-updates)
     - [Writing CSV Files](#writing-csv-files)
 
 ## Motivation
@@ -38,7 +39,7 @@ There's plenty of other CSV parsers in the wild, but I had a hard time finding w
 A high performance CSV parser allows you to take advantage of the deluge of large datasets available. By using overlapped threads, memory mapped IO, and 
 minimal memory allocation, this parser can quickly tackle large CSV files--even if they are larger than RAM.
 
-In fact, [according to Visual Studio's profier](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
+In fact, [according to Visual Studio's profiler](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
 CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
 
 #### Show me the numbers
@@ -102,6 +103,9 @@ In addition to the [Features & Examples](#features--examples) below, a [fully-fl
 ## Sponsors
 If you use this library for work, please [become a sponsor](https://github.com/sponsors/vincentlaucsb). Your donation
 will fund continued maintenance and development of the project.
+
+Shameless plug: If you like this library, check out my side project
+[experiencer](https://github.com/vincentlaucsb/experiencer) — a WYSIWYG resume editor with clean HTML/CSS output.
 
 ## Integration
 
@@ -248,6 +252,7 @@ for (auto& row: reader) {
 If your CSV has lots of numeric values, you can also have this parser (lazily)
 convert them to the proper data type.
 
+ * `try_get<T>()` is a non-throwing version of `get<T>` which returns `bool` if the conversion was successful
  * Type checking is performed on conversions to prevent undefined behavior and integer overflow
    * Negative numbers cannot be blindly converted to unsigned integer types
  * `get<float>()`, `get<double>()`, and `get<long double>()` are capable of parsing numbers written in scientific notation.
@@ -263,6 +268,12 @@ using namespace csv;
 CSVReader reader("very_big_file.csv");
 
 for (auto& row: reader) {
+    int timestamp = 0;
+    if (row["timestamp"].try_get(timestamp)) {
+        // Non-throwing conversion
+        std::cout << "Timestamp: " << timestamp << std::endl;
+    }
+
     if (row["timestamp"].is_int()) {
         // Can use get<>() with any integer type, but negative
         // numbers cannot be converted to unsigned types
@@ -340,7 +351,7 @@ format.delimiter('\t')
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out
 
-CSVReader reader("wierd_csv_dialect.csv", format);
+CSVReader reader("weird_csv_dialect.csv", format);
 
 for (auto& row: reader) {
     // Do stuff with rows here
@@ -417,6 +428,124 @@ for (auto& r: rows) {
 }
 
 ```
+
+### DataFrames for Random Access and Updates
+
+For files that fit comfortably in memory, `DataFrame` provides fast and powerful keyed access, in-place updates, and grouping operations—all built on the same high-performance parser. It uses the same parsing pipeline as `CSVReader` but retains the results in memory for random access.
+
+**Creating a DataFrame with Keyed Access**
+```cpp
+# include "csv.hpp"
+
+using namespace csv;
+
+...
+
+// Shortest form: pass a filename directly with DataFrameOptions
+DataFrame<int> df("employees.csv",
+    DataFrameOptions().set_key_column("employee_id"));
+
+// Or construct from an existing CSVReader (e.g. when you need a custom format)
+CSVReader reader("employees.csv");
+DataFrame<int> df2(reader, "employee_id");
+
+// O(1) lookups by key
+auto salary = df[12345]["salary"].get<double>();
+
+// Access by position also works
+auto first_row = df[0];
+auto name = first_row["name"].get<std::string>();
+
+// Check if a key exists
+if (df.contains(99999)) {
+    std::cout << "Employee exists" << std::endl;
+}
+```
+
+**Using DataFrameOptions for Fine-Grained Control**
+```cpp
+// Configure key column, duplicate-key policy, and missing-key behaviour
+DataFrameOptions opts;
+opts.set_key_column("employee_id")
+    .set_duplicate_key_policy(
+        DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST)  // or OVERWRITE / THROW
+    .set_throw_on_missing_key(false);  // silently skip rows with no key value
+
+DataFrame<int> df("employees.csv", opts);
+```
+
+**Creating a DataFrame with a Custom Key Function**
+```cpp
+CSVReader reader("employees.csv");
+
+// Build a composite key from two columns
+auto make_key = [](const CSVRow& row) {
+    return row["first_name"].get<std::string>() + "_" +
+           row["last_name"].get<std::string>();
+};
+
+DataFrame<std::string> by_name(reader, make_key);
+
+// Lookups by composite key
+auto employee = by_name["Ada_Lovelace"]["department"].get<std::string>();
+```
+
+**Updating Values**
+```cpp
+// Updates are stored in an efficient overlay without copying the entire dataset
+df.set(12345, "salary", "95000");
+df.set(67890, "department", "Engineering");
+
+// Access methods return updated values transparently
+std::cout << df[12345]["salary"].get<std::string>(); // "95000"
+
+// Iterate with edits visible
+for (auto& row : df) {
+    std::cout << row["salary"].get<std::string>(); // Shows edited values
+}
+```
+
+**Grouping and Analysis**
+```cpp
+// Group by department
+auto groups = df.group_by("department");
+for (auto& [dept, row_indices] : groups) {
+    double total_salary = 0;
+    for (size_t i : row_indices) {
+        total_salary += df[i]["salary"].get<double>();
+    }
+    std::cout << dept << " total: $" << total_salary << std::endl;
+}
+
+// Group using a custom function
+auto by_salary_range = df.group_by([](const CSVRow& row) {
+    double salary = row["salary"].get<double>();
+    return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
+});
+```
+
+**Writing Back to CSV**
+
+Each `DataFrameRow` has an implicit conversion to `std::vector<std::string>`,
+which is convenient when using `CSVWriter`.
+
+```cpp
+// DataFrameRow has implicit conversion for CSVWriter compatibility
+auto writer = make_csv_writer(std::cout);
+for (auto& row : df) {
+    writer << row;  // Outputs edited values
+}
+```
+
+**When to Use DataFrame vs. CSVReader:**
+- **Use CSVReader** for: Large files (>1GB), streaming pipelines, minimal memory footprint
+- **Use DataFrame** for: Files that fit in RAM, frequent lookups/updates, grouping operations, data that needs random access
+
+**When Not to Use DataFrame:**
+- Extremely large files that do not fit in RAM
+- Streaming pipelines where you only need single-pass access
+
+Both options deliver the same parsing performance—DataFrame simply keeps the results in memory for convenience.
 
 ### Writing CSV Files
 

@@ -26,7 +26,7 @@ namespace csv {
         /** Helper constexpr function to initialize an array with all the elements set to value
          */
         template<typename OutArray, typename T = typename OutArray::type>
-        HEDLEY_CONST CONSTEXPR_17 OutArray arrayToDefault(T&& value)
+        CSV_CONST CONSTEXPR_17 OutArray arrayToDefault(T&& value)
         {
             OutArray a {};
             for (auto& e : a)
@@ -38,7 +38,7 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter) {
+        CSV_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter) {
             auto ret = arrayToDefault<ParseFlagMap>(ParseFlags::NOT_SPECIAL);
             ret[delimiter + CHAR_OFFSET] = ParseFlags::DELIMITER;
             ret['\r' + CHAR_OFFSET] = ParseFlags::NEWLINE;
@@ -50,7 +50,7 @@ namespace csv {
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
          */
-        HEDLEY_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
+        CSV_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter, char quote_char) {
             std::array<ParseFlags, 256> ret = make_parse_flags(delimiter);
             ret[quote_char + CHAR_OFFSET] = ParseFlags::QUOTE;
             return ret;
@@ -60,7 +60,7 @@ namespace csv {
          *  ASCII number for a character c and, v[i + 128] is true if
          *  c is a whitespace character
          */
-        HEDLEY_CONST CONSTEXPR_17 WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
+        CSV_CONST CONSTEXPR_17 WhitespaceMap make_ws_flags(const char* ws_chars, size_t n_chars) {
             auto ret = arrayToDefault<WhitespaceMap>(false);
             for (size_t j = 0; j < n_chars; j++) {
                 ret[ws_chars[j] + CHAR_OFFSET] = true;

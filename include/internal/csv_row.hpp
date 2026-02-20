@@ -7,6 +7,7 @@
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#include <mutex>
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -107,6 +108,79 @@ namespace csv {
             }
 
             return static_cast<T>(this->value);
+        }
+
+        /** Attempts to retrieve the value as the requested type without throwing exceptions.
+         *
+         *  @param[out] out Output parameter that receives the converted value if successful
+         *  @return true if conversion succeeded, false otherwise
+         *
+         *  \par Valid options for T
+         *   - std::string or csv::string_view
+         *   - signed integral types (signed char, short, int, long int, long long int)
+         *   - floating point types (float, double, long double)
+         *   - unsigned integers are not supported at this time, but may be in a later release
+         *
+         *  \par When conversion fails (returns false)
+         *   - Converting non-numeric values to any numeric type
+         *   - Converting floating point values to integers
+         *   - Converting a large integer to a smaller type that will not hold it
+         *   - Converting negative values to unsigned types
+         *
+         *  @note This method is capable of parsing scientific E-notation.
+         *
+         *  @warning Currently, conversions to floating point types are not
+         *           checked for loss of precision
+         *
+         *  @warning Any string_views returned are only guaranteed to be valid
+         *           if the parent CSVRow is still alive.
+         *
+         *  Example:
+         *  @code
+         *  int value;
+         *  if (field.try_get(value)) {
+         *      // Use value safely
+         *  } else {
+         *      // Handle conversion failure
+         *  }
+         *  @endcode
+         */
+        template<typename T = std::string>
+        bool try_get(T& out) noexcept {
+            IF_CONSTEXPR(std::is_arithmetic<T>::value) {
+                // Check if value is numeric
+                if (this->type() <= DataType::CSV_STRING) {
+                    return false;
+                }
+            }
+
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                // Check for float-to-int conversion
+                if (this->is_float()) {
+                    return false;
+                }
+
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value < 0) {
+                        return false;
+                    }
+                }
+            }
+
+            // Check for overflow
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value > internals::get_uint_max<sizeof(T)>()) {
+                        return false;
+                    }
+                }
+                else if (internals::type_num<T>() < this->_type) {
+                    return false;
+                }
+            }
+
+            out = static_cast<T>(this->value);
+            return true;
         }
 
         /** Parse a hexadecimal value, returning false if the value is not hex.
@@ -234,6 +308,20 @@ namespace csv {
             return this->data->col_names->get_col_names();
         }
 
+        /** Convert this CSVRow into an unordered map.
+         *  The keys are the column names and the values are the corresponding field values.
+         */
+        std::unordered_map<std::string, std::string> to_unordered_map() const;
+
+        /** Convert this CSVRow into an unordered map.
+         *  The keys are the column names and the values are the corresponding field values.
+         * 
+         * @param[in] subset Vector of column names to include in the map.
+         */
+        std::unordered_map<std::string, std::string> to_unordered_map(
+            const std::vector<std::string>& subset
+        ) const;
+
         /** Convert this CSVRow into a vector of strings.
          *  **Note**: This is a less efficient method of
          *  accessing data than using the [] operator.
@@ -297,6 +385,48 @@ namespace csv {
         ///@}
 
     private:
+        /** Shared implementation for field access (handles quoting and caching). */
+        inline csv::string_view get_field_impl(size_t index, const internals::RawCSVDataPtr& _data) const {
+            using internals::ParseFlags;
+
+            if (index >= this->size())
+                throw std::runtime_error("Index out of bounds.");
+
+            const size_t field_index = this->fields_start + index;
+            auto field = _data->fields[field_index];
+            auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
+
+            if (field.has_double_quote) {
+                auto& value = _data->double_quote_fields[field_index];
+                // Double-check locking: minimize lock contention by checking before acquiring lock
+                if (value.empty()) {
+                    std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
+
+                    // Check again after acquiring lock in case another thread initialized it
+                    if (value.empty()) {
+                        bool prev_ch_quote = false;
+                        for (size_t i = 0; i < field.length; i++) {
+                            if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                                if (prev_ch_quote) {
+                                    prev_ch_quote = false;
+                                    continue;
+                                }
+                                else {
+                                    prev_ch_quote = true;
+                                }
+                            }
+
+                            value += field_str[i];
+                        }
+                    }
+                }
+
+                return csv::string_view(value);
+            }
+
+            return field_str.substr(0, field.length);
+        }
+
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;
 
@@ -343,6 +473,30 @@ namespace csv {
             throw std::runtime_error(internals::ERROR_NAN);
 
         return this->value;
+    }
+
+    /** Non-throwing retrieval of field as std::string */
+    template<>
+    inline bool CSVField::try_get<std::string>(std::string& out) noexcept {
+        out = std::string(this->sv);
+        return true;
+    }
+
+    /** Non-throwing retrieval of field as csv::string_view */
+    template<>
+    CONSTEXPR_14 bool CSVField::try_get<csv::string_view>(csv::string_view& out) noexcept {
+        out = this->sv;
+        return true;
+    }
+
+    /** Non-throwing retrieval of field as long double */
+    template<>
+    CONSTEXPR_14 bool CSVField::try_get<long double>(long double& out) noexcept {
+        if (!is_num())
+            return false;
+
+        out = this->value;
+        return true;
     }
 #ifdef _MSC_VER
 #pragma endregion CSVField::get Specializations

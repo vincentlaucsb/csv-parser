@@ -28,12 +28,31 @@
 #pragma once
 #include <type_traits>
 
-#include "../external/string_view.hpp"
+// Minimal portability macros (Hedley subset) with CSV_ prefix.
+#if defined(__clang__) || defined(__GNUC__)
+    #define CSV_CONST __attribute__((__const__))
+    #define CSV_PURE __attribute__((__pure__))
+    #define CSV_PRIVATE __attribute__((__visibility__("hidden")))
+    #define CSV_NON_NULL(...) __attribute__((__nonnull__(__VA_ARGS__)))
+#elif defined(_MSC_VER)
+    #define CSV_CONST
+    #define CSV_PURE
+    #define CSV_PRIVATE
+    #define CSV_NON_NULL(...)
+#else
+    #define CSV_CONST
+    #define CSV_PURE
+    #define CSV_PRIVATE
+    #define CSV_NON_NULL(...)
+#endif
 
-  // If there is another version of Hedley, then the newer one 
-  // takes precedence.
-  // See: https://github.com/nemequ/hedley
-#include "../external/hedley.h"
+#if defined(__GNUC__) || defined(__clang__)
+    #define CSV_UNREACHABLE() __builtin_unreachable()
+#elif defined(_MSC_VER)
+    #define CSV_UNREACHABLE() __assume(0)
+#else
+    #define CSV_UNREACHABLE() abort()
+#endif
 
 namespace csv {
 #ifdef _MSC_VER
@@ -73,6 +92,7 @@ namespace csv {
       */
     using string_view = std::string_view;
 #else
+#include "../external/string_view.hpp"
      /** @typedef string_view
       *  The string_view class used by this library.
       */
@@ -103,6 +123,14 @@ namespace csv {
 
     #define CONSTEXPR_14 inline
     #define CONSTEXPR_VALUE_14 const
+#endif
+
+#ifdef CSV_HAS_CXX17
+    template<typename F, typename... Args>
+    using invoke_result_t = typename std::invoke_result<F, Args...>::type;
+#else
+    template<typename F, typename... Args>
+    using invoke_result_t = typename std::result_of<F(Args...)>::type;
 #endif
 
     // Resolves g++ bug with regard to constexpr methods

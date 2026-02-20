@@ -1,5 +1,5 @@
 /*
-CSV for C++, version 2.4.2
+CSV for C++, version 2.5.0
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
@@ -29,6 +29,7 @@ SOFTWARE.
 #ifndef CSV_HPP
 #define CSV_HPP
 
+#include "internal/data_frame.hpp"
 #include "internal/csv_reader.hpp"
 #include "internal/csv_stat.hpp"
 #include "internal/csv_utility.hpp"

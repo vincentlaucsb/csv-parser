@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -31,6 +32,9 @@ namespace csv {
 
             bool empty() const noexcept { return this->col_names.empty(); }
             size_t size() const noexcept;
+
+            /** Retrieve column name by index. Throws if index is out of bounds. */
+            const std::string& operator[](size_t i) const;
 
         private:
             std::vector<std::string> col_names;

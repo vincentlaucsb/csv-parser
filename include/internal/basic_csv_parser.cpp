@@ -250,7 +250,18 @@ namespace csv {
 
             // Create memory map
             const size_t offset = this->mmap_pos;
-            const size_t length = std::min(this->source_size - offset, bytes);
+            const size_t remaining = (offset < this->source_size)
+                ? (this->source_size - offset)
+                : 0;
+            const size_t length = std::min(remaining, bytes);
+            if (length == 0) {
+                // No more data to read; mark EOF and end feed
+                // (Prevent exception on empty mmap as reported by #267)
+                this->_eof = true;
+                this->end_feed();
+                return;
+            }
+
             std::error_code error;
             auto mmap = mio::make_mmap_source(this->_filename, offset, length, error);
             if (error) {

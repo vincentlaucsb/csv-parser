@@ -219,7 +219,7 @@ namespace csv {
         ///@{
         bool read_row(CSVRow &row);
         iterator begin();
-        HEDLEY_CONST iterator end() const noexcept;
+        CSV_CONST iterator end() const noexcept;
 
         /** Returns true if we have reached end of file */
         bool eof() const noexcept { return this->parser->eof(); };
