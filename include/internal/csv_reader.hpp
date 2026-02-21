@@ -125,7 +125,7 @@ namespace csv {
             #endif
 
             iterator() = default;
-            iterator(CSVReader* reader) : daddy(reader) {};
+            iterator(CSVReader* reader) : daddy(reader) {}
             iterator(CSVReader*, CSVRow&&);
 
             /** Access the CSVRow held by the iterator */
@@ -222,7 +222,7 @@ namespace csv {
         CSV_CONST iterator end() const noexcept;
 
         /** Returns true if we have reached end of file */
-        bool eof() const noexcept { return this->parser->eof(); };
+        bool eof() const noexcept { return this->parser->eof(); }
         ///@}
 
         /** @name CSV Metadata */

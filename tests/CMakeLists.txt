@@ -35,6 +35,12 @@ target_sources(csv_test
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)
 
+# Suppress warnings originating from Catch2 headers (they are not our code)
+get_target_property(_catch2_inc Catch2::Catch2 INTERFACE_INCLUDE_DIRECTORIES)
+if(_catch2_inc)
+    target_include_directories(csv_test SYSTEM PRIVATE ${_catch2_inc})
+endif()
+
 if(MSVC)
     # Workaround to enable debugging unit tests in Visual Studio
     add_custom_command(

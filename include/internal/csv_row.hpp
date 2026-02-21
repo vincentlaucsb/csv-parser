@@ -39,7 +39,7 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
         operator std::string() const {
             return std::string("<CSVField> ") + std::string(this->sv);
@@ -254,7 +254,7 @@ namespace csv {
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; };
+        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; }
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR_14 DataType type() noexcept {

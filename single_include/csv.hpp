@@ -4238,7 +4238,7 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
         operator std::string() const {
             return std::string("<CSVField> ") + std::string(this->sv);
@@ -4453,7 +4453,7 @@ namespace csv {
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; };
+        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; }
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR_14 DataType type() noexcept {
@@ -4746,7 +4746,7 @@ namespace csv {
         template<typename T>
         class ThreadSafeDeque {
         public:
-            ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {};
+            ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
                 this->_notify_size = other._notify_size;
@@ -4923,7 +4923,7 @@ namespace csv {
             IBasicCSVParser() = default;
             IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
             IBasicCSVParser(const ParseFlagMap& parse_flags, const WhitespaceMap& ws_flags
-            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {};
+            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {}
 
             virtual ~IBasicCSVParser() {}
 
@@ -5044,7 +5044,7 @@ namespace csv {
             StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : IBasicCSVParser(format, col_names), _source(source) {};
+            ) : IBasicCSVParser(format, col_names), _source(source) {}
 
             StreamParser(
                 TStream& source,
@@ -5052,7 +5052,7 @@ namespace csv {
                 internals::WhitespaceMap ws_flags) :
                 IBasicCSVParser(parse_flags, ws_flags),
                 _source(source)
-            {};
+            {}
 
             ~StreamParser() {}
 
@@ -5237,7 +5237,7 @@ namespace csv {
             #endif
 
             iterator() = default;
-            iterator(CSVReader* reader) : daddy(reader) {};
+            iterator(CSVReader* reader) : daddy(reader) {}
             iterator(CSVReader*, CSVRow&&);
 
             /** Access the CSVRow held by the iterator */
@@ -5334,7 +5334,7 @@ namespace csv {
         CSV_CONST iterator end() const noexcept;
 
         /** Returns true if we have reached end of file */
-        bool eof() const noexcept { return this->parser->eof(); };
+        bool eof() const noexcept { return this->parser->eof(); }
         ///@}
 
         /** @name CSV Metadata */
@@ -6777,7 +6777,7 @@ namespace csv {
         */
 
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
-            : out(&_out), quote_minimal(_quote_minimal) {};
+            : out(&_out), quote_minimal(_quote_minimal) {}
 
         /** Construct a DelimWriter over the file
          *

@@ -201,7 +201,7 @@ namespace csv {
         */
 
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
-            : out(&_out), quote_minimal(_quote_minimal) {};
+            : out(&_out), quote_minimal(_quote_minimal) {}
 
         /** Construct a DelimWriter over the file
          *

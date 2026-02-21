@@ -71,14 +71,16 @@ if (CSV_DEVELOPER)
     # Allow for performance profiling
     if (MSVC)
 	    target_link_options(csv PUBLIC /PROFILE)
+        # Treat warnings as errors
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
     endif()
      
-    # More error messages.
+    # More error messages, treat warnings as errors.
     if (UNIX)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-        -Wall -Wextra -Wsign-compare \
+        -Wall -Wextra -Wpedantic -Wsign-compare \
         -Wwrite-strings -Wpointer-arith -Winit-self \
-        -Wconversion -Wno-sign-conversion")
+        -Wconversion -Wno-sign-conversion -Werror")
     endif()
 
     # Generate a single header library

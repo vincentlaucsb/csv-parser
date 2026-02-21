@@ -24,7 +24,7 @@ namespace csv {
         template<typename T>
         class ThreadSafeDeque {
         public:
-            ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {};
+            ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
                 this->_notify_size = other._notify_size;
