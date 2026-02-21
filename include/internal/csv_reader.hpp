@@ -208,7 +208,7 @@ namespace csv {
         CSVReader(const CSVReader&) = delete; // No copy constructor
         CSVReader(CSVReader&&) = default;     // Move constructor
         CSVReader& operator=(const CSVReader&) = delete; // No copy assignment
-        CSVReader& operator=(CSVReader&& other) = default;
+        CSVReader& operator=(CSVReader&&) = delete; ///< Not assignable: contains std::mutex
         ~CSVReader() {
             if (this->read_csv_worker.joinable()) {
                 this->read_csv_worker.join();
