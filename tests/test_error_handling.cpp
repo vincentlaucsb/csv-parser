@@ -88,8 +88,6 @@ TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling]
     }
     
     SECTION("Exception during iteration is catchable") {
-        bool caught = false;
-        
         try {
             // Create empty stringstream - will hit EOF immediately
             std::stringstream ss("");
@@ -102,7 +100,6 @@ TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling]
         }
         catch (const std::exception& e) {
             (void)e; // Suppress unused variable warning
-            caught = true;
         }
         
         // Either catches exception or completes successfully - should NOT terminate
@@ -122,9 +119,9 @@ TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integ
             std::ofstream out(test_file);
             out << "id,name,value,timestamp\n";
             
-            // Write enough data to cross at least one chunk boundary
+            // Write enough data to cross two chunk boundaries
             // Approximate: 50 bytes per row = ~200K rows for 10MB
-            const size_t rows_to_write = 250000;
+            const size_t rows_to_write = 420000;
             
             for (size_t i = 0; i < rows_to_write; i++) {
                 out << i << ",name" << i << ",value" << i << "," << (1000000 + i) << "\n";
@@ -192,6 +189,7 @@ TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integ
         
         // Verify we found critical rows (they weren't lost due to corruption)
         REQUIRE(found_critical_200k);
+        REQUIRE(found_critical_400k);
         
         // Verify we read all rows
         REQUIRE(row_count >= 200000);
