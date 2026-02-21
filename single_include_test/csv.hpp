@@ -6791,7 +6791,7 @@ namespace csv {
             quote_minimal(_quote_minimal) {
             if (!owned_out->is_open())
                 throw std::runtime_error("Failed to open file for writing: " + filename);
-        };
+        }
 
         /** Destructor will flush remaining data
          *
