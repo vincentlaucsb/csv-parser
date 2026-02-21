@@ -92,7 +92,7 @@ namespace csv {
             IBasicCSVParser() = default;
             IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
             IBasicCSVParser(const ParseFlagMap& parse_flags, const WhitespaceMap& ws_flags
-            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {};
+            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {}
 
             virtual ~IBasicCSVParser() {}
 
@@ -213,7 +213,7 @@ namespace csv {
             StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : IBasicCSVParser(format, col_names), _source(source) {};
+            ) : IBasicCSVParser(format, col_names), _source(source) {}
 
             StreamParser(
                 TStream& source,
@@ -221,7 +221,7 @@ namespace csv {
                 internals::WhitespaceMap ws_flags) :
                 IBasicCSVParser(parse_flags, ws_flags),
                 _source(source)
-            {};
+            {}
 
             ~StreamParser() {}
 

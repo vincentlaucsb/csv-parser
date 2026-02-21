@@ -8,6 +8,16 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
+# Catch2's benchmark source files have -Wconversion hits; suppress on its targets
+# so our global -Wconversion/-Werror don't fail Catch2's own compilation.
+if(NOT MSVC)
+    foreach(_catch2_target Catch2 Catch2WithMain)
+        if(TARGET ${_catch2_target})
+            target_compile_options(${_catch2_target} PRIVATE -Wno-conversion)
+        endif()
+    endforeach()
+endif()
+
 add_executable(csv_test "")
 target_sources(csv_test
     PRIVATE
@@ -34,6 +44,12 @@ target_sources(csv_test
     )
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)
+
+# Suppress warnings originating from Catch2 headers (they are not our code)
+get_target_property(_catch2_inc Catch2::Catch2 INTERFACE_INCLUDE_DIRECTORIES)
+if(_catch2_inc)
+    target_include_directories(csv_test SYSTEM PRIVATE ${_catch2_inc})
+endif()
 
 if(MSVC)
     # Workaround to enable debugging unit tests in Visual Studio

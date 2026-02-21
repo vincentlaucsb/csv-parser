@@ -201,7 +201,7 @@ namespace csv {
         */
 
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
-            : out(&_out), quote_minimal(_quote_minimal) {};
+            : out(&_out), quote_minimal(_quote_minimal) {}
 
         /** Construct a DelimWriter over the file
          *
@@ -215,7 +215,7 @@ namespace csv {
             quote_minimal(_quote_minimal) {
             if (!owned_out->is_open())
                 throw std::runtime_error("Failed to open file for writing: " + filename);
-        };
+        }
 
         /** Destructor will flush remaining data
          *
