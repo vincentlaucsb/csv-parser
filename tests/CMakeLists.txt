@@ -8,6 +8,16 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
+# Catch2's benchmark source files have -Wconversion hits; suppress on its targets
+# so our global -Wconversion/-Werror don't fail Catch2's own compilation.
+if(NOT MSVC)
+    foreach(_catch2_target Catch2 Catch2WithMain)
+        if(TARGET ${_catch2_target})
+            target_compile_options(${_catch2_target} PRIVATE -Wno-conversion)
+        endif()
+    endforeach()
+endif()
+
 add_executable(csv_test "")
 target_sources(csv_test
     PRIVATE
