@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   coverage:
@@ -60,3 +61,4 @@ jobs:
         files: coverage.info
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
