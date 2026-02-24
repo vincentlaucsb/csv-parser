@@ -41,6 +41,7 @@ target_sources(csv_test
         test_csv_ranges.cpp
         test_error_handling.cpp
         test_data_frame.cpp
+        test_edge_cases_large_rows.cpp
     )
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)

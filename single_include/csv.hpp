@@ -3536,6 +3536,17 @@ namespace csv {
             return *this;
         }
 
+        /** Sets the chunk size used when reading the CSV
+         *
+         *  @param[in] size Chunk size in bytes (minimum: 10MB = ITERATION_CHUNK_SIZE)
+         *  @throws std::invalid_argument if size < ITERATION_CHUNK_SIZE
+         *
+         *  Use this when constructing a CSVReader from a filename and individual rows
+         *  may exceed the default 10MB chunk size. The value is passed to CSVReader at
+         *  construction time, before any data is read.
+         */
+        CSVFormat& chunk_size(size_t size);
+
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
@@ -3552,6 +3563,7 @@ namespace csv {
         std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
         std::vector<char> get_trim_chars() const { return this->trim_chars; }
         CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
+        CONSTEXPR size_t get_chunk_size() const { return this->_chunk_size; }
         #endif
         
         /** CSVFormat for guessing the delimiter */
@@ -3595,6 +3607,9 @@ namespace csv {
 
         /**< Allow variable length columns? */
         VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE_ROW;
+
+        /**< Chunk size for reading; passed to CSVReader at construction time */
+        size_t _chunk_size = internals::ITERATION_CHUNK_SIZE;
     };
 }
 /** @file
@@ -3720,24 +3735,18 @@ namespace csv {
             IF_CONSTEXPR (sizeof(signed char) == Bytes) {
                 return (long double)std::numeric_limits<signed char>::max();
             }
-
-            IF_CONSTEXPR (sizeof(short) == Bytes) {
+            else IF_CONSTEXPR (sizeof(short) == Bytes) {
                 return (long double)std::numeric_limits<short>::max();
             }
-
-            IF_CONSTEXPR (sizeof(int) == Bytes) {
+            else IF_CONSTEXPR (sizeof(int) == Bytes) {
                 return (long double)std::numeric_limits<int>::max();
             }
-
-            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+            else IF_CONSTEXPR (sizeof(long int) == Bytes) {
                 return (long double)std::numeric_limits<long int>::max();
             }
-
-            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+            else {
                 return (long double)std::numeric_limits<long long int>::max();
             }
-
-            CSV_UNREACHABLE();
         }
 
         /** Given a byte size, return the largest number than can be stored in
@@ -3751,24 +3760,18 @@ namespace csv {
             IF_CONSTEXPR(sizeof(unsigned char) == Bytes) {
                 return (long double)std::numeric_limits<unsigned char>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
                 return (long double)std::numeric_limits<unsigned short>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
                 return (long double)std::numeric_limits<unsigned int>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
                 return (long double)std::numeric_limits<unsigned long int>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned long long int) == Bytes) {
+            else {
                 return (long double)std::numeric_limits<unsigned long long int>::max();
             }
-
-            CSV_UNREACHABLE();
         }
 
         /** Largest number that can be stored in a 8-bit integer */
@@ -4052,7 +4055,6 @@ namespace csv {
  *  Data flow: Parser → RawCSVData → CSVRow → CSVField
  */
 
-#include <atomic>
 #include <cassert>
 #include <memory>
 #include <mutex>
@@ -4093,9 +4095,10 @@ namespace csv {
          *  indirection and reduces cache efficiency for CSV parsing workloads.
          *
          *  @par Thread Safety
-         *  This class may be safely read from multiple threads and written to from one,
-         *  as long as the writing thread does not actively touch fields which are being
-         *  read.
+         *  Cross-thread visibility is provided by the records queue mutex in
+         *  ThreadSafeDeque: the writer enqueues a RawCSVData only after all fields are
+         *  written, and the reader dequeues it only after the mutex unlock/lock pair,
+         *  which is a full happens-before edge. No additional atomics are needed here.
          *
          *  @par Historical Bug (Issue #278, fixed Feb 2026)
          *  Move constructor previously left _back pointing to moved-from buffer memory, causing
@@ -4109,10 +4112,7 @@ namespace csv {
                 _single_buffer_capacity(single_buffer_capacity) {
                 const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
                 _block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
-                _blocks = std::unique_ptr<std::atomic<RawCSVField*>[]>(new std::atomic<RawCSVField*>[_block_capacity]);
-                for (size_t i = 0; i < _block_capacity; i++) {
-                    _blocks[i].store(nullptr, std::memory_order_relaxed);
-                }
+                _blocks = std::unique_ptr<RawCSVField*[]>(new RawCSVField*[_block_capacity]());
 
                 this->allocate();
             }
@@ -4132,7 +4132,7 @@ namespace csv {
 
                 // Recalculate _back pointer to point into OUR blocks, not the moved-from ones
                 if (this->_blocks) {
-                    RawCSVField* block = this->_blocks[_current_block].load(std::memory_order_acquire);
+                    RawCSVField* block = this->_blocks[_current_block];
                     _back = block ? (block + _current_buffer_size) : nullptr;
                 } else {
                     _back = nullptr;
@@ -4165,8 +4165,9 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            /** Fixed-size table of block pointers for lock-free read access. */
-            std::unique_ptr<std::atomic<RawCSVField*>[]> _blocks = nullptr;
+            /** Fixed-size table of block pointers. Cross-thread safety is provided
+             *  by the records queue mutex, not by atomics on individual pointers. */
+            std::unique_ptr<RawCSVField*[]> _blocks = nullptr;
 
             /** Owned blocks (writer thread only), used for lifetime management. */
             std::vector<std::unique_ptr<RawCSVField[]>> _owned_blocks = {};
@@ -5296,6 +5297,9 @@ namespace csv {
             auto head = internals::get_csv_head(source);
             using Parser = internals::StreamParser<TStream>;
 
+            // Apply chunk size from format before any reading occurs
+            this->_chunk_size = format.get_chunk_size();
+
             if (format.guess_delim()) {
                 auto guess_result = internals::_guess_format(head, format.possible_delimiters);
                 format.delimiter(guess_result.delim);
@@ -5371,31 +5375,6 @@ namespace csv {
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
-
-        /** @brief Set the size of chunks to read from the CSV in bytes
-         *
-         *  @param[in] size Chunk size in bytes (minimum: 10MB, default: 10MB)
-         *  @throws std::invalid_argument if size < 10MB (ITERATION_CHUNK_SIZE)
-         *
-         *  Use this to handle CSV files where a single row exceeds the default 10MB chunk size.
-         *  Larger chunks use more memory but allow parsing of larger individual rows.
-         *
-         *  Example:
-         *  @snippet tests/test_edge_cases_large_rows.cpp Set Chunk Size Example
-         *
-         *  @note Chunk size must be at least ITERATION_CHUNK_SIZE (10MB) to avoid
-         *  architectural constraints and ensure reliable parsing behavior.
-         */
-        void set_chunk_size(size_t size) {
-            if (size < internals::ITERATION_CHUNK_SIZE) {
-                throw std::invalid_argument(
-                    "Chunk size must be at least " +
-                    std::to_string(internals::ITERATION_CHUNK_SIZE) +
-                    " bytes (10MB). Provided: " + std::to_string(size)
-                );
-            }
-            this->_chunk_size = size;
-        }
 
         /** @name CSV Settings **/
         ///@{
@@ -5918,17 +5897,30 @@ namespace csv {
 
         /**
          * Access a row by position (unchecked).
-         * 
+         *
+         * @note Disabled when KeyType is an integral type to prevent ambiguity with
+         *       operator[](const KeyType&). Use iloc() for positional access on
+         *       integer-keyed DataFrames.
+         *
          * @param i Row index (0-based)
          * @return DataFrameRow proxy with edit support
          * @throws std::out_of_range if index is out of bounds (via std::vector::at)
          */
+        template<typename K = KeyType,
+            csv::enable_if_t<!std::is_integral<K>::value, int> = 0>
         DataFrameRow<KeyType> operator[](size_t i) {
+            static_assert(std::is_same<K, KeyType>::value,
+                "Do not explicitly instantiate this template. Use iloc() for positional access.");
             return this->iloc(i);
         }
 
-        /** Access a row by position (unchecked, const version). */
+        /** Access a row by position (unchecked, const version).
+         *  Disabled when KeyType is an integral type — use iloc() instead. */
+        template<typename K = KeyType,
+            csv::enable_if_t<!std::is_integral<K>::value, int> = 0>
         DataFrameRow<KeyType> operator[](size_t i) const {
+            static_assert(std::is_same<K, KeyType>::value,
+                "Do not explicitly instantiate this template. Use iloc() for positional access.");
             return this->iloc(i);
         }
 
@@ -6880,8 +6872,9 @@ namespace csv {
             IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
                 return _csv_escape(in);
             }
-            
-            return _csv_escape(std::string(in));
+            else {
+                return _csv_escape(std::string(in));
+            }
         }
 
         std::string _csv_escape(csv::string_view in) {
@@ -7385,6 +7378,18 @@ namespace csv {
         return *this;
     }
 
+    CSV_INLINE CSVFormat& CSVFormat::chunk_size(size_t size) {
+        if (size < internals::ITERATION_CHUNK_SIZE) {
+            throw std::invalid_argument(
+                "Chunk size must be at least " +
+                std::to_string(internals::ITERATION_CHUNK_SIZE) +
+                " bytes (10MB). Provided: " + std::to_string(size)
+            );
+        }
+        this->_chunk_size = size;
+        return *this;
+    }
+
     CSV_INLINE void CSVFormat::assert_no_char_overlap()
     {
         auto delims = std::set<char>(
@@ -7596,7 +7601,8 @@ namespace csv {
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
         auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
-
+        // Apply chunk size from format before any reading occurs
+        this->_chunk_size = format.get_chunk_size();
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
@@ -7762,7 +7768,7 @@ namespace csv {
                         "End of file not reached and no more records parsed. "
                         "This likely indicates a CSV row larger than the chunk size of " +
                         std::to_string(this->_chunk_size) + " bytes. "
-                        "Use set_chunk_size() to increase the chunk size."
+                        "Use CSVFormat::chunk_size() to increase the chunk size."
                     );
                 }
 
@@ -7805,18 +7811,11 @@ namespace csv {
 namespace csv {
     /** Return an iterator to the first row in the reader */
     CSV_INLINE CSVReader::iterator CSVReader::begin() {
-        if (this->records->empty()) {
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-            this->read_csv_worker.join();
-            this->rethrow_read_csv_exception_if_any();
-
-            // Still empty => return end iterator
-            if (this->records->empty()) return this->end();
+        CSVRow row;
+        if (!this->read_row(row)) {
+            return this->end();
         }
-
-        this->_n_rows++;
-        CSVReader::iterator ret(this, this->records->pop_front());
-        return ret;
+        return CSVReader::iterator(this, std::move(row));
     }
 
     /** A placeholder for the imaginary past the end row in a CSV.
@@ -8681,7 +8680,7 @@ namespace csv {
             const size_t buffer_idx = n % _single_buffer_capacity;
 
             assert(page_no < _block_capacity);
-            RawCSVField* block = this->_blocks[page_no].load(std::memory_order_acquire);
+            RawCSVField* block = this->_blocks[page_no];
             assert(block != nullptr);
             return block[buffer_idx];
         }
@@ -8697,7 +8696,7 @@ namespace csv {
             RawCSVField* block_ptr = block.get();
             this->_owned_blocks.push_back(std::move(block));
 
-            this->_blocks[_current_block].store(block_ptr, std::memory_order_release);
+            this->_blocks[_current_block] = block_ptr;
             _current_buffer_size = 0;
             _back = block_ptr;
         }

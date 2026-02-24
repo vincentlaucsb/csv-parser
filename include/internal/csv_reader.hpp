@@ -184,6 +184,9 @@ namespace csv {
             auto head = internals::get_csv_head(source);
             using Parser = internals::StreamParser<TStream>;
 
+            // Apply chunk size from format before any reading occurs
+            this->_chunk_size = format.get_chunk_size();
+
             if (format.guess_delim()) {
                 auto guess_result = internals::_guess_format(head, format.possible_delimiters);
                 format.delimiter(guess_result.delim);
@@ -259,31 +262,6 @@ namespace csv {
 
         /** Sets this reader's column names and associated data */
         void set_col_names(const std::vector<std::string>&);
-
-        /** @brief Set the size of chunks to read from the CSV in bytes
-         *
-         *  @param[in] size Chunk size in bytes (minimum: 10MB, default: 10MB)
-         *  @throws std::invalid_argument if size < 10MB (ITERATION_CHUNK_SIZE)
-         *
-         *  Use this to handle CSV files where a single row exceeds the default 10MB chunk size.
-         *  Larger chunks use more memory but allow parsing of larger individual rows.
-         *
-         *  Example:
-         *  @snippet tests/test_edge_cases_large_rows.cpp Set Chunk Size Example
-         *
-         *  @note Chunk size must be at least ITERATION_CHUNK_SIZE (10MB) to avoid
-         *  architectural constraints and ensure reliable parsing behavior.
-         */
-        void set_chunk_size(size_t size) {
-            if (size < internals::ITERATION_CHUNK_SIZE) {
-                throw std::invalid_argument(
-                    "Chunk size must be at least " +
-                    std::to_string(internals::ITERATION_CHUNK_SIZE) +
-                    " bytes (10MB). Provided: " + std::to_string(size)
-                );
-            }
-            this->_chunk_size = size;
-        }
 
         /** @name CSV Settings **/
         ///@{

@@ -167,7 +167,8 @@ namespace csv {
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
         auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
-
+        // Apply chunk size from format before any reading occurs
+        this->_chunk_size = format.get_chunk_size();
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
@@ -333,7 +334,7 @@ namespace csv {
                         "End of file not reached and no more records parsed. "
                         "This likely indicates a CSV row larger than the chunk size of " +
                         std::to_string(this->_chunk_size) + " bytes. "
-                        "Use set_chunk_size() to increase the chunk size."
+                        "Use CSVFormat::chunk_size() to increase the chunk size."
                     );
                 }
 
