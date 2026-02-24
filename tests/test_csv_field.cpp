@@ -148,6 +148,10 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
         REQUIRE(euler.try_get(double_out));
         REQUIRE(double_out == Catch::Approx(2.718));
 
+        double long_double_out = 0;
+        REQUIRE(euler.try_get(long_double_out));
+        REQUIRE(double_out == Catch::Approx(2.718l));
+
         int int_out = 0;
         REQUIRE_FALSE(euler.try_get(int_out));
     }

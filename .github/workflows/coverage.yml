@@ -45,13 +45,16 @@ jobs:
     - name: Capture coverage data
       run: |
         lcov --capture \
-          --directory build/include \
+          --directory build \
           --output-file coverage.info \
           --ignore-errors mismatch
-        # Strip system headers and external deps
+        # Strip system headers, external deps, Catch2, and test files
         lcov --remove coverage.info \
           '/usr/*' \
           '*/external/*' \
+          '*/catch2/*' \
+          '*/Catch2/*' \
+          '*/tests/*' \
           --output-file coverage.info
         lcov --list coverage.info
 
