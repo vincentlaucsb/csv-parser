@@ -116,8 +116,8 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     
     // Verify edits are visible through iteration
     bool found_carly = false;
-    for (auto& row : frame) {
-        std::string name = row["name"].get<std::string>();
+    for (auto& df_row : frame) {
+        std::string name = df_row["name"].get<std::string>();
         if (name == "Carly") {
             found_carly = true;
         }

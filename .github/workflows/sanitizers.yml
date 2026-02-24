@@ -109,3 +109,40 @@ jobs:
       with:
         name: valgrind-results
         path: build/Testing/
+
+  # Reproduces the exact build profile reported in issue #293:
+  # -O3 combined with --coverage exposes memory ordering issues invisible to plain -O3
+  o3-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake lcov
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCSV_CXX_STANDARD=17 \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_FLAGS="-O3 --coverage" \
+          -DCMAKE_C_FLAGS="-O3 --coverage" \
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test with -O3 --coverage
+      working-directory: build
+      run: ctest --output-on-failure
+      timeout-minutes: 20
