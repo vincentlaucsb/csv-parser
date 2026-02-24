@@ -61,4 +61,5 @@ jobs:
         files: coverage.info
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        override_commit: ${{ github.event.pull_request.head.sha || github.sha }}
+        override_pr: ${{ github.event.pull_request.number }}
