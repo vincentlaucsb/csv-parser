@@ -55,8 +55,9 @@ jobs:
           '*/catch2/*' \
           '*/Catch2/*' \
           '*/tests/*' \
-          --output-file coverage.info
-        lcov --list coverage.info
+          --output-file coverage.info \
+          --ignore-errors empty
+        lcov --list coverage.info --ignore-errors empty
 
     - name: Upload to Codecov
       uses: codecov/codecov-action@v4
