@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h> // remove()
+#include <fstream>
 #include <sstream>
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
@@ -181,4 +182,31 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
             REQUIRE(row[unit].get<std::string>() == "Beaver Valley 1");
         }
     }
+}
+
+// Regression test for issue #149: trailing newline at EOF must not produce a spurious
+// empty row when reading from an ifstream (mmap parser path).
+TEST_CASE("Trailing newline at EOF (ifstream/mmap)", "[trailing_newline_ifstream]") {
+    const char* tmpfile = "./tests/data/tmp_trailing_newline.csv";
+
+    auto write_and_count = [&](const std::string& content) -> size_t {
+        {
+            std::ofstream out(tmpfile, std::ios::binary);
+            out << content;
+        }
+        CSVFormat format;
+        format.no_header();
+        CSVReader reader(tmpfile, format);
+        size_t row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() > 0);
+            row_count++;
+        }
+        std::remove(tmpfile);
+        return row_count;
+    };
+
+    REQUIRE(write_and_count("A,B,C\r\n1,2,3\r\n") == 2);  // CRLF trailing newline
+    REQUIRE(write_and_count("A,B,C\n1,2,3\n")     == 2);  // LF trailing newline
+    REQUIRE(write_and_count("A,B,C\n1,2,3")        == 2);  // no trailing newline (control)
 }

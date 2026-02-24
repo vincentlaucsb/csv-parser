@@ -603,3 +603,23 @@ TEST_CASE("Empty CSV", "[read_empty_csv]") {
         REQUIRE(reader.n_rows() == 0);
     }
 }
+
+// Regression test for issue #149: trailing newline at EOF must not produce a spurious empty row
+TEST_CASE("Trailing newline at EOF (stringstream)", "[trailing_newline_stringstream]") {
+    auto check = [](const std::string& csv_text) {
+        std::stringstream ss(csv_text);
+        CSVFormat format;
+        format.no_header();
+        CSVReader reader(ss, format);
+        size_t row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() > 0);
+            row_count++;
+        }
+        REQUIRE(row_count == 2);
+    };
+
+    check("A,B,C\r\n1,2,3\r\n");   // CRLF
+    check("A,B,C\n1,2,3\n");       // LF
+    check("A,B,C\n1,2,3");         // no trailing newline (control)
+}
