@@ -47,7 +47,8 @@ jobs:
         lcov --capture \
           --directory build \
           --output-file coverage.info \
-          --ignore-errors mismatch,source
+          --ignore-errors mismatch,source \
+          --rc lcov_branch_coverage=1
         # Strip system headers, external deps, Catch2, and test files
         lcov --remove coverage.info \
           '/usr/*' \
@@ -56,8 +57,9 @@ jobs:
           '*/Catch2/*' \
           '*/tests/*' \
           --output-file coverage.info \
-          --ignore-errors empty
-        lcov --list coverage.info --ignore-errors empty
+          --ignore-errors empty \
+          --rc lcov_branch_coverage=1
+        lcov --list coverage.info --ignore-errors empty --rc lcov_branch_coverage=1
 
     - name: Upload to Codecov
       uses: codecov/codecov-action@v4
