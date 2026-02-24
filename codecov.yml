@@ -1,11 +1,11 @@
 ignore:
     - "include/external"
-		- "programs"
-		- "single_include"
-		- "single_include_test"
+    - "programs"
+    - "single_include"
+    - "single_include_test"
     - "tests"
 coverage:
-	status:
-		project:
-			default:
-				target: 85%
+    status:
+        project:
+            default:
+                target: 85%
