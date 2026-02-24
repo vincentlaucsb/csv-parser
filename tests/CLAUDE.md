@@ -3,6 +3,36 @@
 ### Framework
 - **Catch2 v3.6.0**: Modern C++ testing framework with SECTION support for testing multiple code paths
 
+### Shared Test Utilities (`tests/shared/`)
+
+**Always check `tests/shared/` before implementing any test helper from scratch.**
+
+| File | Purpose |
+|------|---------|
+| `shared/file_guard.hpp` | RAII temp-file cleanup — **use this for every temp file** |
+| `shared/float_test_cases.hpp` | Shared floating-point edge-case data |
+
+#### FileGuard — RAII temp file cleanup
+
+> **AI helpers**: the class is called `FileGuard`, not `TempFile`, `ScopedFile`, or `TempCSVFile`.
+> Include it as `#include "shared/file_guard.hpp"`.  Never use raw `std::remove()`.
+
+```cpp
+#include "shared/file_guard.hpp"
+
+TEST_CASE("My test") {
+    FileGuard cleanup("./tests/data/tmp_foo.csv");  // deleted on scope exit
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "A,B\n1,2\n";
+    }
+    CSVReader reader(cleanup.filename);   // mmap path
+    REQUIRE(...);
+}   // std::remove() called here even if REQUIRE throws
+```
+
+---
+
 ### Test Organization
 
 #### Path Testing Pattern
@@ -27,13 +57,7 @@ SECTION("std::istream path") {
 This pattern catches path-specific bugs like issue #281 (stream-only parsing error).
 
 #### File Cleanup
-Tests use RAII cleanup via [FileGuard](shared/file_guard.hpp):
-```cpp
-TEST_CASE("My test") {
-    FileGuard cleanup("test.csv");  // Destructor deletes file on scope exit
-    // ... test code ...
-}  // File cleaned up even if assertions fail
-```
+Tests use RAII cleanup via [FileGuard](shared/file_guard.hpp) — see the **Shared Test Utilities** section above for full usage.
 
 ### Test Files
 

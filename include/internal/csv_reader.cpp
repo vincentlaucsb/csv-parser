@@ -327,8 +327,12 @@ namespace csv {
                     // End of file and no more records
                     return false;
 
-                // Detect infinite loop: A previous read was requested but records are still empty
-                // This typically means a single row is larger than the chunk size
+                // Detect infinite loop: a previous read was requested but records are still empty.
+                // This fires when a single row spans more than 2 × _chunk_size bytes:
+                //   - chunk N   fills without finding '\n'  → _read_requested set to true
+                //   - chunk N+1 also fills without '\n'     → guard fires here
+                // Default _chunk_size is ITERATION_CHUNK_SIZE (10 MB), so the threshold is
+                // rows > 20 MB.  Use CSVFormat::chunk_size() to raise the limit.
                 if (this->_read_requested && this->records->empty()) {
                     throw std::runtime_error(
                         "End of file not reached and no more records parsed. "
