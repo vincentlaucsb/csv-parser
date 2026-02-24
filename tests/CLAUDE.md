@@ -61,6 +61,11 @@ Tests use RAII cleanup via [FileGuard](shared/file_guard.hpp) — see the **Shar
 
 ### Test Files
 
+> **Rule**: Every `test_*.cpp` file in `tests/` **must** appear in `target_sources()` in `tests/CMakeLists.txt`.
+> Files not listed there are silently never compiled or run.
+> When adding a new test file, add it to CMakeLists.txt in the same commit.
+> When asked to audit this, compare `ls tests/test_*.cpp` against the `target_sources()` list.
+
 - **test_error_handling.cpp**: Exception propagation from PR #282
   - Validates worker thread exceptions reach main thread
   - Tests chunk boundary corruption detection

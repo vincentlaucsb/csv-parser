@@ -34,7 +34,9 @@ else()
 	
 	if(ENABLE_CODE_COVERAGE)
 		message("Code coverage instrumentation enabled")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og")
+		# -fprofile-update=atomic prevents negative counter corruption when
+		# background reader threads write to the same .gcda file concurrently.
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og -fprofile-update=atomic")
 	endif()
 endif(MSVC)
 
