@@ -47,7 +47,7 @@ jobs:
         lcov --capture \
           --directory build \
           --output-file coverage.info \
-          --ignore-errors mismatch
+          --ignore-errors mismatch,source
         # Strip system headers, external deps, Catch2, and test files
         lcov --remove coverage.info \
           '/usr/*' \
