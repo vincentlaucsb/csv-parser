@@ -41,17 +41,13 @@ jobs:
     - name: Capture coverage data
       run: |
         lcov --capture \
-          --directory build \
+          --directory build/include \
           --output-file coverage.info \
           --ignore-errors mismatch
-        # Strip system headers, external deps, and test code
+        # Strip system headers and external deps
         lcov --remove coverage.info \
           '/usr/*' \
           '*/external/*' \
-          '*/tests/*' \
-          '*/catch2/*' \
-          '*/pybind11/*' \
-          '*/build/_deps/*' \
           --output-file coverage.info
         lcov --list coverage.info
 
