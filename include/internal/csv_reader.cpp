@@ -167,7 +167,8 @@ namespace csv {
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
         auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
-
+        // Apply chunk size from format before any reading occurs
+        this->_chunk_size = format.get_chunk_size();
         /** Guess delimiter and header row */
         if (format.guess_delim()) {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
@@ -326,14 +327,18 @@ namespace csv {
                     // End of file and no more records
                     return false;
 
-                // Detect infinite loop: A previous read was requested but records are still empty
-                // This typically means a single row is larger than the chunk size
+                // Detect infinite loop: a previous read was requested but records are still empty.
+                // This fires when a single row spans more than 2 × _chunk_size bytes:
+                //   - chunk N   fills without finding '\n'  → _read_requested set to true
+                //   - chunk N+1 also fills without '\n'     → guard fires here
+                // Default _chunk_size is ITERATION_CHUNK_SIZE (10 MB), so the threshold is
+                // rows > 20 MB.  Use CSVFormat::chunk_size() to raise the limit.
                 if (this->_read_requested && this->records->empty()) {
                     throw std::runtime_error(
                         "End of file not reached and no more records parsed. "
                         "This likely indicates a CSV row larger than the chunk size of " +
                         std::to_string(this->_chunk_size) + " bytes. "
-                        "Use set_chunk_size() to increase the chunk size."
+                        "Use CSVFormat::chunk_size() to increase the chunk size."
                     );
                 }
 

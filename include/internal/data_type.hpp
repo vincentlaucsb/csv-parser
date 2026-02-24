@@ -109,24 +109,18 @@ namespace csv {
             IF_CONSTEXPR (sizeof(signed char) == Bytes) {
                 return (long double)std::numeric_limits<signed char>::max();
             }
-
-            IF_CONSTEXPR (sizeof(short) == Bytes) {
+            else IF_CONSTEXPR (sizeof(short) == Bytes) {
                 return (long double)std::numeric_limits<short>::max();
             }
-
-            IF_CONSTEXPR (sizeof(int) == Bytes) {
+            else IF_CONSTEXPR (sizeof(int) == Bytes) {
                 return (long double)std::numeric_limits<int>::max();
             }
-
-            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+            else IF_CONSTEXPR (sizeof(long int) == Bytes) {
                 return (long double)std::numeric_limits<long int>::max();
             }
-
-            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+            else {
                 return (long double)std::numeric_limits<long long int>::max();
             }
-
-            CSV_UNREACHABLE();
         }
 
         /** Given a byte size, return the largest number than can be stored in
@@ -140,24 +134,18 @@ namespace csv {
             IF_CONSTEXPR(sizeof(unsigned char) == Bytes) {
                 return (long double)std::numeric_limits<unsigned char>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
                 return (long double)std::numeric_limits<unsigned short>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
                 return (long double)std::numeric_limits<unsigned int>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
                 return (long double)std::numeric_limits<unsigned long int>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned long long int) == Bytes) {
+            else {
                 return (long double)std::numeric_limits<unsigned long long int>::max();
             }
-
-            CSV_UNREACHABLE();
         }
 
         /** Largest number that can be stored in a 8-bit integer */

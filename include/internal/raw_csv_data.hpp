@@ -8,7 +8,6 @@
  */
 
 #pragma once
-#include <atomic>
 #include <cassert>
 #include <memory>
 #include <mutex>
@@ -51,9 +50,10 @@ namespace csv {
          *  indirection and reduces cache efficiency for CSV parsing workloads.
          *
          *  @par Thread Safety
-         *  This class may be safely read from multiple threads and written to from one,
-         *  as long as the writing thread does not actively touch fields which are being
-         *  read.
+         *  Cross-thread visibility is provided by the records queue mutex in
+         *  ThreadSafeDeque: the writer enqueues a RawCSVData only after all fields are
+         *  written, and the reader dequeues it only after the mutex unlock/lock pair,
+         *  which is a full happens-before edge. No additional atomics are needed here.
          *
          *  @par Historical Bug (Issue #278, fixed Feb 2026)
          *  Move constructor previously left _back pointing to moved-from buffer memory, causing
@@ -67,10 +67,7 @@ namespace csv {
                 _single_buffer_capacity(single_buffer_capacity) {
                 const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
                 _block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
-                _blocks = std::unique_ptr<std::atomic<RawCSVField*>[]>(new std::atomic<RawCSVField*>[_block_capacity]);
-                for (size_t i = 0; i < _block_capacity; i++) {
-                    _blocks[i].store(nullptr, std::memory_order_relaxed);
-                }
+                _blocks = std::unique_ptr<RawCSVField*[]>(new RawCSVField*[_block_capacity]());
 
                 this->allocate();
             }
@@ -90,7 +87,7 @@ namespace csv {
 
                 // Recalculate _back pointer to point into OUR blocks, not the moved-from ones
                 if (this->_blocks) {
-                    RawCSVField* block = this->_blocks[_current_block].load(std::memory_order_acquire);
+                    RawCSVField* block = this->_blocks[_current_block];
                     _back = block ? (block + _current_buffer_size) : nullptr;
                 } else {
                     _back = nullptr;
@@ -123,8 +120,9 @@ namespace csv {
         private:
             const size_t _single_buffer_capacity;
 
-            /** Fixed-size table of block pointers for lock-free read access. */
-            std::unique_ptr<std::atomic<RawCSVField*>[]> _blocks = nullptr;
+            /** Fixed-size table of block pointers. Cross-thread safety is provided
+             *  by the records queue mutex, not by atomics on individual pointers. */
+            std::unique_ptr<RawCSVField*[]> _blocks = nullptr;
 
             /** Owned blocks (writer thread only), used for lifetime management. */
             std::vector<std::unique_ptr<RawCSVField[]>> _owned_blocks = {};

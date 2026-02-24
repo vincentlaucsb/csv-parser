@@ -13,7 +13,7 @@ namespace csv {
             const size_t buffer_idx = n % _single_buffer_capacity;
 
             assert(page_no < _block_capacity);
-            RawCSVField* block = this->_blocks[page_no].load(std::memory_order_acquire);
+            RawCSVField* block = this->_blocks[page_no];
             assert(block != nullptr);
             return block[buffer_idx];
         }
@@ -29,7 +29,7 @@ namespace csv {
             RawCSVField* block_ptr = block.get();
             this->_owned_blocks.push_back(std::move(block));
 
-            this->_blocks[_current_block].store(block_ptr, std::memory_order_release);
+            this->_blocks[_current_block] = block_ptr;
             _current_buffer_size = 0;
             _back = block_ptr;
         }

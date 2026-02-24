@@ -463,17 +463,30 @@ namespace csv {
 
         /**
          * Access a row by position (unchecked).
-         * 
+         *
+         * @note Disabled when KeyType is an integral type to prevent ambiguity with
+         *       operator[](const KeyType&). Use iloc() for positional access on
+         *       integer-keyed DataFrames.
+         *
          * @param i Row index (0-based)
          * @return DataFrameRow proxy with edit support
          * @throws std::out_of_range if index is out of bounds (via std::vector::at)
          */
+        template<typename K = KeyType,
+            csv::enable_if_t<!std::is_integral<K>::value, int> = 0>
         DataFrameRow<KeyType> operator[](size_t i) {
+            static_assert(std::is_same<K, KeyType>::value,
+                "Do not explicitly instantiate this template. Use iloc() for positional access.");
             return this->iloc(i);
         }
 
-        /** Access a row by position (unchecked, const version). */
+        /** Access a row by position (unchecked, const version).
+         *  Disabled when KeyType is an integral type — use iloc() instead. */
+        template<typename K = KeyType,
+            csv::enable_if_t<!std::is_integral<K>::value, int> = 0>
         DataFrameRow<KeyType> operator[](size_t i) const {
+            static_assert(std::is_same<K, KeyType>::value,
+                "Do not explicitly instantiate this template. Use iloc() for positional access.");
             return this->iloc(i);
         }
 

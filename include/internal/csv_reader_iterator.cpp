@@ -7,18 +7,11 @@
 namespace csv {
     /** Return an iterator to the first row in the reader */
     CSV_INLINE CSVReader::iterator CSVReader::begin() {
-        if (this->records->empty()) {
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, internals::ITERATION_CHUNK_SIZE);
-            this->read_csv_worker.join();
-            this->rethrow_read_csv_exception_if_any();
-
-            // Still empty => return end iterator
-            if (this->records->empty()) return this->end();
+        CSVRow row;
+        if (!this->read_row(row)) {
+            return this->end();
         }
-
-        this->_n_rows++;
-        CSVReader::iterator ret(this, this->records->pop_front());
-        return ret;
+        return CSVReader::iterator(this, std::move(row));
     }
 
     /** A placeholder for the imaginary past the end row in a CSV.

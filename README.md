@@ -52,11 +52,12 @@ On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz/Western Digital B
 
 By default, the parser reads CSV data in 10MB chunks. This balance was determined through empirical testing to optimize throughput while minimizing memory overhead and thread synchronization costs.
 
-If you encounter rows larger than the chunk size, use `set_chunk_size()` to adjust:
+If you encounter rows larger than the chunk size, pass a custom `CSVFormat` with `chunk_size()`:
 
 ```cpp
-CSVReader reader("massive_rows.csv");
-reader.set_chunk_size(100 * 1024 * 1024);  // 100MB chunks
+CSVFormat fmt;
+fmt.chunk_size(100 * 1024 * 1024);  // 100MB chunks
+CSVReader reader("massive_rows.csv", fmt);
 for (auto& row : reader) {
     // Process row
 }
@@ -452,8 +453,9 @@ DataFrame<int> df2(reader, "employee_id");
 // O(1) lookups by key
 auto salary = df[12345]["salary"].get<double>();
 
-// Access by position also works
-auto first_row = df[0];
+// Positional access: operator[](size_t) is disabled when KeyType is an integer
+// type to prevent ambiguity with operator[](const KeyType&). Use iloc() instead.
+auto first_row = df.iloc(0);
 auto name = first_row["name"].get<std::string>();
 
 // Check if a key exists

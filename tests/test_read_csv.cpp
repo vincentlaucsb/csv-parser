@@ -184,31 +184,29 @@ TEST_CASE( "Test leading and trailing escaped quote", "[read_csv_quote]" ) {
 // Verify the CSV parser can handle any arbitrary line endings composed of carriage return & newline
 TEST_CASE("Cursed Newlines", "[read_csv_cursed_newline]") {
     auto row_str = GENERATE(as<std::string> {},
-        (
-            // Windows style
-            "A,B,C\r\n" // Header row
-            "123,234,345\r\n"
-            "1,2,3\r\n"
-            "4,5,6",
+        // Windows style
+        "A,B,C\r\n" // Header row
+        "123,234,345\r\n"
+        "1,2,3\r\n"
+        "4,5,6",
 
-            // Unix style
-            "A,B,C\n" // Header row
-            "123,234,345\n"
-            "1,2,3\n"
-            "4,5,6",
+        // Unix style
+        "A,B,C\n" // Header row
+        "123,234,345\n"
+        "1,2,3\n"
+        "4,5,6",
 
-            // Eww brother what is that...
-            "A,B,C\r\r\n" // Header row
-            "123,234,345\r\r\n"
-            "1,2,3\r\r\n"
-            "4,5,6",
+        // Eww brother what is that...
+        "A,B,C\r\r\n" // Header row
+        "123,234,345\r\r\n"
+        "1,2,3\r\r\n"
+        "4,5,6",
 
-            // Doubled-up Windows style (ridiculous: but I'm sure it exists somewhere)
-            "A,B,C\r\n\r\n" // Header row
-            "123,234,345\r\n\r\n"
-            "1,2,3\r\n\r\n"
-            "4,5,6"
-        )
+        // Doubled-up Windows style (ridiculous: but I'm sure it exists somewhere)
+        "A,B,C\r\n\r\n" // Header row
+        "123,234,345\r\n\r\n"
+        "1,2,3\r\n\r\n"
+        "4,5,6"
     );
 
     // Set CSVFormat to KEEP all rows, even empty ones (because there shouldn't be any)
@@ -604,4 +602,24 @@ TEST_CASE("Empty CSV", "[read_empty_csv]") {
         // We want to make sure that no exceptions are thrown
         REQUIRE(reader.n_rows() == 0);
     }
+}
+
+// Regression test for issue #149: trailing newline at EOF must not produce a spurious empty row
+TEST_CASE("Trailing newline at EOF (stringstream)", "[trailing_newline_stringstream]") {
+    auto check = [](const std::string& csv_text) {
+        std::stringstream ss(csv_text);
+        CSVFormat format;
+        format.no_header();
+        CSVReader reader(ss, format);
+        size_t row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() > 0);
+            row_count++;
+        }
+        REQUIRE(row_count == 2);
+    };
+
+    check("A,B,C\r\n1,2,3\r\n");   // CRLF
+    check("A,B,C\n1,2,3\n");       // LF
+    check("A,B,C\n1,2,3");         // no trailing newline (control)
 }

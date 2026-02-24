@@ -49,6 +49,32 @@ Or exclude from default runs:
 TEST_CASE("Description", "[.][bug]") { ... }  // Skip by default
 ```
 
+## Rule: Edge Case and Regression Tests Go at the End of the File
+
+Test files are organized with mainline functionality tests first. Edge cases, regression
+tests for specific issues, and boundary condition tests must be placed **at the end of
+the file**, after all general feature tests.
+
+❌ **WRONG - regression test inserted at the top or middle:**
+```cpp
+// At line 14, before any feature tests:
+TEST_CASE("Regression #149 - trailing newline", ...) { ... }
+
+TEST_CASE("Test Parse Flags", ...) { ... }  // General test displaced
+```
+
+✅ **RIGHT - regression test at the bottom:**
+```cpp
+TEST_CASE("Test Parse Flags", ...) { ... }       // General tests first
+TEST_CASE("Read CSV from string", ...) { ... }   // ...
+
+// --- Edge cases and regression tests ---
+TEST_CASE("Regression #149 - trailing newline", ...) { ... }
+```
+
+This keeps the file readable: a maintainer skimming the top sees the feature coverage;
+scrolling to the bottom reveals all known edge cases in one place.
+
 ## Test Pattern for Known Bugs
 
 ```cpp

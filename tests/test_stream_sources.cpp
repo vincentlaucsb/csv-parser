@@ -16,16 +16,14 @@ using namespace csv;
  */
 class NonCopyableStream : public std::istringstream {
 public:
-    NonCopyableStream(const std::string& data) 
+    explicit NonCopyableStream(const std::string& data)
         : std::istringstream(data) {}
-    
-    // Delete copy constructor and assignment
+
+    // Delete copy constructor and assignment — the point of this mock.
+    // Move is intentionally not declared: std::istringstream's move ctor is
+    // deleted in some stdlibs (GCC 14), and we never need to move this object.
     NonCopyableStream(const NonCopyableStream&) = delete;
     NonCopyableStream& operator=(const NonCopyableStream&) = delete;
-    
-    // Allow move operations
-    NonCopyableStream(NonCopyableStream&&) = default;
-    NonCopyableStream& operator=(NonCopyableStream&&) = default;
 };
 
 TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
@@ -93,17 +91,19 @@ TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
         REQUIRE(row_count == 2);
     }
     
-    SECTION("Non-copyable stream created in place") {
-        // Create CSVReader directly with temporary non-copyable stream
-        // This tests that the reference binding works correctly
-        CSVReader reader(NonCopyableStream("ID,Value\n1,100\n2,200\n"));
-        
+    SECTION("Non-copyable stream passed without explicit copy") {
+        // Confirms that CSVReader stores the stream by reference (not by value),
+        // so a non-copyable stream can be passed as a named lvalue.
+        // Before the fix for issue #259, this would fail to compile because
+        // the parser tried to copy the stream object internally.
+        NonCopyableStream stream("ID,Value\n1,100\n2,200\n");
+        CSVReader reader(stream);
+
         int row_count = 0;
         for (auto& row : reader) {
+            (void)row;
             row_count++;
         }
-        // Note: With temporary stream, this may not work as expected
-        // because the temporary goes out of scope. But the important
-        // thing is that it compiles without "use of deleted function" error.
+        REQUIRE(row_count == 2);
     }
 }
