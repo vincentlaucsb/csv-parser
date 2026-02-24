@@ -16,16 +16,14 @@ using namespace csv;
  */
 class NonCopyableStream : public std::istringstream {
 public:
-    NonCopyableStream(const std::string& data) 
+    explicit NonCopyableStream(const std::string& data)
         : std::istringstream(data) {}
-    
-    // Delete copy constructor and assignment
+
+    // Delete copy constructor and assignment — the point of this mock.
+    // Move is intentionally not declared: std::istringstream's move ctor is
+    // deleted in some stdlibs (GCC 14), and we never need to move this object.
     NonCopyableStream(const NonCopyableStream&) = delete;
     NonCopyableStream& operator=(const NonCopyableStream&) = delete;
-    
-    // Allow move operations
-    NonCopyableStream(NonCopyableStream&&) = default;
-    NonCopyableStream& operator=(NonCopyableStream&&) = default;
 };
 
 TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
