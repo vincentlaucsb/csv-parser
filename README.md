@@ -99,7 +99,7 @@ Please keep reports grounded in real use cases—no contrived edge cases or phil
 
 ## Documentation
 
-In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](https://vincela.com/csv/) contains more examples, details, interesting features, and instructions for less common use cases.
+In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](https://vincentlaucsb.github.io/csv-parser/) contains more examples, details, interesting features, and instructions for less common use cases.
 
 ## Sponsors
 If you use this library for work, please [become a sponsor](https://github.com/sponsors/vincentlaucsb). Your donation
