@@ -7145,9 +7145,11 @@ namespace csv {
                     while (this->data_pos < in.size() && parse_flag(in[this->data_pos]) == ParseFlags::NEWLINE)
                         this->data_pos++;
 
-                    // End of record -> Write record
-                    this->push_field();
-                    this->push_row();
+                    // End of record -> Write non-empty record
+                    if (this->field_length > 0 || !this->current_row.empty()) {
+                        this->push_field();
+                        this->push_row();
+                    }
 
                     // Reset
                     this->current_row = CSVRow(data_ptr, this->data_pos, fields->size());
