@@ -54,6 +54,26 @@
     #define CSV_UNREACHABLE() abort()
 #endif
 
+// Detect C++ standard version BEFORE namespace to properly include string_view
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 20) || __cplusplus >= 202002L
+#define CSV_HAS_CXX20
+#endif
+
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || __cplusplus >= 201703L
+#define CSV_HAS_CXX17
+#endif
+
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || __cplusplus >= 201402L
+#define CSV_HAS_CXX14
+#endif
+
+// Include string_view BEFORE csv namespace to avoid namespace pollution issues
+#ifdef CSV_HAS_CXX17
+#include <string_view>
+#else
+#include "../external/string_view.hpp"
+#endif
+
 namespace csv {
 #ifdef _MSC_VER
 #pragma region Compatibility Macros
@@ -73,26 +93,12 @@ namespace csv {
 
 #define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 20) || __cplusplus >= 202002L
-#define CSV_HAS_CXX20
-#endif
-
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || __cplusplus >= 201703L
-#define CSV_HAS_CXX17
-#endif
-
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || __cplusplus >= 201402L
-#define CSV_HAS_CXX14
-#endif
-
 #ifdef CSV_HAS_CXX17
-#include <string_view>
      /** @typedef string_view
       *  The string_view class used by this library.
       */
     using string_view = std::string_view;
 #else
-#include "../external/string_view.hpp"
      /** @typedef string_view
       *  The string_view class used by this library.
       */
