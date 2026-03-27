@@ -106,12 +106,14 @@ namespace csv {
 
             /** Tell listeners that this deque is actively being pushed to */
             void notify_all() {
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 this->_is_waitable.store(true, std::memory_order_release);
                 this->_cond.notify_all();
             }
 
             /** Tell all listeners to stop */
             void kill_all() {
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 this->_is_waitable.store(false, std::memory_order_release);
                 this->_cond.notify_all();
             }
