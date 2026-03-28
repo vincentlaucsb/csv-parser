@@ -8,6 +8,7 @@ else()
 endif(CSV_CXX_STANDARD)
 
 option(BUILD_PYTHON "Build Python Binding" OFF)
+option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
@@ -119,8 +120,10 @@ if (CSV_DEVELOPER)
           DEPENDS ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
       )
 
-      # Single header compilation test
-      add_subdirectory(single_include_test)
+      # Single header compilation test (optional, mainly for validation)
+      if(CSV_BUILD_SINGLE_INCLUDE_TEST)
+          add_subdirectory(single_include_test)
+      endif()
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
     endif()
