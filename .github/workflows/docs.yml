@@ -2,7 +2,7 @@ name: Documentation and Single Header
 
 on:
   push:
-    branches: [ "master", "auto-single-header" ]
+    branches: [ "master" ]
   workflow_dispatch:  # Allow manual runs from the Actions tab
 
 # Only one Pages deployment at a time

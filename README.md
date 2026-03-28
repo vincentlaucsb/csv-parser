@@ -118,7 +118,14 @@ While C++17 is recommended, C++11 is the minimum version required. This library 
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
 ### Single Header
-This library is available as a single `.hpp` file under [`single_include/csv.hpp`](single_include/csv.hpp).
+**[📥 Download csv.hpp](https://vincentlaucsb.github.io/csv-parser/csv.hpp)** — Available on GitHub Pages
+
+Or copy the URL:
+```
+https://vincentlaucsb.github.io/csv-parser/csv.hpp
+```
+
+The file is automatically generated and deployed on every commit to `master`, ensuring you always have the latest version.
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 

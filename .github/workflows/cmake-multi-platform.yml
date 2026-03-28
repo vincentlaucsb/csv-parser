@@ -4,7 +4,7 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master", "auto-single-header", "feb-15-2026" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
