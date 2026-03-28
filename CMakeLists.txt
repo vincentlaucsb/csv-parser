@@ -8,6 +8,7 @@ else()
 endif(CSV_CXX_STANDARD)
 
 option(BUILD_PYTHON "Build Python Binding" OFF)
+option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
@@ -92,15 +93,44 @@ if (CSV_DEVELOPER)
       find_package(Python3 COMPONENTS Interpreter)
     endif()
     if(Python3_Interpreter_FOUND OR PYTHONINTERP_FOUND)
-      add_custom_target(generate_single_header
-          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include/csv.hpp
-          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include_test/csv.hpp
+      if(Python3_Interpreter_FOUND)
+        set(CSV_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+      else()
+        set(CSV_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+      endif()
+
+      set(CSV_SINGLE_INCLUDE_GENERATED_DIR ${CSV_BUILD_DIR}/single_include_generated)
+      set(CSV_SINGLE_INCLUDE_GENERATED_HEADER ${CSV_SINGLE_INCLUDE_GENERATED_DIR}/csv.hpp)
+          file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
+            ${CSV_INCLUDE_DIR}/*.hpp
+            ${CSV_INCLUDE_DIR}/*.h
+            ${CSV_INCLUDE_DIR}/*.cpp
+          )
+
+      add_custom_command(
+          OUTPUT ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+          COMMAND ${CMAKE_COMMAND} -E make_directory ${CSV_SINGLE_INCLUDE_GENERATED_DIR}
+          COMMAND ${CSV_PYTHON_EXECUTABLE} single_header.py ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
+            DEPENDS ${CSV_ROOT_DIR}/single_header.py ${CSV_SINGLE_HEADER_INPUTS}
+          COMMENT "Generating single-header csv.hpp"
       )
-      # Single header compilation test
-      add_subdirectory(single_include_test)
+
+      add_custom_target(generate_single_header
+          DEPENDS ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+      )
+
+      # Single header compilation test (optional, mainly for validation)
+      if(CSV_BUILD_SINGLE_INCLUDE_TEST)
+          # Keep this target out of the default "all" build so CI can run it
+          # explicitly in its dedicated smoke-test step.
+          add_subdirectory(single_include_test EXCLUDE_FROM_ALL)
+      endif()
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
+      if(CSV_BUILD_SINGLE_INCLUDE_TEST)
+        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a Python 3 interpreter for single-header generation.")
+      endif()
     endif()
 
     # Documentation

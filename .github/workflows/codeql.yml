@@ -2,7 +2,7 @@ name: CodeQL Analysis
 
 on:
   push:
-    branches: [ "master", "feb-15-2026" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
   schedule:
