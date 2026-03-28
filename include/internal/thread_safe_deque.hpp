@@ -3,6 +3,9 @@
  * 
  *  Generic container used for cross-thread communication in the CSV parser.
  *  Parser thread pushes rows, main thread pops them.
+ *
+ *  Design notes: see THREADSAFE_DEQUE_DESIGN.md for protocol details,
+ *  invariants, and producer/consumer timing diagrams.
  */
 
 #pragma once
@@ -106,12 +109,14 @@ namespace csv {
 
             /** Tell listeners that this deque is actively being pushed to */
             void notify_all() {
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 this->_is_waitable.store(true, std::memory_order_release);
                 this->_cond.notify_all();
             }
 
             /** Tell all listeners to stop */
             void kill_all() {
+                std::lock_guard<std::mutex> lock{ this->_lock };
                 this->_is_waitable.store(false, std::memory_order_release);
                 this->_cond.notify_all();
             }
