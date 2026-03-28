@@ -92,11 +92,33 @@ if (CSV_DEVELOPER)
       find_package(Python3 COMPONENTS Interpreter)
     endif()
     if(Python3_Interpreter_FOUND OR PYTHONINTERP_FOUND)
-      add_custom_target(generate_single_header
-          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include/csv.hpp
-          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include_test/csv.hpp
+      if(Python3_Interpreter_FOUND)
+        set(CSV_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+      else()
+        set(CSV_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+      endif()
+
+      set(CSV_SINGLE_INCLUDE_GENERATED_DIR ${CSV_BUILD_DIR}/single_include_generated)
+      set(CSV_SINGLE_INCLUDE_GENERATED_HEADER ${CSV_SINGLE_INCLUDE_GENERATED_DIR}/csv.hpp)
+          file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
+            ${CSV_INCLUDE_DIR}/*.hpp
+            ${CSV_INCLUDE_DIR}/*.h
+            ${CSV_INCLUDE_DIR}/*.cpp
+          )
+
+      add_custom_command(
+          OUTPUT ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+          COMMAND ${CMAKE_COMMAND} -E make_directory ${CSV_SINGLE_INCLUDE_GENERATED_DIR}
+          COMMAND ${CSV_PYTHON_EXECUTABLE} single_header.py ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
+            DEPENDS ${CSV_ROOT_DIR}/single_header.py ${CSV_SINGLE_HEADER_INPUTS}
+          COMMENT "Generating single-header csv.hpp"
       )
+
+      add_custom_target(generate_single_header
+          DEPENDS ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+      )
+
       # Single header compilation test
       add_subdirectory(single_include_test)
     else()

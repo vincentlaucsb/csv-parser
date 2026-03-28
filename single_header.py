@@ -1,6 +1,8 @@
 from collections import namedtuple
+from contextlib import redirect_stdout
 import os
 import re
+import sys
 
 CPP_SEP = '/'
 Include = namedtuple('Include', ['path', 'line_no'])
@@ -194,7 +196,7 @@ def header_collate(headers: list):
 
     return header_concat
 
-if __name__ == "__main__":
+def generate_single_header():
     ''' Iterate over every .cpp and .hpp file '''
     headers = []
     sources = []
@@ -226,9 +228,19 @@ if __name__ == "__main__":
 
     for cpp in sources:
         source_collate += file_strip(cpp) + '\n'
-    
+
     # Generate hpp file
     print("#pragma once")
     print(header_concat.replace(
         "#define CSV_INLINE", "#define CSV_INLINE inline").replace(
             "/** INSERT_CSV_SOURCES **/", source_collate))
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        output_path = sys.argv[1]
+        with open(output_path, mode='w', newline='') as outfile:
+            with redirect_stdout(outfile):
+                generate_single_header()
+    else:
+        generate_single_header()

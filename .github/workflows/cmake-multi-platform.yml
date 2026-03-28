@@ -4,7 +4,7 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master", "feb-15-2026" ]
+    branches: [ "master", "auto-single-header", "feb-15-2026" ]
   pull_request:
     branches: [ "master" ]
 
@@ -73,8 +73,20 @@ jobs:
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
+    - name: Single-header smoke test
+      # Explicitly build the single-header smoke-test target so CI validates the freshly generated amalgamated header.
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target single_include_test
+
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }}
+
+    - name: Upload generated single header
+      if: github.event_name == 'push' && (github.ref_name == 'master' || github.ref_name == 'auto-single-header') && matrix.os == 'ubuntu-latest' && matrix.c_compiler == 'gcc' && matrix.cxx_standard == 17
+      uses: actions/upload-artifact@v4
+      with:
+        name: single-header-${{ github.ref_name }}-${{ github.sha }}
+        path: ${{ steps.strings.outputs.build-output-dir }}/single_include_generated/csv.hpp
+        if-no-files-found: error
