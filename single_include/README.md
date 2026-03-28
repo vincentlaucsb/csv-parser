@@ -1,6 +1,6 @@
 # Single Header Distribution
 
-> **The amalgamated `csv.hpp` is no longer tracked in this repository.**
+> **`single_include/csv.hpp` is now a small compatibility shim, not the full amalgamated header.**
 
 ## For Users
 

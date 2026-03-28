@@ -122,7 +122,9 @@ if (CSV_DEVELOPER)
 
       # Single header compilation test (optional, mainly for validation)
       if(CSV_BUILD_SINGLE_INCLUDE_TEST)
-          add_subdirectory(single_include_test)
+          # Keep this target out of the default "all" build so CI can run it
+          # explicitly in its dedicated smoke-test step.
+          add_subdirectory(single_include_test EXCLUDE_FROM_ALL)
       endif()
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
