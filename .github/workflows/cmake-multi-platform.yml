@@ -83,12 +83,4 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }}
 
-    - name: Upload generated single header
-      if: github.event_name == 'push' && (github.ref_name == 'master' || github.ref_name == 'auto-single-header') && matrix.os == 'ubuntu-latest' && matrix.c_compiler == 'gcc' && matrix.cxx_standard == 17
-      uses: actions/upload-artifact@v4
-      with:
-        name: single-header-${{ github.ref_name }}-${{ github.sha }}
-        path: ${{ steps.strings.outputs.build-output-dir }}/single_include_generated/csv.hpp
-        if-no-files-found: error
-
 
