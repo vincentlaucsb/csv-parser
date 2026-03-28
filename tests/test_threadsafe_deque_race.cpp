@@ -8,6 +8,7 @@
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/timeout_helper.hpp"
 #include <sstream>
 #include <thread>
 #include <atomic>
@@ -33,53 +34,59 @@ TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
     //   - Repeated iterations over multiple small inputs
 
     SECTION("Iterator over small in-memory CSV with no_header") {
-        // Run many iterations to increase the chance of hitting the race window
-        for (int i = 0; i < 200; i++) {
-            CSVFormat fmt;
-            fmt.no_header();
+        test_with_timeout([]() {
+            // Run many iterations to increase the chance of hitting the race window
+            for (int i = 0; i < 200; i++) {
+                CSVFormat fmt;
+                fmt.no_header();
 
-            std::stringstream ss("1,2,3\n4,5,6\n");
-            CSVReader reader(ss, fmt);
+                std::stringstream ss("1,2,3\n4,5,6\n");
+                CSVReader reader(ss, fmt);
 
-            int row_count = 0;
-            for (auto& row : reader) {
-                row_count++;
-                REQUIRE(row.size() == 3);
+                int row_count = 0;
+                for (auto& row : reader) {
+                    row_count++;
+                    REQUIRE(row.size() == 3);
+                }
+                REQUIRE(row_count == 2);
             }
-            REQUIRE(row_count == 2);
-        }
+        });
     }
 
     SECTION("read_row over small in-memory CSV with no_header") {
-        for (int i = 0; i < 200; i++) {
-            CSVFormat fmt;
-            fmt.no_header();
+        test_with_timeout([]() {
+            for (int i = 0; i < 200; i++) {
+                CSVFormat fmt;
+                fmt.no_header();
 
-            std::stringstream ss("a,b\nx,y\n");
-            CSVReader reader(ss, fmt);
+                std::stringstream ss("a,b\nx,y\n");
+                CSVReader reader(ss, fmt);
 
-            CSVRow row;
-            int row_count = 0;
-            while (reader.read_row(row)) {
-                row_count++;
-                REQUIRE(row.size() == 2);
+                CSVRow row;
+                int row_count = 0;
+                while (reader.read_row(row)) {
+                    row_count++;
+                    REQUIRE(row.size() == 2);
+                }
+                REQUIRE(row_count == 2);
             }
-            REQUIRE(row_count == 2);
-        }
+        });
     }
 
     SECTION("Iterator with header over tiny CSV") {
-        for (int i = 0; i < 200; i++) {
-            std::stringstream ss("col1,col2\nval1,val2\n");
-            CSVReader reader(ss);
+        test_with_timeout([]() {
+            for (int i = 0; i < 200; i++) {
+                std::stringstream ss("col1,col2\nval1,val2\n");
+                CSVReader reader(ss);
 
-            int row_count = 0;
-            for (auto& row : reader) {
-                row_count++;
-                REQUIRE(row["col1"].get<>() == "val1");
+                int row_count = 0;
+                for (auto& row : reader) {
+                    row_count++;
+                    REQUIRE(row["col1"].get<>() == "val1");
+                }
+                REQUIRE(row_count == 1);
             }
-            REQUIRE(row_count == 1);
-        }
+        });
     }
 }
 
@@ -88,13 +95,15 @@ TEST_CASE("ThreadSafeDeque concurrent stress test",
     // Stress test: rapidly create and iterate many small CSVs
     // to maximize the chance of hitting the race window
     SECTION("Rapid sequential small CSV parsing") {
-        for (int i = 0; i < 500; i++) {
-            auto rows = "X,Y\n1,2\n"_csv;
-            CSVRow row;
-            REQUIRE(rows.read_row(row));
-            REQUIRE(row["X"].get<int>() == 1);
-            REQUIRE(row["Y"].get<int>() == 2);
-            REQUIRE_FALSE(rows.read_row(row));
-        }
+        test_with_timeout([]() {
+            for (int i = 0; i < 500; i++) {
+                auto rows = "X,Y\n1,2\n"_csv;
+                CSVRow row;
+                REQUIRE(rows.read_row(row));
+                REQUIRE(row["X"].get<int>() == 1);
+                REQUIRE(row["Y"].get<int>() == 2);
+                REQUIRE_FALSE(rows.read_row(row));
+            }
+        });
     }
 }

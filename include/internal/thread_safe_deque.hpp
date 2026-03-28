@@ -3,6 +3,9 @@
  * 
  *  Generic container used for cross-thread communication in the CSV parser.
  *  Parser thread pushes rows, main thread pops them.
+ *
+ *  Design notes: see THREADSAFE_DEQUE_DESIGN.md for protocol details,
+ *  invariants, and producer/consumer timing diagrams.
  */
 
 #pragma once
