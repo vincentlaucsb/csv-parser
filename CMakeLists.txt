@@ -128,6 +128,9 @@ if (CSV_DEVELOPER)
       endif()
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
+      if(CSV_BUILD_SINGLE_INCLUDE_TEST)
+        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a Python 3 interpreter for single-header generation.")
+      endif()
     endif()
 
     # Documentation
