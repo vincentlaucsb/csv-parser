@@ -11,6 +11,7 @@
 |------|---------|
 | `shared/file_guard.hpp` | RAII temp-file cleanup — **use this for every temp file** |
 | `shared/float_test_cases.hpp` | Shared floating-point edge-case data |
+| `shared/timeout_helper.hpp` | Timeout wrapper for race/stress tests to prevent hangs |
 
 #### FileGuard — RAII temp file cleanup
 
@@ -35,6 +36,63 @@ TEST_CASE("My test") {
 
 ### Test Organization
 
+### Testing Conventions
+
+#### Tests Should Expose Bugs, Not Assert Them
+
+When writing a test for a known bug, assert correct behavior (even if it currently fails), not buggy behavior.
+
+Wrong pattern (do not use):
+
+```cpp
+TEST_CASE("Issue #123", "[bug]") {
+  REQUIRE(result == "wrong_value");
+}
+```
+
+Right pattern:
+
+```cpp
+TEST_CASE("Issue #123", "[bug][!shouldfail]") {
+  REQUIRE(result == "correct_value");
+}
+```
+
+Why:
+- Bug is visible immediately as a failing test
+- Test auto-passes once bug is fixed
+- No TODO/update cycle required
+
+#### Catch2 Tags for Known Failing Tests
+
+- Expected failing bug test: `[bug][!shouldfail]`
+- Or skip by default: `[.][bug]`
+
+#### Placement Rule: Edge Cases and Regressions at End of File
+
+In each test file:
+- Mainline/general feature tests first
+- Edge-case and regression tests last
+
+This keeps the top of files focused on broad feature coverage and groups known edge cases in one place.
+
+#### Pattern for Known-Bug Regression Tests
+
+```cpp
+TEST_CASE("Feature XYZ - Issue #N", "[issue_N][!shouldfail]") {
+  // Expected: X
+  // Actual (buggy): Y
+  auto result = buggy_function();
+  REQUIRE(result == correct_value);
+}
+```
+
+#### Temporary File Cleanup Must Use RAII
+
+Never use manual `std::remove()` cleanup in tests.
+
+Always use `FileGuard` from `shared/file_guard.hpp` so files are cleaned up even if assertions fail.
+
 #### Path Testing Pattern
 Most tests validate both code paths using a shared validation lambda:
 ```cpp
@@ -58,6 +116,22 @@ This pattern catches path-specific bugs like issue #281 (stream-only parsing err
 
 #### File Cleanup
 Tests use RAII cleanup via [FileGuard](shared/file_guard.hpp) — see the **Shared Test Utilities** section above for full usage.
+
+#### Timeout Guard for Race/Stress Tests
+
+Use [test_with_timeout](shared/timeout_helper.hpp) for tests that may hang under deadlock regressions.
+
+```cpp
+#include "shared/timeout_helper.hpp"
+
+SECTION("Race-sensitive scenario") {
+  test_with_timeout([]() {
+    // loop / iterator logic that should complete quickly
+  });
+}
+```
+
+This gives explicit failures instead of CI hangs when synchronization regresses.
 
 ### Test Files
 
@@ -99,8 +173,9 @@ Tests use RAII cleanup via [FileGuard](shared/file_guard.hpp) — see the **Shar
 1. **Validation Lambdas**: Write once, test both paths
 2. **SECTION Grouping**: Organize related scenarios
 3. **FileGuard RAII**: Guaranteed cleanup for temp files
-4. **Distinct Values**: Detect cross-field corruption
-5. **Chunk Boundary Testing**: Cross 10MB ITERATION_CHUNK_SIZE
+4. **Timeout Guards**: Use `test_with_timeout()` for race/deadlock-sensitive tests
+5. **Distinct Values**: Detect cross-field corruption
+6. **Chunk Boundary Testing**: Cross 10MB ITERATION_CHUNK_SIZE
 
 ### Data Files
 Test data in `tests/data/` is a git submodule:

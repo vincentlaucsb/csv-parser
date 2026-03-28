@@ -42,6 +42,7 @@ target_sources(csv_test
         test_read_csv_file.cpp
         test_round_trip.cpp
         test_stream_sources.cpp
+        test_threadsafe_deque_race.cpp
         test_write_csv.cpp
     )
 target_link_libraries(csv_test csv)
