@@ -1,0 +1,63 @@
+name: MSVC Consumer Compatibility
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - "include/**"
+      - "single_header.py"
+      - "CMakeLists.txt"
+      - ".github/workflows/msvc-consumer-compat.yml"
+  pull_request:
+    branches: [ "master" ]
+    paths:
+      - "include/**"
+      - "single_header.py"
+      - "CMakeLists.txt"
+      - ".github/workflows/msvc-consumer-compat.yml"
+  workflow_dispatch:
+
+jobs:
+  windows-msvc-no-zc-cplusplus:
+    name: Windows MSVC compatibility without /Zc:__cplusplus
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC developer command prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Configure CMake (for single-header generation)
+      run: >
+        cmake -S ${{ github.workspace }}
+        -B ${{ github.workspace }}/build/no-zc-cplusplus
+        -DCSV_CXX_STANDARD=20
+        -DCSV_BUILD_PROGRAMS=OFF
+        -DBUILD_PYTHON=OFF
+
+    - name: Generate amalgamated single-header
+      run: cmake --build ${{ github.workspace }}/build/no-zc-cplusplus --config Release --target generate_single_header
+
+    - name: Compile generated single-header without /Zc:__cplusplus
+      shell: cmd
+      run: |
+        REM NOTE: single_include/csv.hpp is an intentional compatibility shim; compile the generated amalgamated header instead.
+        echo #include "csv.hpp" > ci_no_zc_single_header.cpp
+        echo int main() { return 0; } >> ci_no_zc_single_header.cpp
+        cl /nologo /std:c++20 /EHsc /Zc:__cplusplus- /I build\no-zc-cplusplus\single_include_generated /c ci_no_zc_single_header.cpp
+
+    - name: Compile unamalgamated header without /Zc:__cplusplus
+      shell: cmd
+      run: |
+        echo #include "csv.hpp" > ci_no_zc_unamalgamated.cpp
+        echo int main() { return 0; } >> ci_no_zc_unamalgamated.cpp
+        cl /nologo /std:c++20 /EHsc /Zc:__cplusplus- /I include /c ci_no_zc_unamalgamated.cpp

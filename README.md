@@ -93,6 +93,10 @@ Found a bug? Please report it! This project welcomes **genuine bug reports broug
  * ✅ Performance regressions in real-world scenarios
  * ✅ API issues that affect **practical, real-world use cases**
 
+When reporting integration or compiler issues, please state which library form you are using:
+ * Single-header
+ * Unamalgamated headers/library (`include/` with your own build system, CMake, etc.)
+
 Please keep reports grounded in real use cases—no contrived edge cases or philosophical debates about API design, thanks!
 
 **Design Note:** `CSVReader` uses `std::input_iterator_tag` for single-pass streaming of arbitrarily large files. If you need multi-pass iteration or random access, copy rows to a `std::vector` first. This is by design, not a bug.
