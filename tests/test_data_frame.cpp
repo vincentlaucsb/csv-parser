@@ -123,6 +123,18 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
         }
     }
     REQUIRE(found_carly);
+
+    // Verify edits are visible through keyed const iteration (covers const_iterator edit overlay path)
+    const auto& cframe = frame;
+    bool found_carly_const = false;
+    bool found_bob_const = false;
+    for (auto cit = cframe.cbegin(); cit != cframe.cend(); ++cit) {
+        std::string name = (*cit)["name"].get<std::string>();
+        if (name == "Carly") found_carly_const = true;
+        if (name == "Bob") found_bob_const = true;
+    }
+    REQUIRE(found_carly_const);
+    REQUIRE(found_bob_const);
     
     // Verify DataFrameRow stores key and can be converted to vector
     auto row_0 = frame.at(0);
