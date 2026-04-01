@@ -8,8 +8,9 @@
 #pragma once
 
 #include <future>
+#include <thread>
+#include <memory>
 #include <chrono>
-#include <stdexcept>
 #include <catch2/catch_all.hpp>
 
 /** Execute a test function with a timeout
@@ -30,17 +31,37 @@
  *  @param fn Test function to execute
  *  @param timeout Maximum time to wait before failing (default: 10 seconds)
  *  
- *  @throws std::runtime_error if timeout occurs
- *  @rethrows any exception thrown by fn
+ *  @note On timeout, this helper fails the test via REQUIRE and does not join
+ *        the worker thread. This avoids deadlocking the test thread while
+ *        reporting a deterministic failure.
+ *  @rethrows any exception thrown by fn (re-raised on the caller thread)
  */
 template<typename Func, typename Duration = std::chrono::seconds>
 void test_with_timeout(Func fn, Duration timeout = std::chrono::seconds(10)) {
-    auto future = std::async(std::launch::async, fn);
-    
+    auto completion = std::make_shared<std::promise<void>>();
+    auto future = completion->get_future();
+    auto worker_exception = std::make_shared<std::exception_ptr>();
+
+    std::thread([fn = std::move(fn), completion, worker_exception]() mutable {
+        try {
+            fn();
+        }
+        catch (...) {
+            *worker_exception = std::current_exception();
+        }
+
+        try {
+            completion->set_value();
+        }
+        catch (...) {
+            // Promise may be abandoned on test shutdown paths.
+        }
+    }).detach();
+
     auto status = future.wait_for(timeout);
-    
     REQUIRE(status == std::future_status::ready);
-    
-    // Re-throw any exception from the test function
-    future.get();
+
+    if (*worker_exception) {
+        std::rethrow_exception(*worker_exception);
+    }
 }

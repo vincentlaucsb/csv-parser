@@ -84,6 +84,7 @@ It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte o
 ### Well Tested
 This CSV parser has:
  * An extensive Catch2 test suite
+ * Tests of various CMake and non-CMake builds across g++, clang, MSVC, and MinGW
  * Address, thread safety, and undefined behavior checks with ASan, TSan, and Valgrind (see [GitHub Actions](https://github.com/vincentlaucsb/csv-parser/actions))
 
 #### Bug Reports
