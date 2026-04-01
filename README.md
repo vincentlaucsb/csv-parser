@@ -121,6 +121,8 @@ All of the code required to build this library, aside from the C++ standard libr
 While C++17 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
+This library requires C++ exceptions to be enabled (for example, do not compile with `-fno-exceptions`).
+
 ### Single Header
 **[📥 Download csv.hpp](https://vincentlaucsb.github.io/csv-parser/csv.hpp)** — Available on GitHub Pages
 

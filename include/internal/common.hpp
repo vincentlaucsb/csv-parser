@@ -54,6 +54,17 @@
     #define CSV_UNREACHABLE() abort()
 #endif
 
+// This library uses C++ exceptions for error reporting in public APIs.
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND) || defined(__EXCEPTIONS)
+    #define CSV_EXCEPTIONS_ENABLED 1
+#else
+    #define CSV_EXCEPTIONS_ENABLED 0
+#endif
+
+#if !CSV_EXCEPTIONS_ENABLED
+    #error "csv-parser requires C++ exceptions. Enable exception handling (for example, remove -fno-exceptions or use /EHsc)."
+#endif
+
 // Detect C++ standard version BEFORE namespace to properly include string_view
 // MSVC: __cplusplus == 199711L unless /Zc:__cplusplus is set; use _MSVC_LANG instead.
 #if defined(_MSVC_LANG) && _MSVC_LANG > __cplusplus
