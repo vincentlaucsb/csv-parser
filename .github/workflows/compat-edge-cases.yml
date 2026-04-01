@@ -1,5 +1,8 @@
 name: Compatibility Edge Cases
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ "master" ]
