@@ -3,7 +3,7 @@ name: Release Single Header Asset
 on:
   push:
     tags:
-      - "v*"
+      - "*"
   workflow_dispatch:
 
 permissions:
