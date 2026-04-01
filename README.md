@@ -84,6 +84,7 @@ It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte o
 ### Well Tested
 This CSV parser has:
  * An extensive Catch2 test suite
+ * Tests of various CMake and non-CMake builds across g++, clang, MSVC, and MinGW
  * Address, thread safety, and undefined behavior checks with ASan, TSan, and Valgrind (see [GitHub Actions](https://github.com/vincentlaucsb/csv-parser/actions))
 
 #### Bug Reports
@@ -92,6 +93,10 @@ Found a bug? Please report it! This project welcomes **genuine bug reports broug
  * ✅ Incorrect parsing of valid CSV files
  * ✅ Performance regressions in real-world scenarios
  * ✅ API issues that affect **practical, real-world use cases**
+
+When reporting integration or compiler issues, please state which library form you are using:
+ * Single-header
+ * Unamalgamated headers/library (`include/` with your own build system, CMake, etc.)
 
 Please keep reports grounded in real use cases—no contrived edge cases or philosophical debates about API design, thanks!
 
@@ -116,6 +121,8 @@ All of the code required to build this library, aside from the C++ standard libr
 ### C++ Version
 While C++17 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
+
+This library requires C++ exceptions to be enabled (for example, do not compile with `-fno-exceptions`).
 
 ### Single Header
 **[📥 Download csv.hpp](https://vincentlaucsb.github.io/csv-parser/csv.hpp)** — Available on GitHub Pages

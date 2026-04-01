@@ -18,6 +18,15 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+ /* csv-parser local note:
+  *
+  * This vendored mio.hpp includes a minimal Windows-specific narrowing fix in
+  * int64_high/int64_low to avoid -Wconversion failures under strict MinGW builds.
+  * Keep this patch small and easy to rebase if/when upstream is updated.
+  * 
+  * - Vincent La 3/31/2026
+  */
+
 #ifndef MIO_MMAP_HEADER
 #define MIO_MMAP_HEADER
 
@@ -785,13 +794,13 @@ namespace win {
 /** Returns the 4 upper bytes of an 8-byte integer. */
 inline DWORD int64_high(int64_t n) noexcept
 {
-    return n >> 32;
+    return static_cast<DWORD>(static_cast<uint64_t>(n) >> 32);
 }
 
 /** Returns the 4 lower bytes of an 8-byte integer. */
 inline DWORD int64_low(int64_t n) noexcept
 {
-    return n & 0xffffffff;
+    return static_cast<DWORD>(static_cast<uint64_t>(n) & 0xffffffffULL);
 }
 
 template<

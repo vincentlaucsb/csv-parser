@@ -1,0 +1,103 @@
+name: Compatibility Edge Cases
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - "include/**"
+      - "single_header.py"
+      - "CMakeLists.txt"
+      - ".github/workflows/compat-edge-cases.yml"
+  pull_request:
+    branches: [ "master" ]
+    paths:
+      - "include/**"
+      - "single_header.py"
+      - "CMakeLists.txt"
+      - ".github/workflows/compat-edge-cases.yml"
+  workflow_dispatch:
+
+jobs:
+  msvc-without-zc-cplusplus:
+    name: MSVC without /Zc:__cplusplus
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Set up MSVC developer command prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Configure CMake (for single-header generation)
+      run: >
+        cmake -S ${{ github.workspace }}
+        -B ${{ github.workspace }}/build/no-zc-cplusplus
+        -DCSV_CXX_STANDARD=20
+        -DCSV_BUILD_PROGRAMS=OFF
+        -DBUILD_PYTHON=OFF
+
+    - name: Generate amalgamated single-header
+      run: cmake --build ${{ github.workspace }}/build/no-zc-cplusplus --config Release --target generate_single_header
+
+    - name: Compile generated single-header without /Zc:__cplusplus
+      shell: cmd
+      run: |
+        REM NOTE: single_include/csv.hpp is an intentional compatibility shim; compile the generated amalgamated header instead.
+        echo #include "csv.hpp" > ci_no_zc_single_header.cpp
+        echo int main() { return 0; } >> ci_no_zc_single_header.cpp
+        cl /nologo /std:c++20 /EHsc /Zc:__cplusplus- /I build\no-zc-cplusplus\single_include_generated /c ci_no_zc_single_header.cpp
+
+    - name: Compile unamalgamated header without /Zc:__cplusplus
+      shell: cmd
+      run: |
+        echo #include "csv.hpp" > ci_no_zc_unamalgamated.cpp
+        echo int main() { return 0; } >> ci_no_zc_unamalgamated.cpp
+        cl /nologo /std:c++20 /EHsc /Zc:__cplusplus- /I include /c ci_no_zc_unamalgamated.cpp
+
+  mingw-minimal:
+    name: MinGW-w64 minimal build and test (C++17)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Set up MSYS2 (MinGW64)
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+
+    - name: Configure CMake (MinGW, C++17)
+      shell: msys2 {0}
+      run: >
+        cmake -S . -B build/mingw-minimal -G Ninja
+        -DCMAKE_BUILD_TYPE=Release
+        -DCSV_CXX_STANDARD=17
+        -DCSV_BUILD_PROGRAMS=OFF
+        -DBUILD_PYTHON=OFF
+
+    - name: Build
+      shell: msys2 {0}
+      run: cmake --build build/mingw-minimal
+
+    - name: Test
+      shell: msys2 {0}
+      run: ctest --test-dir build/mingw-minimal --output-on-failure

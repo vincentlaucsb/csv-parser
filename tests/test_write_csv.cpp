@@ -161,6 +161,31 @@ TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
 }
 //! [CSV Writer Example]
 
+//! [CSV Reordering Example]
+TEST_CASE("CSV Writer - Reorder Columns", "[test_csv_reorder]") {
+    auto rows = "A,B,C\r\n"
+        "1,2,3\r\n"
+        "4,5,6"_csv;
+
+    std::stringstream output, correct;
+    auto writer = make_csv_writer(output);
+
+    writer << std::vector<std::string>({ "C", "A" });
+    for (auto& row : rows) {
+        writer << std::vector<std::string>({
+            row["C"].get<std::string>(),
+            row["A"].get<std::string>()
+        });
+    }
+
+    correct << "C,A" << std::endl
+        << "3,1" << std::endl
+        << "6,4" << std::endl;
+
+    REQUIRE(output.str() == correct.str());
+}
+//! [CSV Reordering Example]
+
 //! [CSV Writer Tuple Example]
 struct Time {
     std::string hour;

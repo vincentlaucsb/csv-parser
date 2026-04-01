@@ -54,16 +54,34 @@
     #define CSV_UNREACHABLE() abort()
 #endif
 
+// This library uses C++ exceptions for error reporting in public APIs.
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND) || defined(__EXCEPTIONS)
+    #define CSV_EXCEPTIONS_ENABLED 1
+#else
+    #define CSV_EXCEPTIONS_ENABLED 0
+#endif
+
+#if !CSV_EXCEPTIONS_ENABLED
+    #error "csv-parser requires C++ exceptions. Enable exception handling (for example, remove -fno-exceptions or use /EHsc)."
+#endif
+
 // Detect C++ standard version BEFORE namespace to properly include string_view
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 20) || __cplusplus >= 202002L
+// MSVC: __cplusplus == 199711L unless /Zc:__cplusplus is set; use _MSVC_LANG instead.
+#if defined(_MSVC_LANG) && _MSVC_LANG > __cplusplus
+#  define CSV_CPLUSPLUS _MSVC_LANG
+#else
+#  define CSV_CPLUSPLUS __cplusplus
+#endif
+
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 20) || CSV_CPLUSPLUS >= 202002L
 #define CSV_HAS_CXX20
 #endif
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || __cplusplus >= 201703L
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || CSV_CPLUSPLUS >= 201703L
 #define CSV_HAS_CXX17
 #endif
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || __cplusplus >= 201402L
+#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || CSV_CPLUSPLUS >= 201402L
 #define CSV_HAS_CXX14
 #endif
 

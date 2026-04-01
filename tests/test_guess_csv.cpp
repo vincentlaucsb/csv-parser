@@ -75,3 +75,31 @@ TEST_CASE("guess_delim() Test - Comments Before Header", "[test_guess_comments_b
     REQUIRE(col_names[1] == "b");
     REQUIRE(col_names[2] == "c");
 }
+
+TEST_CASE("get_col_names(filename, format)", "[test_get_col_names_filename_format]") {
+    const std::string path = "./tests/data/fake_data/comments_before_header.csv";
+
+    SECTION("Guessed delimiter and header row") {
+        CSVFormat format;
+        format.delimiter({ ',', ';' });
+
+        auto col_names = get_col_names(path, format);
+
+        REQUIRE(col_names.size() == 3);
+        REQUIRE(col_names[0] == "a");
+        REQUIRE(col_names[1] == "b");
+        REQUIRE(col_names[2] == "c");
+    }
+
+    SECTION("Explicit delimiter and header row") {
+        CSVFormat format;
+        format.delimiter(';').header_row(2);
+
+        auto col_names = get_col_names(path, format);
+
+        REQUIRE(col_names.size() == 3);
+        REQUIRE(col_names[0] == "a");
+        REQUIRE(col_names[1] == "b");
+        REQUIRE(col_names[2] == "c");
+    }
+}
