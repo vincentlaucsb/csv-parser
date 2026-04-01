@@ -322,9 +322,13 @@ namespace csv {
             const std::vector<std::string>& subset
         ) const;
 
-        /** Convert this CSVRow into a vector of strings.
-         *  **Note**: This is a less efficient method of
-         *  accessing data than using the [] operator.
+        /** Convert this row into a `std::vector<std::string>`.
+         *
+         * This conversion is primarily intended for write-side workflows, such as
+         * reordering or selecting columns before forwarding the row to `CSVWriter`.
+         *
+         * @note This is less efficient than indexed access via `operator[]` because
+         *       it materializes all fields as owning strings.
          */
         operator std::vector<std::string>() const;
         ///@}
@@ -517,6 +521,11 @@ namespace csv {
     }
 }
 
+/** Stream insertion helper for `CSVField`.
+ *
+ * Writes the textual field value to an output stream. This is mainly a convenience
+ * for logging/debug output and simple formatting pipelines.
+ */
 inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
     os << std::string(value);
     return os;

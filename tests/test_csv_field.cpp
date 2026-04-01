@@ -2,6 +2,7 @@
 #include <catch2/catch_all.hpp>
 #include <cmath>
 #include <iostream>
+#include <sstream>
 
 using namespace csv;
 
@@ -170,6 +171,24 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
     }
 }
 
+TEST_CASE("CSVField try_get<long double>()", "[test_csv_field_try_get_long_double]") {
+    SECTION("Numeric value") {
+        CSVField field("2.718");
+        long double out = 0;
+
+        REQUIRE(field.try_get(out));
+        REQUIRE(internals::is_equal(out, 2.718L));
+    }
+
+    SECTION("Non-numeric value") {
+        CSVField field("not-a-number");
+        long double out = 123.0L;
+
+        REQUIRE_FALSE(field.try_get(out));
+        REQUIRE(internals::is_equal(out, 123.0L));
+    }
+}
+
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
     long long value = 0;
 
@@ -290,4 +309,13 @@ TEST_CASE("CSVField Equality Operator", "[test_csv_field_operator==]") {
     REQUIRE(field == "3.14");
     REQUIRE(field == 3.14f);
     REQUIRE(field == 3.14);
+}
+
+TEST_CASE("CSVField stream insertion operator", "[test_csv_field_stream_operator]") {
+    CSVField field("hello");
+    std::stringstream out;
+
+    out << field;
+
+    REQUIRE(out.str() == "<CSVField> hello");
 }

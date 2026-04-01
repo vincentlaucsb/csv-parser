@@ -97,6 +97,9 @@ column extraction, editing, and grouping.
    * csv::CSVStat::get_col_names()
 
 ### CSV Writing
+The [CSV Writing Guide](\ref md_docs_2source_2csv__writing) contains a 
+high-level overview of writing CSVs.
+
  * csv::make_csv_writer(): Construct a csv::CSVWriter
  * csv::make_tsv_writer(): Construct a csv::TSVWriter
  * csv::DelimWriter

@@ -1,0 +1,45 @@
+name: Release Single Header Asset
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-single-header:
+    name: Generate and upload csv.hpp release asset
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+
+    - name: Generate single header
+      run: |
+        mkdir -p release-assets
+        python single_header.py release-assets/csv.hpp
+
+    - name: Generate SHA256 checksum
+      run: |
+        cd release-assets
+        sha256sum csv.hpp > csv.hpp.sha256
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          release-assets/csv.hpp
+          release-assets/csv.hpp.sha256
+        fail_on_unmatched_files: true
+        generate_release_notes: true
