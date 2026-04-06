@@ -58,6 +58,11 @@ if(_catch2_inc)
     target_include_directories(csv_test SYSTEM PRIVATE ${_catch2_inc})
 endif()
 
+# Emscripten: Catch2 uses __COUNTER__ (unsupported in emcc, flagged as C2y extension)
+if(EMSCRIPTEN)
+    target_compile_options(csv_test PRIVATE -Wno-c2y-extensions)
+endif()
+
 if(MSVC)
     # Workaround to enable debugging unit tests in Visual Studio
     add_custom_command(
