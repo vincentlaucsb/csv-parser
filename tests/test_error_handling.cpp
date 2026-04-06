@@ -15,6 +15,7 @@
 
 using namespace csv;
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Mmap errors throw catchable std::system_error", "[error_handling][mmap]") {
     SECTION("Non-existent file throws catchable exception") {
         bool caught_as_exception = false;
@@ -68,6 +69,7 @@ TEST_CASE("Mmap errors throw catchable std::system_error", "[error_handling][mma
         REQUIRE(test_completed);
     }
 }
+#endif
 
 TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling][threading]") {
     SECTION("Exception during initial_read is catchable") {

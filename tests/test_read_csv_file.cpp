@@ -12,6 +12,7 @@ using namespace csv;
 using std::vector;
 using std::string;
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
     int pos = get_col_pos(
         "./tests/data/real_data/2015_StateDepartment.csv",
@@ -42,6 +43,7 @@ TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwri
         REQUIRE(format_out.get_header() == 5);
     }
 }
+#endif
 
 // get_file_info()
 #ifndef __EMSCRIPTEN__

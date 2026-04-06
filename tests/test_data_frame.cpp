@@ -172,6 +172,7 @@ TEST_CASE("DataFrame: arbitrary key function", "[data_frame]") {
         REQUIRE(frame[3]["name"].get<std::string>() == "Carol");
     }
 
+    #ifndef __EMSCRIPTEN__
     SECTION("Tuple-ish Value") {
         CSVReader reader("./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2014_c20170718.csv");
 
@@ -187,6 +188,7 @@ TEST_CASE("DataFrame: arbitrary key function", "[data_frame]") {
 
         REQUIRE(frame.contains("201405-BAKERSFIELD"));
     }
+    #endif
 
     SECTION("Duplicate key policy THROW") {
         auto input = make_people_stream();
