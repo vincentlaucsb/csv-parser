@@ -18,7 +18,7 @@
 #include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_row.hpp"
-#include "thread_safe_deque.hpp"
+#include "row_deque.hpp"
 
 namespace csv {
     namespace internals {

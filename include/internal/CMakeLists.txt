@@ -23,6 +23,8 @@ target_sources(csv
 		data_type.hpp
 		raw_csv_data.hpp
 		raw_csv_data.cpp
+		row_deque.hpp
+		single_thread_deque.hpp
 		thread_safe_deque.hpp
 		)
 
