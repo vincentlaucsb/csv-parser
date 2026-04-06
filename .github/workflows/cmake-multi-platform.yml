@@ -146,11 +146,16 @@ jobs:
         -DCSV_ENABLE_THREADS=OFF
         -DCSV_CXX_STANDARD=20
         -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
+        -DCMAKE_CROSSCOMPILING_EMULATOR=node
         -DCMAKE_BUILD_TYPE=Release
         -S ${{ github.workspace }}
 
     - name: Build (single-threaded emscripten)
       run: cmake --build ${{ github.workspace }}/build-single-thread-emscripten --config Release
+
+    - name: Test (single-threaded emscripten)
+      working-directory: ${{ github.workspace }}/build-single-thread-emscripten
+      run: ctest --build-config Release --output-on-failure
 
 
 

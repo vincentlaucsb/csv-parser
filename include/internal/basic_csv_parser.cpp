@@ -6,11 +6,19 @@ namespace csv {
     namespace internals {
         CSV_INLINE size_t get_file_size(csv::string_view filename) {
             std::ifstream infile(std::string(filename), std::ios::binary);
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
             const auto start = infile.tellg();
             infile.seekg(0, std::ios::end);
             const auto end = infile.tellg();
 
-            return end - start;
+            if (start < 0 || end < 0) {
+                throw std::runtime_error("Cannot determine file size for " + std::string(filename));
+            }
+
+            return static_cast<size_t>(end - start);
         }
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename) {

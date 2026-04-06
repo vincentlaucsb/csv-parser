@@ -159,25 +159,26 @@ namespace csv {
          *  Constructors for iterating over large files and parsing in-memory sources.
          */
          ///@{
-        /** @brief Construct CSVReader from filename using memory-mapped I/O
+        /** @brief Construct CSVReader from filename.
          * 
-         * CODE PATH 1 of 2: Uses MmapParser with mio library for maximum performance.
-         * This is fundamentally different from the stream-based constructor below.
+         * Native builds use CODE PATH 1 of 2: MmapParser with mio for maximum performance.
+         * Emscripten builds fall back to the stream-based implementation because mmap is unavailable.
          * 
-         * @note Bugs can exist in this path independently of the stream path (and vice versa)
-         * @note When writing tests that validate I/O behavior, BOTH paths must be tested
-         * @see StreamParser for the alternative implementation
+         * @note On native builds, bugs can exist in this path independently of the stream path
+         * @note When writing tests that validate I/O behavior, test both filename and stream constructors
+         * @see StreamParser for the stream-based alternative
          */
         CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
 
         /** @brief Construct CSVReader from std::istream
          * 
-         * CODE PATH 2 of 2: Uses StreamParser with different internal implementation than
-         * the memory-mapped constructor above. Issue #281 was specific to THIS path only.
+         * Uses StreamParser. On native builds this is CODE PATH 2 of 2 and remains independent
+         * from the filename-based mmap path. On Emscripten, the filename constructor also funnels
+         * through this implementation.
          *
          *  @tparam TStream An input stream deriving from `std::istream`
          *  @note CSV format guessing works differently here - must manually specify dialect
-         *  @note When writing tests that validate I/O behavior, BOTH paths must be tested
+         *  @note On native builds, tests that validate I/O behavior should cover both constructors
          *  @see MmapParser for the memory-mapped alternative
          */
         template<typename TStream,
