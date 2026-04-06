@@ -148,6 +148,8 @@ Single-threaded mode is useful for embedded targets, environments where `std::th
 ### Emscripten / WebAssembly
 On Emscripten, `CSV_ENABLE_THREADS` is forced off and memory-mapped parsing is replaced by the stream-based parser. The filename constructor (`CSVReader("file.csv")`) still works—it opens an `std::ifstream` internally instead of using mmap.
 
+Emscripten builds must keep C++ exceptions enabled. In practice, compile/link with exception support (for example, `-fexceptions`) and do not disable exception catching.
+
 ### Single Header
 **[📥 Download csv.hpp](https://vincentlaucsb.github.io/csv-parser/csv.hpp)** — Available on GitHub Pages
 

@@ -17,6 +17,12 @@ if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
   set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
 endif()
 
+if(EMSCRIPTEN)
+  message(STATUS "Emscripten target detected: enabling C++ exceptions (-fexceptions)")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fexceptions")
+endif()
+
 if(CSV_ENABLE_THREADS)
   message(STATUS "CSV_ENABLE_THREADS enabled: multi-threaded mode")
 else()

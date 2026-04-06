@@ -39,7 +39,11 @@
 #if defined(__clang__) || defined(__GNUC__)
     #define CSV_CONST __attribute__((__const__))
     #define CSV_PURE __attribute__((__pure__))
-    #define CSV_PRIVATE __attribute__((__visibility__("hidden")))
+    #if defined(_WIN32)
+        #define CSV_PRIVATE
+    #else
+        #define CSV_PRIVATE __attribute__((__visibility__("hidden")))
+    #endif
     #define CSV_NON_NULL(...) __attribute__((__nonnull__(__VA_ARGS__)))
 #elif defined(_MSC_VER)
     #define CSV_CONST
