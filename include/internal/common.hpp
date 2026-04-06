@@ -28,7 +28,10 @@
 #pragma once
 #include <type_traits>
 
-#ifndef CSV_ENABLE_THREADS
+#if defined(__EMSCRIPTEN__)
+#undef CSV_ENABLE_THREADS
+#define CSV_ENABLE_THREADS 0
+#elif !defined(CSV_ENABLE_THREADS)
 #define CSV_ENABLE_THREADS 1
 #endif
 

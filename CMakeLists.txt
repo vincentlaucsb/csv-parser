@@ -12,6 +12,11 @@ option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires P
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
 
+if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
+  message(STATUS "Emscripten target detected: forcing CSV_ENABLE_THREADS=OFF")
+  set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
+endif()
+
 if(CSV_ENABLE_THREADS)
   message(STATUS "CSV_ENABLE_THREADS enabled: multi-threaded mode")
 else()

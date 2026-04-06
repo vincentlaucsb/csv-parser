@@ -66,6 +66,14 @@ namespace csv {
                 return this->data.size();
             }
 
+            typename std::deque<T>::iterator begin() noexcept {
+                return this->data.begin();
+            }
+
+            typename std::deque<T>::iterator end() noexcept {
+                return this->data.end();
+            }
+
             void notify_all() {
                 this->_is_waitable = true;
             }
