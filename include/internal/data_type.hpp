@@ -34,10 +34,17 @@ namespace csv {
     static_assert(DataType::CSV_INT64 < DataType::CSV_DOUBLE, "Integer types should come before floating point value types.");
 
     namespace internals {
-        /** Compute 10 to the power of n */
+        /** Compute 10 to the power of n.
+         *  Only integral exponents are supported; fractional exponents
+         *  are never needed since CSV scientific notation exponents are
+         *  always integers (enforced by the CSV_INT8..CSV_INT64 guard
+         *  in _process_potential_exponential before calling this).
+         */
         template<typename T>
         CSV_CONST CONSTEXPR_14
         long double pow10(const T& n) noexcept {
+            static_assert(std::is_integral<T>::value, "pow10 only supports integral exponents");
+            
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -186,7 +193,7 @@ namespace csv {
 
             // Exponents in scientific notation should not be decimal numbers
             if (result >= DataType::CSV_INT8 && result < DataType::CSV_DOUBLE) {
-                if (out) *out = coeff * pow10(exponent);
+                if (out) *out = coeff * pow10(static_cast<long long>(exponent));
                 return DataType::CSV_DOUBLE;
             }
 

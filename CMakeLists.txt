@@ -10,18 +10,35 @@ endif(CSV_CXX_STANDARD)
 option(BUILD_PYTHON "Build Python Binding" OFF)
 option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
+option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
+
+if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
+  message(STATUS "Emscripten target detected: forcing CSV_ENABLE_THREADS=OFF")
+  set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
+endif()
+
+if(EMSCRIPTEN)
+  message(STATUS "Emscripten target detected: enabling C++ exceptions (-fexceptions)")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fexceptions")
+endif()
+
+if(CSV_ENABLE_THREADS)
+  message(STATUS "CSV_ENABLE_THREADS enabled: multi-threaded mode")
+else()
+  message(STATUS "CSV_ENABLE_THREADS disabled: single-threaded mode")
+endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
-# Defines CSV_HAS_CXX17 in compatibility.hpp
-if (CMAKE_VERSION VERSION_LESS "3.12.0")
-	add_definitions(-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
-else()
-	add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
+if(CSV_ENABLE_THREADS)
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_package(Threads QUIET)
+  if(NOT Threads_FOUND)
+    message(STATUS "Threads package not found: forcing CSV_ENABLE_THREADS=OFF")
+    set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
+  endif()
 endif()
-
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads QUIET REQUIRED)
 
 if(MSVC)
 	# Make Visual Studio report accurate C++ version

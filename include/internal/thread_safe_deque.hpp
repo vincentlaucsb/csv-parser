@@ -9,6 +9,7 @@
  */
 
 #pragma once
+
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -28,6 +29,7 @@ namespace csv {
         class ThreadSafeDeque {
         public:
             ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
+
             ThreadSafeDeque(const ThreadSafeDeque& other) {
                 this->data = other.data;
                 this->_notify_size = other._notify_size;
@@ -71,19 +73,19 @@ namespace csv {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 T item = std::move(data.front());
                 data.pop_front();
-                
-                // Update empty flag if we just emptied the deque
+
                 if (this->data.empty()) {
                     this->_is_empty.store(true, std::memory_order_release);
                 }
-                
+
                 return item;
             }
 
             /** Returns true if a thread is actively pushing items to this deque */
-            constexpr bool is_waitable() const noexcept { return this->_is_waitable; }
+            bool is_waitable() const noexcept {
+                return this->_is_waitable.load(std::memory_order_acquire);
+            }
 
-            /** Wait for an item to become available */
             void wait() {
                 if (!is_waitable()) {
                     return;
@@ -114,7 +116,6 @@ namespace csv {
                 this->_cond.notify_all();
             }
 
-            /** Tell all listeners to stop */
             void kill_all() {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 this->_is_waitable.store(false, std::memory_order_release);
@@ -122,8 +123,8 @@ namespace csv {
             }
 
         private:
-            std::atomic<bool> _is_empty{ true };     // Lock-free empty() check  
-            std::atomic<bool> _is_waitable{ false }; // Lock-free is_waitable() check
+            std::atomic<bool> _is_empty{ true };      // Lock-free empty() check
+            std::atomic<bool> _is_waitable{ false };  // Lock-free is_waitable() check
             size_t _notify_size;
             mutable std::mutex _lock;
             std::condition_variable _cond;

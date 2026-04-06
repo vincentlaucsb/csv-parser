@@ -84,6 +84,7 @@ TEST_CASE("CSVField operator==", "[test_csv_field_equal]") {
     REQUIRE(internals::is_equal(row["D"].get<long double>(), 3.14L));
 }
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("CSVRow::to_unordered_map", "[test_csv_row]") {
     SECTION("Convert row to full map") {
         CSVReader reader("./tests/data/fake_data/ints_squared.csv");
@@ -115,3 +116,4 @@ TEST_CASE("CSVRow::to_unordered_map", "[test_csv_row]") {
         REQUIRE(row_map["A"] == "1");
     }
 }
+#endif

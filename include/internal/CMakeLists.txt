@@ -23,9 +23,18 @@ target_sources(csv
 		data_type.hpp
 		raw_csv_data.hpp
 		raw_csv_data.cpp
+		row_deque.hpp
+		single_thread_deque.hpp
 		thread_safe_deque.hpp
 		)
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(csv PRIVATE Threads::Threads)
+
+if(CSV_ENABLE_THREADS)
+	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=1)
+	target_link_libraries(csv PRIVATE Threads::Threads)
+else()
+	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=0)
+endif()
+
 target_include_directories(csv INTERFACE ../)

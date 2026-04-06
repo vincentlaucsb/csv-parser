@@ -28,11 +28,22 @@
 #pragma once
 #include <type_traits>
 
+#if defined(__EMSCRIPTEN__)
+#undef CSV_ENABLE_THREADS
+#define CSV_ENABLE_THREADS 0
+#elif !defined(CSV_ENABLE_THREADS)
+#define CSV_ENABLE_THREADS 1
+#endif
+
 // Minimal portability macros (Hedley subset) with CSV_ prefix.
 #if defined(__clang__) || defined(__GNUC__)
     #define CSV_CONST __attribute__((__const__))
     #define CSV_PURE __attribute__((__pure__))
-    #define CSV_PRIVATE __attribute__((__visibility__("hidden")))
+    #if defined(_WIN32)
+        #define CSV_PRIVATE
+    #else
+        #define CSV_PRIVATE __attribute__((__visibility__("hidden")))
+    #endif
     #define CSV_NON_NULL(...) __attribute__((__nonnull__(__VA_ARGS__)))
 #elif defined(_MSC_VER)
     #define CSV_CONST
@@ -73,15 +84,15 @@
 #  define CSV_CPLUSPLUS __cplusplus
 #endif
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 20) || CSV_CPLUSPLUS >= 202002L
+#if CSV_CPLUSPLUS >= 202002L
 #define CSV_HAS_CXX20
 #endif
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || CSV_CPLUSPLUS >= 201703L
+#if CSV_CPLUSPLUS >= 201703L
 #define CSV_HAS_CXX17
 #endif
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || CSV_CPLUSPLUS >= 201402L
+#if CSV_CPLUSPLUS >= 201402L
 #define CSV_HAS_CXX14
 #endif
 

@@ -15,6 +15,8 @@
   - [Sponsors](#sponsors)
   - [Integration](#integration)
     - [C++ Version](#c-version)
+    - [Threading Modes](#threading-modes)
+    - [Emscripten / WebAssembly](#emscripten--webassembly)
     - [Single Header](#single-header)
     - [CMake Instructions](#cmake-instructions)
       - [Avoid cloning with FetchContent](#avoid-cloning-with-fetchcontent)
@@ -124,6 +126,30 @@ While C++17 is recommended, C++11 is the minimum version required. This library 
 
 This library requires C++ exceptions to be enabled (for example, do not compile with `-fno-exceptions`).
 
+### Threading Modes
+By default, `csv-parser` uses a background thread to parse file-based input. If CMake cannot find a thread library, threading is disabled automatically.
+
+You can also disable it explicitly:
+
+**CMake**
+```cmake
+set(CSV_ENABLE_THREADS OFF)
+add_subdirectory(csv-parser)
+```
+
+**Non-CMake (define the macro before any csv-parser header)**
+```cpp
+#define CSV_ENABLE_THREADS 0
+#include "csv.hpp"
+```
+
+Single-threaded mode is useful for embedded targets, environments where `std::thread` is unavailable, and WebAssembly builds without pthreads. The public API is unchanged; parsing simply runs synchronously on the caller's thread.
+
+### Emscripten / WebAssembly
+On Emscripten, `CSV_ENABLE_THREADS` is forced off and memory-mapped parsing is replaced by the stream-based parser. The filename constructor (`CSVReader("file.csv")`) still works—it opens an `std::ifstream` internally instead of using mmap.
+
+Emscripten builds must keep C++ exceptions enabled. In practice, compile/link with exception support (for example, `-fexceptions`) and do not disable exception catching.
+
 ### Single Header
 **[📥 Download csv.hpp](https://vincentlaucsb.github.io/csv-parser/csv.hpp)** — Available on GitHub Pages
 
@@ -141,6 +167,10 @@ and add the following to your CMakeLists.txt:
 ```
 # Optional: Defaults to C++ 17
 # set(CSV_CXX_STANDARD 11)
+
+# Optional: disable background parsing threads
+# set(CSV_ENABLE_THREADS OFF)
+
 add_subdirectory(csv-parser)
 
 # ...

@@ -172,6 +172,7 @@ TEST_CASE("DataFrame: arbitrary key function", "[data_frame]") {
         REQUIRE(frame[3]["name"].get<std::string>() == "Carol");
     }
 
+    #ifndef __EMSCRIPTEN__
     SECTION("Tuple-ish Value") {
         CSVReader reader("./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2014_c20170718.csv");
 
@@ -187,6 +188,7 @@ TEST_CASE("DataFrame: arbitrary key function", "[data_frame]") {
 
         REQUIRE(frame.contains("201405-BAKERSFIELD"));
     }
+    #endif
 
     SECTION("Duplicate key policy THROW") {
         auto input = make_people_stream();
@@ -259,6 +261,7 @@ TEST_CASE("DataFrame: group_by", "[data_frame]") {
     }
 }
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("DataFrame: group_by on NOAA real data", "[data_frame]") {
     CSVReader reader("./tests/data/real_data/noaa_storm_events/StormEvents_locations-ftp_v1.0_d2014_c20170718.csv");
     DataFrame frame(reader);
@@ -328,7 +331,9 @@ TEST_CASE("DataFrame: group_by on NOAA real data", "[data_frame]") {
         REQUIRE(found);
     }
 }
+#endif
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("DataFrame: filename + options + format", "[data_frame]") {
     DataFrameOptions options;
     options.set_key_column("A")
@@ -348,6 +353,7 @@ TEST_CASE("DataFrame: filename + options + format", "[data_frame]") {
     REQUIRE(frame.contains("100"));
     REQUIRE(frame["50"]["B"].get<std::string>() == "2500");
 }
+#endif
 
 TEST_CASE("DataFrame: options validation", "[data_frame]") {
     SECTION("Empty key column") {

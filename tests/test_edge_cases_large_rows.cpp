@@ -11,6 +11,7 @@
 
 using namespace csv;
 
+#ifndef __EMSCRIPTEN__
 /**
  * Generate a CSV row string of at least target_bytes (plus a trailing newline).
  * Each field is a fixed-size block of 'X' characters so the total payload is
@@ -82,6 +83,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             validate_throws(reader);
         }
 
+        #ifndef __EMSCRIPTEN__
         SECTION("mmap path") {
             FileGuard cleanup("./tests/data/tmp_large_row_throw.csv");
             {
@@ -91,6 +93,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             CSVReader reader(cleanup.filename);
             validate_throws(reader);
         }
+        #endif
     }
 
     SECTION("Custom chunk size allows parsing larger rows") {
@@ -114,6 +117,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             validate_reader(reader);
         }
 
+        #ifndef __EMSCRIPTEN__
         SECTION("mmap path") {
             FileGuard cleanup("./tests/data/tmp_large_row_parse.csv");
             {
@@ -123,6 +127,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             CSVReader reader(cleanup.filename, fmt);
             validate_reader(reader);
         }
+        #endif
     }
 
     SECTION("Multiple large rows with custom chunk size") {
@@ -147,6 +152,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             validate_reader(reader);
         }
 
+        #ifndef __EMSCRIPTEN__
         SECTION("mmap path") {
             FileGuard cleanup("./tests/data/tmp_large_rows_multiple.csv");
             {
@@ -157,6 +163,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             CSVReader reader(cleanup.filename, fmt);
             validate_reader(reader);
         }
+        #endif
     }
 
     SECTION("Invalid chunk size (less than minimum) throws exception") {
@@ -232,3 +239,4 @@ TEST_CASE("Issue #218 - Infinite read loop detection", "[issue_218]") {
         );
     }
 }
+#endif

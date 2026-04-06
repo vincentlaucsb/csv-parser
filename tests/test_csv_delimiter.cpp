@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Test delim from file", "[test_csv_reader_get_format_get_delim_from_file]") {
     csv::CSVReader reader("./tests/data/fake_data/delimeter.csv");
     char delim = reader.get_format().get_delim();
@@ -18,3 +19,4 @@ TEST_CASE("Test delim from string", "[test_csv_reader_get_format_get_delim_from_
     char delim = reader.get_format().get_delim();
     REQUIRE(delim == ';');
 }
+#endif

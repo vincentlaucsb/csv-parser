@@ -42,9 +42,13 @@ target_sources(csv_test
         test_read_csv_file.cpp
         test_round_trip.cpp
         test_stream_sources.cpp
-        test_threadsafe_deque_race.cpp
         test_write_csv.cpp
     )
+
+if(CSV_ENABLE_THREADS)
+    target_sources(csv_test PRIVATE test_threadsafe_deque_race.cpp)
+endif()
+
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)
 
@@ -52,6 +56,11 @@ target_link_libraries(csv_test Catch2::Catch2WithMain)
 get_target_property(_catch2_inc Catch2::Catch2 INTERFACE_INCLUDE_DIRECTORIES)
 if(_catch2_inc)
     target_include_directories(csv_test SYSTEM PRIVATE ${_catch2_inc})
+endif()
+
+# Emscripten: Catch2 uses __COUNTER__ (unsupported in emcc, flagged as C2y extension)
+if(EMSCRIPTEN)
+    target_compile_options(csv_test PRIVATE -Wno-c2y-extensions)
 endif()
 
 if(MSVC)

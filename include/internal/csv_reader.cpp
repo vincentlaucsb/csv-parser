@@ -165,7 +165,15 @@ namespace csv {
      *
      */
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
-        auto head = internals::get_csv_head(filename);
+#if defined(__EMSCRIPTEN__)
+    this->owned_file_stream = std::unique_ptr<std::ifstream>(new std::ifstream(std::string(filename), std::ios::binary));
+    if (!this->owned_file_stream->is_open()) {
+        throw std::runtime_error("Cannot open file " + std::string(filename));
+    }
+
+    this->init_from_stream(*this->owned_file_stream, format);
+#else
+    auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
         // Apply chunk size from format before any reading occurs
         this->_chunk_size = format.get_chunk_size();
@@ -188,6 +196,7 @@ namespace csv {
 
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
         this->initial_read();
+#endif
     }
 
     /** Return the format of the original raw CSV */
@@ -310,15 +319,19 @@ namespace csv {
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
         while (true) {
             if (this->records->empty()) {
+#if CSV_ENABLE_THREADS
                 if (this->records->is_waitable()) {
                     // Reading thread is currently active => wait for it to populate records
                     this->records->wait();
                     continue;
                 }
+#endif
 
                 // Reading thread is not active
+#if CSV_ENABLE_THREADS
                 if (this->read_csv_worker.joinable())
                     this->read_csv_worker.join();
+#endif
 
                 // If the worker thread failed, rethrow the error here
                 this->rethrow_read_csv_exception_if_any();
@@ -342,11 +355,17 @@ namespace csv {
                     );
                 }
 
-                // Start another reading thread
+#if CSV_ENABLE_THREADS
+                // Start another reading thread.
                 // Mark as waitable before starting the thread to avoid a race where
                 // read_row() observes is_waitable()==false immediately after thread creation.
                 this->records->notify_all();
                 this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
+#else
+                // Single-threaded mode parses synchronously on the caller thread.
+                this->read_csv(this->_chunk_size);
+                this->rethrow_read_csv_exception_if_any();
+#endif
                 this->_read_requested = true;
                 continue;
             }

@@ -15,6 +15,7 @@
 
 using namespace csv;
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Mmap errors throw catchable std::system_error", "[error_handling][mmap]") {
     SECTION("Non-existent file throws catchable exception") {
         bool caught_as_exception = false;
@@ -68,6 +69,7 @@ TEST_CASE("Mmap errors throw catchable std::system_error", "[error_handling][mma
         REQUIRE(test_completed);
     }
 }
+#endif
 
 TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling][threading]") {
     SECTION("Exception during initial_read is catchable") {
@@ -108,6 +110,7 @@ TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling]
     }
 }
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integrity]") {
     SECTION("Large file with known values around chunk boundary") {
         std::string test_file = "./tests/data/temp_chunk_boundary_test.csv";
@@ -239,6 +242,7 @@ TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integ
         REQUIRE(found_marker_200k);
     }
 }
+#endif
 
 TEST_CASE("Exception propagation through all entry points", "[error_handling][api]") {
     SECTION("Exception in begin() is catchable") {

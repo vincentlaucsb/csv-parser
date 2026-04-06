@@ -6,11 +6,19 @@ namespace csv {
     namespace internals {
         CSV_INLINE size_t get_file_size(csv::string_view filename) {
             std::ifstream infile(std::string(filename), std::ios::binary);
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
             const auto start = infile.tellg();
             infile.seekg(0, std::ios::end);
             const auto end = infile.tellg();
 
-            return end - start;
+            if (start < 0 || end < 0) {
+                throw std::runtime_error("Cannot determine file size for " + std::string(filename));
+            }
+
+            return static_cast<size_t>(end - start);
         }
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename) {
@@ -19,6 +27,19 @@ namespace csv {
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
             const size_t bytes = 500000;
+
+#if defined(__EMSCRIPTEN__)
+            std::ifstream infile(std::string(filename), std::ios::binary);
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            const size_t length = std::min((size_t)file_size, bytes);
+            std::string head(length, '\0');
+            infile.read(&head[0], (std::streamsize)length);
+            head.resize((size_t)infile.gcount());
+            return head;
+#else
 
             std::error_code error;
             size_t length = std::min((size_t)file_size, bytes);
@@ -29,6 +50,7 @@ namespace csv {
             }
 
             return std::string(mmap.begin(), mmap.end());
+#endif
         }
 
 #ifdef _MSC_VER
@@ -234,6 +256,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Specializations
 #endif
+#if !defined(__EMSCRIPTEN__)
         CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
@@ -289,6 +312,7 @@ namespace csv {
 
             this->mmap_pos -= (length - remainder);
         }
+#endif
 #ifdef _MSC_VER
 #pragma endregion
 #endif

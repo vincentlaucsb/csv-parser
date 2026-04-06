@@ -28,6 +28,7 @@ using namespace csv;
 // EASY: Basic round trip with uniform values
 // ==============================================================================
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Simple Buffered Integer Round Trip Test", "[test_roundtrip_int]") {
     auto filename = "round_trip.csv";
     FileGuard cleanup(filename);
@@ -66,7 +67,9 @@ TEST_CASE("Simple Buffered Integer Round Trip Test", "[test_roundtrip_int]") {
 
     REQUIRE(reader.n_rows() == n_rows);
 }
+#endif
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
     auto filename = "round_trip.csv";
     FileGuard cleanup(filename);
@@ -104,11 +107,13 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
 
     REQUIRE(reader.n_rows() == n_rows);
 }
+#endif
 
 // ==============================================================================
 // MEDIUM: Distinct values to detect cross-field corruption
 // ==============================================================================
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") {
     // This test uses DIFFERENT values in each column to detect cross-field corruption
     auto filename = "round_trip_distinct.csv";
@@ -174,11 +179,13 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
         validate_reader(reader);
     }
 }
+#endif
 
 // ==============================================================================
 // HARD: Complex quoted fields with embedded delimiters, newlines, and quotes
 // ==============================================================================
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quoted]") {
     // Stress test: quoted fields with embedded delimiters, newlines, and escaped quotes
     // This tests the parser's ability to handle complex quoting scenarios across chunk boundaries
@@ -257,3 +264,4 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
         validate_reader(reader);
     }
 }
+#endif

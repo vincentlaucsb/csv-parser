@@ -7,7 +7,9 @@
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
 #include <mutex>
+#endif
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -17,6 +19,26 @@
 #include "data_type.hpp"
 #include "parse_hex.hpp"
 #include "raw_csv_data.hpp"
+
+#if CSV_ENABLE_THREADS
+#define CSV_INIT_WITH_OPTIONAL_DCL(data_ref, value_ref, ...) \
+    do { \
+        if ((value_ref).empty()) { \
+            std::lock_guard<std::mutex> lock((data_ref).double_quote_init_lock); \
+            if ((value_ref).empty()) { \
+                __VA_ARGS__ \
+            } \
+        } \
+    } while (0)
+#else
+#define CSV_INIT_WITH_OPTIONAL_DCL(data_ref, value_ref, ...) \
+    do { \
+        (void)(data_ref); \
+        if ((value_ref).empty()) { \
+            __VA_ARGS__ \
+        } \
+    } while (0)
+#endif
 
 namespace csv {
     namespace internals {
@@ -402,28 +424,22 @@ namespace csv {
 
             if (field.has_double_quote) {
                 auto& value = _data->double_quote_fields[field_index];
-                // Double-check locking: minimize lock contention by checking before acquiring lock
-                if (value.empty()) {
-                    std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
-
-                    // Check again after acquiring lock in case another thread initialized it
-                    if (value.empty()) {
-                        bool prev_ch_quote = false;
-                        for (size_t i = 0; i < field.length; i++) {
-                            if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                                if (prev_ch_quote) {
-                                    prev_ch_quote = false;
-                                    continue;
-                                }
-                                else {
-                                    prev_ch_quote = true;
-                                }
+                CSV_INIT_WITH_OPTIONAL_DCL((*_data), value,
+                    bool prev_ch_quote = false;
+                    for (size_t i = 0; i < field.length; i++) {
+                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                            if (prev_ch_quote) {
+                                prev_ch_quote = false;
+                                continue;
                             }
-
-                            value += field_str[i];
+                            else {
+                                prev_ch_quote = true;
+                            }
                         }
+
+                        value += field_str[i];
                     }
-                }
+                );
 
                 return csv::string_view(value);
             }
@@ -530,3 +546,5 @@ inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) 
     os << std::string(value);
     return os;
 }
+
+#undef CSV_INIT_WITH_OPTIONAL_DCL

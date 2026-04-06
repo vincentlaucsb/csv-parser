@@ -9,15 +9,16 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include <thread>
 #include <vector>
 
+#if !defined(__EMSCRIPTEN__)
 #include "../external/mio.hpp"
+#endif
 #include "col_names.hpp"
 #include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_row.hpp"
-#include "thread_safe_deque.hpp"
+#include "row_deque.hpp"
 
 namespace csv {
     namespace internals {
@@ -240,7 +241,7 @@ namespace csv {
                     const auto end = _source.tellg();
                     _source.seekg(0, std::ios::beg);
 
-                    source_size = end - start;
+                    source_size = static_cast<size_t>(end - start);
                 }
 
                 // Read data into buffer
@@ -248,7 +249,7 @@ namespace csv {
                 std::unique_ptr<char[]> buff(new char[length]);
                 _source.seekg(stream_pos, std::ios::beg);
                 _source.read(buff.get(), length);
-                stream_pos = _source.tellg();
+                stream_pos = static_cast<size_t>(_source.tellg());
                 ((std::string*)(this->data_ptr->_data.get()))->assign(buff.get(), length);
 
                 // Create string_view
@@ -272,6 +273,7 @@ namespace csv {
             size_t stream_pos = 0;
         };
 
+#if !defined(__EMSCRIPTEN__)
         /** Parser for memory-mapped files
          *
          *  @par Implementation
@@ -299,5 +301,6 @@ namespace csv {
             std::string _filename;
             size_t mmap_pos = 0;
         };
+#endif
     }
 }
