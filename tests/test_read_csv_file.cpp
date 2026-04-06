@@ -79,6 +79,7 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
 
     REQUIRE(error_caught);
 }
+#endif
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE("Test Read CSV where file does NOT end with newline", "[test_file_info_ints2]") {

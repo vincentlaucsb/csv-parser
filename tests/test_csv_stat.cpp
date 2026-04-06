@@ -20,7 +20,9 @@ TEST_CASE("Empty File", "[read_csv_stat_empty]") {
     }
 
     REQUIRE(error_caught);
-}#endif
+}
+#endif
+
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
     std::stringstream int_list;
@@ -51,7 +53,6 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
     // Confirm column at pos 0 has 100 integers (type 2)
     REQUIRE( reader.get_dtypes()[0][DataType::CSV_INT8] == 100 );
 }
-#endif
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
