@@ -44,6 +44,7 @@ TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwri
 }
 
 // get_file_info()
+#ifndef __EMSCRIPTEN__
 TEST_CASE("get_file_info() Test", "[test_file_info]") {
     SECTION("ints.csv") {
         CSVFileInfo info = get_file_info(
@@ -79,6 +80,7 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
     REQUIRE(error_caught);
 }
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Test Read CSV where file does NOT end with newline", "[test_file_info_ints2]") {
     CSVReader reader("./tests/data/fake_data/ints_doesnt_end_in_newline.csv");
 
@@ -210,3 +212,4 @@ TEST_CASE("Trailing newline at EOF (ifstream/mmap)", "[trailing_newline_ifstream
     REQUIRE(write_and_count("A,B,C\n1,2,3\n")     == 2);  // LF trailing newline
     REQUIRE(write_and_count("A,B,C\n1,2,3")        == 2);  // no trailing newline (control)
 }
+#endif
