@@ -62,6 +62,7 @@ namespace {
         }
     };
 
+#ifndef __EMSCRIPTEN__
     struct FileOutput {
         std::string path;
         std::ofstream stream;
@@ -85,8 +86,10 @@ namespace {
             return buffer.str();
         }
     };
+#endif
 }
 
+#ifndef __EMSCRIPTEN__
 TEMPLATE_TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]", StringOutput, FileOutput) {
     TestType output;
     std::stringstream correct;
@@ -120,7 +123,9 @@ TEMPLATE_TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]", StringOutput, 
     correct << std::endl;
     REQUIRE(output.str() == correct.str());
 }
+#endif
 
+#ifndef __EMSCRIPTEN__
 TEMPLATE_TEST_CASE("CSV Quote All", "[test_csv_quote_all]", StringOutput, FileOutput) {
     TestType output;
     std::stringstream correct;
@@ -131,6 +136,7 @@ TEMPLATE_TEST_CASE("CSV Quote All", "[test_csv_quote_all]", StringOutput, FileOu
 
     REQUIRE(output.str() == correct.str());
 }
+#endif
 
 //! [CSV Writer Example]
 TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",

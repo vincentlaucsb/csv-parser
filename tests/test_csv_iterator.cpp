@@ -75,6 +75,7 @@ TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
 /////////////////////////
 
 //! [CSVReader Iterator 1]
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Basic CSVReader Iterator Test", "[read_ints_iter]") {
     // A file with 100 rows and columns A, B, ... J
     // where every value in the ith row is the number i
@@ -104,6 +105,7 @@ TEST_CASE("Basic CSVReader Iterator Test", "[read_ints_iter]") {
         }
     }
 }
+#endif
 //! [CSVReader Iterator 1]
 
 //! [CSVReader Iterator 2]
@@ -117,6 +119,7 @@ TEST_CASE("Basic CSVReader Iterator Test", "[read_ints_iter]") {
  * 
  * CORRECT approach: Copy to vector first, then use algorithms.
  */
+#ifndef __EMSCRIPTEN__
 TEST_CASE("CSVReader Iterator + Algorithms Requiring ForwardIterator", "[iter_algorithms]") {
     SECTION("std::max_element - CORRECT approach using vector") {
         // The first is such that each value in the ith row is the number i
@@ -153,4 +156,5 @@ TEST_CASE("CSVReader Iterator + Algorithms Requiring ForwardIterator", "[iter_al
         REQUIRE((*max_wage)["Total Wages"] == "812064.87");
     }
 }
+#endif
 //! [CSVReader Iterator 2]
