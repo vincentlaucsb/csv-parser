@@ -7,7 +7,9 @@
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
 #include <mutex>
+#endif
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -402,6 +404,7 @@ namespace csv {
 
             if (field.has_double_quote) {
                 auto& value = _data->double_quote_fields[field_index];
+#if CSV_ENABLE_THREADS
                 // Double-check locking: minimize lock contention by checking before acquiring lock
                 if (value.empty()) {
                     std::lock_guard<std::mutex> lock(_data->double_quote_init_lock);
@@ -424,6 +427,24 @@ namespace csv {
                         }
                     }
                 }
+#else
+                if (value.empty()) {
+                    bool prev_ch_quote = false;
+                    for (size_t i = 0; i < field.length; i++) {
+                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                            if (prev_ch_quote) {
+                                prev_ch_quote = false;
+                                continue;
+                            }
+                            else {
+                                prev_ch_quote = true;
+                            }
+                        }
+
+                        value += field_str[i];
+                    }
+                }
+#endif
 
                 return csv::string_view(value);
             }

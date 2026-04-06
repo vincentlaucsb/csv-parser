@@ -10,6 +10,13 @@ endif(CSV_CXX_STANDARD)
 option(BUILD_PYTHON "Build Python Binding" OFF)
 option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
+option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
+
+if(CSV_ENABLE_THREADS)
+  message(STATUS "CSV_ENABLE_THREADS enabled: multi-threaded mode")
+else()
+  message(STATUS "CSV_ENABLE_THREADS disabled: single-threaded mode")
+endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
@@ -20,8 +27,10 @@ else()
 	add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
 endif()
 
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads QUIET REQUIRED)
+if(CSV_ENABLE_THREADS)
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_package(Threads QUIET REQUIRED)
+endif()
 
 if(MSVC)
 	# Make Visual Studio report accurate C++ version

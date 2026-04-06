@@ -3,6 +3,9 @@
  */
 
 #include <string>
+#if CSV_ENABLE_THREADS
+#include <thread>
+#endif
 #include "csv_stat.hpp"
 
 namespace csv {
@@ -90,6 +93,7 @@ namespace csv {
             }
         }
 
+#if CSV_ENABLE_THREADS
         // Start threads
         std::vector<std::thread> pool;
         for (size_t i = 0; i < this->get_col_names().size(); i++)
@@ -98,6 +102,11 @@ namespace csv {
         // Block until done
         for (auto& th : pool)
             th.join();
+#else
+        for (size_t i = 0; i < this->get_col_names().size(); i++) {
+            this->calc_worker(i);
+        }
+#endif
 
         this->records.clear();
     }

@@ -28,6 +28,10 @@
 #pragma once
 #include <type_traits>
 
+#ifndef CSV_ENABLE_THREADS
+#define CSV_ENABLE_THREADS 1
+#endif
+
 // Minimal portability macros (Hedley subset) with CSV_ prefix.
 #if defined(__clang__) || defined(__GNUC__)
     #define CSV_CONST __attribute__((__const__))

@@ -10,13 +10,15 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
-#include <mutex>
-#include <thread>
 #include <sstream>
 #include <string>
 #include <vector>
 
-#include "../external/mio.hpp"
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
+#include <mutex>
+#include <thread>
+#endif
+
 #include "basic_csv_parser.hpp"
 #include "common.hpp"
 #include "data_type.hpp"
@@ -209,13 +211,15 @@ namespace csv {
         ///@}
 
         CSVReader(const CSVReader&) = delete;             ///< Not copyable
-        CSVReader(CSVReader&&) = delete;                  ///< Not movable: contains std::mutex
+        CSVReader(CSVReader&&) = delete;                  ///< Not movable
         CSVReader& operator=(const CSVReader&) = delete;  ///< Not copyable
-        CSVReader& operator=(CSVReader&&) = delete;       ///< Not movable: contains std::mutex
+        CSVReader& operator=(CSVReader&&) = delete;       ///< Not movable
         ~CSVReader() {
+#if CSV_ENABLE_THREADS
             if (this->read_csv_worker.joinable()) {
                 this->read_csv_worker.join();
             }
+#endif
         }
 
         /** @name Retrieving CSV Rows */
@@ -279,6 +283,9 @@ namespace csv {
         /** Queue of parsed CSV rows */
         std::unique_ptr<RowCollection> records{new RowCollection(100)};
 
+        /** Owned file stream used for stream-based filename parsing on targets without mmap. */
+        std::unique_ptr<std::ifstream> owned_file_stream = nullptr;
+
         size_t n_cols = 0;  /**< The number of columns in this CSV */
         size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
 
@@ -295,22 +302,30 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
+    #if CSV_ENABLE_THREADS
         std::thread read_csv_worker; /**< Worker thread for read_csv() */
+    #endif
         size_t _chunk_size = internals::ITERATION_CHUNK_SIZE; /**< Current chunk size in bytes */
         bool _read_requested = false; /**< Flag to detect infinite read loops (Issue #218) */
         ///@}
 
         /** If the worker thread throws, store it here and rethrow on the consumer thread. */
         std::exception_ptr read_csv_exception = nullptr;
+#if CSV_ENABLE_THREADS
         std::mutex read_csv_exception_lock;
+#endif
 
         void set_read_csv_exception(std::exception_ptr eptr) {
+#if CSV_ENABLE_THREADS
             std::lock_guard<std::mutex> lock(this->read_csv_exception_lock);
+#endif
             this->read_csv_exception = std::move(eptr);
         }
 
         std::exception_ptr take_read_csv_exception() {
+#if CSV_ENABLE_THREADS
             std::lock_guard<std::mutex> lock(this->read_csv_exception_lock);
+#endif
             auto eptr = this->read_csv_exception;
             this->read_csv_exception = nullptr;
             return eptr;
@@ -324,8 +339,12 @@ namespace csv {
 
         /** Read initial chunk to get metadata */
         void initial_read() {
+#if CSV_ENABLE_THREADS
             this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
             this->read_csv_worker.join();
+#else
+            this->read_csv(this->_chunk_size);
+#endif
             this->rethrow_read_csv_exception_if_any();
         }
 

@@ -10,7 +10,9 @@
 #pragma once
 #include <cassert>
 #include <memory>
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
 #include <mutex>
+#endif
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -161,7 +163,9 @@ namespace csv {
              *  Lock is only held during rare concurrent initialization; reads are lock-free.
              */
             std::unordered_map<size_t, std::string> double_quote_fields = {};
+#if CSV_ENABLE_THREADS
             mutable std::mutex double_quote_init_lock;  ///< Protects lazy initialization only
+#endif
 
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;

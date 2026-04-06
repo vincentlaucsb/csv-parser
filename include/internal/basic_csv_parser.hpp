@@ -9,10 +9,11 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include <thread>
 #include <vector>
 
+#if !defined(__EMSCRIPTEN__)
 #include "../external/mio.hpp"
+#endif
 #include "col_names.hpp"
 #include "common.hpp"
 #include "csv_format.hpp"

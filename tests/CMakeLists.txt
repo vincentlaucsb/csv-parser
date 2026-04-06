@@ -42,9 +42,13 @@ target_sources(csv_test
         test_read_csv_file.cpp
         test_round_trip.cpp
         test_stream_sources.cpp
-        test_threadsafe_deque_race.cpp
         test_write_csv.cpp
     )
+
+if(CSV_ENABLE_THREADS)
+    target_sources(csv_test PRIVATE test_threadsafe_deque_race.cpp)
+endif()
+
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)
 

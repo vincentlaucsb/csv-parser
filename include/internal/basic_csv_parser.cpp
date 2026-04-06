@@ -20,6 +20,19 @@ namespace csv {
         CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
             const size_t bytes = 500000;
 
+#if defined(__EMSCRIPTEN__)
+            std::ifstream infile(std::string(filename), std::ios::binary);
+            if (!infile.is_open()) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            const size_t length = std::min((size_t)file_size, bytes);
+            std::string head(length, '\0');
+            infile.read(&head[0], (std::streamsize)length);
+            head.resize((size_t)infile.gcount());
+            return head;
+#else
+
             std::error_code error;
             size_t length = std::min((size_t)file_size, bytes);
             auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
@@ -29,6 +42,7 @@ namespace csv {
             }
 
             return std::string(mmap.begin(), mmap.end());
+#endif
         }
 
 #ifdef _MSC_VER
@@ -235,6 +249,10 @@ namespace csv {
 #pragma region Specializations
 #endif
         CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
+#if defined(__EMSCRIPTEN__)
+            (void)bytes;
+            throw std::runtime_error("MmapParser is not supported on Emscripten; use stream-based parsing.");
+#else
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
             // chunk boundaries. The 'remainder' calculation below ensures partial fields
@@ -288,6 +306,7 @@ namespace csv {
             }
 
             this->mmap_pos -= (length - remainder);
+#endif
         }
 #ifdef _MSC_VER
 #pragma endregion
