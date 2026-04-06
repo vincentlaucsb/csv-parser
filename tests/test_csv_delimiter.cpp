@@ -15,4 +15,8 @@ TEST_CASE("Test delim from string", "[test_csv_reader_get_format_get_delim_from_
     std::string csv_data((std::istreambuf_iterator<char>(file_stream)), std::istreambuf_iterator<char>());
     std::stringstream ss(csv_data);
 
-    csv::CSVReader reader(ss);\n    char delim = reader.get_format().get_delim();\n    REQUIRE(delim == ';');\n}\n#endif
+    csv::CSVReader reader(ss);
+    char delim = reader.get_format().get_delim();
+    REQUIRE(delim == ';');
+}
+#endif

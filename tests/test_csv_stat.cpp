@@ -54,7 +54,7 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
 #endif
 
 #ifndef __EMSCRIPTEN__
-TEST_CASE( "Statistics - Rows of Integers\", \"[read_csv_stat]\" ) {
+TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
     // Header on first row
     auto file = GENERATE(as<std::string> {},
         "./tests/data/fake_data/ints.csv",
