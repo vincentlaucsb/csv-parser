@@ -17,7 +17,14 @@
 
 namespace csv {
     namespace internals {
-        /** Thread-safe deque used for producer-consumer row transfer. */
+        /** A std::deque wrapper which allows multiple read and write threads to concurrently
+         *  access it along with providing read threads the ability to wait for the deque
+         *  to become populated.
+         *
+         *  Concurrency strategy: writer-side mutations (push_back/pop_front) are locked;
+         *  hot-path flags (empty/is_waitable) are atomic; operator[] and iterators are
+         *  not synchronized and must not run concurrently with writers.
+         */
         template<typename T>
         class ThreadSafeDeque {
         public:
@@ -43,6 +50,11 @@ namespace csv {
                 return this->data.front();
             }
 
+            /** NOTE: operator[] is not synchronized.
+             *  Only call when no concurrent push_back/pop_front can occur.
+             *  std::deque can reallocate its internal map on push_back, which
+             *  makes concurrent operator[] access undefined behavior.
+             */
             T& operator[](size_t n) {
                 return this->data[n];
             }
@@ -69,6 +81,7 @@ namespace csv {
                 return item;
             }
 
+            /** Returns true if a thread is actively pushing items to this deque */
             bool is_waitable() const noexcept {
                 return this->_is_waitable.load(std::memory_order_acquire);
             }
@@ -96,6 +109,7 @@ namespace csv {
                 return this->data.end();
             }
 
+            /** Tell listeners that this deque is actively being pushed to */
             void notify_all() {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 this->_is_waitable.store(true, std::memory_order_release);
@@ -109,8 +123,8 @@ namespace csv {
             }
 
         private:
-            std::atomic<bool> _is_empty{ true };
-            std::atomic<bool> _is_waitable{ false };
+            std::atomic<bool> _is_empty{ true };      // Lock-free empty() check
+            std::atomic<bool> _is_waitable{ false };  // Lock-free is_waitable() check
             size_t _notify_size;
             mutable std::mutex _lock;
             std::condition_variable _cond;

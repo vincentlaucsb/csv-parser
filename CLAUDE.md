@@ -32,6 +32,7 @@
 - Use distinct column values to detect field corruption
 - Exceptions from worker thread need `exception_ptr`
 - Changes to one constructor likely affect both paths
+- **Do not delete or simplify comments** unless trivially obvious or factually wrong — comments encode concurrency invariants and bug history
 
 ## Tests
 See `tests/AGENTS.md` for full test strategy, checklist, and conventions.

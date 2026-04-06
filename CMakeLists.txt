@@ -25,13 +25,6 @@ endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
-# Defines CSV_HAS_CXX17 in compatibility.hpp
-if (CMAKE_VERSION VERSION_LESS "3.12.0")
-	add_definitions(-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
-else()
-	add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
-endif()
-
 if(CSV_ENABLE_THREADS)
   set(THREADS_PREFER_PTHREAD_FLAG TRUE)
   find_package(Threads QUIET)

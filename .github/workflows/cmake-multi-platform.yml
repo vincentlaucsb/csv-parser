@@ -136,7 +136,7 @@ jobs:
         python-version: '3.x'
 
     - name: Set up Emscripten
-      uses: mymindstorm/setup-emsdk@v14
+      uses: mymindstorm/setup-emsdk@667eb33f24e84e7f362c16d8d7fff0629a73e15e # v14
       with:
         version: latest
 
