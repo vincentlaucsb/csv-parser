@@ -34,7 +34,11 @@ endif()
 
 if(CSV_ENABLE_THREADS)
   set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-  find_package(Threads QUIET REQUIRED)
+  find_package(Threads QUIET)
+  if(NOT Threads_FOUND)
+    message(STATUS "Threads package not found: forcing CSV_ENABLE_THREADS=OFF")
+    set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
+  endif()
 endif()
 
 if(MSVC)
