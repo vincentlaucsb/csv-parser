@@ -273,6 +273,7 @@ namespace csv {
             size_t stream_pos = 0;
         };
 
+#if !defined(__EMSCRIPTEN__)
         /** Parser for memory-mapped files
          *
          *  @par Implementation
@@ -300,5 +301,6 @@ namespace csv {
             std::string _filename;
             size_t mmap_pos = 0;
         };
+#endif
     }
 }

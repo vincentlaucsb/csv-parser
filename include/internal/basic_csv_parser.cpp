@@ -248,11 +248,8 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Specializations
 #endif
+#if !defined(__EMSCRIPTEN__)
         CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
-#if defined(__EMSCRIPTEN__)
-            (void)bytes;
-            throw std::runtime_error("MmapParser is not supported on Emscripten; use stream-based parsing.");
-#else
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
             // chunk boundaries. The 'remainder' calculation below ensures partial fields
@@ -306,8 +303,8 @@ namespace csv {
             }
 
             this->mmap_pos -= (length - remainder);
-#endif
         }
+#endif
 #ifdef _MSC_VER
 #pragma endregion
 #endif

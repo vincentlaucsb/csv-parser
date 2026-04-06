@@ -183,30 +183,7 @@ namespace csv {
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         CSVReader(TStream &source, CSVFormat format = CSVFormat::guess_csv()) : _format(format) {
-            auto head = internals::get_csv_head(source);
-            using Parser = internals::StreamParser<TStream>;
-
-            // Apply chunk size from format before any reading occurs
-            this->_chunk_size = format.get_chunk_size();
-
-            if (format.guess_delim()) {
-                auto guess_result = internals::_guess_format(head, format.possible_delimiters);
-                format.delimiter(guess_result.delim);
-                // Only override header if user hasn't explicitly called no_header()
-                // Note: column_names() also sets header=-1, but it populates col_names,
-                // so we can distinguish: no_header() means header=-1 && col_names.empty()
-                if (format.header != -1 || !format.col_names.empty()) {
-                    format.header = guess_result.header_row;
-                }
-                this->_format = format;
-            }
-
-            if (!format.col_names.empty())
-                this->set_col_names(format.col_names);
-
-            this->parser = std::unique_ptr<Parser>(
-                new Parser(source, format, col_names)); // For C++11
-            this->initial_read();
+            this->init_from_stream(source, format);
         }
         ///@}
 
@@ -283,8 +260,10 @@ namespace csv {
         /** Queue of parsed CSV rows */
         std::unique_ptr<RowCollection> records{new RowCollection(100)};
 
-        /** Owned file stream used for stream-based filename parsing on targets without mmap. */
+    #if defined(__EMSCRIPTEN__)
+        /** Owned file stream used by filename constructor fallback to stream parsing. */
         std::unique_ptr<std::ifstream> owned_file_stream = nullptr;
+    #endif
 
         size_t n_cols = 0;  /**< The number of columns in this CSV */
         size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
@@ -335,6 +314,36 @@ namespace csv {
             if (auto eptr = this->take_read_csv_exception()) {
                 std::rethrow_exception(eptr);
             }
+        }
+
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
+        void init_from_stream(TStream& source, CSVFormat format) {
+            auto head = internals::get_csv_head(source);
+            using Parser = internals::StreamParser<TStream>;
+
+            // Apply chunk size from format before any reading occurs
+            this->_chunk_size = format.get_chunk_size();
+
+            if (format.guess_delim()) {
+                auto guess_result = internals::_guess_format(head, format.possible_delimiters);
+                format.delimiter(guess_result.delim);
+                // Only override header if user hasn't explicitly called no_header()
+                // Note: column_names() also sets header=-1, but it populates col_names,
+                // so we can distinguish: no_header() means header=-1 && col_names.empty()
+                if (format.header != -1 || !format.col_names.empty()) {
+                    format.header = guess_result.header_row;
+                }
+                this->_format = format;
+            }
+
+            if (!format.col_names.empty()) {
+                this->set_col_names(format.col_names);
+            }
+
+            this->parser = std::unique_ptr<Parser>(
+                new Parser(source, format, col_names)); // For C++11
+            this->initial_read();
         }
 
         /** Read initial chunk to get metadata */

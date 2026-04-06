@@ -165,12 +165,16 @@ namespace csv {
      *
      */
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
-        auto head = internals::get_csv_head(filename);
 #if defined(__EMSCRIPTEN__)
-    using Parser = internals::StreamParser<std::ifstream>;
+    this->owned_file_stream = std::unique_ptr<std::ifstream>(new std::ifstream(std::string(filename), std::ios::binary));
+    if (!this->owned_file_stream->is_open()) {
+        throw std::runtime_error("Cannot open file " + std::string(filename));
+    }
+
+    this->init_from_stream(*this->owned_file_stream, format);
 #else
+    auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
-#endif
         // Apply chunk size from format before any reading occurs
         this->_chunk_size = format.get_chunk_size();
         /** Guess delimiter and header row */
@@ -190,16 +194,9 @@ namespace csv {
         if (!format.col_names.empty())
             this->set_col_names(format.col_names);
 
-#if defined(__EMSCRIPTEN__)
-        this->owned_file_stream = std::unique_ptr<std::ifstream>(new std::ifstream(std::string(filename), std::ios::binary));
-        if (!this->owned_file_stream->is_open()) {
-            throw std::runtime_error("Cannot open file " + std::string(filename));
-        }
-        this->parser = std::unique_ptr<Parser>(new Parser(*this->owned_file_stream, format, this->col_names));
-#else
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
-#endif
         this->initial_read();
+#endif
     }
 
     /** Return the format of the original raw CSV */
