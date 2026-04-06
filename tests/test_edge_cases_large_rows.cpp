@@ -11,6 +11,7 @@
 
 using namespace csv;
 
+#ifndef __EMSCRIPTEN__
 /**
  * Generate a CSV row string of at least target_bytes (plus a trailing newline).
  * Each field is a fixed-size block of 'X' characters so the total payload is
@@ -45,7 +46,6 @@ static const std::string& large_row_2col() {
     return row;
 }
 
-#ifndef __EMSCRIPTEN__
 TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_large_rows]") {
 
     SECTION("Normal row (smaller than default chunk)") {

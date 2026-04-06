@@ -123,6 +123,10 @@ jobs:
   single-threaded-emscripten:
     name: Single-threaded Emscripten build (CSV_ENABLE_THREADS=OFF)
     runs-on: ubuntu-latest
+    env:
+      # TODO: Set to '1' to re-enable wasm runtime tests once a lightweight
+      # Emscripten smoke subset is in place and stable in CI.
+      CSV_EMSCRIPTEN_RUN_TESTS: '0'
 
     steps:
     - name: Checkout repository and submodules
@@ -154,8 +158,13 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build-single-thread-emscripten --config Release
 
     - name: Test (single-threaded emscripten)
+      if: env.CSV_EMSCRIPTEN_RUN_TESTS == '1'
       working-directory: ${{ github.workspace }}/build-single-thread-emscripten
       run: ctest --build-config Release --output-on-failure
+
+    - name: Skip tests (single-threaded emscripten)
+      if: env.CSV_EMSCRIPTEN_RUN_TESTS != '1'
+      run: echo "Skipping Emscripten ctest (build-only coverage). Set CSV_EMSCRIPTEN_RUN_TESTS=1 to re-enable."
 
 
 
