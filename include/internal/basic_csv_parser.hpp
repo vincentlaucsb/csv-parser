@@ -241,7 +241,7 @@ namespace csv {
                     const auto end = _source.tellg();
                     _source.seekg(0, std::ios::beg);
 
-                    source_size = end - start;
+                    source_size = static_cast<size_t>(end - start);
                 }
 
                 // Read data into buffer
@@ -249,7 +249,7 @@ namespace csv {
                 std::unique_ptr<char[]> buff(new char[length]);
                 _source.seekg(stream_pos, std::ios::beg);
                 _source.read(buff.get(), length);
-                stream_pos = _source.tellg();
+                stream_pos = static_cast<size_t>(_source.tellg());
                 ((std::string*)(this->data_ptr->_data.get()))->assign(buff.get(), length);
 
                 // Create string_view
