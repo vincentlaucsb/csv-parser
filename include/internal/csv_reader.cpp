@@ -225,11 +225,7 @@ namespace csv {
      *         csv::CSV_NOT_FOUND otherwise.
      */
     CSV_INLINE int CSVReader::index_of(csv::string_view col_name) const {
-        auto _col_names = this->get_col_names();
-        for (size_t i = 0; i < _col_names.size(); i++)
-            if (_col_names[i] == col_name) return (int)i;
-
-        return CSV_NOT_FOUND;
+        return this->col_names->index_of(col_name);
     }
 
     CSV_INLINE void CSVReader::trim_header() {
@@ -252,6 +248,7 @@ namespace csv {
      */
     CSV_INLINE void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
+        this->col_names->set_policy(this->_format.get_column_name_policy());
         this->col_names->set_col_names(names);
         this->n_cols = names.size();
     }

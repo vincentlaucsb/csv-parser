@@ -23,6 +23,7 @@ target_sources(csv_test
     PRIVATE
         ${CSV_INCLUDE_DIR}/csv.hpp
         main.cpp
+        test_col_names.cpp
         test_csv_delimiter.cpp
         test_csv_field.cpp
         test_csv_field_array.cpp

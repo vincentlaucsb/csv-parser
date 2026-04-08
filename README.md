@@ -273,7 +273,7 @@ CSVReader sstream_reader(my_csv, format);
 ```
 
 ### Indexing by Column Names
-Retrieving values using a column name string is a cheap, constant time operation.
+Retrieving values using a column name string is a cheap, constant time operation with `EXACT` matching; with `CASE_INSENSITIVE`, the key is normalized before lookup.
 
 ```cpp
 # include "csv.hpp"
@@ -282,7 +282,12 @@ using namespace csv;
 
 ...
 
-CSVReader reader("very_big_file.csv");
+// Optional: pass in a format to customize lookup behavior
+// Defaults to EXACT matching
+CSVFormat format;
+format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
+
+CSVReader reader("very_big_file.csv", format);
 double sum = 0;
 
 for (auto& row: reader) {
