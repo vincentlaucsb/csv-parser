@@ -12,6 +12,7 @@ option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires P
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
 option(CSV_NO_SIMD "Disable SIMD fast paths at compile time" OFF)
+option(CSV_FORCE_AVX2 "Force AVX2 compiler flags for this build" OFF)
 
 if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
   message(STATUS "Emscripten target detected: forcing CSV_ENABLE_THREADS=OFF")
@@ -59,29 +60,23 @@ else()
 	endif()
 endif(MSVC)
 
-# Auto-detect the best SIMD tier available on the build host, unless the user
-# has explicitly disabled SIMD or overridden the arch flags themselves.
-# cmake_host_system_information(HAS_AVX2) queries the CPU running cmake,
-# which is the right heuristic for native builds.
-# CSV_NO_SIMD=ON is the escape hatch for cross-compilation, constrained
-# environments, or explicit scalar-only builds (e.g. csv_bench_no_simd).
-if(NOT CSV_NO_SIMD AND NOT CMAKE_CROSSCOMPILING)
-	cmake_host_system_information(RESULT _csv_host_has_avx2 QUERY HAS_AVX2)
-	if(_csv_host_has_avx2)
-		if(MSVC)
-			# MSVC does not define __AVX2__ from hardware detection alone
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
-		else()
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
-		endif()
-		message(STATUS "CSV SIMD: AVX2 detected and enabled")
-	else()
-		message(STATUS "CSV SIMD: AVX2 not available, SSE2 will be used on x86-64")
-	endif()
-elseif(CSV_NO_SIMD)
-	message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
+# SIMD policy:
+# - CSV_NO_SIMD=ON: hard-disable SIMD in code
+# - CSV_FORCE_AVX2=ON: force AVX2 codegen flags
+# - default: use compiler's default ISA baseline (SSE2 on x86-64, scalar elsewhere)
+if(CSV_NO_SIMD)
+  message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
+elseif(CSV_FORCE_AVX2)
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+  endif()
+  message(STATUS "CSV SIMD: AVX2 forced (CSV_FORCE_AVX2=ON)")
 elseif(CMAKE_CROSSCOMPILING)
-	message(STATUS "CSV SIMD: host detection skipped (cross-compiling); set compiler flags manually if needed")
+  message(STATUS "CSV SIMD: cross-compiling; using compiler defaults (set arch flags manually to force AVX2)")
+else()
+  message(STATUS "CSV SIMD: using compiler default ISA (SSE2 on x86-64; pass CSV_FORCE_AVX2=ON to force AVX2)")
 endif()
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})

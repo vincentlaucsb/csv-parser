@@ -176,10 +176,9 @@ jobs:
         simd_mode: [avx2, sse2, no-simd]
         include:
           - simd_mode: avx2
-            # Auto-detection will find AVX2 on GitHub's ubuntu-latest runners.
-            # Pass no extra flags; the build system selects -mavx2 automatically.
+            # Force AVX2 so __AVX2__ branch is compiled deterministically.
             cmake_no_simd: "OFF"
-            cmake_extra_flags: ""
+            cmake_extra_flags: "-DCMAKE_CXX_FLAGS=-mavx2"
           - simd_mode: sse2
             # Force SSE2-only path by disabling auto-detected AVX2.
             # -mno-avx2 prevents __AVX2__ from being defined so the SSE2 branch compiles.
