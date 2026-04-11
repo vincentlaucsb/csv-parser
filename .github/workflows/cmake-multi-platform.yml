@@ -176,14 +176,18 @@ jobs:
         simd_mode: [avx2, sse2, no-simd]
         include:
           - simd_mode: avx2
-            cxx_flags: "-mavx2"
+            # Auto-detection will find AVX2 on GitHub's ubuntu-latest runners.
+            # Pass no extra flags; the build system selects -mavx2 automatically.
             cmake_no_simd: "OFF"
+            cmake_extra_flags: ""
           - simd_mode: sse2
-            cxx_flags: ""
+            # Force SSE2-only path by disabling auto-detected AVX2.
+            # -mno-avx2 prevents __AVX2__ from being defined so the SSE2 branch compiles.
             cmake_no_simd: "OFF"
+            cmake_extra_flags: "-DCMAKE_CXX_FLAGS=-mno-avx2"
           - simd_mode: no-simd
-            cxx_flags: ""
             cmake_no_simd: "ON"
+            cmake_extra_flags: ""
 
     steps:
     - name: Checkout repository and submodules
@@ -200,7 +204,7 @@ jobs:
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_CXX_COMPILER=g++
         -DCMAKE_C_COMPILER=gcc
-        -DCMAKE_CXX_FLAGS=${{ matrix.cxx_flags }}
+        ${{ matrix.cmake_extra_flags }}
         -S ${{ github.workspace }}
 
     - name: Build (${{ matrix.simd_mode }})

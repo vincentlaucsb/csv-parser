@@ -46,9 +46,7 @@ if(MSVC)
 	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
   # /Wall emits warnings about the C++ standard library
 	# /permissive- enables standards conformance (disables MSVC extensions)
-	# /arch:AVX2 enables AVX2 intrinsics and defines __AVX2__; unlike GCC/Clang,
-	# MSVC does not define __AVX2__ from hardware detection alone.
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4 /permissive- /arch:AVX2")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4 /permissive-")
 else()
 	# Ignore Visual Studio pragma regions
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
@@ -60,6 +58,31 @@ else()
 		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og -fprofile-update=atomic")
 	endif()
 endif(MSVC)
+
+# Auto-detect the best SIMD tier available on the build host, unless the user
+# has explicitly disabled SIMD or overridden the arch flags themselves.
+# cmake_host_system_information(HAS_AVX2) queries the CPU running cmake,
+# which is the right heuristic for native builds.
+# CSV_NO_SIMD=ON is the escape hatch for cross-compilation, constrained
+# environments, or explicit scalar-only builds (e.g. csv_bench_no_simd).
+if(NOT CSV_NO_SIMD AND NOT CMAKE_CROSSCOMPILING)
+	cmake_host_system_information(RESULT _csv_host_has_avx2 QUERY HAS_AVX2)
+	if(_csv_host_has_avx2)
+		if(MSVC)
+			# MSVC does not define __AVX2__ from hardware detection alone
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+		else()
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+		endif()
+		message(STATUS "CSV SIMD: AVX2 detected and enabled")
+	else()
+		message(STATUS "CSV SIMD: AVX2 not available, SSE2 will be used on x86-64")
+	endif()
+elseif(CSV_NO_SIMD)
+	message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
+elseif(CMAKE_CROSSCOMPILING)
+	message(STATUS "CSV SIMD: host detection skipped (cross-compiling); set compiler flags manually if needed")
+endif()
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(CSV_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR})
