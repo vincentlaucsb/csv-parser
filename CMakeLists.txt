@@ -62,21 +62,18 @@ endif(MSVC)
 
 # SIMD policy:
 # - CSV_NO_SIMD=ON: hard-disable SIMD in code
-# - CSV_FORCE_AVX2=ON: force AVX2 codegen flags
-# - default: use compiler's default ISA baseline (SSE2 on x86-64, scalar elsewhere)
+# - default: enable AVX2 codegen (MSVC always; others use CI matrix or manual flags)
 if(CSV_NO_SIMD)
   message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
-elseif(CSV_FORCE_AVX2)
+else()
+  # On MSVC, __AVX2__ is only defined if /arch:AVX2 is explicit, so always add it
+  # On GCC/Clang, CI matrix or user supplies flags; assume baseline ISA here
   if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+    message(STATUS "CSV SIMD: AVX2 enabled (MSVC /arch:AVX2 added)")
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+    message(STATUS "CSV SIMD: default config (CI/user supplies ISA flags if needed)")
   endif()
-  message(STATUS "CSV SIMD: AVX2 forced (CSV_FORCE_AVX2=ON)")
-elseif(CMAKE_CROSSCOMPILING)
-  message(STATUS "CSV SIMD: cross-compiling; using compiler defaults (set arch flags manually to force AVX2)")
-else()
-  message(STATUS "CSV SIMD: using compiler default ISA (SSE2 on x86-64; pass CSV_FORCE_AVX2=ON to force AVX2)")
 endif()
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
