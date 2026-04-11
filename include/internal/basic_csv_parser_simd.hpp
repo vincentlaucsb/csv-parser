@@ -18,6 +18,15 @@
 
 #if (defined(__AVX2__) || defined(__SSE2__)) && !defined(CSV_NO_SIMD)
 #include <immintrin.h>
+// _tzcnt_u32 in GCC/Clang headers is __attribute__(__target__("bmi")), which
+// requires -mbmi at the call site. __builtin_ctz has no such restriction and
+// emits BSF/TZCNT as the optimizer sees fit. MSVC's _tzcnt_u32 has no
+// equivalent restriction, so keep it there.
+#  ifdef _MSC_VER
+#    define CSV_TZCNT32(x) _tzcnt_u32(x)
+#  else
+#    define CSV_TZCNT32(x) static_cast<unsigned>(__builtin_ctz(x))
+#  endif
 #endif
 
 namespace csv {
@@ -84,7 +93,7 @@ namespace csv {
                 int mask        = _mm256_movemask_epi8(special);
 
                 if (mask != 0)
-                    return pos + _tzcnt_u32(mask);
+                    return pos + CSV_TZCNT32(static_cast<unsigned>(mask));
                 pos += 32;
             }
 #elif defined(__SSE2__) && !defined(CSV_NO_SIMD)
@@ -97,7 +106,7 @@ namespace csv {
                 int mask        = _mm_movemask_epi8(special);
 
                 if (mask != 0)
-                    return pos + _tzcnt_u32(mask);
+                    return pos + CSV_TZCNT32(static_cast<unsigned>(mask));
                 pos += 16;
             }
 #else
