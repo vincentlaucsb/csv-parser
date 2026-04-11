@@ -14,6 +14,7 @@
 #if !defined(__EMSCRIPTEN__)
 #include "../external/mio.hpp"
 #endif
+#include "basic_csv_parser_simd.hpp"
 #include "col_names.hpp"
 #include "common.hpp"
 #include "csv_format.hpp"
@@ -57,6 +58,30 @@ namespace csv {
             return ret;
         }
 
+        inline char infer_delimiter(const ParseFlagMap& parse_flags) noexcept {
+            for (int i = 0; i < 256; ++i) {
+                char ch = static_cast<char>(i);
+                if (parse_flags[ch + CHAR_OFFSET] == ParseFlags::DELIMITER) {
+                    return ch;
+                }
+            }
+
+            return ',';
+        }
+
+        // fallback is returned when no QUOTE flag exists in parse_flags (e.g. no_quote mode).
+        // Pass the delimiter so SIMD stops there instead of on a byte that is NOT_SPECIAL.
+        inline char infer_quote_char(const ParseFlagMap& parse_flags, char fallback = '"') noexcept {
+            for (int i = 0; i < 256; ++i) {
+                char ch = static_cast<char>(i);
+                if (parse_flags[ch + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                    return ch;
+                }
+            }
+
+            return fallback;
+        }
+
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character c and, v[i + 128] is true if
          *  c is a whitespace character
@@ -92,8 +117,13 @@ namespace csv {
         public:
             IBasicCSVParser() = default;
             IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
-            IBasicCSVParser(const ParseFlagMap& parse_flags, const WhitespaceMap& ws_flags
-            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {}
+            IBasicCSVParser(
+                const ParseFlagMap& parse_flags,
+                const WhitespaceMap& ws_flags
+            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {
+                const char d = internals::infer_delimiter(parse_flags);
+                _simd_sentinels = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
+            }
 
             virtual ~IBasicCSVParser() {}
 
@@ -128,6 +158,9 @@ namespace csv {
             CSVFieldList* fields = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
+
+            /** Precomputed SIMD broadcast vectors for find_next_non_special */
+            SentinelVecs _simd_sentinels;
 
             /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
             ParseFlagMap _parse_flags;

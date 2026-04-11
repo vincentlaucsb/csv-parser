@@ -11,6 +11,7 @@ option(BUILD_PYTHON "Build Python Binding" OFF)
 option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
+option(CSV_NO_SIMD "Disable SIMD fast paths at compile time" OFF)
 
 if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
   message(STATUS "Emscripten target detected: forcing CSV_ENABLE_THREADS=OFF")
@@ -45,7 +46,9 @@ if(MSVC)
 	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
   # /Wall emits warnings about the C++ standard library
 	# /permissive- enables standards conformance (disables MSVC extensions)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4 /permissive-")
+	# /arch:AVX2 enables AVX2 intrinsics and defines __AVX2__; unlike GCC/Clang,
+	# MSVC does not define __AVX2__ from hardware detection alone.
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4 /permissive- /arch:AVX2")
 else()
 	# Ignore Visual Studio pragma regions
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
