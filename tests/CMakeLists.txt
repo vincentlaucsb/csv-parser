@@ -46,6 +46,10 @@ target_sources(csv_test
         test_write_csv.cpp
     )
 
+if(NOT CSV_NO_SIMD)
+    target_sources(csv_test PRIVATE test_basic_csv_parser_simd.cpp)
+endif()
+
 if(CSV_ENABLE_THREADS)
     target_sources(csv_test PRIVATE test_threadsafe_deque_race.cpp)
 endif()

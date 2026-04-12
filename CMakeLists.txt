@@ -11,6 +11,8 @@ option(BUILD_PYTHON "Build Python Binding" OFF)
 option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
+option(CSV_NO_SIMD "Disable SIMD fast paths at compile time" OFF)
+option(CSV_FORCE_AVX2 "Force AVX2 compiler flags for this build" OFF)
 
 if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
   message(STATUS "Emscripten target detected: forcing CSV_ENABLE_THREADS=OFF")
@@ -42,10 +44,9 @@ endif()
 
 if(MSVC)
 	# Make Visual Studio report accurate C++ version
-	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
   # /Wall emits warnings about the C++ standard library
 	# /permissive- enables standards conformance (disables MSVC extensions)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4 /permissive-")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /W4 /permissive-")
 else()
 	# Ignore Visual Studio pragma regions
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
@@ -57,6 +58,22 @@ else()
 		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og -fprofile-update=atomic")
 	endif()
 endif(MSVC)
+
+# SIMD policy:
+# - CSV_NO_SIMD=ON: hard-disable SIMD in code
+# - default: enable AVX2 codegen (MSVC always; others use CI matrix or manual flags)
+if(CSV_NO_SIMD)
+  message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
+else()
+  # On MSVC, __AVX2__ is only defined if /arch:AVX2 is explicit, so always add it
+  # On GCC/Clang, CI matrix or user supplies flags; assume baseline ISA here
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+    message(STATUS "CSV SIMD: AVX2 enabled (MSVC /arch:AVX2 added)")
+  else()
+    message(STATUS "CSV SIMD: default config (CI/user supplies ISA flags if needed)")
+  endif()
+endif()
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(CSV_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -164,18 +181,4 @@ if (CSV_DEVELOPER)
     ## Tests
     enable_testing()
     add_subdirectory("tests")
-
-    # Code coverage
-    #find_program( GCOV_PATH gcov )
-    #if(GCOV_PATH)
-    #    set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/modules")
-    #    include(CodeCoverage)
-    #    append_coverage_compiler_flags()
-    #    set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
-    #    setup_target_for_coverage_gcovr_html(
-    #      NAME csv_coverage
-    #      EXECUTABLE csv_test
-    #      EXCLUDE "tests/*"
-    #    )
-    #endif()
 endif()

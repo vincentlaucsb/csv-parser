@@ -13,6 +13,10 @@ if(CSV_DEVELOPER)
 	add_executable(csv_bench ${CMAKE_CURRENT_LIST_DIR}/csv_bench.cpp)
 	target_link_libraries(csv_bench csv)
 
+	# Scalar-only build for side-by-side SIMD vs no-SIMD comparison
+	add_executable(csv_bench_no_simd ${CMAKE_CURRENT_LIST_DIR}/csv_bench.cpp)
+	target_link_libraries(csv_bench_no_simd csv_no_simd)
+
 	add_custom_target(generate_csv_bench
 		COMMAND csv_bench 2015_StateDepartment.csv
 		WORKING_DIRECTORY ${CSV_TEST_DIR}/data/real_data

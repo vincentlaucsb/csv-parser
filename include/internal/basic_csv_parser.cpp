@@ -67,6 +67,10 @@ namespace csv {
                 _parse_flags = internals::make_parse_flags(format.get_delim(), format.quote_char);
             }
 
+            // When no_quote, quote bytes are NOT_SPECIAL — use delimiter as safe dummy
+            // so SIMD does not stop early on quote bytes and cause an infinite loop.
+            const char eff_quote = format.no_quote ? format.get_delim() : format.quote_char;
+            _simd_sentinels = SentinelVecs(format.get_delim(), eff_quote);
             _ws_flags = internals::make_ws_flags(
                 format.trim_chars.data(), format.trim_chars.size()
             );
@@ -103,8 +107,16 @@ namespace csv {
                 field_start = (int)(data_pos - current_row_start());
 
             // Optimization: Since NOT_SPECIAL characters tend to occur in contiguous
-            // sequences, use the loop below to avoid having to go through the outer
-            // switch statement as much as possible
+            // sequences, use SIMD to skip long runs of them quickly.
+            // find_next_non_special processes complete SIMD lanes and returns pos
+            // unchanged for any tail shorter than one lane width.
+#if !defined(CSV_NO_SIMD)
+            data_pos = find_next_non_special(in, data_pos, this->_simd_sentinels);
+#endif
+
+            // Scalar tail: handles remaining bytes after SIMD falls through, and
+            // handles any byte that SIMD stopped at conservatively (e.g. a delimiter
+            // inside a quoted field, which compound_parse_flag treats as NOT_SPECIAL).
             while (data_pos < in.size() && compound_parse_flag(in[data_pos]) == ParseFlags::NOT_SPECIAL)
                 data_pos++;
 

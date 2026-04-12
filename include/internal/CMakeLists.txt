@@ -30,6 +30,10 @@ target_sources(csv
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
 
+if(CSV_NO_SIMD)
+	target_compile_definitions(csv PUBLIC CSV_NO_SIMD=1)
+endif()
+
 if(CSV_ENABLE_THREADS)
 	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=1)
 	target_link_libraries(csv PRIVATE Threads::Threads)
@@ -38,3 +42,18 @@ else()
 endif()
 
 target_include_directories(csv INTERFACE ../)
+
+# Scalar-only variant of the library: same sources, CSV_NO_SIMD defined.
+# Used by csv_bench_no_simd to provide a fair apples-to-apples benchmark.
+add_library(csv_no_simd STATIC "")
+get_target_property(_csv_sources csv SOURCES)
+target_sources(csv_no_simd PRIVATE ${_csv_sources})
+set_target_properties(csv_no_simd PROPERTIES LINKER_LANGUAGE CXX)
+target_compile_definitions(csv_no_simd PUBLIC CSV_NO_SIMD=1)
+if(CSV_ENABLE_THREADS)
+	target_compile_definitions(csv_no_simd PUBLIC CSV_ENABLE_THREADS=1)
+	target_link_libraries(csv_no_simd PRIVATE Threads::Threads)
+else()
+	target_compile_definitions(csv_no_simd PUBLIC CSV_ENABLE_THREADS=0)
+endif()
+target_include_directories(csv_no_simd INTERFACE ../)

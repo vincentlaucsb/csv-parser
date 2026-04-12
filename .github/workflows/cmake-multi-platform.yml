@@ -166,5 +166,52 @@ jobs:
       if: env.CSV_EMSCRIPTEN_RUN_TESTS != '1'
       run: echo "Skipping Emscripten ctest (build-only coverage). Set CSV_EMSCRIPTEN_RUN_TESTS=1 to re-enable."
 
+  simd-branches:
+    name: SIMD branch verification (${{ matrix.simd_mode }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        simd_mode: [avx2, sse2, no-simd]
+        include:
+          - simd_mode: avx2
+            # Force AVX2 so __AVX2__ branch is compiled deterministically.
+            cmake_no_simd: "OFF"
+            cmake_extra_flags: "-DCMAKE_CXX_FLAGS=-mavx2"
+          - simd_mode: sse2
+            # Force SSE2-only path by disabling auto-detected AVX2.
+            # -mno-avx2 prevents __AVX2__ from being defined so the SSE2 branch compiles.
+            cmake_no_simd: "OFF"
+            cmake_extra_flags: "-DCMAKE_CXX_FLAGS=-mno-avx2"
+          - simd_mode: no-simd
+            cmake_no_simd: "ON"
+            cmake_extra_flags: ""
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Configure CMake (${{ matrix.simd_mode }})
+      run: >
+        cmake -B ${{ github.workspace }}/build-simd-${{ matrix.simd_mode }}
+        -DCSV_CXX_STANDARD=20
+        -DCSV_ENABLE_THREADS=ON
+        -DCSV_NO_SIMD=${{ matrix.cmake_no_simd }}
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_CXX_COMPILER=g++
+        -DCMAKE_C_COMPILER=gcc
+        ${{ matrix.cmake_extra_flags }}
+        -S ${{ github.workspace }}
+
+    - name: Build (${{ matrix.simd_mode }})
+      run: cmake --build ${{ github.workspace }}/build-simd-${{ matrix.simd_mode }} --config Release
+
+    - name: Test (${{ matrix.simd_mode }})
+      working-directory: ${{ github.workspace }}/build-simd-${{ matrix.simd_mode }}
+      run: ctest --build-config Release --output-on-failure
+
 
 
