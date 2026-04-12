@@ -74,7 +74,7 @@ TEST_CASE("SIMD skip handles custom delimiter and quote", "[simd][parser]") {
     }
 }
 
-TEST_CASE("SentinelVecs with dummy quote does not stop on quote bytes", "[simd][parser]") {
+TEST_CASE("SIMD no_quote sentinel config ignores quote bytes", "[simd][parser]") {
     // Simulates no_quote mode: SentinelVecs constructed with delimiter as dummy
     // for the quote slot. SIMD must not stop at '"' bytes because v_quote
     // broadcasts ',' (same as v_delim), so only real ',' bytes halt the scan.

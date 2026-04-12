@@ -38,17 +38,17 @@
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
 
 ### Performance and Memory Requirements
-A high performance CSV parser allows you to take advantage of the deluge of large datasets available. By using overlapped threads, memory mapped IO, and 
-minimal memory allocation, this parser can quickly tackle large CSV files--even if they are larger than RAM.
+A high-performance CSV parser lets you take advantage of large datasets efficiently. This library combines SIMD-accelerated parsing, memory-mapped I/O, careful memory layout, minimal allocation, and background parsing to process large CSV files quickly, even when they exceed available RAM.
 
 In fact, [according to Visual Studio's profiler](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
 CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
 
 #### Show me the numbers
-On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz/Western Digital Blue 5400RPM HDD), this parser can read
- * the [69.9 MB 2015_StateDepartment.csv](https://github.com/vincentlaucsb/csv-data/tree/master/real_data) in 0.19 seconds (360 MBps)
+On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz; Samsung 990 EVO), this parser can read
  * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 1.18 seconds (1.2 GBps)
- * a [2.9GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 8.49 seconds (352 MBps)
+ * a [2.9GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 6.9 seconds (420 MBps)
+
+All benchmarks shown are warm cache runs to focus on parser/CPU performance rather than disk I/O variability.
 
 #### Chunk Size Tuning
 
@@ -125,6 +125,8 @@ While C++17 is recommended, C++11 is the minimum version required. This library 
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
 This library requires C++ exceptions to be enabled (for example, do not compile with `-fno-exceptions`).
+
+SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
 
 ### Threading Modes
 By default, `csv-parser` uses a background thread to parse file-based input. If CMake cannot find a thread library, threading is disabled automatically.
