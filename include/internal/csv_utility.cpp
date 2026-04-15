@@ -1,10 +1,16 @@
 #include <sstream>
 #include <vector>
+#include <memory>
 
 #include "csv_utility.hpp"
+#include "string_view_stream.hpp"
 
 namespace csv {
     /** Shorthand function for parsing an in-memory CSV string
+     *
+     *  Zero-copy route: this function creates a non-owning stream adapter over
+     *  the provided string_view. The caller is responsible for keeping backing
+     *  memory valid and immutable while CSVReader is in use.
      *
      *  @return A collection of CSVRow objects
      *
@@ -12,8 +18,8 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        std::stringstream stream(std::string(in.data(), in.length()));
-        return CSVReader(stream, format);
+        std::unique_ptr<std::istream> stream(new internals::StringViewStream(in));
+        return CSVReader(std::move(stream), format);
     }
 
     /** Parses a CSV string with no headers

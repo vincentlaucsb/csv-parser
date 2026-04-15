@@ -166,12 +166,15 @@ namespace csv {
      */
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
 #if defined(__EMSCRIPTEN__)
-    this->owned_file_stream = std::unique_ptr<std::ifstream>(new std::ifstream(std::string(filename), std::ios::binary));
-    if (!this->owned_file_stream->is_open()) {
+    this->owned_stream = std::unique_ptr<std::istream>(
+        new std::ifstream(std::string(filename), std::ios::binary)
+    );
+
+    if (!(*this->owned_stream)) {
         throw std::runtime_error("Cannot open file " + std::string(filename));
     }
 
-    this->init_from_stream(*this->owned_file_stream, format);
+    this->init_from_stream(*this->owned_stream, format);
 #else
     auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;

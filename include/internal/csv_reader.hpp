@@ -186,6 +186,20 @@ namespace csv {
         CSVReader(TStream &source, CSVFormat format = CSVFormat::guess_csv()) : _format(format) {
             this->init_from_stream(source, format);
         }
+
+        /** @brief Construct CSVReader from an owned std::istream
+         *
+         *  This is an opt-in safety switch for stream lifetime management.
+         *  CSVReader takes ownership and guarantees the stream outlives parsing.
+         */
+        CSVReader(std::unique_ptr<std::istream> source,
+            CSVFormat format = CSVFormat::guess_csv()) : _format(format), owned_stream(std::move(source)) {
+            if (!this->owned_stream) {
+                throw std::invalid_argument("CSVReader requires a non-null stream");
+            }
+
+            this->init_from_stream(*this->owned_stream, format);
+        }
         ///@}
 
         CSVReader(const CSVReader&) = delete;             ///< Not copyable
@@ -261,10 +275,12 @@ namespace csv {
         /** Queue of parsed CSV rows */
         std::unique_ptr<RowCollection> records{new RowCollection(100)};
 
-    #if defined(__EMSCRIPTEN__)
-        /** Owned file stream used by filename constructor fallback to stream parsing. */
-        std::unique_ptr<std::ifstream> owned_file_stream = nullptr;
-    #endif
+        /**
+         * Optional owned stream used by two paths:
+         *  1) Emscripten filename-constructor fallback to stream parsing
+         *  2) Opt-in ownership constructor taking std::unique_ptr<std::istream>
+         */
+        std::unique_ptr<std::istream> owned_stream = nullptr;
 
         size_t n_cols = 0;  /**< The number of columns in this CSV */
         size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */

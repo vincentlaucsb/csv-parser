@@ -25,6 +25,8 @@ target_sources(csv
 		raw_csv_data.cpp
 		row_deque.hpp
 		single_thread_deque.hpp
+		string_view_stream.hpp
+		string_view_stream.cpp
 		thread_safe_deque.hpp
 		)
 

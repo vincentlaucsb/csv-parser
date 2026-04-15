@@ -24,6 +24,13 @@ namespace csv {
      ///@{
     CSVReader operator ""_csv(const char*, size_t);
     CSVReader operator ""_csv_no_header(const char*, size_t);
+
+    /** Parse CSV from an in-memory view with zero copy.
+     *
+     *  WARNING: Non-owning path. The caller must ensure `in`'s backing memory
+     *  remains valid and immutable until the returned CSVReader (and any rows
+     *  or fields derived from it) are no longer used.
+     */
     CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
     CSVReader parse_no_header(csv::string_view in);
     ///@}
