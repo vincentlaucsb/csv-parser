@@ -239,4 +239,37 @@ TEST_CASE("Issue #218 - Infinite read loop detection", "[issue_218]") {
         );
     }
 }
+
+// Verify parse_unsafe() (non-owning StringViewStream path) delivers correct values
+// across the 10MB chunk boundary. Distinct per-column values (i*5+col) ensure that
+// field corruption or mis-alignment at a chunk transition would be detected.
+TEST_CASE("parse_unsafe() chunk boundary integrity", "[parse_unsafe_chunk_boundary]") {
+    const size_t n_rows = 500000;
+
+    std::string csv_data;
+    csv_data.reserve(n_rows * 35);
+    csv_data += "A,B,C,D,E\r\n";
+    for (size_t i = 0; i < n_rows; i++) {
+        csv_data += std::to_string(i * 5 + 0) + ','
+                  + std::to_string(i * 5 + 1) + ','
+                  + std::to_string(i * 5 + 2) + ','
+                  + std::to_string(i * 5 + 3) + ','
+                  + std::to_string(i * 5 + 4) + "\r\n";
+    }
+
+    // csv_data outlives the reader — the non-owning path is safe here.
+    auto reader = parse_unsafe(csv_data);
+
+    REQUIRE(reader.get_col_names() == std::vector<std::string>({"A", "B", "C", "D", "E"}));
+
+    size_t i = 0;
+    for (auto& row : reader) {
+        REQUIRE(row.size() == 5);
+        for (size_t col = 0; col < 5; col++) {
+            REQUIRE(row[col].get<size_t>() == i * 5 + col);
+        }
+        i++;
+    }
+    REQUIRE(i == n_rows);
+}
 #endif

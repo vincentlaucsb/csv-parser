@@ -15,4 +15,5 @@ Operational/testing guidance:
 Notes:
 - Internal architecture content lives under include/internal to stay close to implementation.
 - Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
+- Public API comments should remain user-facing and avoid references to internal helper/function details.
 
