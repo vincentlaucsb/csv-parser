@@ -9,8 +9,11 @@ namespace csv {
     /** Shorthand function for parsing an in-memory CSV string
      *
      *  Zero-copy route: this function creates a non-owning stream adapter over
-     *  the provided string_view. The caller is responsible for keeping backing
-     *  memory valid and immutable while CSVReader is in use.
+        *  the provided string_view. The caller is responsible for keeping backing
+        *  memory valid and immutable while CSVReader may request additional rows.
+        *
+        *  Already materialized CSVRows remain safe because parsed chunk data is
+        *  owned by RawCSVData.
      *
      *  @return A collection of CSVRow objects
      *

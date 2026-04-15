@@ -3,6 +3,7 @@
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
 #include "data_type.hpp"
+#include "string_view_stream.hpp"
 
 #include <string>
 #include <type_traits>
@@ -19,7 +20,7 @@ namespace csv {
     };
 
     /** @name Shorthand Parsing Functions
-     *  @brief Convienience functions for parsing small strings
+     *  @brief Convenience functions for parsing small strings
      */
      ///@{
     CSVReader operator ""_csv(const char*, size_t);
@@ -28,8 +29,12 @@ namespace csv {
     /** Parse CSV from an in-memory view with zero copy.
      *
      *  WARNING: Non-owning path. The caller must ensure `in`'s backing memory
-     *  remains valid and immutable until the returned CSVReader (and any rows
-     *  or fields derived from it) are no longer used.
+     *  remains valid and immutable while the reader may request additional rows
+     *  from the source stream.
+     *
+     *  Already materialized CSVRows remain safe because parsed chunk data is
+     *  owned by CSVRow, so make sure you grab all the CSVRows you need before
+     *  the underlying string or stream is destroyed.
      */
     CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
     CSVReader parse_no_header(csv::string_view in);
