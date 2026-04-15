@@ -75,6 +75,14 @@ namespace csv {
      *  All rows are compared to the column names for length consistency
      *  - By default, rows that are too short or too long are dropped
      *  - Custom behavior can be defined by overriding bad_row_handler in a subclass
+     *
+     *  **Ownership and sharing:** CSVReader is neither copyable nor movable because it
+     *  manages a live parsing state (worker thread, internal queue, and an optional stream
+     *  reference). To share or transfer a reader, wrap it in a `std::unique_ptr<CSVReader>`:
+     *  @code{.cpp}
+     *  auto reader = std::make_unique<csv::CSVReader>("data.csv");
+     *  process(std::move(reader));   // transfer ownership
+     *  @endcode
      */
     class CSVReader {
     public:

@@ -37,6 +37,7 @@
 - Changes to one constructor likely affect both paths
 - **Do not delete or simplify comments** unless trivially obvious or factually wrong — comments encode concurrency invariants and bug history
 - **Do not reference internal functions in public API comments** — public API docs should remain user-facing; internal details belong in internal docs
+- **`CSVReader` is non-copyable and non-movable** — the preferred sharing/transfer idiom is `std::unique_ptr<CSVReader>`
 
 ## Tests
 See `tests/AGENTS.md` for full test strategy, checklist, and conventions.

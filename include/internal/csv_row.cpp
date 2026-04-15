@@ -8,7 +8,7 @@
 
 namespace csv {
     namespace internals {
-        csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept
+        CSV_INLINE csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept
         {
             // Lazy trim only when requested
             size_t start = 0;
