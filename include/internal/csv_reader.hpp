@@ -201,7 +201,7 @@ namespace csv {
          *  CSVReader takes ownership and guarantees the stream outlives parsing.
          */
         CSVReader(std::unique_ptr<std::istream> source,
-            CSVFormat format = CSVFormat::guess_csv()) : _format(format), owned_stream(std::move(source)) {
+            const CSVFormat& format = CSVFormat::guess_csv()) : _format(format), owned_stream(std::move(source)) {
             if (!this->owned_stream) {
                 throw std::invalid_argument("CSVReader requires a non-null stream");
             }
