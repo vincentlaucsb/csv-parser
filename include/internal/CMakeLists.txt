@@ -26,9 +26,8 @@ target_sources(csv
 		row_deque.hpp
 		single_thread_deque.hpp
 		string_view_stream.hpp
-		string_view_stream.cpp
 		thread_safe_deque.hpp
-		)
+	)
 
 set_target_properties(csv PROPERTIES LINKER_LANGUAGE CXX)
 

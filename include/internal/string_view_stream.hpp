@@ -23,13 +23,6 @@ namespace csv {
             }
 
         protected:
-            int_type underflow() override {
-                if (this->gptr() < this->egptr()) {
-                    return traits_type::to_int_type(*this->gptr());
-                }
-                return traits_type::eof();
-            }
-
             std::streamsize xsgetn(char* s, std::streamsize count) override {
                 const std::streamsize avail = this->egptr() - this->gptr();
                 const std::streamsize n = std::min(avail, count);
@@ -92,6 +85,11 @@ namespace csv {
                 : std::istream(nullptr), _buf(view) {
                 this->rdbuf(&_buf);
             }
+
+            StringViewStream(const StringViewStream&) = delete;
+            StringViewStream(StringViewStream&&) = delete;
+            StringViewStream& operator=(const StringViewStream&) = delete;
+            StringViewStream& operator=(StringViewStream&&) = delete;
 
         private:
             StringViewStreamBuf _buf;

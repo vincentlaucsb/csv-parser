@@ -26,6 +26,13 @@ namespace csv {
     CSVReader operator ""_csv(const char*, size_t);
     CSVReader operator ""_csv_no_header(const char*, size_t);
 
+    /** Parse CSV from a string view, copying the input into an owned buffer.
+     *
+     *  Safe for any string_view regardless of the caller's ownership of the
+     *  underlying memory.
+     */
+    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+
     /** Parse CSV from an in-memory view with zero copy.
      *
      *  WARNING: Non-owning path. The caller must ensure `in`'s backing memory
@@ -33,10 +40,11 @@ namespace csv {
      *  from the source stream.
      *
      *  Already materialized CSVRows remain safe because parsed chunk data is
-     *  owned by CSVRow, so make sure you grab all the CSVRows you need before
-     *  the underlying string or stream is destroyed.
+     *  owned by RawCSVData, so make sure you grab all the CSVRows you need
+     *  before the underlying string is destroyed.
      */
-    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader parse_unsafe(csv::string_view in, CSVFormat format = CSVFormat());
+
     CSVReader parse_no_header(csv::string_view in);
     ///@}
 
