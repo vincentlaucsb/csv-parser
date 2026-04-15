@@ -74,6 +74,7 @@ namespace csv {
             _ws_flags = internals::make_ws_flags(
                 format.trim_chars.data(), format.trim_chars.size()
             );
+            _has_ws_trimming = !format.trim_chars.empty();
         }
 
         CSV_INLINE void IBasicCSVParser::end_feed() {
@@ -99,10 +100,6 @@ namespace csv {
             using internals::ParseFlags;
             auto& in = this->data_ptr->data;
 
-            // Trim off leading whitespace
-            while (data_pos < in.size() && ws_flag(in[data_pos]))
-                data_pos++;
-
             if (field_start == UNINITIALIZED_FIELD)
                 field_start = (int)(data_pos - current_row_start());
 
@@ -122,34 +119,23 @@ namespace csv {
 
             field_length = data_pos - (field_start + current_row_start());
 
-            // Trim off trailing whitespace, this->field_length constraint matters
-            // when field is entirely whitespace
-            for (size_t j = data_pos - 1; ws_flag(in[j]) && this->field_length > 0; j--)
-                this->field_length--;
+            // Whitespace trimming is deferred to get_field_impl() so callers that never
+            // read field values (e.g. row counting) pay no trimming cost.
         }
 
         CSV_INLINE void IBasicCSVParser::push_field()
         {
             // Update
-            if (field_has_double_quote) {
-                fields->emplace_back(
-                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
-                    field_length,
-                    true
-                );
-                field_has_double_quote = false;
-
-            }
-            else {
-                fields->emplace_back(
-                    field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
-                    field_length
-                );
-            }
+            fields->emplace_back(
+                field_start == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start,
+                field_length,
+                field_has_double_quote
+            );
 
             current_row.row_length++;
 
             // Reset field state
+            field_has_double_quote = false;
             field_start = UNINITIALIZED_FIELD;
             field_length = 0;
         }
@@ -245,6 +231,8 @@ namespace csv {
         CSV_INLINE void IBasicCSVParser::reset_data_ptr() {
             this->data_ptr = std::make_shared<RawCSVData>();
             this->data_ptr->parse_flags = this->_parse_flags;
+            this->data_ptr->ws_flags = this->_ws_flags;
+            this->data_ptr->has_ws_trimming = this->_has_ws_trimming;
             this->data_ptr->col_names = this->_col_names;
             this->fields = &(this->data_ptr->fields);
         }

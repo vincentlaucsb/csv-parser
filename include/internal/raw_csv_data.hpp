@@ -25,7 +25,7 @@ namespace csv {
         /** A barebones class used for describing CSV fields */
         struct RawCSVField {
             RawCSVField() = default;
-            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) {
+            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) noexcept {
                 start = _start;
                 length = _length;
                 has_double_quote = _double_quote;
@@ -44,13 +44,13 @@ namespace csv {
         /** A class used for efficiently storing RawCSVField objects and expanding as necessary
          *
          *  @par Implementation
-         *  Uses std::deque<unique_ptr<RawCSVField[]>> instead of std::deque<RawCSVField> for
-         *  performance. This design keeps adjacent fields in page-aligned chunks (~170 fields/chunk),
-         *  providing better cache locality when accessing sequential fields in a row.
-         *  
-         *  Standard std::deque uses smaller, implementation-defined chunks which increases pointer
-         *  indirection and reduces cache efficiency for CSV parsing workloads.
-         *
+         *  Stores fields in page-aligned chunks (~170 fields/chunk) via a vector of
+         *  unique_ptr<RawCSVField[]>:
+         *   - This design provides better cache locality when accessing sequential fields in a row
+         *     as well as much lower memory allocation overhead.
+         *   - The unique_ptr ensures STL container does not invalidate pointers to fields when resizing,
+         *     which is critical to ensure memory safety and correctness of the parser.
+         * 
          *  @par Thread Safety
          *  Cross-thread visibility is provided by the records queue mutex in
          *  ThreadSafeDeque: the writer enqueues a RawCSVData only after all fields are
@@ -59,38 +59,35 @@ namespace csv {
          *
          *  @par Historical Bug (Issue #278, fixed Feb 2026)
          *  Move constructor previously left _back pointing to moved-from buffer memory, causing
-         *  memory corruption on next emplace_back(). Now properly recalculates _back pointer
-         *  to point into the new buffers after move.
+         *  memory corruption on next emplace_back(). Fixed by recalculating _back from
+         *  _owned_blocks after move.
          */
-        class CSVFieldList {
+        class RawCSVFieldList {
         public:
-            /** Construct a CSVFieldList which allocates blocks of a certain size */
-            CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
+            /** Construct a RawCSVFieldList which allocates blocks of a certain size */
+            RawCSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
                 const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
-                _block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
-                _blocks = std::unique_ptr<RawCSVField*[]>(new RawCSVField*[_block_capacity]());
+                const size_t block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
+                _owned_blocks.reserve(block_capacity);
 
                 this->allocate();
             }
 
             // No copy constructor
-            CSVFieldList(const CSVFieldList& other) = delete;
+            RawCSVFieldList(const RawCSVFieldList& other) = delete;
 
             // CSVFieldArrays may be moved
-            CSVFieldList(CSVFieldList&& other) :
-                _single_buffer_capacity(other._single_buffer_capacity),
-                _block_capacity(other._block_capacity) {
+            RawCSVFieldList(RawCSVFieldList&& other) noexcept:
+                _single_buffer_capacity(other._single_buffer_capacity) {
 
-                this->_blocks = std::move(other._blocks);
                 this->_owned_blocks = std::move(other._owned_blocks);
                 _current_buffer_size = other._current_buffer_size;
                 _current_block = other._current_block;
 
                 // Recalculate _back pointer to point into OUR blocks, not the moved-from ones
-                if (this->_blocks) {
-                    RawCSVField* block = this->_blocks[_current_block];
-                    _back = block ? (block + _current_buffer_size) : nullptr;
+                if (!this->_owned_blocks.empty()) {
+                    _back = this->_owned_blocks[_current_block].get() + _current_buffer_size;
                 } else {
                     _back = nullptr;
                 }
@@ -99,7 +96,6 @@ namespace csv {
                 other._back = nullptr;
                 other._current_buffer_size = 0;
                 other._current_block = 0;
-                other._block_capacity = 0;
             }
 
             template <class... Args>
@@ -117,30 +113,24 @@ namespace csv {
                 return this->_current_buffer_size + (_current_block * this->_single_buffer_capacity);
             }
 
+            /** Access a field by its index. This allows CSVRow objects to access fields
+             *  without knowing internal implementation details of RawCSVFieldList.
+             */
             RawCSVField& operator[](size_t n) const;
 
         private:
             const size_t _single_buffer_capacity;
 
-            /** Fixed-size table of block pointers. Cross-thread safety is provided
-             *  by the records queue mutex, not by atomics on individual pointers. */
-            std::unique_ptr<RawCSVField*[]> _blocks = nullptr;
-
-            /** Owned blocks (writer thread only), used for lifetime management. */
+            /** Owned field-storage blocks; pre-reserved to avoid reallocation. */
             std::vector<std::unique_ptr<RawCSVField[]>> _owned_blocks = {};
-            // _owned_blocks may reallocate, but RawCSVField[] allocations stay put;
-            // _blocks holds raw pointers to those allocations, so readers remain valid.
 
-            /** Number of items in the current buffer */
+            /** Number of items in the current block */
             size_t _current_buffer_size = 0;
 
             /** Current block index */
             size_t _current_block = 0;
 
-            /** Number of block slots available in _blocks */
-            size_t _block_capacity = 0;
-
-            /** Pointer to the current empty field */
+            /** Pointer to the next empty field slot in the current block */
             RawCSVField* _back = nullptr;
 
             /** Allocate a new page of memory */
@@ -156,7 +146,7 @@ namespace csv {
             std::shared_ptr<void> _data = nullptr;
             csv::string_view data = "";
 
-            internals::CSVFieldList fields;
+            internals::RawCSVFieldList fields;
 
             /** Cached unescaped field values for fields with escaped quotes.
              *  Thread-safe lazy initialization using double-check locking.
@@ -170,6 +160,11 @@ namespace csv {
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
             internals::WhitespaceMap ws_flags;
+
+            /** True when at least one whitespace trim character is configured.
+             *  Used by get_field_impl() to skip trim work in the common no-trim case.
+             */
+            bool has_ws_trimming = false;
         };
 
         using RawCSVDataPtr = std::shared_ptr<RawCSVData>;

@@ -24,8 +24,6 @@
   *  in the single header version
   */
 #define CSV_INLINE
-
-#pragma once
 #include <type_traits>
 
 #if defined(__EMSCRIPTEN__)
@@ -55,14 +53,6 @@
     #define CSV_PURE
     #define CSV_PRIVATE
     #define CSV_NON_NULL(...)
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
-    #define CSV_UNREACHABLE() __builtin_unreachable()
-#elif defined(_MSC_VER)
-    #define CSV_UNREACHABLE() __assume(0)
-#else
-    #define CSV_UNREACHABLE() abort()
 #endif
 
 // This library uses C++ exceptions for error reporting in public APIs.

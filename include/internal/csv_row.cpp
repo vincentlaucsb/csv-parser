@@ -7,6 +7,23 @@
 #include "csv_row.hpp"
 
 namespace csv {
+    namespace internals {
+        csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept
+        {
+            // Lazy trim only when requested
+            size_t start = 0;
+            while (start < sv.size() && ws_flags[sv[start] + CHAR_OFFSET]) {
+                ++start;
+            }
+
+            size_t end = sv.size();
+            while (end > start && ws_flags[sv[end - 1] + CHAR_OFFSET]) {
+                --end;
+            }
+
+            return sv.substr(start, end - start);
+        }
+    }
 
     /** Return a CSVField object corrsponding to the nth value in the row.
      *

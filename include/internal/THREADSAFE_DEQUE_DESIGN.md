@@ -42,7 +42,7 @@ The producer is intentionally not always running.
 
 ### 1. **Early Guard Check in `wait()`**
 
-**Location:** [thread_safe_deque.hpp:85](thread_safe_deque.hpp#L85)
+**Location:** [thread_safe_deque.hpp](thread_safe_deque.hpp)
 
 ```cpp
 void wait() {
@@ -167,7 +167,7 @@ The atomic store has memory ordering but does **not** prevent the lost-wakeup wi
 
 ## Batching Predicate: The `notify_size` Parameter
 
-**Location:** [thread_safe_deque.hpp:27](thread_safe_deque.hpp#L27)
+**Location:** [thread_safe_deque.hpp](thread_safe_deque.hpp)
 
 ```cpp
 ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
@@ -247,17 +247,17 @@ t=5:   Consumer: pop_front() → returns row1
 
 | Component | Where | What |
 |-----------|-------|------|
-| **Consumer** | [csv_reader.cpp:310](../csv_reader.cpp#L310) | `read_row()` – main thread |
-| **Consumer** | [csv_reader.cpp:313-315](../csv_reader.cpp#L313) | Check empty, is_waitable, call wait() |
-| **Producer** | [csv_reader.cpp:261](../csv_reader.cpp#L261) | `read_csv()` – worker thread |
-| **Producer** | [csv_reader.cpp:274](../csv_reader.cpp#L274) | notify_all() at start |
-| **Producer** | [csv_reader.cpp:278](../csv_reader.cpp#L278) | parser->next() pushes rows |
-| **Producer** | [csv_reader.cpp:291](../csv_reader.cpp#L291) | kill_all() at end |
-| **Queue** | [thread_safe_deque.hpp:57](thread_safe_deque.hpp#L57) | push_back() – producer |
-| **Queue** | [thread_safe_deque.hpp:67](thread_safe_deque.hpp#L67) | pop_front() – consumer |
-| **Queue** | [thread_safe_deque.hpp:84](thread_safe_deque.hpp#L84) | wait() – consumer |
-| **Queue** | [thread_safe_deque.hpp:108](thread_safe_deque.hpp#L108) | notify_all() – producer |
-| **Queue** | [thread_safe_deque.hpp:115](thread_safe_deque.hpp#L115) | kill_all() – producer |
+| **Consumer** | [csv_reader.cpp](../csv_reader.cpp) | `read_row()` flow on main thread |
+| **Consumer** | [csv_reader.cpp](../csv_reader.cpp) | Empty/is_waitable checks and wait() call |
+| **Producer** | [csv_reader.cpp](../csv_reader.cpp) | `read_csv()` worker lifecycle |
+| **Producer** | [csv_reader.cpp](../csv_reader.cpp) | notify_all() at cycle start |
+| **Producer** | [csv_reader.cpp](../csv_reader.cpp) | parser->next() push cycle |
+| **Producer** | [csv_reader.cpp](../csv_reader.cpp) | kill_all() terminal signal |
+| **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | push_back() producer path |
+| **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | pop_front() consumer path |
+| **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | wait() condition protocol |
+| **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | notify_all() wake-up state |
+| **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | kill_all() terminal publication |
 
 ---
 

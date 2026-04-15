@@ -2,6 +2,9 @@
 
 > **`AGENTS.md` is the source of truth.** This file is a bullet-point summary only. Always load and follow `AGENTS.md` — it takes precedence over anything here.
 
+## Maintenance Rule
+- When `AGENTS.md` changes, update both `CLAUDE.md` and root `ARCHITECTURE.md` to keep guidance and architecture index references aligned.
+
 ## single_include/csv.hpp
 - Non-functional shim — do **not** compile against it
 - For single-header use: generate `build/.../single_include_generated/csv.hpp` via `generate_single_header` target

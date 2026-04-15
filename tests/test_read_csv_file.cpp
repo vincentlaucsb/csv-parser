@@ -7,6 +7,7 @@
 #include <sstream>
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
 
 using namespace csv;
 using std::vector;
@@ -214,5 +215,51 @@ TEST_CASE("Trailing newline at EOF (ifstream/mmap)", "[trailing_newline_ifstream
     REQUIRE(write_and_count("A,B,C\r\n1,2,3\r\n") == 2);  // CRLF trailing newline
     REQUIRE(write_and_count("A,B,C\n1,2,3\n")     == 2);  // LF trailing newline
     REQUIRE(write_and_count("A,B,C\n1,2,3")        == 2);  // no trailing newline (control)
+}
+
+TEST_CASE("Trim regression: quoted unescape and bounded field slice", "[read_csv_trim][regression]") {
+    FileGuard cleanup("./tests/data/tmp_trim_regression.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "A,B,C,D\n"
+            << "x,\"  a\"\"b  \",y,z\n"
+            << "  left   ,   mid   ,   right   ,   tail   \n";
+    }
+
+    CSVFormat format;
+    format.header_row(0)
+        .trim({ ' ', '\t' })
+        .delimiter(',');
+
+    auto validate_reader = [&](CSVReader& reader) {
+        CSVRow row;
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row.size() == 4);
+        REQUIRE(row["A"].get<std::string>() == "x");
+        REQUIRE(row["B"].get<std::string>() == "a\"b");
+        REQUIRE(row["C"].get<std::string>() == "y");
+        REQUIRE(row["D"].get<std::string>() == "z");
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row.size() == 4);
+        REQUIRE(row["A"].get<std::string>() == "left");
+        REQUIRE(row["B"].get<std::string>() == "mid");
+        REQUIRE(row["C"].get<std::string>() == "right");
+        REQUIRE(row["D"].get<std::string>() == "tail");
+
+        REQUIRE_FALSE(reader.read_row(row));
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
 }
 #endif

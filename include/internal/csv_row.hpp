@@ -51,6 +51,9 @@ namespace csv {
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
         std::string json_escape_string(csv::string_view s) noexcept;
+
+        // Inside CSVField::get() or wherever you materialize the value
+        csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept;
     }
 
     /**
@@ -420,7 +423,7 @@ namespace csv {
 
             const size_t field_index = this->fields_start + index;
             auto field = _data->fields[field_index];
-            auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start);
+            auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start, field.length);
 
             if (field.has_double_quote) {
                 auto& value = _data->double_quote_fields[field_index];
@@ -441,10 +444,15 @@ namespace csv {
                     }
                 );
 
-                return csv::string_view(value);
+                if (_data->has_ws_trimming)
+                    return internals::get_trimmed(csv::string_view(value), _data->ws_flags);
+                return value;
+            }
+            else if (_data->has_ws_trimming) {
+                field_str = internals::get_trimmed(field_str, _data->ws_flags);
             }
 
-            return field_str.substr(0, field.length);
+            return field_str;
         }
 
         /** Retrieve a string view corresponding to the specified index */

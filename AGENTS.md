@@ -2,7 +2,7 @@
 
 Architectural overview for AI assistants working with this codebase.
 
-> **Maintenance rule:** Whenever this file is changed, `CLAUDE.md` in the same directory must be updated to reflect the changes. `CLAUDE.md` is a bullet-point summary of this file and must stay in sync.
+> **Maintenance rule:** Whenever this file is changed, update both `CLAUDE.md` and `ARCHITECTURE.md` in the same directory to reflect relevant changes. `CLAUDE.md` is a bullet-point summary and `ARCHITECTURE.md` is the top-level architecture index; both must stay in sync with this guidance.
 
 ## Critical: single_include/csv.hpp Is A Shim
 

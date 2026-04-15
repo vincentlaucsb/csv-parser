@@ -123,6 +123,7 @@ namespace csv {
             ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {
                 const char d = internals::infer_delimiter(parse_flags);
                 _simd_sentinels = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
+                _has_ws_trimming = std::any_of(ws_flags.begin(), ws_flags.end(), [](bool b) { return b; });
             }
 
             virtual ~IBasicCSVParser() {}
@@ -155,7 +156,7 @@ namespace csv {
             CSVRow current_row;
             RawCSVDataPtr data_ptr = nullptr;
             ColNamesPtr _col_names = nullptr;
-            CSVFieldList* fields = nullptr;
+            RawCSVFieldList* fields = nullptr;
             int field_start = UNINITIALIZED_FIELD;
             size_t field_length = 0;
 
@@ -190,6 +191,11 @@ namespace csv {
              *  be trimmed
              */
             WhitespaceMap _ws_flags;
+
+            /** True when at least one whitespace trim character is configured.
+             *  Used to skip trim loops entirely in the common no-trim case.
+             */
+            bool _has_ws_trimming = false;
             bool quote_escape = false;
             bool field_has_double_quote = false;
 

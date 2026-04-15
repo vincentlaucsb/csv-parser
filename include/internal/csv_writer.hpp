@@ -158,7 +158,7 @@ namespace csv {
      *
      *  @param  precision   Number of decimal places
      */
-#ifndef __clang___
+#ifndef __clang__
     inline static void set_decimal_places(int precision) {
         internals::DECIMAL_PLACES = precision;
     }
