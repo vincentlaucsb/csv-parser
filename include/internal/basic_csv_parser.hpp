@@ -274,8 +274,8 @@ namespace csv {
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr,
                 std::string head = {}
-            ) : IBasicCSVParser(format, col_names), source_(source),
-                leftover_(std::move(head)) {}
+            ) : IBasicCSVParser(format, col_names), leftover_(std::move(head)),
+                source_(source) {}
 
             StreamParser(
                 TStream& source,
