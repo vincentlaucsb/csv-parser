@@ -158,14 +158,16 @@ namespace csv {
     using invoke_result_t = typename std::result_of<F(Args...)>::type;
 #endif
 
-    // Resolves g++ bug with regard to constexpr methods
+    // Resolves g++ bug with regard to constexpr methods.
+    // Keep this gated to C++17+, since C++11/14 pedantic mode rejects constexpr
+    // non-static members when the enclosing class is non-literal.
     // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
-#if defined __GNUC__ && !defined __clang__
-    #if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
+#if defined(__GNUC__) && !defined(__clang__)
+    #if defined(CSV_HAS_CXX17) && (((__GNUC__ == 7) && (__GNUC_MINOR__ >= 2)) || (__GNUC__ >= 8))
         #define CONSTEXPR constexpr
     #endif
-    #else
-        #ifdef CSV_HAS_CXX17
+#else
+    #ifdef CSV_HAS_CXX17
         #define CONSTEXPR constexpr
     #endif
 #endif
