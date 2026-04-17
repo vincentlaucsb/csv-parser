@@ -10,15 +10,15 @@
 #if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
 #include <mutex>
 #endif
-#ifdef CSV_HAS_CXX20
-#include <ranges>
-#endif
 #include <unordered_set>
 #include <string>
 #include <sstream>
 #include <vector>
 
 #include "common.hpp"
+#ifdef CSV_HAS_CXX20
+#include <ranges>
+#endif
 #include "data_type.hpp"
 #include "parse_hex.hpp"
 #include "raw_csv_data.hpp"

@@ -17,4 +17,5 @@ Notes:
 - Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
 - Public API comments should remain user-facing and avoid references to internal helper/function details.
 - Private member naming should prefer trailing underscores; when editing mixed-style code, normalize the touched region toward that convention.
+- Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md and CLAUDE.md for details.
 
