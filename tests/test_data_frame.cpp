@@ -106,8 +106,18 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     REQUIRE(row["name"].get<std::string>() == "Bob");
     REQUIRE_FALSE(frame.try_get("missing", row));
 
+    // Positional try_get on keyed DataFrame before edits: row_edits stays nullptr.
+    csv::DataFrameRow<std::string> positional_row;
+    REQUIRE(frame.try_get(1, positional_row));
+    REQUIRE(positional_row["name"].get<std::string>() == "Bob");
+    REQUIRE_FALSE(frame.try_get(99, positional_row));
+
     frame.set_at(0, "name", "Carly");
     REQUIRE(frame.get("1", "name") == "Carly");
+
+    // Positional try_get on keyed DataFrame after edits: row_edits points to overlay.
+    REQUIRE(frame.try_get(0, positional_row));
+    REQUIRE(positional_row["name"].get<std::string>() == "Carly");
     
     // Verify edits are visible through all access methods
     REQUIRE(frame.at(0)["name"].get<std::string>() == "Carly");
@@ -135,6 +145,12 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     }
     REQUIRE(found_carly_const);
     REQUIRE(found_bob_const);
+
+    // Const positional try_get should also surface the keyed edit overlay.
+    csv::DataFrameRow<std::string> const_positional_row;
+    REQUIRE(cframe.try_get(0, const_positional_row));
+    REQUIRE(const_positional_row["name"].get<std::string>() == "Carly");
+    REQUIRE_FALSE(cframe.try_get(99, const_positional_row));
     
     // Verify DataFrameRow stores key and can be converted to vector
     auto row_0 = frame.at(0);

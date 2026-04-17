@@ -40,6 +40,7 @@
 - **Do not reference internal functions in public API comments** — public API docs should remain user-facing; internal details belong in internal docs
 - **`CSVReader` is non-copyable and non-movable** — the preferred sharing/transfer idiom is `std::unique_ptr<CSVReader>`
 - **Prefer trailing underscore for private members** — when touching mixed-style code, normalize the edited region toward names like `source_` and `leftover_`
+- **Prefer user-friendly API constraints** — do not narrow template constraints unless required for correctness, safety, or a measured performance win; if common containers/ranges already work, keep them accepted
 
 ## Tests
 See `tests/AGENTS.md` for full test strategy, checklist, and conventions.

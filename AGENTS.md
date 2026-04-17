@@ -78,5 +78,6 @@ ThreadSafeDeque<CSVRow>
 7. **Don't reference internal functions in public API comments.** Public API docs should describe user-visible behavior and contracts; internal helper/function details belong in internal docs.
 8. **`CSVReader` is non-copyable and non-movable.** The preferred idiom for sharing or transferring a reader is `std::unique_ptr<CSVReader>`. Document this at any API surface that might tempt callers to copy or move.
 9. **Prefer trailing underscore for private members** (for example `source_`, `leftover_`). When you touch code with mixed private-member naming styles, normalize the edited region toward trailing underscores instead of introducing more leading-underscore or unsuffixed names.
+10. **Prefer user-friendly API constraints.** Do not narrow template constraints unless required for correctness, safety, or a measured performance win. If an implementation already handles common standard-library containers/ranges correctly, keep those inputs accepted instead of over-constraining APIs for aesthetic purity.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.

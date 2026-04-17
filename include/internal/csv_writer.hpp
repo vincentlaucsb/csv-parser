@@ -290,11 +290,11 @@ namespace csv {
         }
 
         #ifdef CSV_HAS_CXX20
-        /** Write a view-like range of string-like fields as one delimited row.
+        /** Write a range of string-like fields as one delimited row.
          *
-         *  This intentionally targets C++20 view pipelines such as
-         *  `CSVRow::to_string_view_range()` rather than all string containers,
-         *  which are already handled by the container overload below.
+         *  Accepts any input_range whose elements are convertible to csv::string_view.
+         *  This includes std::vector<std::string>, std::vector<csv::string_view>,
+         *  std::array, C++20 views, etc.
          */
         template<std::ranges::input_range Range>
         DelimWriter& operator<<(Range&& container)
@@ -304,17 +304,11 @@ namespace csv {
             return *this;
         }
         #else
-        /** Format a sequence of strings and write to CSV according to RFC 4180
+        /** Write a range of string-like fields as one delimited row.
          *
-         *  @tparam Range A range type with begin/end iterators 
-         *               (e.g., std::vector, std::array, std::deque, or C++20 range view).
-         *               Automatically selects the optimal path based on C++ version.
-         *
-         *  @warning This does not check to make sure row lengths are consistent
-         *
-         *  @param[in]  record          Sequence of strings to be formatted
-         *
-         *  @return  The current DelimWriter instance (allowing for operator chaining)
+         *  Accepts any input_range whose elements are convertible to csv::string_view.
+         *  This includes std::vector<std::string>, std::vector<csv::string_view>,
+         *  std::array, C++20 views, etc.
          */
         template<typename Range>
         typename std::enable_if<
