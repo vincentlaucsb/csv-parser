@@ -81,9 +81,10 @@ namespace csv {
      *  from the internal queue. Rows consumed by one interface are not visible to another.
      *  There is no rewind or seek.
      *
-     *  **Ownership and sharing:** CSVReader is neither copyable nor movable because it
-     *  manages a live parsing state (worker thread, internal queue, and an optional stream
-     *  reference). To share or transfer a reader, wrap it in a `std::unique_ptr<CSVReader>`:
+    *  **Ownership and sharing:** CSVReader is non-copyable and move-enabled. It manages
+    *  live parsing state (worker thread, internal queue, and optional owned stream), so
+    *  ownership transfer should be explicit. To share or transfer a reader, wrap it in a
+    *  `std::unique_ptr<CSVReader>`:
      *  @code{.cpp}
      *  auto reader = std::make_unique<csv::CSVReader>("data.csv");
      *  process(std::move(reader));   // transfer ownership
@@ -190,7 +191,8 @@ namespace csv {
          * through this implementation.
          *
          *  @tparam TStream An input stream deriving from `std::istream`
-         *  @note CSV format guessing works differently here - must manually specify dialect
+         *  @note Delimiter/header guessing is still available by default via CSVFormat::guess_csv().
+         *        For deterministic parsing of known dialects, pass an explicit CSVFormat.
          *  @note On native builds, tests that validate I/O behavior should cover both constructors
          *  @see MmapParser for the memory-mapped alternative
          */
@@ -216,9 +218,80 @@ namespace csv {
         ///@}
 
         CSVReader(const CSVReader&) = delete;             ///< Not copyable
-        CSVReader(CSVReader&&) = delete;                  ///< Not movable
         CSVReader& operator=(const CSVReader&) = delete;  ///< Not copyable
-        CSVReader& operator=(CSVReader&&) = delete;       ///< Not movable
+
+        /** Move constructor.
+         *
+         * Required so C++11 builds can return CSVReader by value from helpers like
+         * csv::parse()/csv::parse_unsafe(), where copy elision is not guaranteed.
+         *
+         * Any active worker on the source is joined before moving parser state to
+         * avoid a thread continuing to run against the source object's address.
+         */
+        CSVReader(CSVReader&& other) noexcept :
+            _format(std::move(other._format)),
+            col_names(std::move(other.col_names)),
+            parser(std::move(other.parser)),
+            records(std::move(other.records)),
+            owned_stream(std::move(other.owned_stream)),
+            n_cols(other.n_cols),
+            _n_rows(other._n_rows),
+            header_trimmed(other.header_trimmed),
+            _chunk_size(other._chunk_size),
+            _read_requested(other._read_requested),
+            read_csv_exception(other.take_read_csv_exception()) {
+#if CSV_ENABLE_THREADS
+            if (other.read_csv_worker.joinable()) {
+                other.read_csv_worker.join();
+            }
+#endif
+
+            other.n_cols = 0;
+            other._n_rows = 0;
+            other.header_trimmed = false;
+            other._read_requested = false;
+            other._chunk_size = internals::ITERATION_CHUNK_SIZE;
+        }
+
+        /** Move assignment.
+         *
+         * Joins active workers on both sides before transferring parser state.
+         */
+        CSVReader& operator=(CSVReader&& other) noexcept {
+            if (this == &other) {
+                return *this;
+            }
+
+#if CSV_ENABLE_THREADS
+            if (this->read_csv_worker.joinable()) {
+                this->read_csv_worker.join();
+            }
+            if (other.read_csv_worker.joinable()) {
+                other.read_csv_worker.join();
+            }
+#endif
+
+            this->_format = std::move(other._format);
+            this->col_names = std::move(other.col_names);
+            this->parser = std::move(other.parser);
+            this->records = std::move(other.records);
+            this->owned_stream = std::move(other.owned_stream);
+            this->n_cols = other.n_cols;
+            this->_n_rows = other._n_rows;
+            this->header_trimmed = other.header_trimmed;
+            this->_chunk_size = other._chunk_size;
+            this->_read_requested = other._read_requested;
+            this->read_csv_exception = other.take_read_csv_exception();
+
+            other.n_cols = 0;
+            other._n_rows = 0;
+            other.header_trimmed = false;
+            other._read_requested = false;
+            other._chunk_size = internals::ITERATION_CHUNK_SIZE;
+
+            return *this;
+        }
+
         ~CSVReader() {
 #if CSV_ENABLE_THREADS
             if (this->read_csv_worker.joinable()) {

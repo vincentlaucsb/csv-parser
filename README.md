@@ -22,7 +22,7 @@
       - [Avoid cloning with FetchContent](#avoid-cloning-with-fetchcontent)
   - [Features \& Examples](#features--examples)
     - [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
-      - [Memory-Mapped Files vs. Streams](#memory-mapped-files-vs-streams)
+    - [Memory-Mapped I/O and Streams](#memory-mapped-io-and-streams)
     - [Indexing by Column Names](#indexing-by-column-names)
     - [Numeric Conversions](#numeric-conversions)
     - [Converting to JSON](#converting-to-json)
@@ -33,6 +33,7 @@
     - [Parsing an In-Memory String](#parsing-an-in-memory-string)
     - [DataFrames for Random Access and Updates](#dataframes-for-random-access-and-updates)
     - [Writing CSV Files](#writing-csv-files)
+      - [C++20 Ranges: Efficient writing for `CSVRow`, `DataFrameRow`, and STL containers](#c20-ranges-efficient-writing-for-csvrow-dataframerow-and-stl-containers)
 
 ## Motivation
 There's plenty of other CSV parsers in the wild, but I had a hard time finding what I wanted. Inspired by Python's `csv` module, I wanted a library with **simple, intuitive syntax**. Furthermore, I wanted support for special use cases such as calculating statistics on very large files. Thus, this library was created with these following goals in mind.
@@ -226,40 +227,18 @@ while (reader.read_row(row)) {
 ...
 ```
 
-#### Memory-Mapped Files vs. Streams
-By default, passing in a file path string to the constructor of `CSVReader`
-causes memory-mapped IO to be used. In general, this option is the most
-performant.
-
-However, `std::ifstream` may also be used as well as in-memory sources via `std::stringstream`.
-
-**Note**: Currently CSV guessing only works for memory-mapped files. The CSV dialect
-must be manually defined for other sources.
-
 **⚠️ IMPORTANT - Iterator Type and Memory Safety**:  
 `CSVReader::iterator` is an **input iterator** (`std::input_iterator_tag`), NOT a forward iterator.
 This design enables streaming large CSV files (50+ GB) without loading them entirely into memory.
 
-**Why Forward Iterator Algorithms Don't Work**:
-- As the iterator advances, underlying data chunks are automatically freed to bound memory usage
-- Algorithms like `std::max_element` require ForwardIterator semantics (multi-pass, hold multiple positions)
-- Using such algorithms directly on `CSVReader::iterator` will cause **heap-use-after-free** when the
-  algorithm tries to access iterators pointing to already-freed data chunks
-- While it may appear to work with small files that fit in a single chunk, it WILL fail with larger files
+If you need to get around this, I suggest either loading all rows into an STL container, e.g. `std::vector<CSVRow>`, or using the `DataFrame` class which supports row and column random access.
 
-**✅ Correct Approach for ForwardIterator Algorithms**:
-```cpp
-// Copy rows to vector first (enables multi-pass iteration)
-CSVReader reader("large_file.csv");
-std::vector<CSVRow> rows(reader.begin(), reader.end());
+### Memory-Mapped I/O and Streams
+When passing in a file path to `CSVReader`, memory-mapped I/O is used as it is the most performant.
 
-// Now safely use any algorithm requiring ForwardIterator
-auto max_row = std::max_element(rows.begin(), rows.end(), 
-    [](const CSVRow& a, const CSVRow& b) { 
-        return a["salary"].get<double>() < b["salary"].get<double>(); 
-    });
-```
+However, most finite steams implementing `std::istream`, such as `std::stringstream` and `std::ifstream` are supported as well as non-seekable streams. `CSVReader` is capable of taking a stream by reference, although it is recommended to pass an owning `std::unique_ptr<std::istream>` for memory safety.
 
+Both memory-mapped and `std::istream` paths benefit from having a background parsing thread, unless disabled.
 
 ```cpp
 CSVFormat format;
@@ -483,7 +462,7 @@ for (auto& r: rows) {
 
 ### DataFrames for Random Access and Updates
 
-For files that fit comfortably in memory, `DataFrame` provides fast and powerful keyed access, in-place updates, and grouping operations—all built on the same high-performance parser. It uses the same parsing pipeline as `CSVReader` but retains the results in memory for random access.
+For files that fit comfortably in memory, `DataFrame` provides fast and powerful keyed access, in-place updates, and grouping operations—all built on the same high-performance parser. It uses the same parsing pipeline as `CSVReader` but retains the results in memory for both row-wise and column-wise random access.
 
 **Creating a DataFrame with Keyed Access**
 ```cpp
@@ -590,17 +569,8 @@ for (auto& row : df) {
 }
 ```
 
-**When to Use DataFrame vs. CSVReader:**
-- **Use CSVReader** for: Large files (>1GB), streaming pipelines, minimal memory footprint
-- **Use DataFrame** for: Files that fit in RAM, frequent lookups/updates, grouping operations, data that needs random access
-
-**When Not to Use DataFrame:**
-- Extremely large files that do not fit in RAM
-- Streaming pipelines where you only need single-pass access
-
-Both options deliver the same parsing performance—DataFrame simply keeps the results in memory for convenience.
-
 ### Writing CSV Files
+Writing CSVs is powered by the generic `DelimWriter`, with helpful factory functions like `make_csv_writer()` and `make_tsv_writer()` that cut down on boilerplate.
 
 ```cpp
 # include "csv.hpp"
@@ -627,5 +597,9 @@ writer << make_tuple(1, 2.0, "Three");
 ...
 ```
 
-You can pass in arbitrary types into `DelimWriter` by defining a conversion function
-for that type to `std::string`.
+You can pass in arbitrary types into `DelimWriter` by defining a conversion function for that type to `std::string`.
+
+#### C++20 Ranges: Efficient writing for `CSVRow`, `DataFrameRow`, and STL containers
+If compiling with C++20 or later, the `DelimWriter` uses efficient `std::ranges` over string views for zero-copy writing.
+
+You can still serialize `CSVRow` or `DataFrameRow` in older versions, but you will have to use the `std::vector<std::string>()` conversion operator.

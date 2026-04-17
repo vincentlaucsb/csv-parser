@@ -38,7 +38,7 @@
 - **Do not delete or simplify comments** unless trivially obvious or factually wrong — comments encode concurrency invariants and bug history
 - **Compatibility macros defined in `common.hpp` MUST be referenced only after including `common.hpp`.** Any macro (such as `CSV_HAS_CXX20`) that is defined in `common.hpp` must not be used or checked before `#include "common.hpp"` appears in the file. This ensures feature detection and conditional compilation work as intended across all supported compilers and build modes.
 - **Do not reference internal functions in public API comments** — public API docs should remain user-facing; internal details belong in internal docs
-- **`CSVReader` is non-copyable and non-movable** — the preferred sharing/transfer idiom is `std::unique_ptr<CSVReader>`
+- **`CSVReader` is non-copyable and move-enabled** — prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when handing off parser ownership
 - **Prefer trailing underscore for private members** — when touching mixed-style code, normalize the edited region toward names like `source_` and `leftover_`
 - **Prefer user-friendly API constraints** — do not narrow template constraints unless required for correctness, safety, or a measured performance win; if common containers/ranges already work, keep them accepted
 
