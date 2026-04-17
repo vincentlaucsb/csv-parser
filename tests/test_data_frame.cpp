@@ -441,3 +441,67 @@ TEST_CASE("DataFrame: edit overlay and column extraction", "[data_frame]") {
 
     REQUIRE_THROWS_AS(frame.column("missing"), std::runtime_error);
 }
+
+TEST_CASE("DataFrame: set_at error handling", "[data_frame]") {
+    SECTION("throws on non-keyed DataFrame") {
+        auto input = make_people_stream();
+        CSVReader reader(input);
+        DataFrame frame(reader);  // no key column
+
+        REQUIRE_THROWS_AS(frame.set_at(0, "name", "X"), std::runtime_error);
+    }
+
+    SECTION("throws on out-of-range row index") {
+        auto input = make_people_stream();
+        CSVReader reader(input);
+        DataFrame frame(reader, "id");
+
+        REQUIRE_THROWS_AS(frame.set_at(99, "name", "X"), std::out_of_range);
+    }
+
+    SECTION("throws on unknown column") {
+        auto input = make_people_stream();
+        CSVReader reader(input);
+        DataFrame frame(reader, "id");
+
+        REQUIRE_THROWS_AS(frame.set_at(0, "nonexistent", "X"), std::out_of_range);
+    }
+}
+
+TEST_CASE("DataFrame: set_at overwrites previous edit", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame frame(reader, "id");
+
+    // First edit
+    frame.set_at(0, "name", "First");
+    REQUIRE(frame.get("1", "name") == "First");
+
+    // Second edit to same cell overwrites the first
+    frame.set_at(0, "name", "Second");
+    REQUIRE(frame.get("1", "name") == "Second");
+
+    // Other cells are unaffected
+    REQUIRE(frame.get("1", "value") == "30");
+    REQUIRE(frame.get("2", "name") == "Bob");
+}
+
+TEST_CASE("DataFrame: set_at independent edits across rows and columns", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame frame(reader, "id");
+
+    frame.set_at(0, "name", "NewName1");
+    frame.set_at(0, "value", "99");
+    frame.set_at(1, "name", "NewName2");
+
+    REQUIRE(frame.get("1", "name") == "NewName1");
+    REQUIRE(frame.get("1", "value") == "99");
+    REQUIRE(frame.get("2", "name") == "NewName2");
+    REQUIRE(frame.get("2", "value") == "20");  // unedited
+
+    // column() extraction reflects all edits
+    auto names = frame.column("name");
+    REQUIRE(names[0] == "NewName1");
+    REQUIRE(names[1] == "NewName2");
+}

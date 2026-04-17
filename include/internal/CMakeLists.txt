@@ -20,6 +20,7 @@ target_sources(csv
 		csv_utility.cpp
 		csv_utility.hpp
 		csv_writer.hpp
+		csv_writer_extensions.hpp
 		data_type.hpp
 		raw_csv_data.hpp
 		raw_csv_data.cpp

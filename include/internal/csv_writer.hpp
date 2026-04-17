@@ -298,13 +298,12 @@ namespace csv {
          */
         template<std::ranges::input_range Range>
         DelimWriter& operator<<(Range&& container)
-            requires std::ranges::view<std::remove_cvref_t<Range>>
+            requires std::ranges::input_range<Range>
                 && std::convertible_to<std::ranges::range_reference_t<Range>, csv::string_view> {
             write_range_impl(container);
             return *this;
         }
-        #endif
-
+        #else
         /** Format a sequence of strings and write to CSV according to RFC 4180
          *
          *  @tparam Range A range type with begin/end iterators 
@@ -328,6 +327,7 @@ namespace csv {
             write_range_impl(record);
             return *this;
         }
+#endif
 
         /** @copydoc operator<< */
         template<typename... T>

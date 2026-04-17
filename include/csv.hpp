@@ -34,6 +34,7 @@ SOFTWARE.
 #include "internal/csv_stat.hpp"
 #include "internal/csv_utility.hpp"
 #include "internal/csv_writer.hpp"
+#include "internal/csv_writer_extensions.hpp"
 
 /** INSERT_CSV_SOURCES **/
 

@@ -1,10 +1,10 @@
-#include <stdio.h> // For remove()
 #include <fstream>
 #include <sstream>
 #include <queue>
 #include <list>
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
 
 using namespace csv;
 using std::queue;
@@ -64,23 +64,19 @@ namespace {
 
 #ifndef __EMSCRIPTEN__
     struct FileOutput {
-        std::string path;
+        FileGuard guard;
         std::ofstream stream;
 
-        FileOutput() {
+        FileOutput() : guard([]() {
             static int counter = 0;
-            path = "test_write_csv_output_" + std::to_string(++counter) + ".csv";
-            stream.open(path, std::ios::out | std::ios::trunc);
-        }
-
-        ~FileOutput() {
-            stream.close();
-            std::remove(path.c_str());
+            return "test_write_csv_output_" + std::to_string(++counter) + ".csv";
+        }()) {
+            stream.open(guard.filename, std::ios::out | std::ios::trunc);
         }
 
         std::string str() {
             stream.flush();
-            std::ifstream in(path, std::ios::in);
+            std::ifstream in(guard.filename, std::ios::in);
             std::stringstream buffer;
             buffer << in.rdbuf();
             return buffer.str();
@@ -118,6 +114,11 @@ TEMPLATE_TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]", StringOutput, 
     SECTION("Quote Minimal") {
         writer << std::array<std::string, 1>({ "This should not be quoted" });
         correct << "This should not be quoted";
+    }
+    
+    SECTION("Single Column") {
+        writer << std::array<std::string, 1>({ "Single column value" });
+        correct << "Single column value";
     }
 
     correct << std::endl;
@@ -232,3 +233,23 @@ TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
 }
 #endif
 //! [CSV Writer Tuple Example]
+
+//! [CSV Writer CSVRow Example]
+#ifdef CSV_HAS_CXX20
+TEST_CASE("Write CSVRow w/ Ranges", "[test_write_csv_row_ranges]") {
+    std::stringstream output, correct_output;
+    auto csv_writer = make_csv_writer(output);
+    auto csv_reader = "A,B,C\r\n"
+        "123,\"234\"\"345\",456\r\n"_csv_no_header;
+
+    for (auto& row : csv_reader) {
+        csv_writer << row;
+    }
+
+    correct_output << "A,B,C" << std::endl
+        << "123,\"234\"\"345\",456" << std::endl;
+
+    REQUIRE(output.str() == correct_output.str());
+}
+#endif
+//! [CSV Writer CSVRow Example]

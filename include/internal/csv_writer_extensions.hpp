@@ -7,8 +7,8 @@
 #include "csv_writer.hpp"
 #include "data_frame.hpp"
 
+#ifdef CSV_HAS_CXX20
 namespace csv {
-    #ifdef CSV_HAS_CXX20
     template<class OutputStream, char Delim, char Quote, bool Flush>
     DelimWriter<OutputStream, Delim, Quote, Flush>& operator<< 
         (DelimWriter<OutputStream, Delim, Quote, Flush>& writer, const CSVRow& row) {
@@ -21,5 +21,5 @@ namespace csv {
         (DelimWriter<OutputStream, Delim, Quote, Flush>& writer, const DataFrameRow<KeyType>& row) {
         return writer << row.to_sv_range();
     }
-    #endif
 }
+#endif

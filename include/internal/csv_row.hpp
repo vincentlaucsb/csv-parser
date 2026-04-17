@@ -70,7 +70,7 @@ namespace csv {
         constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
         operator std::string() const {
-            return std::string("<CSVField> ") + std::string(this->sv);
+            return std::string(this->sv);
         }
 
         /** Returns the value casted to the requested type, performing type checking before.
@@ -554,16 +554,6 @@ namespace csv {
     {
         return this->sv == other;
     }
-}
-
-/** Stream insertion helper for `CSVField`.
- *
- * Writes the textual field value to an output stream. This is mainly a convenience
- * for logging/debug output and simple formatting pipelines.
- */
-inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
-    os << std::string(value);
-    return os;
 }
 
 #undef CSV_INIT_WITH_OPTIONAL_DCL

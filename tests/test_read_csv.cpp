@@ -134,14 +134,14 @@ TEST_CASE( "Test Escaped Quote", "[read_csv_quote]" ) {
             "123,\"234\"\"345\",456\r\n"
             "123,\"234\"345\",456\r\n"  // Unescaped single quote (not strictly valid)
             "123,\"234\"345\",\"456\"" // Quoted field at the end
-            "123, \"234\"345\",\"456\"" // TODO: Come up with a comment
+            "123, \"234\"345\",\"456\"" // Quoted field w/ leading whitespace
         ),
         (
             "\"A\",\"B\",\"C\"\r\n" // Header row
             "123,\"234\"\"345\",456\r\n"
             "123,\"234\"345\",456\r\n" // Unescaped single quote (not strictly valid)
             "123,\"234\"345\",\"456\"" // Quoted field at the end
-            "123,\"234\"345\",\"456\""
+            "123,\"234\"345\",\"456\"" // Quoted field w/ leading whitespace
         )
     );
     

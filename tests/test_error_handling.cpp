@@ -16,6 +16,13 @@
 using namespace csv;
 
 #ifndef __EMSCRIPTEN__
+TEST_CASE("std::unique_ptr<std::istream> must not be null", "[error_handling][istream]") {
+    SECTION("Null unique_ptr throws std::invalid_argument") {
+        std::unique_ptr<std::istream> ptr;
+        REQUIRE_THROWS_AS(CSVReader(std::move(ptr)), std::invalid_argument);
+    }
+}
+
 TEST_CASE("Mmap errors throw catchable std::system_error", "[error_handling][mmap]") {
     SECTION("Non-existent file throws catchable exception") {
         bool caught_as_exception = false;

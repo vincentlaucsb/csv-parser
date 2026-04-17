@@ -150,3 +150,79 @@ TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
         REQUIRE(row_count == 2);
     }
 }
+
+TEST_CASE("StringViewStreamBuf seek coverage", "[stream_sources][string_view_stream]") {
+    // StringViewStreamBuf::seekoff and seekpos stay uncovered when tests only do
+    // sequential reads via parse_unsafe(). These tests exercise every branch of
+    // seekoff/seekpos directly so coverage tools can see them.
+    using csv::internals::StringViewStreamBuf;
+
+    const std::string data = "ABCDE";
+    StringViewStreamBuf buf(data);
+    std::istream stream(&buf);
+
+    SECTION("seekoff beg+0 is start") {
+        auto pos = stream.seekg(0, std::ios::beg).tellg();
+        REQUIRE(pos == std::streampos(0));
+        REQUIRE(stream.get() == 'A');
+    }
+
+    SECTION("seekoff cur advances correctly") {
+        stream.get(); // consume 'A', current = 1
+        stream.seekg(2, std::ios::cur);
+        REQUIRE(stream.tellg() == std::streampos(3));
+        REQUIRE(stream.get() == 'D');
+    }
+
+    SECTION("seekoff end reaches last byte") {
+        stream.seekg(-1, std::ios::end);
+        REQUIRE(stream.tellg() == std::streampos(4));
+        REQUIRE(stream.get() == 'E');
+    }
+
+    SECTION("seekoff out-of-range returns failure") {
+        // Negative from beg
+        auto pos = stream.seekg(-1, std::ios::beg).tellg();
+        REQUIRE(pos == std::streampos(-1));
+        stream.clear();
+
+        // Past end
+        pos = stream.seekg(static_cast<std::streamoff>(data.size() + 1), std::ios::beg).tellg();
+        REQUIRE(pos == std::streampos(-1));
+        stream.clear();
+    }
+
+    SECTION("seekoff with write-only openmode returns failure") {
+        // which=out — read buffer should refuse
+        auto pos = buf.pubseekoff(0, std::ios::beg, std::ios::out);
+        REQUIRE(pos == std::streampos(-1));
+    }
+
+    SECTION("seekpos delegates to seekoff correctly") {
+        stream.seekg(std::streampos(2));
+        REQUIRE(stream.tellg() == std::streampos(2));
+        REQUIRE(stream.get() == 'C');
+    }
+
+    SECTION("parse_unsafe round-trip is consistent with seek-reset") {
+        // Verify that after a seek the remaining parse still yields correct data.
+        const std::string csv_data = "X,Y\n10,20\n30,40\n";
+        csv::internals::StringViewStreamBuf csv_buf(csv_data);
+        std::istream csv_stream(&csv_buf);
+
+        // Advance past the header, then rewind to beg before handing to CSVReader
+        csv_stream.get(); // consume 'X'
+        csv_stream.seekg(0, std::ios::beg);
+        REQUIRE(csv_stream.tellg() == std::streampos(0));
+
+        CSVReader reader(csv_stream);
+        std::vector<int> xs, ys;
+        for (auto& row : reader) {
+            xs.push_back(row["X"].get<int>());
+            ys.push_back(row["Y"].get<int>());
+        }
+
+        REQUIRE(xs == std::vector<int>{10, 30});
+        REQUIRE(ys == std::vector<int>{20, 40});
+    }
+}
