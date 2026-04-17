@@ -20,7 +20,7 @@ namespace csv {
                 _current_block++;
             }
 
-            this->_owned_blocks.push_back(std::make_unique<RawCSVField[]>(_single_buffer_capacity));
+            this->_owned_blocks.push_back(std::unique_ptr<RawCSVField[]>(new RawCSVField[_single_buffer_capacity]));
             _current_buffer_size = 0;
             _back = this->_owned_blocks.back().get();
         }
