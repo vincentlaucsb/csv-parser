@@ -6,6 +6,9 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#ifdef CSV_HAS_CXX20
+    #include <ranges>
+#endif
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -164,6 +167,42 @@ namespace csv {
     }
 #endif
 
+    namespace internals {
+        /** SFINAE trait: detects if a type is iterable (has std::begin/end). */
+        template<typename T, typename = void>
+        struct is_iterable : std::false_type {};
+
+        template<typename T>
+        struct is_iterable<T, typename std::enable_if<true>::type> {
+        private:
+            template<typename U>
+            static auto test(int) -> decltype(
+                std::begin(std::declval<const U&>()),
+                std::end(std::declval<const U&>()),
+                std::true_type{}
+            );
+            template<typename>
+            static std::false_type test(...);
+        public:
+            static constexpr bool value = decltype(test<T>(0))::value;
+        };
+
+        /** SFINAE trait: detects if a type is a std::tuple. */
+        template<typename T, typename = void>
+        struct is_tuple : std::false_type {};
+
+        template<typename T>
+        struct is_tuple<T, typename std::enable_if<true>::type> {
+        private:
+            template<typename U>
+            static auto test(int) -> decltype(std::tuple_size<U>::value, std::true_type{});
+            template<typename>
+            static std::false_type test(...);
+        public:
+            static constexpr bool value = decltype(test<T>(0))::value;
+        };
+    }
+
     /** @name CSV Writing */
     ///@{
     /** 
@@ -224,7 +263,53 @@ namespace csv {
             out->flush();
         }
 
+        /** Write a C-style array of strings as one delimited row.
+         *
+         *  @tparam T      Element type (typically std::string or csv::string_view)
+         *  @tparam N      Array size (deduced)
+         *  @param record  Array of strings
+         *  @return        The current DelimWriter instance
+         */
+        template<typename T, size_t N>
+        DelimWriter& operator<<(const T (&record)[N]) {
+            write_range_impl(record);
+            return *this;
+        }
+
+        /** Write a std::array of strings as one delimited row.
+         *
+         *  @tparam T      Element type (typically std::string or csv::string_view)
+         *  @tparam N      Array size (deduced)
+         *  @param record  std::array of strings
+         *  @return        The current DelimWriter instance
+         */
+        template<typename T, size_t N>
+        DelimWriter& operator<<(const std::array<T, N>& record) {
+            write_range_impl(record);
+            return *this;
+        }
+
+        #ifdef CSV_HAS_CXX20
+        /** Write a view-like range of string-like fields as one delimited row.
+         *
+         *  This intentionally targets C++20 view pipelines such as
+         *  `CSVRow::to_string_view_range()` rather than all string containers,
+         *  which are already handled by the container overload below.
+         */
+        template<std::ranges::input_range Range>
+        DelimWriter& operator<<(Range&& container)
+            requires std::ranges::view<std::remove_cvref_t<Range>>
+                && std::convertible_to<std::ranges::range_reference_t<Range>, csv::string_view> {
+            write_range_impl(container);
+            return *this;
+        }
+        #endif
+
         /** Format a sequence of strings and write to CSV according to RFC 4180
+         *
+         *  @tparam Range A range type with begin/end iterators 
+         *               (e.g., std::vector, std::array, std::deque, or C++20 range view).
+         *               Automatically selects the optimal path based on C++ version.
          *
          *  @warning This does not check to make sure row lengths are consistent
          *
@@ -232,14 +317,15 @@ namespace csv {
          *
          *  @return  The current DelimWriter instance (allowing for operator chaining)
          */
-        template<typename T, size_t Size>
-        DelimWriter& operator<<(const std::array<T, Size>& record) {
-            for (size_t i = 0; i < Size; i++) {
-                (*out) << csv_escape(record[i]);
-                if (i + 1 != Size) (*out) << Delim;
-            }
-
-            end_out();
+        template<typename Range>
+        typename std::enable_if<
+            internals::is_iterable<Range>::value 
+            && !internals::is_tuple<Range>::value
+            && !std::is_same<Range, std::string>::value
+            && !std::is_same<Range, csv::string_view>::value,
+            DelimWriter&
+        >::type operator<<(const Range& record) {
+            write_range_impl(record);
             return *this;
         }
 
@@ -247,30 +333,6 @@ namespace csv {
         template<typename... T>
         DelimWriter& operator<<(const std::tuple<T...>& record) {
             this->write_tuple<0, T...>(record);
-            return *this;
-        }
-
-        /**
-         * @tparam T A container such as std::vector, std::deque, or std::list
-         * 
-         * @copydoc operator<<
-         */
-        template<
-            typename T, typename Alloc, template <typename, typename> class Container,
-
-            // Avoid conflicting with tuples with two elements
-            csv::enable_if_t<std::is_class<Alloc>::value, int> = 0
-        >
-            DelimWriter& operator<<(const Container<T, Alloc>& record) {
-            const size_t ilen = record.size();
-            size_t i = 0;
-            for (const auto& field : record) {
-                (*out) << csv_escape(field);
-                if (i + 1 != ilen) (*out) << Delim;
-                i++;
-            }
-
-            end_out();
             return *this;
         }
 
@@ -282,6 +344,27 @@ namespace csv {
         }
 
     private:
+        /** Helper to write a range of values, handling first element undelimited,
+         *  rest prefixed with delimiter. Inlines aggressively across both C++20 and
+         *  C++11 operator<< entry points.
+         */
+        template<typename Range>
+        inline void write_range_impl(const Range& record) {
+            auto it = std::begin(record);
+            auto end = std::end(record);
+
+            if (it != end) {
+                (*out) << csv_escape(*it);
+                ++it;
+            }
+
+            for (; it != end; ++it) {
+                (*out) << Delim << csv_escape(*it);
+            }
+
+            end_out();
+        }
+
         template<
             typename T,
             csv::enable_if_t<

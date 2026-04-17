@@ -296,17 +296,19 @@ namespace csv {
                 this->reset_data_ptr();
                 this->data_ptr_->_data = std::make_shared<std::string>();
 
-                auto& chunk = *((std::string*)(this->data_ptr_->_data.get()));
+                auto& chunk = *static_cast<std::string*>(this->data_ptr_->_data.get());
 
-                // Prepend any bytes left over from the previous chunk's incomplete
-                // trailing row, then read the next block from the stream. This
-                // replaces the old seekg(stream_pos) + seek-back approach and works
-                // with non-seekable streams (pipes, decompression filters, etc.).
+                // Prepend leftover bytes from the previous chunk's incomplete
+                // trailing row, then read the next block from the stream.
+                // Uses a raw buffer to avoid std::string::resize() zero-fill
+                // on the full 10MB chunk size (critical for tiny inputs).
                 chunk = std::move(leftover_);
-                const size_t prefix = chunk.size();
-                chunk.resize(prefix + bytes);
-                source_.read(&chunk[prefix], (std::streamsize)bytes);
-                chunk.resize(prefix + static_cast<size_t>(source_.gcount()));
+                std::unique_ptr<char[]> buf(new char[bytes]);
+                source_.read(buf.get(), (std::streamsize)bytes);
+
+                const size_t n = static_cast<size_t>(source_.gcount());
+                
+                if (n > 0) chunk.append(buf.get(), n);
 
                 // Check for real I/O errors only (bad bit indicates unrecoverable error).
                 // failbit alone is not fatal - it's set on EOF or when requesting bytes

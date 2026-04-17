@@ -347,6 +347,14 @@ namespace csv {
             const std::vector<std::string>& subset
         ) const;
 
+        #ifdef CSV_HAS_CXX20
+        /** Convert this CSVRow into a std::ranges::input_range of string_views. */
+        auto to_sv_range() const {
+            return std::views::iota(size_t{0}, this->size())
+                | std::views::transform([this](size_t i) { return this->get_field(i); });
+        }
+        #endif
+
         /** Convert this row into a `std::vector<std::string>`.
          *
          * This conversion is primarily intended for write-side workflows, such as
