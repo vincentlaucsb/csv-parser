@@ -36,12 +36,14 @@
       - [C++20 Ranges: Efficient writing for `CSVRow`, `DataFrameRow`, and STL containers](#c20-ranges-efficient-writing-for-csvrow-dataframerow-and-stl-containers)
 
 ## Motivation
-I wanted to build a CSV library that was fast and reliable without forcing you to use a 1990s C-style API, or giving `malloc()` a run for its life.
+I wanted a CSV library that was fast and reliable without forcing you into either:
+ * A 1990s C-style API
+ * A high-level wrapper that murders `malloc()` and your memory cache
 
-In short, this library is **fast for developers** and **fast for your computer**.
+This library tries to be **fast for developers** and **fast for your computer**.
 
 ### Performance and Memory Requirements
-A high-performance CSV parser lets you take advantage of large datasets efficiently. This library combines SIMD-accelerated parsing, memory-mapped I/O, careful memory layout, minimal allocation, and background parsing to process large CSV files quickly, even when they exceed available RAM.
+This library combines SIMD-accelerated parsing, memory-mapped I/O, careful memory layout, minimal allocation, and background parsing to process large CSV files quickly, even when they exceed available RAM.
 
 [According to Visual Studio's profiler](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
 CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
@@ -55,7 +57,7 @@ All benchmarks shown are warm cache runs to focus on parser/CPU performance rath
 
 #### Chunk Size Tuning
 
-By default, the parser reads CSV data in 10MB chunks. This balance was determined through empirical testing to optimize throughput while minimizing memory overhead and thread synchronization costs.
+By default, the parser reads CSV data in 10MB chunks. This balance was determined through empirical testing to optimize throughput while minimizing memory overhead and thread synchronization costs, but feel free to experiment and measure with different numbers yourself.
 
 If you encounter rows larger than the chunk size, pass a custom `CSVFormat` with `chunk_size()`:
 
@@ -68,13 +70,11 @@ for (auto& row : reader) {
 }
 ```
 
-**Tuning guidance:** The default 10MB provides good balance for typical workloads. Smaller chunks (e.g., 500KB) increase thread overhead without meaningful memory savings. Larger chunks (e.g., 100MB+) reduce thread coordination overhead but consume more memory and delay the first row. Feel free to experiment and measure with your own hardware and data patterns.
-
 ### Robust Yet Flexible
 #### RFC 4180 and Beyond
 This CSV parser is much more than a fancy string splitter, and parses all files following [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt).
 
-However, in reality we know that RFC 4180 is just a suggestion, and there's many "flavors" of CSV such as tab-delimited files. Thus, this library has:
+However, in reality we know that RFC 4180 is just a suggestion, so this library has:
  * Automatic delimiter guessing
  * Ability to ignore comments in leading rows and elsewhere
  * Ability to handle rows of different lengths
@@ -84,30 +84,34 @@ By default, rows of variable length are silently ignored, although you may elect
 
 #### Encoding
 This CSV parser is encoding-agnostic and will handle ANSI and UTF-8 encoded files.
-It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte order marks.
+It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte order marks (BOM).
 
 ### Well Tested
 This CSV parser has:
  * An extensive Catch2 test suite
  * Tests of various CMake and non-CMake builds across g++, clang, MSVC, and MinGW
  * Address, thread safety, and undefined behavior checks with ASan, TSan, and Valgrind (see [GitHub Actions](https://github.com/vincentlaucsb/csv-parser/actions))
-
+  
 #### Bug Reports
-Please report any bugs found. This project welcomes **genuine bug reports brought in good faith**:
- * ✅ Crashes, memory leaks, data corruption, race conditions
- * ✅ Incorrect parsing of valid CSV files
- * ✅ Performance regressions in real-world scenarios
- * ✅ API issues that affect **practical, real-world use cases**
 
-When reporting integration or compiler issues, please state which library form you are using:
- * Single-header
- * Unamalgamated headers/library (`include/` with your own build system, CMake, etc.)
+I welcome genuine bug reports brought in good faith. This includes:
 
-Please keep reports grounded in real use cases, not whether or not "   ,  ,  , " should return `empty() == true` or not.
+- Crashes, memory leaks, data corruption, or race conditions
+- Incorrect parsing of valid CSV files
+- Performance regressions on real-world data
+- API issues that affect practical use cases
+
+When reporting compiler or integration issues, please mention which form of the library you're using:
+- Single-header
+- Regular headers + your own build system
+- CMake
+
+**Note:** Please keep reports focused on real-world problems. 
+Questions about extremely edge-case behavior (e.g. "what should `,,,` return?") do not belong in the issue tracker.
 
 ## Documentation
 
-In addition to the [Features & Examples](#features--examples) below, a [fully-fledged online documentation](https://vincentlaucsb.github.io/csv-parser/) contains more examples, details, interesting features, and instructions for less common use cases.
+In addition to the [Features & Examples](#features--examples) below, an [extensive documentation site](https://vincentlaucsb.github.io/csv-parser/) contains more examples, details, interesting features, and instructions for less common use cases.
 
 ## Sponsors
 If you use this library for work, please [become a sponsor](https://github.com/sponsors/vincentlaucsb). Your donation

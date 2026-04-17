@@ -18,7 +18,7 @@ long double get_max(std::string file, std::string column, bool use_std) {
         long double out = 0;
 
         if (use_std) {
-            auto _field = field.get<std::string_view>();
+            auto _field = field.get<csv::string_view>();
 #ifdef FROM_CHARS_SUPPORT_DOUBLE
             auto data = _field.data();
             std::from_chars(

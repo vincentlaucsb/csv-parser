@@ -446,8 +446,15 @@ namespace csv {
                 this->set_col_names(format.col_names);
             }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4316)
+#endif
             this->parser = std::unique_ptr<Parser>(
                 new Parser(source, format, col_names, std::move(head))); // For C++11
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
             this->initial_read();
         }
 

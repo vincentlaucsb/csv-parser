@@ -256,11 +256,41 @@ namespace csv {
                 throw std::runtime_error("Failed to open file for writing: " + filename);
         }
 
+        DelimWriter(const DelimWriter&) = delete;
+        DelimWriter& operator=(const DelimWriter&) = delete;
+
+        DelimWriter(DelimWriter&& other) noexcept
+            : owned_out(std::move(other.owned_out)),
+            out(other.out),
+            quote_minimal(other.quote_minimal) {
+            if (owned_out) {
+                out = owned_out.get();
+            }
+            other.out = nullptr;
+            other.quote_minimal = true;
+        }
+
+        DelimWriter& operator=(DelimWriter&& other) noexcept {
+            if (this == &other) return *this;
+
+            owned_out = std::move(other.owned_out);
+            out = other.out;
+            quote_minimal = other.quote_minimal;
+
+            if (owned_out) {
+                out = owned_out.get();
+            }
+
+            other.out = nullptr;
+            other.quote_minimal = true;
+            return *this;
+        }
+
         /** Destructor will flush remaining data
          *
          */
         ~DelimWriter() {
-            out->flush();
+            if (out) out->flush();
         }
 
         /** Write a C-style array of strings as one delimited row.
