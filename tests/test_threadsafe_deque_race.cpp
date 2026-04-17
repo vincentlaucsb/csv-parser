@@ -34,7 +34,8 @@ TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
     //   - Repeated iterations over multiple small inputs
 
     SECTION("Iterator over small in-memory CSV with no_header") {
-        test_with_timeout([]() {
+        auto errors = std::make_shared<ThreadSafeErrorCollector>();
+        test_with_timeout([errors]() {
             // Run many iterations to increase the chance of hitting the race window
             for (int i = 0; i < 200; i++) {
                 CSVFormat fmt;
@@ -46,15 +47,17 @@ TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
                 int row_count = 0;
                 for (auto& row : reader) {
                     row_count++;
-                    REQUIRE(row.size() == 3);
+                    if (row.size() != 3) errors->add_error("row.size() != 3");
                 }
-                REQUIRE(row_count == 2);
+                if (row_count != 2) errors->add_error("row_count != 2 (got " + std::to_string(row_count) + ")");
             }
         });
+        errors->check_and_fail_if_errors();
     }
 
     SECTION("read_row over small in-memory CSV with no_header") {
-        test_with_timeout([]() {
+        auto errors = std::make_shared<ThreadSafeErrorCollector>();
+        test_with_timeout([errors]() {
             for (int i = 0; i < 200; i++) {
                 CSVFormat fmt;
                 fmt.no_header();
@@ -66,15 +69,17 @@ TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
                 int row_count = 0;
                 while (reader.read_row(row)) {
                     row_count++;
-                    REQUIRE(row.size() == 2);
+                    if (row.size() != 2) errors->add_error("row.size() != 2");
                 }
-                REQUIRE(row_count == 2);
+                if (row_count != 2) errors->add_error("row_count != 2 (got " + std::to_string(row_count) + ")");
             }
         });
+        errors->check_and_fail_if_errors();
     }
 
     SECTION("Iterator with header over tiny CSV") {
-        test_with_timeout([]() {
+        auto errors = std::make_shared<ThreadSafeErrorCollector>();
+        test_with_timeout([errors]() {
             for (int i = 0; i < 200; i++) {
                 std::stringstream ss("col1,col2\nval1,val2\n");
                 CSVReader reader(ss);
@@ -82,11 +87,13 @@ TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
                 int row_count = 0;
                 for (auto& row : reader) {
                     row_count++;
-                    REQUIRE(row["col1"].get<>() == "val1");
+                    auto val = row["col1"].get<>();
+                    if (val != "val1") errors->add_error("col1 != 'val1' (got '" + val + "')");
                 }
-                REQUIRE(row_count == 1);
+                if (row_count != 1) errors->add_error("row_count != 1 (got " + std::to_string(row_count) + ")");
             }
         });
+        errors->check_and_fail_if_errors();
     }
 }
 
@@ -95,15 +102,19 @@ TEST_CASE("ThreadSafeDeque concurrent stress test",
     // Stress test: rapidly create and iterate many small CSVs
     // to maximize the chance of hitting the race window
     SECTION("Rapid sequential small CSV parsing") {
-        test_with_timeout([]() {
+        auto errors = std::make_shared<ThreadSafeErrorCollector>();
+        test_with_timeout([errors]() {
             for (int i = 0; i < 500; i++) {
                 auto rows = "X,Y\n1,2\n"_csv;
                 CSVRow row;
-                REQUIRE(rows.read_row(row));
-                REQUIRE(row["X"].get<int>() == 1);
-                REQUIRE(row["Y"].get<int>() == 2);
-                REQUIRE_FALSE(rows.read_row(row));
+                if (!rows.read_row(row)) errors->add_error("Failed to read first row");
+                auto x_val = row["X"].get<int>();
+                auto y_val = row["Y"].get<int>();
+                if (x_val != 1) errors->add_error("X != 1 (got " + std::to_string(x_val) + ")");
+                if (y_val != 2) errors->add_error("Y != 2 (got " + std::to_string(y_val) + ")");
+                if (rows.read_row(row)) errors->add_error("read_row() should have returned false for second read");
             }
         });
+        errors->check_and_fail_if_errors();
     }
 }

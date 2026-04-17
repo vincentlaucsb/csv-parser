@@ -3,6 +3,10 @@
  *  
  *  Prevents hanging tests when deadlock regression occurs.
  *  Ensures explicit failure instead of CI timeout.
+ *  
+ *  IMPORTANT: Do NOT use REQUIRE/CHECK assertions from the worker thread,
+ *  as Catch2 is not thread-safe for concurrent assertion calls.
+ *  Instead, collect errors and return them for assertion in the main thread.
  */
 
 #pragma once
@@ -11,24 +15,54 @@
 #include <thread>
 #include <memory>
 #include <chrono>
+#include <string>
+#include <vector>
 #include <catch2/catch_all.hpp>
+
+/** Thread-safe error collector for worker threads */
+class ThreadSafeErrorCollector {
+public:
+    /** Record an assertion failure. Thread-safe. */
+    void add_error(const std::string& msg) {
+        errors.push_back(msg);
+    }
+
+    /** Check if any errors were recorded and fail the test if so. */
+    void check_and_fail_if_errors() {
+        if (!errors.empty()) {
+            std::string msg = "Worker thread assertion failures:\n";
+            for (const auto& e : errors) {
+                msg += "  - " + e + "\n";
+            }
+            FAIL(msg);
+        }
+    }
+
+private:
+    std::vector<std::string> errors;
+};
 
 /** Execute a test function with a timeout
  *  
- *  Usage:
+ *  Usage (OLD PATTERN - DO NOT USE, thread-unsafe):
  *  \code
- *  TEST_CASE("Race condition test", "[threading][race_condition]") {
- *      test_with_timeout([]() {
- *          for (int i = 0; i < 200; i++) {
- *              // ... test code that might deadlock ...
- *          }
- *      }, std::chrono::seconds(10));
- *  }
+ *  test_with_timeout([]() {
+ *      REQUIRE(condition);  // UNSAFE if in worker thread!
+ *  });
+ *  \endcode
+ *  
+ *  Usage (NEW PATTERN - thread-safe):
+ *  \code
+ *  auto errors = std::make_shared<ThreadSafeErrorCollector>();
+ *  test_with_timeout([errors]() {
+ *      if (!condition) errors->add_error("condition failed");
+ *  });
+ *  errors->check_and_fail_if_errors();  // Main thread does the assertion
  *  \endcode
  *  
  *  @tparam Func Callable that takes no arguments and returns void
  *  @tparam Duration std::chrono duration type (default: seconds)
- *  @param fn Test function to execute
+ *  @param fn Test function to execute (should NOT contain REQUIRE/CHECK calls)
  *  @param timeout Maximum time to wait before failing (default: 10 seconds)
  *  
  *  @note On timeout, this helper fails the test via REQUIRE and does not join
