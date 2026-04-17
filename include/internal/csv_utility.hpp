@@ -31,7 +31,7 @@ namespace csv {
      *  Safe for any string_view regardless of the caller's ownership of the
      *  underlying memory.
      */
-    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat::guess_csv());
 
     /** Parse CSV from an in-memory view with zero copy.
      *
@@ -43,7 +43,7 @@ namespace csv {
      *  owned by RawCSVData, so make sure you grab all the CSVRows you need
      *  before the underlying string is destroyed.
      */
-    CSVReader parse_unsafe(csv::string_view in, CSVFormat format = CSVFormat());
+    CSVReader parse_unsafe(csv::string_view in, CSVFormat format = CSVFormat::guess_csv());
 
     CSVReader parse_no_header(csv::string_view in);
     ///@}

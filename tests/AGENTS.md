@@ -156,6 +156,61 @@ SECTION("Race-sensitive scenario") {
 
 This gives explicit failures instead of CI hangs when synchronization regresses.
 
+#### Multithreaded Testing: Thread-Safe Assertions
+
+**⚠️ CRITICAL:** Catch2 is **not thread-safe** for assertions. Do NOT call `REQUIRE()`, `CHECK()`, or other assertion macros from worker threads.
+
+**The Problem:**
+- Catch2 asserts access the main thread's stack
+- When worker threads also call asserts, both threads write to the same memory
+- ThreadSanitizer detects this as a data race
+- Test hangs or times out with spurious race conditions
+
+**The Solution: ThreadSafeErrorCollector Pattern**
+
+Collect failures in the worker thread, assert in the main thread.
+
+```cpp
+#include "shared/timeout_helper.hpp"
+
+TEST_CASE("Multithreaded parsing", "[threading]") {
+    auto errors = std::make_shared<ThreadSafeErrorCollector>();
+    
+    test_with_timeout([errors]() {
+        for (int i = 0; i < 100; i++) {
+            std::stringstream ss("A,B\n1,2\n");
+            CSVReader reader(ss);
+            
+            CSVRow row;
+            if (!reader.read_row(row)) {
+                errors->add_error("Failed to read row");
+            }
+            
+            auto val = row["A"].get<int>();
+            if (val != 1) {
+                errors->add_error("A != 1, got " + std::to_string(val));
+            }
+        }
+    });
+    
+    errors->check_and_fail_if_errors();  // Main thread asserts
+}
+```
+
+**Key Rules:**
+1. Create error collector in main thread (before test_with_timeout)
+2. Capture `[errors]` in the lambda
+3. **Inside the lambda: never call REQUIRE/CHECK** — use `errors->add_error(msg)` instead
+4. **After test_with_timeout returns: call `errors->check_and_fail_if_errors()`** — main thread does the assertion
+
+**Why this works:**
+- Worker thread only does string operations (thread-safe)
+- Main thread is the only caller of Catch2 assertion APIs
+- ThreadSanitizer sees no data races
+- Failures are still captured and reported accurately
+
+**Example from codebase:** See [test_threadsafe_deque_race.cpp](test_threadsafe_deque_race.cpp) for full patterns.
+
 ### Test Files
 
 > **Rule**: Every `test_*.cpp` file in `tests/` **must** appear in `target_sources()` in `tests/CMakeLists.txt`.

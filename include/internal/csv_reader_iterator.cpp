@@ -21,10 +21,6 @@ namespace csv {
         return CSVReader::iterator();
     }
 
-    /////////////////////////
-    // CSVReader::iterator //
-    /////////////////////////
-
     CSV_INLINE CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
         daddy(_daddy) {
         row = std::move(_row);

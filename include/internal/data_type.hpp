@@ -113,6 +113,10 @@ namespace csv {
             static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
                 "Bytes must be a power of 2 below 8.");
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4127)
+#endif
             IF_CONSTEXPR (sizeof(signed char) == Bytes) {
                 return (long double)std::numeric_limits<signed char>::max();
             }
@@ -128,6 +132,9 @@ namespace csv {
             else {
                 return (long double)std::numeric_limits<long long int>::max();
             }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         }
 
         /** Given a byte size, return the largest number than can be stored in
@@ -138,6 +145,10 @@ namespace csv {
             static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
                 "Bytes must be a power of 2 below 8.");
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4127)
+#endif
             IF_CONSTEXPR(sizeof(unsigned char) == Bytes) {
                 return (long double)std::numeric_limits<unsigned char>::max();
             }
@@ -153,6 +164,9 @@ namespace csv {
             else {
                 return (long double)std::numeric_limits<unsigned long long int>::max();
             }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         }
 
         /** Largest number that can be stored in a 8-bit integer */

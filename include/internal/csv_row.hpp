@@ -16,6 +16,9 @@
 #include <vector>
 
 #include "common.hpp"
+#ifdef CSV_HAS_CXX20
+#include <ranges>
+#endif
 #include "data_type.hpp"
 #include "parse_hex.hpp"
 #include "raw_csv_data.hpp"
@@ -67,7 +70,7 @@ namespace csv {
         constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
         operator std::string() const {
-            return std::string("<CSVField> ") + std::string(this->sv);
+            return std::string(this->sv);
         }
 
         /** Returns the value casted to the requested type, performing type checking before.
@@ -347,6 +350,14 @@ namespace csv {
             const std::vector<std::string>& subset
         ) const;
 
+        #ifdef CSV_HAS_CXX20
+        /** Convert this CSVRow into a std::ranges::input_range of string_views. */
+        auto to_sv_range() const {
+            return std::views::iota(size_t{0}, this->size())
+                | std::views::transform([this](size_t i) { return this->get_field(i); });
+        }
+        #endif
+
         /** Convert this row into a `std::vector<std::string>`.
          *
          * This conversion is primarily intended for write-side workflows, such as
@@ -543,16 +554,6 @@ namespace csv {
     {
         return this->sv == other;
     }
-}
-
-/** Stream insertion helper for `CSVField`.
- *
- * Writes the textual field value to an output stream. This is mainly a convenience
- * for logging/debug output and simple formatting pipelines.
- */
-inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
-    os << std::string(value);
-    return os;
 }
 
 #undef CSV_INIT_WITH_OPTIONAL_DCL

@@ -310,12 +310,3 @@ TEST_CASE("CSVField Equality Operator", "[test_csv_field_operator==]") {
     REQUIRE(field == 3.14f);
     REQUIRE(field == 3.14);
 }
-
-TEST_CASE("CSVField stream insertion operator", "[test_csv_field_stream_operator]") {
-    CSVField field("hello");
-    std::stringstream out;
-
-    out << field;
-
-    REQUIRE(out.str() == "<CSVField> hello");
-}

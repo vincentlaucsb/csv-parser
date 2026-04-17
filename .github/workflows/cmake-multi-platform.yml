@@ -29,7 +29,7 @@ jobs:
         os: [windows-latest, ubuntu-latest]
         build_type: [Release]
         c_compiler: [gcc, cl, clang]
-        cxx_standard: [17, 20]
+        cxx_standard: [11, 17, 20]
         include:
           - os: windows-latest
             c_compiler: cl
