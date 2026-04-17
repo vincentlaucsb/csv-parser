@@ -308,10 +308,10 @@ namespace csv {
                 source_.read(&chunk[prefix], (std::streamsize)bytes);
                 chunk.resize(prefix + static_cast<size_t>(source_.gcount()));
 
-                // Distinguish a normal short read at EOF from a real I/O failure.
-                // std::istream::read() sets failbit on EOF short-read, so we only
-                // treat failbit as fatal when EOF is not also set.
-                if (source_.bad() || (source_.fail() && !source_.eof())) {
+                // Check for real I/O errors only (bad bit indicates unrecoverable error).
+                // failbit alone is not fatal - it's set on EOF or when requesting bytes
+                // beyond available data, which is normal behavior for stringstreams.
+                if (source_.bad()) {
                     throw std::runtime_error("StreamParser read failure");
                 }
 
