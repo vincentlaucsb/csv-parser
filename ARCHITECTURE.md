@@ -20,4 +20,9 @@ Notes:
 - Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md and CLAUDE.md for details.
 - API constraints should be user-friendly: do not over-constrain templates unless needed for correctness, safety, or a measured performance win.
 - `CSVReader` is intentionally non-copyable and move-enabled; use explicit ownership transfer patterns (`std::move`, `std::unique_ptr`) at API boundaries.
+- Respect existing compile-time compatibility macros (`IF_CONSTEXPR`, `CONSTEXPR_VALUE`, etc.) unless correctness requires change.
+- Avoid semantic rewrites to silence compiler warnings; prefer precise scoped suppression where appropriate.
+- Opportunistic rewrites are acceptable when safe/justified, but should be kept separate from urgent compiler triage unless requested.
+- When changing compile-time behavior, explicitly document tradeoffs (codegen, performance, portability, readability).
+- If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.
 

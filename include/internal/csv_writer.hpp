@@ -460,7 +460,14 @@ namespace csv {
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
             (*out) << csv_escape(std::get<Index>(record));
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4127)
+#endif
             IF_CONSTEXPR (Index + 1 < sizeof...(T)) (*out) << Delim;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
             this->write_tuple<Index + 1>(record);
         }

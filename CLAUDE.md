@@ -41,6 +41,11 @@
 - **`CSVReader` is non-copyable and move-enabled** — prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when handing off parser ownership
 - **Prefer trailing underscore for private members** — when touching mixed-style code, normalize the edited region toward names like `source_` and `leftover_`
 - **Prefer user-friendly API constraints** — do not narrow template constraints unless required for correctness, safety, or a measured performance win; if common containers/ranges already work, keep them accepted
+- **Respect compile-time compatibility macros** — keep constructs like `IF_CONSTEXPR` and `CONSTEXPR_VALUE` unless there is a correctness bug
+- **Do not rewrite compile-time logic to silence warnings** — prefer tightly scoped suppression at the exact site when needed
+- **Opportunistic rewrites are allowed when safe and justified** — avoid mixing unrelated churn into urgent compiler triage unless requested
+- **Explain compile-time tradeoffs explicitly** — when a change affects compile-time behavior, call out impact on codegen/perf/portability/readability
+- **Scope guard for build fixes** — if a fix grows beyond roughly 3 files or 60 changed lines, pause and confirm scope with justification
 
 ## Tests
 See `tests/AGENTS.md` for full test strategy, checklist, and conventions.
