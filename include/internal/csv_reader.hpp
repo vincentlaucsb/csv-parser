@@ -76,6 +76,11 @@ namespace csv {
      *  - By default, rows that are too short or too long are dropped
      *  - Custom behavior can be defined by overriding bad_row_handler in a subclass
      *
+     *  **Streaming semantics:** CSVReader is a single-pass streaming reader. Every read
+     *  operation — read_row(), the iterator interface — pulls rows permanently
+     *  from the internal queue. Rows consumed by one interface are not visible to another.
+     *  There is no rewind or seek.
+     *
      *  **Ownership and sharing:** CSVReader is neither copyable nor movable because it
      *  manages a live parsing state (worker thread, internal queue, and an optional stream
      *  reference). To share or transfer a reader, wrap it in a `std::unique_ptr<CSVReader>`:
@@ -303,7 +308,6 @@ namespace csv {
     private:
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
-
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
     #if CSV_ENABLE_THREADS
@@ -344,7 +348,10 @@ namespace csv {
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
-            auto head = internals::get_csv_head(source);
+            // Read a head buffer without rewinding. Works with non-seekable streams
+            // (pipes, decompression filters). The buffer is passed to StreamParser
+            // as its initial leftover_ so those bytes are parsed as the first chunk.
+            auto head = internals::read_head_buffer(source);
             using Parser = internals::StreamParser<TStream>;
 
             // Apply chunk size from format before any reading occurs
@@ -367,7 +374,7 @@ namespace csv {
             }
 
             this->parser = std::unique_ptr<Parser>(
-                new Parser(source, format, col_names)); // For C++11
+                new Parser(source, format, col_names, std::move(head))); // For C++11
             this->initial_read();
         }
 

@@ -19,6 +19,7 @@
 ## Shared Utilities (`tests/shared/`)
 - `file_guard.hpp` — RAII temp file cleanup (`FileGuard`, not `TempFile` or `ScopedFile`)
 - `float_test_cases.hpp` — shared floating-point edge-case data
+- `non_seekable_stream.hpp` — non-seekable `std::istream` test double (`NonSeekableStream`)
 - `timeout_helper.hpp` — `test_with_timeout()` for deadlock-sensitive tests
 
 ## Distinct Column Values

@@ -7,6 +7,7 @@
 #include <sstream>
 #include <memory>
 #include "csv.hpp"
+#include "shared/non_seekable_stream.hpp"
 
 using namespace csv;
 
@@ -102,6 +103,48 @@ TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
         int row_count = 0;
         for (auto& row : reader) {
             (void)row;
+            row_count++;
+        }
+        REQUIRE(row_count == 2);
+    }
+
+    SECTION("Non-seekable stream parses with guessed format") {
+        NonSeekableStream stream("A,B,C\n1,2,3\n4,5,6\n");
+
+        // Non-seekable contract: seek/tell must fail.
+        stream.seekg(0, std::ios::beg);
+        REQUIRE(stream.fail());
+        stream.clear();
+
+        REQUIRE(stream.tellg() == std::streampos(-1));
+        stream.clear();
+
+        CSVReader reader(stream);
+
+        int row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() == 3);
+            REQUIRE(row[0].get<int>() == (row_count * 3 + 1));
+            REQUIRE(row[1].get<int>() == (row_count * 3 + 2));
+            REQUIRE(row[2].get<int>() == (row_count * 3 + 3));
+            row_count++;
+        }
+        REQUIRE(row_count == 2);
+    }
+
+    SECTION("Non-seekable stream parses with custom delimiter") {
+        NonSeekableStream stream("X|Y|Z\n10|20|30\n40|50|60\n");
+        CSVFormat format;
+        format.delimiter('|');
+
+        CSVReader reader(stream, format);
+
+        int row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() == 3);
+            REQUIRE(row[0].get<int>() == (row_count == 0 ? 10 : 40));
+            REQUIRE(row[1].get<int>() == (row_count == 0 ? 20 : 50));
+            REQUIRE(row[2].get<int>() == (row_count == 0 ? 30 : 60));
             row_count++;
         }
         REQUIRE(row_count == 2);

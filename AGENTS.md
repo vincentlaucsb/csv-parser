@@ -76,5 +76,6 @@ ThreadSafeDeque<CSVRow>
 6. **Don't delete or simplify comments** unless they are trivially obvious (e.g. `// increment i`) or factually incorrect. Comments in this codebase frequently encode concurrency invariants, non-obvious design decisions, and hard-won bug context that cannot be recovered from the code alone.
 7. **Don't reference internal functions in public API comments.** Public API docs should describe user-visible behavior and contracts; internal helper/function details belong in internal docs.
 8. **`CSVReader` is non-copyable and non-movable.** The preferred idiom for sharing or transferring a reader is `std::unique_ptr<CSVReader>`. Document this at any API surface that might tempt callers to copy or move.
+9. **Prefer trailing underscore for private members** (for example `source_`, `leftover_`). When you touch code with mixed private-member naming styles, normalize the edited region toward trailing underscores instead of introducing more leading-underscore or unsuffixed names.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.

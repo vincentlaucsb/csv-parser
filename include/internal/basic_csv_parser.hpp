@@ -120,16 +120,16 @@ namespace csv {
             IBasicCSVParser(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
-            ) : _parse_flags(parse_flags), _ws_flags(ws_flags) {
+            ) : parse_flags_(parse_flags), ws_flags_(ws_flags) {
                 const char d = internals::infer_delimiter(parse_flags);
-                _simd_sentinels = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
-                _has_ws_trimming = std::any_of(ws_flags.begin(), ws_flags.end(), [](bool b) { return b; });
+                simd_sentinels_ = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
+                has_ws_trimming_ = std::any_of(ws_flags.begin(), ws_flags.end(), [](bool b) { return b; });
             }
 
             virtual ~IBasicCSVParser() {}
 
             /** Whether or not we have reached the end of source */
-            bool eof() { return this->_eof; }
+            bool eof() { return this->eof_; }
 
             /** Parse the next block of data */
             virtual void next(size_t bytes) = 0;
@@ -138,45 +138,45 @@ namespace csv {
             void end_feed();
 
             CONSTEXPR_17 ParseFlags parse_flag(const char ch) const noexcept {
-                return _parse_flags.data()[ch + CHAR_OFFSET];
+                return parse_flags_.data()[ch + CHAR_OFFSET];
             }
 
             CONSTEXPR_17 ParseFlags compound_parse_flag(const char ch) const noexcept {
-                return quote_escape_flag(parse_flag(ch), this->quote_escape);
+                return quote_escape_flag(parse_flag(ch), this->quote_escape_);
             }
 
             /** Whether or not this CSV has a UTF-8 byte order mark */
-            CONSTEXPR bool utf8_bom() const { return this->_utf8_bom; }
+            CONSTEXPR bool utf8_bom() const { return this->utf8_bom_; }
 
-            void set_output(RowCollection& rows) { this->_records = &rows; }
+            void set_output(RowCollection& rows) { this->records_ = &rows; }
 
         protected:
             /** @name Current Parser State */
             ///@{
-            CSVRow current_row;
-            RawCSVDataPtr data_ptr = nullptr;
-            ColNamesPtr _col_names = nullptr;
-            RawCSVFieldList* fields = nullptr;
-            int field_start = UNINITIALIZED_FIELD;
-            size_t field_length = 0;
+            CSVRow current_row_;
+            RawCSVDataPtr data_ptr_ = nullptr;
+            ColNamesPtr col_names_ = nullptr;
+            RawCSVFieldList* fields_ = nullptr;
+            int field_start_ = UNINITIALIZED_FIELD;
+            size_t field_length_ = 0;
 
             /** Precomputed SIMD broadcast vectors for find_next_non_special */
-            SentinelVecs _simd_sentinels;
+            SentinelVecs simd_sentinels_;
 
             /** An array where the (i + 128)th slot gives the ParseFlags for ASCII character i */
-            ParseFlagMap _parse_flags;
+            ParseFlagMap parse_flags_;
             ///@}
 
             /** @name Current Stream/File State */
             ///@{
-            bool _eof = false;
+            bool eof_ = false;
 
             /** The size of the incoming CSV */
-            size_t source_size = 0;
+            size_t source_size_ = 0;
             ///@}
 
             /** Whether or not source needs to be read in chunks */
-            CONSTEXPR bool no_chunk() const { return this->source_size < ITERATION_CHUNK_SIZE; }
+            CONSTEXPR bool no_chunk() const { return this->source_size_ < ITERATION_CHUNK_SIZE; }
 
             /** Parse the current chunk of data *
              *
@@ -190,31 +190,31 @@ namespace csv {
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
              */
-            WhitespaceMap _ws_flags;
+            WhitespaceMap ws_flags_;
 
             /** True when at least one whitespace trim character is configured.
              *  Used to skip trim loops entirely in the common no-trim case.
              */
-            bool _has_ws_trimming = false;
-            bool quote_escape = false;
-            bool field_has_double_quote = false;
+            bool has_ws_trimming_ = false;
+            bool quote_escape_ = false;
+            bool field_has_double_quote_ = false;
 
             /** Where we are in the current data block */
-            size_t data_pos = 0;
+            size_t data_pos_ = 0;
 
             /** Whether or not an attempt to find Unicode BOM has been made */
-            bool unicode_bom_scan = false;
-            bool _utf8_bom = false;
+            bool unicode_bom_scan_ = false;
+            bool utf8_bom_ = false;
 
             /** Where complete rows should be pushed to */
-            RowCollection* _records = nullptr;
+            RowCollection* records_ = nullptr;
 
             CONSTEXPR_17 bool ws_flag(const char ch) const noexcept {
-                return _ws_flags.data()[ch + CHAR_OFFSET];
+                return ws_flags_.data()[ch + CHAR_OFFSET];
             }
 
             size_t& current_row_start() {
-                return this->current_row.data_start;
+                return this->current_row_.data_start;
             }
 
             void parse_field() noexcept;
@@ -229,21 +229,41 @@ namespace csv {
             void trim_utf8_bom();
         };
 
+        /** Read up to 500KB from a stream without rewinding.
+         *
+         *  Replaces the old get_csv_head(TStream&) which required seekg/tellg.
+         *  Works with any std::istream, including non-seekable sources such as
+         *  pipes and decompression filters.
+         */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int>  = 0>
-        std::string get_csv_head(TStream &source) {
-            auto tellg = source.tellg();
-            std::string head;
-            std::getline(source, head);
-            source.seekg(tellg);
-            return head;
+        std::string read_head_buffer(TStream& source) {
+            const size_t limit = 500000;
+            std::string buf(limit, '\0');
+            source.read(&buf[0], (std::streamsize)limit);
+            buf.resize(static_cast<size_t>(source.gcount()));
+            return buf;
         }
 
         /** Read the first 500KB of a CSV file */
         CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
 
-        /** A class for parsing CSV data from a `std::stringstream`
-         *  or an `std::ifstream`
+        /** A class for parsing CSV data from any std::istream, including
+         *  non-seekable sources such as pipes and decompression filters.
+         *
+         *  @par Chunk boundary handling
+         *  parse() returns the byte offset of the start of the last incomplete
+         *  row in the current chunk (the "remainder"). Rather than seeking back
+         *  to re-read those bytes (which requires a seekable stream), they are
+         *  saved in `leftover_` and prepended to the next chunk. This is
+         *  semantically identical to the old seek-back approach but works on
+         *  any istream and avoids the syscall overhead of seekg().
+         *
+         *  @par Head buffer
+         *  init_from_stream() reads a head buffer for format guessing before
+         *  constructing this parser. That buffer is passed in as the initial
+         *  `leftover_`, so its bytes are fed into the first chunk as if they had
+         *  just been read from the stream.
          */
         template<typename TStream>
         class StreamParser: public IBasicCSVParser {
@@ -252,15 +272,17 @@ namespace csv {
         public:
             StreamParser(TStream& source,
                 const CSVFormat& format,
-                const ColNamesPtr& col_names = nullptr
-            ) : IBasicCSVParser(format, col_names), _source(source) {}
+                const ColNamesPtr& col_names = nullptr,
+                std::string head = {}
+            ) : IBasicCSVParser(format, col_names), source_(source),
+                leftover_(std::move(head)) {}
 
             StreamParser(
                 TStream& source,
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags) :
                 IBasicCSVParser(parse_flags, ws_flags),
-                _source(source)
+                source_(source)
             {}
 
             ~StreamParser() {}
@@ -269,47 +291,54 @@ namespace csv {
                 if (this->eof()) return;
 
                 // Reset parser state
-                this->field_start = UNINITIALIZED_FIELD;
-                this->field_length = 0;
+                this->field_start_ = UNINITIALIZED_FIELD;
+                this->field_length_ = 0;
                 this->reset_data_ptr();
-                this->data_ptr->_data = std::make_shared<std::string>();
+                this->data_ptr_->_data = std::make_shared<std::string>();
 
-                if (source_size == 0) {
-                    const auto start = _source.tellg();
-                    _source.seekg(0, std::ios::end);
-                    const auto end = _source.tellg();
-                    _source.seekg(0, std::ios::beg);
+                auto& chunk = *((std::string*)(this->data_ptr_->_data.get()));
 
-                    source_size = static_cast<size_t>(end - start);
+                // Prepend any bytes left over from the previous chunk's incomplete
+                // trailing row, then read the next block from the stream. This
+                // replaces the old seekg(stream_pos) + seek-back approach and works
+                // with non-seekable streams (pipes, decompression filters, etc.).
+                chunk = std::move(leftover_);
+                const size_t prefix = chunk.size();
+                chunk.resize(prefix + bytes);
+                source_.read(&chunk[prefix], (std::streamsize)bytes);
+                chunk.resize(prefix + static_cast<size_t>(source_.gcount()));
+
+                // Distinguish a normal short read at EOF from a real I/O failure.
+                // std::istream::read() sets failbit on EOF short-read, so we only
+                // treat failbit as fatal when EOF is not also set.
+                if (source_.bad() || (source_.fail() && !source_.eof())) {
+                    throw std::runtime_error("StreamParser read failure");
                 }
 
-                // Read data into buffer
-                size_t length = std::min(source_size - stream_pos, bytes);
-                std::unique_ptr<char[]> buff(new char[length]);
-                _source.seekg(stream_pos, std::ios::beg);
-                _source.read(buff.get(), length);
-                stream_pos = static_cast<size_t>(_source.tellg());
-                ((std::string*)(this->data_ptr->_data.get()))->assign(buff.get(), length);
-
                 // Create string_view
-                this->data_ptr->data = *((std::string*)this->data_ptr->_data.get());
+                this->data_ptr_->data = chunk;
 
                 // Parse
-                this->current_row = CSVRow(this->data_ptr);
+                this->current_row_ = CSVRow(this->data_ptr_);
                 size_t remainder = this->parse();
 
-                if (stream_pos == source_size || no_chunk()) {
-                    this->_eof = true;
+                if (source_.eof() || chunk.empty()) {
+                    this->eof_ = true;
                     this->end_feed();
                 }
                 else {
-                    this->stream_pos -= (length - remainder);
+                    // Save the tail bytes that begin an incomplete row so they
+                    // are prepended to the next chunk (see class-level comment).
+                    leftover_ = chunk.substr(remainder);
                 }
             }
 
         private:
-            TStream& _source;
-            size_t stream_pos = 0;
+            // Bytes from the previous chunk that form the start of an incomplete
+            // row, plus the initial head buffer on the first call.
+            std::string leftover_;
+
+            TStream& source_;
         };
 
 #if !defined(__EMSCRIPTEN__)
@@ -329,7 +358,7 @@ namespace csv {
                 const ColNamesPtr& col_names = nullptr
             ) : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
-                this->source_size = get_file_size(filename);
+                this->source_size_ = get_file_size(filename);
             };
 
             ~MmapParser() {}
