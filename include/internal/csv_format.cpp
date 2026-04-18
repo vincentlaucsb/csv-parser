@@ -43,6 +43,7 @@ namespace csv {
         if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
 
         this->header = row;
+        this->header_explicitly_set_ = true;
         this->col_names = {};
         return *this;
     }

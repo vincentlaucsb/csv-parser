@@ -156,8 +156,11 @@ namespace csv {
         CSV_INLINE static CSVFormat guess_csv() {
             CSVFormat format;
             format.delimiter({ ',', '|', '\t', ';', '^' })
-                .quote('"')
-                .header_row(0);
+                .quote('"');
+            // Assign header directly rather than via header_row() so that
+            // header_explicitly_set_ remains false — the guesser must be free
+            // to detect the real header row at construction time.
+            format.header = 0;
 
             return format;
         }
@@ -181,6 +184,9 @@ namespace csv {
 
         /**< Row number with columns (ignored if col_names is non-empty) */
         int header = 0;
+
+        /**< True if the user explicitly called header_row() or no_header() */
+        bool header_explicitly_set_ = false;
 
         /**< Whether or not to use quoting */
         bool no_quote = false;

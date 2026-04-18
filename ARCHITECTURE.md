@@ -15,7 +15,9 @@ Operational/testing guidance:
 Notes:
 - Internal architecture content lives under include/internal to stay close to implementation.
 - Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
+- Always update or remove incorrect comments.
 - Public API comments should remain user-facing and avoid references to internal helper/function details.
+- When editing a function, remove `@param` and `@return` descriptions that merely restate the function name or signature.
 - Private member naming should prefer trailing underscores; when editing mixed-style code, normalize the touched region toward that convention.
 - Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md and CLAUDE.md for details.
 - API constraints should be user-friendly: do not over-constrain templates unless needed for correctness, safety, or a measured performance win.

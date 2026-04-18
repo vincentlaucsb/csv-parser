@@ -184,10 +184,11 @@ namespace csv {
         if (format.guess_delim()) {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
             format.delimiter(guess_result.delim);
-            // Only override header if user hasn't explicitly called no_header()
-            // Note: column_names() also sets header=-1, but it populates col_names,
-            // so we can distinguish: no_header() means header=-1 && col_names.empty()
-            if (format.header != -1 || !format.col_names.empty()) {
+            // Only override header if the user hasn't explicitly set one via
+            // header_row() or no_header(). column_names() sets col_names but
+            // does not set header_explicitly_set_, so the guesser can still
+            // determine where the data rows begin in that case.
+            if (!format.header_explicitly_set_) {
                 format.header = guess_result.header_row;
             }
             
