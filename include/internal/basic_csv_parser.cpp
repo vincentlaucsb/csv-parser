@@ -166,7 +166,7 @@ namespace csv {
                         this->data_pos_++;
 
                     // End of record -> Write non-empty record
-                    if (this->field_length > 0 || !this->current_row.empty()) {
+                    if (this->field_length_ > 0 || !this->current_row_.empty()) {
                         this->push_field();
                         this->push_row();
                     }
