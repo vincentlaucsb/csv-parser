@@ -1,10 +1,15 @@
 #include <sstream>
 #include <vector>
+#include <memory>
 
 #include "csv_utility.hpp"
+#include "string_view_stream.hpp"
 
 namespace csv {
-    /** Shorthand function for parsing an in-memory CSV string
+    /** Shorthand function for parsing an in-memory CSV string.
+     *
+     *  Copies the input into an owned stringstream, so the caller's backing
+     *  memory may be freed immediately after this call returns.
      *
      *  @return A collection of CSVRow objects
      *
@@ -12,8 +17,24 @@ namespace csv {
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
     CSV_INLINE CSVReader parse(csv::string_view in, CSVFormat format) {
-        std::stringstream stream(std::string(in.data(), in.length()));
-        return CSVReader(stream, format);
+        std::unique_ptr<std::istream> ss(new std::stringstream(std::string(in)));
+        return CSVReader(std::move(ss), format);
+    }
+
+    /** Parse CSV from an in-memory view with zero copy.
+     *
+     *  Creates a non-owning stream adapter over the provided string_view.
+     *  The caller is responsible for keeping backing memory valid and immutable
+     *  while CSVReader may request additional rows.
+     *
+     *  Already materialized CSVRows remain safe because parsed chunk data is
+     *  owned by RawCSVData.
+     *
+     *  @return A collection of CSVRow objects
+     */
+    CSV_INLINE CSVReader parse_unsafe(csv::string_view in, CSVFormat format) {
+        std::unique_ptr<std::istream> stream(new internals::StringViewStream(in));
+        return CSVReader(std::move(stream), format);
     }
 
     /** Parses a CSV string with no headers
@@ -28,19 +49,28 @@ namespace csv {
     }
 
     /** Parse a RFC 4180 CSV string, returning a collection
-     *  of CSVRow objects
+     *  of CSVRow objects.
+     *
+     *  String literals have static storage duration, so the zero-copy path is
+     *  safe here.
      *
      *  @par Example
      *  @snippet tests/test_read_csv.cpp Escaped Comma
      *
      */
     CSV_INLINE CSVReader operator ""_csv(const char* in, size_t n) {
-        return parse(csv::string_view(in, n));
+        return parse_unsafe(csv::string_view(in, n));
     }
 
-    /** A shorthand for csv::parse_no_header() */
+    /** A shorthand for csv::parse_no_header().
+     *
+     *  String literals have static storage duration, so the zero-copy path is
+     *  safe here.
+     */
     CSV_INLINE CSVReader operator ""_csv_no_header(const char* in, size_t n) {
-        return parse_no_header(csv::string_view(in, n));
+        CSVFormat format;
+        format.header_row(-1);
+        return parse_unsafe(csv::string_view(in, n), format);
     }
 
     /**

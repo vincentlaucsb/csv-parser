@@ -19,6 +19,13 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
 
     REQUIRE(data_type(c, &out) == DataType::CSV_INT8);
     REQUIRE(out == -69);
+
+    SECTION("Type detection without output pointer") {
+        // Verify the if (out) nullptr branch: correct DataType returned, no crash
+        REQUIRE(data_type(a) == DataType::CSV_INT8);
+        REQUIRE(data_type(b) == DataType::CSV_INT16);
+        REQUIRE(data_type(c) == DataType::CSV_INT8);
+    }
 }
 
 TEST_CASE( "Recognize Strings Properly", "[dtype_str]" ) {
@@ -48,6 +55,13 @@ TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
 
         REQUIRE(data_type(input, &out) == DataType::CSV_DOUBLE);
         REQUIRE(is_equal(out, expected));
+    }
+
+    SECTION("Type detection without output pointer") {
+        // Verify the if (out) nullptr branch: correct DataType returned, no crash
+        REQUIRE(data_type("3.14")  == DataType::CSV_DOUBLE);
+        REQUIRE(data_type("0.0")   == DataType::CSV_DOUBLE);
+        REQUIRE(data_type("-1.5")  == DataType::CSV_DOUBLE);
     }
 }
 
@@ -134,6 +148,17 @@ TEST_CASE("Parse Scientific Notation", "[e_notation]") {
 
     REQUIRE(data_type("4.55E-000000000005", &out) == DataType::CSV_DOUBLE);
     REQUIRE(is_equal(out, 0.0000455L));
+
+    SECTION("Negative coefficients") {
+        REQUIRE(data_type("-1.5E3", &out) == DataType::CSV_DOUBLE);
+        REQUIRE(is_equal(out, -1500.0L));
+
+        REQUIRE(data_type("-4.55e-2", &out) == DataType::CSV_DOUBLE);
+        REQUIRE(is_equal(out, -0.0455L));
+
+        REQUIRE(data_type("-1E+6", &out) == DataType::CSV_DOUBLE);
+        REQUIRE(is_equal(out, -1000000.0L));
+    }
 }
 //! [Parse Scientific Notation]
 

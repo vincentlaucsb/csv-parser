@@ -1,10 +1,10 @@
 /*
-CSV for C++, version 2.3.0
+CSV for C++, version 3.4.0
 https://github.com/vincentlaucsb/csv-parser
 
 MIT License
 
-Copyright (c) 2017-2024 Vincent La
+Copyright (c) 2017-2026 Vincent La
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,10 +29,12 @@ SOFTWARE.
 #ifndef CSV_HPP
 #define CSV_HPP
 
+#include "internal/data_frame.hpp"
 #include "internal/csv_reader.hpp"
 #include "internal/csv_stat.hpp"
 #include "internal/csv_utility.hpp"
 #include "internal/csv_writer.hpp"
+#include "internal/csv_writer_extensions.hpp"
 
 /** INSERT_CSV_SOURCES **/
 

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 project(csv)
 
 if(CSV_CXX_STANDARD)
@@ -8,29 +8,72 @@ else()
 endif(CSV_CXX_STANDARD)
 
 option(BUILD_PYTHON "Build Python Binding" OFF)
+option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
+option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
+option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
+option(CSV_NO_SIMD "Disable SIMD fast paths at compile time" OFF)
+option(CSV_FORCE_AVX2 "Force AVX2 compiler flags for this build" OFF)
+
+if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
+  message(STATUS "Emscripten target detected: forcing CSV_ENABLE_THREADS=OFF")
+  set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
+endif()
+
+if(EMSCRIPTEN)
+  message(STATUS "Emscripten target detected: enabling C++ exceptions (-fexceptions)")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fexceptions")
+endif()
+
+if(CSV_ENABLE_THREADS)
+  message(STATUS "CSV_ENABLE_THREADS enabled: multi-threaded mode")
+else()
+  message(STATUS "CSV_ENABLE_THREADS disabled: single-threaded mode")
+endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
-# Defines CSV_HAS_CXX17 in compatibility.hpp
-if (CMAKE_VERSION VERSION_LESS "3.12.0")
-	add_definitions(-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
-else()
-	add_compile_definitions(CMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD})
+if(CSV_ENABLE_THREADS)
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_package(Threads QUIET)
+  if(NOT Threads_FOUND)
+    message(STATUS "Threads package not found: forcing CSV_ENABLE_THREADS=OFF")
+    set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
+  endif()
 endif()
-
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads QUIET REQUIRED)
 
 if(MSVC)
 	# Make Visual Studio report accurate C++ version
-	# See: https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
   # /Wall emits warnings about the C++ standard library
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /Zc:__cplusplus /W4")
+	# /permissive- enables standards conformance (disables MSVC extensions)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /W4 /permissive-")
 else()
 	# Ignore Visual Studio pragma regions
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og")
+	
+	if(ENABLE_CODE_COVERAGE)
+		message("Code coverage instrumentation enabled")
+		# -fprofile-update=atomic prevents negative counter corruption when
+		# background reader threads write to the same .gcda file concurrently.
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og -fprofile-update=atomic")
+	endif()
 endif(MSVC)
+
+# SIMD policy:
+# - CSV_NO_SIMD=ON: hard-disable SIMD in code
+# - default: enable AVX2 codegen (MSVC always; others use CI matrix or manual flags)
+if(CSV_NO_SIMD)
+  message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
+else()
+  # On MSVC, __AVX2__ is only defined if /arch:AVX2 is explicit, so always add it
+  # On GCC/Clang, CI matrix or user supplies flags; assume baseline ISA here
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+    message(STATUS "CSV SIMD: AVX2 enabled (MSVC /arch:AVX2 added)")
+  else()
+    message(STATUS "CSV SIMD: default config (CI/user supplies ISA flags if needed)")
+  endif()
+endif()
 
 set(CSV_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(CSV_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -65,14 +108,16 @@ if (CSV_DEVELOPER)
     # Allow for performance profiling
     if (MSVC)
 	    target_link_options(csv PUBLIC /PROFILE)
+        # Treat warnings as errors
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
     endif()
      
-    # More error messages.
-    if (UNIX)
+    # More error messages, treat warnings as errors.
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-        -Wall -Wextra -Wsign-compare \
+        -Wall -Wextra -Wpedantic -Wsign-compare \
         -Wwrite-strings -Wpointer-arith -Winit-self \
-        -Wconversion -Wno-sign-conversion")
+        -Wconversion -Wno-sign-conversion -Werror")
     endif()
 
     # Generate a single header library
@@ -82,15 +127,44 @@ if (CSV_DEVELOPER)
       find_package(Python3 COMPONENTS Interpreter)
     endif()
     if(Python3_Interpreter_FOUND OR PYTHONINTERP_FOUND)
-      add_custom_target(generate_single_header
-          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include/csv.hpp
-          COMMAND ${Python3_EXECUTABLE} single_header.py > single_include_test/csv.hpp
+      if(Python3_Interpreter_FOUND)
+        set(CSV_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+      else()
+        set(CSV_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+      endif()
+
+      set(CSV_SINGLE_INCLUDE_GENERATED_DIR ${CSV_BUILD_DIR}/single_include_generated)
+      set(CSV_SINGLE_INCLUDE_GENERATED_HEADER ${CSV_SINGLE_INCLUDE_GENERATED_DIR}/csv.hpp)
+          file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
+            ${CSV_INCLUDE_DIR}/*.hpp
+            ${CSV_INCLUDE_DIR}/*.h
+            ${CSV_INCLUDE_DIR}/*.cpp
+          )
+
+      add_custom_command(
+          OUTPUT ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+          COMMAND ${CMAKE_COMMAND} -E make_directory ${CSV_SINGLE_INCLUDE_GENERATED_DIR}
+          COMMAND ${CSV_PYTHON_EXECUTABLE} single_header.py ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
+            DEPENDS ${CSV_ROOT_DIR}/single_header.py ${CSV_SINGLE_HEADER_INPUTS}
+          COMMENT "Generating single-header csv.hpp"
       )
-      # Single header compilation test
-      add_subdirectory(single_include_test)
+
+      add_custom_target(generate_single_header
+          DEPENDS ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+      )
+
+      # Single header compilation test (optional, mainly for validation)
+      if(CSV_BUILD_SINGLE_INCLUDE_TEST)
+          # Keep this target out of the default "all" build so CI can run it
+          # explicitly in its dedicated smoke-test step.
+          add_subdirectory(single_include_test EXCLUDE_FROM_ALL)
+      endif()
     else()
       message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
+      if(CSV_BUILD_SINGLE_INCLUDE_TEST)
+        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a Python 3 interpreter for single-header generation.")
+      endif()
     endif()
 
     # Documentation
@@ -107,18 +181,4 @@ if (CSV_DEVELOPER)
     ## Tests
     enable_testing()
     add_subdirectory("tests")
-
-    # Code coverage
-    #find_program( GCOV_PATH gcov )
-    #if(GCOV_PATH)
-    #    set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/modules")
-    #    include(CodeCoverage)
-    #    append_coverage_compiler_flags()
-    #    set(ENV{CSV_TEST_ROOT} ${CSV_TEST_DIR})
-    #    setup_target_for_coverage_gcovr_html(
-    #      NAME csv_coverage
-    #      EXECUTABLE csv_test
-    #      EXCLUDE "tests/*"
-    #    )
-    #endif()
 endif()

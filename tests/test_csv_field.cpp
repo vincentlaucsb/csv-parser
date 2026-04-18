@@ -2,6 +2,7 @@
 #include <catch2/catch_all.hpp>
 #include <cmath>
 #include <iostream>
+#include <sstream>
 
 using namespace csv;
 
@@ -12,6 +13,14 @@ TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]
     CSVField field("applesauce");
     REQUIRE(field.get<>() == "applesauce");
 
+    std::string str_out;
+    REQUIRE(field.try_get(str_out));
+    REQUIRE(str_out == "applesauce");
+
+    csv::string_view sv_out;
+    REQUIRE(field.try_get(sv_out));
+    REQUIRE(sv_out == "applesauce");
+
     // Assert that improper conversions attempts are thwarted
     bool ex_caught = false;
     try {
@@ -21,6 +30,9 @@ TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]
         REQUIRE(err.what() == csv::internals::ERROR_NAN);
         ex_caught = true;
     }
+
+    TestType out = {};
+    REQUIRE_FALSE(field.try_get(out));
 
     REQUIRE(ex_caught);
 }
@@ -37,6 +49,9 @@ TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
         ex_caught = true;
     }
 
+    double out = 0;
+    REQUIRE_FALSE(field.try_get(out));
+
     REQUIRE(ex_caught);
 }
 
@@ -50,6 +65,26 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
     REQUIRE(this_year.get<double>() == 2019.0);
     REQUIRE(this_year.get<long double>() == 2019l);
 
+    int int_out = 0;
+    REQUIRE(this_year.try_get(int_out));
+    REQUIRE(int_out == 2019);
+
+    long long ll_out = 0;
+    REQUIRE(this_year.try_get(ll_out));
+    REQUIRE(ll_out == 2019);
+
+    double double_out = 0;
+    REQUIRE(this_year.try_get(double_out));
+    REQUIRE(double_out == 2019.0);
+
+    std::string str_out;
+    REQUIRE(this_year.try_get(str_out));
+    REQUIRE(str_out == "2019");
+
+    csv::string_view sv_out;
+    REQUIRE(this_year.try_get(sv_out));
+    REQUIRE(sv_out == "2019");
+
     bool ex_caught = false;
     try {
         this_year.get<signed char>();
@@ -58,6 +93,9 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
         REQUIRE(err.what() == csv::internals::ERROR_OVERFLOW);
         ex_caught = true;
     }
+
+    signed char sc_out = 0;
+    REQUIRE_FALSE(this_year.try_get(sc_out));
 
     REQUIRE(ex_caught);
 }
@@ -72,6 +110,14 @@ TEST_CASE("CSVField get<>() - Integer Boundary Value", "[test_csv_field_get_boun
     REQUIRE(CSVField("255").get<unsigned char>() == 255);
     REQUIRE(CSVField("65535").get<unsigned short>() == 65535);
     REQUIRE(CSVField("4294967295").get<unsigned>() == 4294967295);
+
+    signed char sc_out = 0;
+    REQUIRE(CSVField("127").try_get(sc_out));
+    REQUIRE(sc_out == 127);
+
+    unsigned short us_out = 0;
+    REQUIRE(CSVField("65535").try_get(us_out));
+    REQUIRE(us_out == 65535);
 }
 
 // Test converting a small integer to unsigned and signed integer types
@@ -80,6 +126,10 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Integral Value to Int", "[test_csv_field_
     char, short, int, long long int) {
     CSVField savage("21");
     REQUIRE(savage.get<TestType>() == 21);
+
+    TestType out = 0;
+    REQUIRE(savage.try_get(out));
+    REQUIRE(out == 21);
 }
 
 TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]") {
@@ -90,6 +140,21 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
         REQUIRE(euler.get<float>() == 2.718f);
         REQUIRE(euler.get<double>() == 2.718);
         REQUIRE(euler.get<long double>() == 2.718l);
+
+        float float_out = 0;
+        REQUIRE(euler.try_get(float_out));
+        REQUIRE(float_out == Catch::Approx(2.718f));
+
+        double double_out = 0;
+        REQUIRE(euler.try_get(double_out));
+        REQUIRE(double_out == Catch::Approx(2.718));
+
+        long double long_double_out = 0;
+        REQUIRE(euler.try_get(long_double_out));
+        REQUIRE(long_double_out == Catch::Approx(2.718l));
+
+        int int_out = 0;
+        REQUIRE_FALSE(euler.try_get(int_out));
     }
 
     SECTION("Test get() with various values") {
@@ -106,11 +171,29 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
     }
 }
 
+TEST_CASE("CSVField try_get<long double>()", "[test_csv_field_try_get_long_double]") {
+    SECTION("Numeric value") {
+        CSVField field("2.718");
+        long double out = 0;
+
+        REQUIRE(field.try_get(out));
+        REQUIRE(internals::is_equal(out, 2.718L));
+    }
+
+    SECTION("Non-numeric value") {
+        CSVField field("not-a-number");
+        long double out = 123.0L;
+
+        REQUIRE_FALSE(field.try_get(out));
+        REQUIRE(internals::is_equal(out, 123.0L));
+    }
+}
+
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
-    int value = 0;
+    long long value = 0;
 
     SECTION("Valid Hex Values") {
-        std::unordered_map<std::string, int> test_cases = {
+        std::unordered_map<std::string, long long> test_cases = {
             {"  A   ", 10},
             {"0A", 10},
             {"0B", 11},
@@ -196,6 +279,9 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_
         ex_caught = true;
     }
 
+    TestType out = 0;
+    REQUIRE_FALSE(euler.try_get(out));
+
     REQUIRE(ex_caught);
 }
 
@@ -211,6 +297,9 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Negative to Unsigned", "[test_cs
         REQUIRE(err.what() == csv::internals::ERROR_NEG_TO_UNSIGNED);
         ex_caught = true;
     }
+
+    TestType out = 0;
+    REQUIRE_FALSE(neg.try_get(out));
 
     REQUIRE(ex_caught);
 }

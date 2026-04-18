@@ -8,17 +8,20 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE RawCSVField& CSVFieldList::operator[](size_t n) const {
-            const size_t page_no = n / _single_buffer_capacity;
-            const size_t buffer_idx = (page_no < 1) ? n : n % _single_buffer_capacity;
-            return this->buffers[page_no][buffer_idx];
-        }
+        CSV_INLINE csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept
+        {
+            // Lazy trim only when requested
+            size_t start = 0;
+            while (start < sv.size() && ws_flags[sv[start] + CHAR_OFFSET]) {
+                ++start;
+            }
 
-        CSV_INLINE void CSVFieldList::allocate() {
-            buffers.push_back(std::unique_ptr<RawCSVField[]>(new RawCSVField[_single_buffer_capacity]));
+            size_t end = sv.size();
+            while (end > start && ws_flags[sv[end - 1] + CHAR_OFFSET]) {
+                --end;
+            }
 
-            _current_buffer_size = 0;
-            _back = buffers.back().get();
+            return sv.substr(start, end - start);
         }
     }
 
@@ -62,106 +65,44 @@ namespace csv {
         return ret;
     }
 
-    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
-    {
-        using internals::ParseFlags;
+    /** Build a map from column names to values for a given row. */
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
+        std::unordered_map<std::string, std::string> row_map;
+        row_map.reserve(this->size());
 
-        if (index >= this->size())
-            throw std::runtime_error("Index out of bounds.");
-
-        const size_t field_index = this->fields_start + index;
-        auto& field = this->data->fields[field_index];
-        auto field_str = csv::string_view(this->data->data).substr(this->data_start + field.start);
-
-        if (field.has_double_quote) {
-            auto& value = this->data->double_quote_fields[field_index];
-            if (value.empty()) {
-                bool prev_ch_quote = false;
-                for (size_t i = 0; i < field.length; i++) {
-                    if (this->data->parse_flags[field_str[i] + 128] == ParseFlags::QUOTE) {
-                        if (prev_ch_quote) {
-                            prev_ch_quote = false;
-                            continue;
-                        }
-                        else {
-                            prev_ch_quote = true;
-                        }
-                    }
-
-                    value += field_str[i];
-                }
-            }
-
-            return csv::string_view(value);
+        for (size_t i = 0; i < this->size(); i++) {
+            auto col_name = (*this->data->col_names)[i];
+            row_map[col_name] = this->operator[](i).get<std::string>();
         }
 
-        return field_str.substr(0, field.length);
+        return row_map;
     }
 
-    CSV_INLINE bool CSVField::try_parse_hex(int& parsedValue) {
-        size_t start = 0, end = 0;
+    /**
+     * Build a map from column names to values for a given row.
+     * 
+     * @param[in] subset Vector of column names to include in the map.
+     */
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map(
+        const std::vector<std::string>& subset
+    ) const {
+        std::unordered_map<std::string, std::string> row_map;
+        row_map.reserve(subset.size());
 
-        // Trim out whitespace chars
-        for (; start < this->sv.size() && this->sv[start] == ' '; start++);
-        for (end = start; end < this->sv.size() && this->sv[end] != ' '; end++);
-        
-        int value_ = 0;
+        for (const auto& col_name : subset)
+            row_map[col_name] = this->operator[](col_name).get<std::string>();
 
-        size_t digits = (end - start);
-        size_t base16_exponent = digits - 1;
+        return row_map;
+    }
 
-        if (digits == 0) return false;
+    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
+    {
+        return this->get_field_impl(index, this->data);
+    }
 
-        for (const auto& ch : this->sv.substr(start, digits)) {
-            int digit = 0;
-
-            switch (ch) {
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                digit = static_cast<int>(ch - '0');
-                break;
-            case 'a':
-            case 'A':
-                digit = 10;
-                break;
-            case 'b':
-            case 'B':
-                digit = 11;
-                break;
-            case 'c':
-            case 'C':
-                digit = 12;
-                break;
-            case 'd':
-            case 'D':
-                digit = 13;
-                break;
-            case 'e':
-            case 'E':
-                digit = 14;
-                break;
-            case 'f':
-            case 'F':
-                digit = 15;
-                break;
-            default:
-                return false;
-            }
-
-            value_ += digit * (int)pow(16, (double)base16_exponent);
-            base16_exponent--;
-        }
-
-        parsedValue = value_;
-        return true;
+    CSV_INLINE csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
+    {
+        return this->get_field_impl(index, _data);
     }
 
     CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
@@ -210,12 +151,12 @@ namespace csv {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    CSV_INLINE HEDLEY_NON_NULL(2)
+    CSV_INLINE CSV_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), i(_i) {
+        : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](_i));
+                CSVField(this->daddy->get_field_safe(_i, this->data)));
         else
             this->field = nullptr;
     }
@@ -233,7 +174,7 @@ namespace csv {
         this->i++;
         if (this->i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                this->daddy->operator[](i));
+                CSVField(this->daddy->get_field_safe(i, this->data)));
         else // Reached the end of row
             this->field = nullptr;
         return *this;
@@ -250,7 +191,7 @@ namespace csv {
         // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
-            this->daddy->operator[](this->i));
+            CSVField(this->daddy->get_field_safe(this->i, this->data)));
         return *this;
     }
 

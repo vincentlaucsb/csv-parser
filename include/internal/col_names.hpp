@@ -1,10 +1,12 @@
 #pragma once
 #include <memory>
+#include <stdexcept>
 #include <unordered_map>
 #include <string>
 #include <vector>
 
 #include "common.hpp"
+#include "csv_format.hpp"
 
 namespace csv {
     namespace internals {
@@ -29,12 +31,21 @@ namespace csv {
             void set_col_names(const std::vector<std::string>&);
             int index_of(csv::string_view) const;
 
+            /** Sets the column name lookup policy.
+             *  Must be called before set_col_names() for CI policy to take effect.
+             */
+            void set_policy(csv::ColumnNamePolicy policy);
+
             bool empty() const noexcept { return this->col_names.empty(); }
             size_t size() const noexcept;
+
+            /** Retrieve column name by index. Throws if index is out of bounds. */
+            const std::string& operator[](size_t i) const;
 
         private:
             std::vector<std::string> col_names;
             std::unordered_map<std::string, size_t> col_pos;
+            csv::ColumnNamePolicy _policy = csv::ColumnNamePolicy::EXACT;
         };
     }
 }

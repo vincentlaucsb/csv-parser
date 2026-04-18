@@ -24,6 +24,12 @@ namespace csv {
         KEEP   = 1
     };
 
+    /** Determines how column name lookups are performed */
+    enum class ColumnNamePolicy {
+        EXACT = 0,            /**< Case-sensitive match (default) */
+        CASE_INSENSITIVE = 1  /**< Case-insensitive match */
+    };
+
     /** Stores the inferred format of a CSV file. */
     struct CSVGuessResult {
         char delim;
@@ -104,6 +110,28 @@ namespace csv {
             return *this;
         }
 
+        /** Sets the column name lookup policy.
+         *
+         *  @param[in] policy  Use ColumnNamePolicy::CASE_INSENSITIVE to allow
+         *                     case-insensitive column lookups via CSVRow::operator[]
+         *                     and CSVReader::index_of().
+         */
+        CONSTEXPR_14 CSVFormat& column_names_policy(ColumnNamePolicy policy) {
+            this->_column_name_policy = policy;
+            return *this;
+        }
+
+        /** Sets the chunk size used when reading the CSV
+         *
+         *  @param[in] size Chunk size in bytes (minimum: 10MB = ITERATION_CHUNK_SIZE)
+         *  @throws std::invalid_argument if size < ITERATION_CHUNK_SIZE
+         *
+         *  Use this when constructing a CSVReader from a filename and individual rows
+         *  may exceed the default 10MB chunk size. The value is passed to CSVReader at
+         *  construction time, before any data is read.
+         */
+        CSVFormat& chunk_size(size_t size);
+
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
@@ -120,6 +148,8 @@ namespace csv {
         std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
         std::vector<char> get_trim_chars() const { return this->trim_chars; }
         CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
+        CONSTEXPR ColumnNamePolicy get_column_name_policy() const { return this->_column_name_policy; }
+        CONSTEXPR size_t get_chunk_size() const { return this->_chunk_size; }
         #endif
         
         /** CSVFormat for guessing the delimiter */
@@ -163,5 +193,11 @@ namespace csv {
 
         /**< Allow variable length columns? */
         VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE_ROW;
+
+        /**< Column name lookup policy */
+        ColumnNamePolicy _column_name_policy = ColumnNamePolicy::EXACT;
+
+        /**< Chunk size for reading; passed to CSVReader at construction time */
+        size_t _chunk_size = internals::ITERATION_CHUNK_SIZE;
     };
 }

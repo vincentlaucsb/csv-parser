@@ -3,14 +3,17 @@
  */
 
 #include <stdio.h> // remove()
+#include <fstream>
 #include <sstream>
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
 
 using namespace csv;
 using std::vector;
 using std::string;
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
     int pos = get_col_pos(
         "./tests/data/real_data/2015_StateDepartment.csv",
@@ -41,8 +44,10 @@ TEST_CASE("Prevent Column Names From Being Overwritten", "[csv_col_names_overwri
         REQUIRE(format_out.get_header() == 5);
     }
 }
+#endif
 
 // get_file_info()
+#ifndef __EMSCRIPTEN__
 TEST_CASE("get_file_info() Test", "[test_file_info]") {
     SECTION("ints.csv") {
         CSVFileInfo info = get_file_info(
@@ -77,7 +82,9 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
 
     REQUIRE(error_caught);
 }
+#endif
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE("Test Read CSV where file does NOT end with newline", "[test_file_info_ints2]") {
     CSVReader reader("./tests/data/fake_data/ints_doesnt_end_in_newline.csv");
 
@@ -92,38 +99,32 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
     // Header on first row
     constexpr auto path = "./tests/data/real_data/2015_StateDepartment.csv";
 
-    // Test using memory mapped IO and std::ifstream
-    std::vector<CSVReader> readers = {};
-    std::ifstream infile(path, std::ios::binary);
+    // Expected Results
+    vector<string> col_names = {
+        "Year", "Entity Type", "Entity Group", "Entity Name",
+        "Department / Subdivision", "Position", "Elected Official",
+        "Judicial", "Other Positions", "Min Classification Salary",
+        "Max Classification Salary", "Reported Base Wage", "Regular Pay",
+        "Overtime Pay", "Lump-Sum Pay", "Other Pay", "Total Wages",
+        "Defined Benefit Plan Contribution", "Employees Retirement Cost Covered",
+        "Deferred Compensation Plan", "Health Dental Vision",
+        "Total Retirement and Health Cost", "Pension Formula",
+        "Entity URL", "Entity Population", "Last Updated",
+        "Entity County", "Special District Activities"
+    };
 
-    readers.emplace_back(path, CSVFormat()); // Memory mapped
-    readers.emplace_back(infile, CSVFormat());
+    vector<string> first_row = {
+        "2015","State Department","","Administrative Law, Office of","",
+        "Assistant Chief Counsel","False","False","","112044","129780",""
+        ,"133020.06","0","2551.59","2434.8","138006.45","34128.65","0","0"
+        ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
+        "08/02/2016","",""
+    };
 
-    for (auto& reader : readers) {
+    // Test logic extracted to lambda to avoid CSVReader copy constructor issue
+    auto test_reader = [&](CSVReader& reader) {
         CSVRow row;
         reader.read_row(row); // Populate row with first line
-
-        // Expected Results
-        vector<string> col_names = {
-            "Year", "Entity Type", "Entity Group", "Entity Name",
-            "Department / Subdivision", "Position", "Elected Official",
-            "Judicial", "Other Positions", "Min Classification Salary",
-            "Max Classification Salary", "Reported Base Wage", "Regular Pay",
-            "Overtime Pay", "Lump-Sum Pay", "Other Pay", "Total Wages",
-            "Defined Benefit Plan Contribution", "Employees Retirement Cost Covered",
-            "Deferred Compensation Plan", "Health Dental Vision",
-            "Total Retirement and Health Cost", "Pension Formula",
-            "Entity URL", "Entity Population", "Last Updated",
-            "Entity County", "Special District Activities"
-        };
-
-        vector<string> first_row = {
-            "2015","State Department","","Administrative Law, Office of","",
-            "Assistant Chief Counsel","False","False","","112044","129780",""
-            ,"133020.06","0","2551.59","2434.8","138006.45","34128.65","0","0"
-            ,"15273.97","49402.62","2.00% @ 55","http://www.spb.ca.gov/","",
-            "08/02/2016","",""
-        };
 
         REQUIRE(vector<string>(row) == first_row);
         REQUIRE(reader.get_col_names() == col_names);
@@ -131,6 +132,17 @@ TEST_CASE( "Test Read CSV with Header Row", "[read_csv_header]" ) {
         // Skip to end
         while (reader.read_row(row));
         REQUIRE(reader.n_rows() == 246497);
+    };
+
+    SECTION("Memory mapped file") {
+        CSVReader reader(path, CSVFormat());
+        test_reader(reader);
+    }
+
+    SECTION("std::ifstream") {
+        std::ifstream infile(path, std::ios::binary);
+        CSVReader reader(infile, CSVFormat());
+        test_reader(reader);
     }
 }
 
@@ -177,3 +189,77 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
         }
     }
 }
+
+// Regression test for issue #149: trailing newline at EOF must not produce a spurious
+// empty row when reading from an ifstream (mmap parser path).
+TEST_CASE("Trailing newline at EOF (ifstream/mmap)", "[trailing_newline_ifstream]") {
+    const char* tmpfile = "./tests/data/tmp_trailing_newline.csv";
+
+    auto write_and_count = [&](const std::string& content) -> size_t {
+        {
+            std::ofstream out(tmpfile, std::ios::binary);
+            out << content;
+        }
+        CSVFormat format;
+        format.no_header();
+        CSVReader reader(tmpfile, format);
+        size_t row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() > 0);
+            row_count++;
+        }
+        std::remove(tmpfile);
+        return row_count;
+    };
+
+    REQUIRE(write_and_count("A,B,C\r\n1,2,3\r\n") == 2);  // CRLF trailing newline
+    REQUIRE(write_and_count("A,B,C\n1,2,3\n")     == 2);  // LF trailing newline
+    REQUIRE(write_and_count("A,B,C\n1,2,3")        == 2);  // no trailing newline (control)
+}
+
+TEST_CASE("Trim regression: quoted unescape and bounded field slice", "[read_csv_trim][regression]") {
+    FileGuard cleanup("./tests/data/tmp_trim_regression.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "A,B,C,D\n"
+            << "x,\"  a\"\"b  \",y,z\n"
+            << "  left   ,   mid   ,   right   ,   tail   \n";
+    }
+
+    CSVFormat format;
+    format.header_row(0)
+        .trim({ ' ', '\t' })
+        .delimiter(',');
+
+    auto validate_reader = [&](CSVReader& reader) {
+        CSVRow row;
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row.size() == 4);
+        REQUIRE(row["A"].get<std::string>() == "x");
+        REQUIRE(row["B"].get<std::string>() == "a\"b");
+        REQUIRE(row["C"].get<std::string>() == "y");
+        REQUIRE(row["D"].get<std::string>() == "z");
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row.size() == 4);
+        REQUIRE(row["A"].get<std::string>() == "left");
+        REQUIRE(row["B"].get<std::string>() == "mid");
+        REQUIRE(row["C"].get<std::string>() == "right");
+        REQUIRE(row["D"].get<std::string>() == "tail");
+
+        REQUIRE_FALSE(reader.read_row(row));
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+}
+#endif

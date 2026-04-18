@@ -8,28 +8,65 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
+# Catch2's benchmark source files have -Wconversion hits; suppress on its targets
+# so our global -Wconversion/-Werror don't fail Catch2's own compilation.
+if(NOT MSVC)
+    foreach(_catch2_target Catch2 Catch2WithMain)
+        if(TARGET ${_catch2_target})
+            target_compile_options(${_catch2_target} PRIVATE -Wno-conversion)
+        endif()
+    endforeach()
+endif()
+
 add_executable(csv_test "")
 target_sources(csv_test
     PRIVATE
         ${CSV_INCLUDE_DIR}/csv.hpp
         main.cpp
+        test_col_names.cpp
+        test_csv_delimiter.cpp
         test_csv_field.cpp
         test_csv_field_array.cpp
         test_csv_format.cpp
         test_csv_iterator.cpp
+        test_csv_ranges.cpp
         test_csv_row.cpp
         test_csv_row_json.cpp
         test_csv_stat.cpp
+        test_data_frame.cpp
+        test_data_type.cpp
+        test_edge_cases_large_rows.cpp
+        test_error_handling.cpp
         test_guess_csv.cpp
+        test_raw_csv_data.cpp
         test_read_csv.cpp
         test_read_csv_file.cpp
-        test_write_csv.cpp
-        test_data_type.cpp
-        test_raw_csv_data.cpp
         test_round_trip.cpp
+        test_stream_sources.cpp
+        test_write_csv.cpp
     )
+
+if(NOT CSV_NO_SIMD)
+    target_sources(csv_test PRIVATE test_basic_csv_parser_simd.cpp)
+endif()
+
+if(CSV_ENABLE_THREADS)
+    target_sources(csv_test PRIVATE test_threadsafe_deque_race.cpp)
+endif()
+
 target_link_libraries(csv_test csv)
 target_link_libraries(csv_test Catch2::Catch2WithMain)
+
+# Suppress warnings originating from Catch2 headers (they are not our code)
+get_target_property(_catch2_inc Catch2::Catch2 INTERFACE_INCLUDE_DIRECTORIES)
+if(_catch2_inc)
+    target_include_directories(csv_test SYSTEM PRIVATE ${_catch2_inc})
+endif()
+
+# Emscripten: Catch2 uses __COUNTER__ (unsupported in emcc, flagged as C2y extension)
+if(EMSCRIPTEN)
+    target_compile_options(csv_test PRIVATE -Wno-c2y-extensions)
+endif()
 
 if(MSVC)
     # Workaround to enable debugging unit tests in Visual Studio

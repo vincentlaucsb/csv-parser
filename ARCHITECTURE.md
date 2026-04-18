@@ -1,0 +1,28 @@
+# Architecture Index
+
+This file is a top-level index for architecture documentation.
+
+Primary architecture document:
+- include/internal/ARCHITECTURE.md
+
+Subsystem deep-dive:
+- include/internal/THREADSAFE_DEQUE_DESIGN.md
+
+Operational/testing guidance:
+- AGENTS.md
+- tests/AGENTS.md
+
+Notes:
+- Internal architecture content lives under include/internal to stay close to implementation.
+- Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
+- Public API comments should remain user-facing and avoid references to internal helper/function details.
+- Private member naming should prefer trailing underscores; when editing mixed-style code, normalize the touched region toward that convention.
+- Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md and CLAUDE.md for details.
+- API constraints should be user-friendly: do not over-constrain templates unless needed for correctness, safety, or a measured performance win.
+- `CSVReader` is intentionally non-copyable and move-enabled; use explicit ownership transfer patterns (`std::move`, `std::unique_ptr`) at API boundaries.
+- Respect existing compile-time compatibility macros (`IF_CONSTEXPR`, `CONSTEXPR_VALUE`, etc.) unless correctness requires change.
+- Avoid semantic rewrites to silence compiler warnings; prefer precise scoped suppression where appropriate.
+- Opportunistic rewrites are acceptable when safe/justified, but should be kept separate from urgent compiler triage unless requested.
+- When changing compile-time behavior, explicitly document tradeoffs (codegen, performance, portability, readability).
+- If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.
+

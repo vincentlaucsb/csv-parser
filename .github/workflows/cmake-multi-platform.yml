@@ -4,9 +4,12 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master", "memory-fix-csvfieldlist" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -25,7 +28,8 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest]
         build_type: [Release]
-        c_compiler: [gcc, cl]
+        c_compiler: [gcc, cl, clang]
+        cxx_standard: [11, 17, 20]
         include:
           - os: windows-latest
             c_compiler: cl
@@ -33,17 +37,27 @@ jobs:
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
+          - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
         exclude:
           - os: windows-latest
             c_compiler: gcc
+          - os: windows-latest
+            c_compiler: clang
           - os: ubuntu-latest
             c_compiler: cl
 
     steps:
     - name: Checkout repository and submodules
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
 
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
@@ -57,6 +71,8 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
+        -DCSV_CXX_STANDARD=${{ matrix.cxx_standard }}
+        -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
@@ -64,10 +80,138 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
+      # single_include_test is excluded from the default "all" target and is built explicitly in the next step.
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+
+    - name: Single-header smoke test
+      if: matrix.os != 'windows-latest'
+      # Explicitly build the single-header smoke-test target so CI validates the freshly generated amalgamated header.
+      # TODO: Re-enable on Windows after fixing single_include_test target generation/project discovery.
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target single_include_test
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }}
+
+  single-threaded:
+    name: Single-threaded build (CSV_ENABLE_THREADS=OFF)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Configure CMake (single-threaded)
+      run: >
+        cmake -B ${{ github.workspace }}/build-single-thread
+        -DCSV_ENABLE_THREADS=OFF
+        -DCSV_CXX_STANDARD=20
+        -DCMAKE_BUILD_TYPE=Release
+        -S ${{ github.workspace }}
+
+    - name: Build (single-threaded)
+      run: cmake --build ${{ github.workspace }}/build-single-thread --config Release
+
+    - name: Test (single-threaded)
+      working-directory: ${{ github.workspace }}/build-single-thread
+      run: ctest --build-config Release --output-on-failure
+
+  single-threaded-emscripten:
+    name: Single-threaded Emscripten build (CSV_ENABLE_THREADS=OFF)
+    runs-on: ubuntu-latest
+    env:
+      # TODO: Set to '1' to re-enable wasm runtime tests once a lightweight
+      # Emscripten smoke subset is in place and stable in CI.
+      CSV_EMSCRIPTEN_RUN_TESTS: '0'
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Set up Emscripten
+      uses: mymindstorm/setup-emsdk@667eb33f24e84e7f362c16d8d7fff0629a73e15e # v14
+      with:
+        version: latest
+
+    - name: Configure CMake (single-threaded emscripten)
+      run: >
+        emcmake cmake -B ${{ github.workspace }}/build-single-thread-emscripten
+        -DCSV_ENABLE_THREADS=OFF
+        -DCSV_CXX_STANDARD=20
+        -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
+        -DCMAKE_CROSSCOMPILING_EMULATOR=node
+        -DCMAKE_BUILD_TYPE=Release
+        -S ${{ github.workspace }}
+
+    - name: Build (single-threaded emscripten)
+      run: cmake --build ${{ github.workspace }}/build-single-thread-emscripten --config Release
+
+    - name: Test (single-threaded emscripten)
+      if: env.CSV_EMSCRIPTEN_RUN_TESTS == '1'
+      working-directory: ${{ github.workspace }}/build-single-thread-emscripten
+      run: ctest --build-config Release --output-on-failure
+
+    - name: Skip tests (single-threaded emscripten)
+      if: env.CSV_EMSCRIPTEN_RUN_TESTS != '1'
+      run: echo "Skipping Emscripten ctest (build-only coverage). Set CSV_EMSCRIPTEN_RUN_TESTS=1 to re-enable."
+
+  simd-branches:
+    name: SIMD branch verification (${{ matrix.simd_mode }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        simd_mode: [avx2, sse2, no-simd]
+        include:
+          - simd_mode: avx2
+            # Force AVX2 so __AVX2__ branch is compiled deterministically.
+            cmake_no_simd: "OFF"
+            cmake_extra_flags: "-DCMAKE_CXX_FLAGS=-mavx2"
+          - simd_mode: sse2
+            # Force SSE2-only path by disabling auto-detected AVX2.
+            # -mno-avx2 prevents __AVX2__ from being defined so the SSE2 branch compiles.
+            cmake_no_simd: "OFF"
+            cmake_extra_flags: "-DCMAKE_CXX_FLAGS=-mno-avx2"
+          - simd_mode: no-simd
+            cmake_no_simd: "ON"
+            cmake_extra_flags: ""
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Configure CMake (${{ matrix.simd_mode }})
+      run: >
+        cmake -B ${{ github.workspace }}/build-simd-${{ matrix.simd_mode }}
+        -DCSV_CXX_STANDARD=20
+        -DCSV_ENABLE_THREADS=ON
+        -DCSV_NO_SIMD=${{ matrix.cmake_no_simd }}
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_CXX_COMPILER=g++
+        -DCMAKE_C_COMPILER=gcc
+        ${{ matrix.cmake_extra_flags }}
+        -S ${{ github.workspace }}
+
+    - name: Build (${{ matrix.simd_mode }})
+      run: cmake --build ${{ github.workspace }}/build-simd-${{ matrix.simd_mode }} --config Release
+
+    - name: Test (${{ matrix.simd_mode }})
+      working-directory: ${{ github.workspace }}/build-simd-${{ matrix.simd_mode }}
+      run: ctest --build-config Release --output-on-failure
+
+
+

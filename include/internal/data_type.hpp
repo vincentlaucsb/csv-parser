@@ -34,10 +34,17 @@ namespace csv {
     static_assert(DataType::CSV_INT64 < DataType::CSV_DOUBLE, "Integer types should come before floating point value types.");
 
     namespace internals {
-        /** Compute 10 to the power of n */
+        /** Compute 10 to the power of n.
+         *  Only integral exponents are supported; fractional exponents
+         *  are never needed since CSV scientific notation exponents are
+         *  always integers (enforced by the CSV_INT8..CSV_INT64 guard
+         *  in _process_potential_exponential before calling this).
+         */
         template<typename T>
-        HEDLEY_CONST CONSTEXPR_14
+        CSV_CONST CONSTEXPR_14
         long double pow10(const T& n) noexcept {
+            static_assert(std::is_integral<T>::value, "pow10 only supports integral exponents");
+            
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
 
@@ -53,7 +60,7 @@ namespace csv {
 
         /** Compute 10 to the power of n */
         template<>
-        HEDLEY_CONST CONSTEXPR_14
+        CSV_CONST CONSTEXPR_14
         long double pow10(const unsigned& n) noexcept {
             long double multiplicand = n > 0 ? 10 : 0.1,
                 ret = 1;
@@ -106,27 +113,28 @@ namespace csv {
             static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
                 "Bytes must be a power of 2 below 8.");
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4127)
+#endif
             IF_CONSTEXPR (sizeof(signed char) == Bytes) {
                 return (long double)std::numeric_limits<signed char>::max();
             }
-
-            IF_CONSTEXPR (sizeof(short) == Bytes) {
+            else IF_CONSTEXPR (sizeof(short) == Bytes) {
                 return (long double)std::numeric_limits<short>::max();
             }
-
-            IF_CONSTEXPR (sizeof(int) == Bytes) {
+            else IF_CONSTEXPR (sizeof(int) == Bytes) {
                 return (long double)std::numeric_limits<int>::max();
             }
-
-            IF_CONSTEXPR (sizeof(long int) == Bytes) {
+            else IF_CONSTEXPR (sizeof(long int) == Bytes) {
                 return (long double)std::numeric_limits<long int>::max();
             }
-
-            IF_CONSTEXPR (sizeof(long long int) == Bytes) {
+            else {
                 return (long double)std::numeric_limits<long long int>::max();
             }
-
-            HEDLEY_UNREACHABLE();
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         }
 
         /** Given a byte size, return the largest number than can be stored in
@@ -137,27 +145,28 @@ namespace csv {
             static_assert(Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8,
                 "Bytes must be a power of 2 below 8.");
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4127)
+#endif
             IF_CONSTEXPR(sizeof(unsigned char) == Bytes) {
                 return (long double)std::numeric_limits<unsigned char>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned short) == Bytes) {
                 return (long double)std::numeric_limits<unsigned short>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned int) == Bytes) {
                 return (long double)std::numeric_limits<unsigned int>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
+            else IF_CONSTEXPR(sizeof(unsigned long int) == Bytes) {
                 return (long double)std::numeric_limits<unsigned long int>::max();
             }
-
-            IF_CONSTEXPR(sizeof(unsigned long long int) == Bytes) {
+            else {
                 return (long double)std::numeric_limits<unsigned long long int>::max();
             }
-
-            HEDLEY_UNREACHABLE();
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
         }
 
         /** Largest number that can be stored in a 8-bit integer */
@@ -188,7 +197,7 @@ namespace csv {
          *  the exponential part of a number written (possibly) in scientific notation
          *  parse the exponent
          */
-        HEDLEY_PRIVATE CONSTEXPR_14
+        CSV_PRIVATE CONSTEXPR_14
         DataType _process_potential_exponential(
             csv::string_view exponential_part,
             const long double& coeff,
@@ -198,7 +207,7 @@ namespace csv {
 
             // Exponents in scientific notation should not be decimal numbers
             if (result >= DataType::CSV_INT8 && result < DataType::CSV_DOUBLE) {
-                if (out) *out = coeff * pow10(exponent);
+                if (out) *out = coeff * pow10(static_cast<long long>(exponent));
                 return DataType::CSV_DOUBLE;
             }
 
@@ -208,7 +217,7 @@ namespace csv {
         /** Given the absolute value of an integer, determine what numeric type
          *  it fits in
          */
-        HEDLEY_PRIVATE HEDLEY_PURE CONSTEXPR_14
+        CSV_PRIVATE CSV_PURE CONSTEXPR_14
         DataType _determine_integral_type(const long double& number) noexcept {
             // We can assume number is always non-negative
             assert(number >= 0);

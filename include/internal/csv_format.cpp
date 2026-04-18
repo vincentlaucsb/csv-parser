@@ -47,6 +47,18 @@ namespace csv {
         return *this;
     }
 
+    CSV_INLINE CSVFormat& CSVFormat::chunk_size(size_t size) {
+        if (size < internals::ITERATION_CHUNK_SIZE) {
+            throw std::invalid_argument(
+                "Chunk size must be at least " +
+                std::to_string(internals::ITERATION_CHUNK_SIZE) +
+                " bytes (10MB). Provided: " + std::to_string(size)
+            );
+        }
+        this->_chunk_size = size;
+        return *this;
+    }
+
     CSV_INLINE void CSVFormat::assert_no_char_overlap()
     {
         auto delims = std::set<char>(

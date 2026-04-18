@@ -5,6 +5,7 @@ using namespace csv;
 
 const std::string PERSONS_CSV = "./tests/data/mimesis_data/persons.csv";
 
+#ifndef __EMSCRIPTEN__
 // Regression test for #208: Try to parse an empty file shouldn't result in a SEGFAULT
 TEST_CASE("Empty File", "[read_csv_stat_empty]") {
     bool error_caught = false;
@@ -20,6 +21,7 @@ TEST_CASE("Empty File", "[read_csv_stat_empty]") {
 
     REQUIRE(error_caught);
 }
+#endif
 
 TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" ) {
     std::string int_str;
@@ -52,6 +54,7 @@ TEST_CASE("Calculating Statistics from Direct Input", "[read_csv_stat_direct]" )
     REQUIRE( reader.get_dtypes()[0][DataType::CSV_INT8] == 100 );
 }
 
+#ifndef __EMSCRIPTEN__
 TEST_CASE( "Statistics - Rows of Integers", "[read_csv_stat]" ) {
     // Header on first row
     auto file = GENERATE(as<std::string> {},
@@ -91,3 +94,4 @@ TEST_CASE("Data Types - persons.csv", "[test_dtypes_person]") {
     REQUIRE(dtypes["Telephone"] == DataType::CSV_STRING);
     REQUIRE(dtypes["Nationality"] == DataType::CSV_STRING);
 }
+#endif

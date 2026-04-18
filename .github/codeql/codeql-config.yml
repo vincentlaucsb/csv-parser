@@ -1,0 +1,6 @@
+name: "CodeQL config"
+
+paths-ignore:
+  - "tests/**"
+  - "single_include_test/**"
+  - "**/tests/**"

@@ -4,19 +4,44 @@
 
 #pragma once
 #include <cmath>
-#include <deque>
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
-#include <unordered_map>
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
+#include <mutex>
+#endif
 #include <unordered_set>
 #include <string>
 #include <sstream>
 #include <vector>
 
 #include "common.hpp"
+#ifdef CSV_HAS_CXX20
+#include <ranges>
+#endif
 #include "data_type.hpp"
-#include "col_names.hpp"
+#include "parse_hex.hpp"
+#include "raw_csv_data.hpp"
+
+#if CSV_ENABLE_THREADS
+#define CSV_INIT_WITH_OPTIONAL_DCL(data_ref, value_ref, ...) \
+    do { \
+        if ((value_ref).empty()) { \
+            std::lock_guard<std::mutex> lock((data_ref).double_quote_init_lock); \
+            if ((value_ref).empty()) { \
+                __VA_ARGS__ \
+            } \
+        } \
+    } while (0)
+#else
+#define CSV_INIT_WITH_OPTIONAL_DCL(data_ref, value_ref, ...) \
+    do { \
+        (void)(data_ref); \
+        if ((value_ref).empty()) { \
+            __VA_ARGS__ \
+        } \
+    } while (0)
+#endif
 
 namespace csv {
     namespace internals {
@@ -30,115 +55,8 @@ namespace csv {
     
         std::string json_escape_string(csv::string_view s) noexcept;
 
-        /** A barebones class used for describing CSV fields */
-        struct RawCSVField {
-            RawCSVField() = default;
-            RawCSVField(size_t _start, size_t _length, bool _double_quote = false) {
-                start = _start;
-                length = _length;
-                has_double_quote = _double_quote;
-            }
-
-            /** The start of the field, relative to the beginning of the row */
-            size_t start;
-
-            /** The length of the row, ignoring quote escape characters */
-            size_t length; 
-
-            /** Whether or not the field contains an escaped quote */
-            bool has_double_quote;
-        };
-
-        /** A class used for efficiently storing RawCSVField objects and expanding as necessary
-         *
-         *  @par Implementation
-         *  This data structure stores RawCSVField in continguous blocks. When more capacity
-         *  is needed, a new block is allocated, but previous data stays put.
-         *
-         *  @par Thread Safety
-         *  This class may be safely read from multiple threads and written to from one,
-         *  as long as the writing thread does not actively touch fields which are being
-         *  read.
-         */
-        class CSVFieldList {
-        public:
-            /** Construct a CSVFieldList which allocates blocks of a certain size */
-            CSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
-                _single_buffer_capacity(single_buffer_capacity) {
-                this->allocate();
-            }
-
-            // No copy constructor
-            CSVFieldList(const CSVFieldList& other) = delete;
-
-            // CSVFieldArrays may be moved
-            CSVFieldList(CSVFieldList&& other) :
-                _single_buffer_capacity(other._single_buffer_capacity) {
-
-                for (auto&& buffer : other.buffers) {
-                    this->buffers.emplace_back(std::move(buffer));
-                }
-
-                _current_buffer_size = other._current_buffer_size;
-                _back = other._back;
-            }
-
-            template <class... Args>
-            void emplace_back(Args&&... args) {
-                if (this->_current_buffer_size == this->_single_buffer_capacity) {
-                    this->allocate();
-                }
-
-                *(_back++) = RawCSVField(std::forward<Args>(args)...);
-                _current_buffer_size++;
-            }
-
-            size_t size() const noexcept {
-                return this->_current_buffer_size + ((this->buffers.size() - 1) * this->_single_buffer_capacity);
-            }
-
-            RawCSVField& operator[](size_t n) const;
-
-        private:
-            const size_t _single_buffer_capacity;
-
-            /**
-             * Prefer std::deque over std::vector because it does not
-             * reallocate upon expansion, allowing pointers to its members
-             * to remain valid & avoiding potential race conditions when 
-             * CSVFieldList is accesssed simulatenously by a reading thread and
-             * a writing thread
-             */
-            std::deque<std::unique_ptr<RawCSVField[]>> buffers = {};
-
-            /** Number of items in the current buffer */
-            size_t _current_buffer_size = 0;
-
-            /** Pointer to the current empty field */
-            RawCSVField* _back = nullptr;
-
-            /** Allocate a new page of memory */
-            void allocate();
-        };
-
-        /** A class for storing raw CSV data and associated metadata */
-        struct RawCSVData {
-            std::shared_ptr<void> _data = nullptr;
-            csv::string_view data = "";
-
-            internals::CSVFieldList fields;
-
-            std::unordered_set<size_t> has_double_quotes = {};
-
-            // TODO: Consider replacing with a more thread-safe structure
-            std::unordered_map<size_t, std::string> double_quote_fields = {};
-
-            internals::ColNamesPtr col_names = nullptr;
-            internals::ParseFlagMap parse_flags;
-            internals::WhitespaceMap ws_flags;
-        };
-
-        using RawCSVDataPtr = std::shared_ptr<RawCSVData>;
+        // Inside CSVField::get() or wherever you materialize the value
+        csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept;
     }
 
     /**
@@ -149,10 +67,10 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) { };
+        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
         operator std::string() const {
-            return std::string("<CSVField> ") + std::string(this->sv);
+            return std::string(this->sv);
         }
 
         /** Returns the value casted to the requested type, performing type checking before.
@@ -220,8 +138,88 @@ namespace csv {
             return static_cast<T>(this->value);
         }
 
-        /** Parse a hexadecimal value, returning false if the value is not hex. */
-        bool try_parse_hex(int& parsedValue);
+        /** Attempts to retrieve the value as the requested type without throwing exceptions.
+         *
+         *  @param[out] out Output parameter that receives the converted value if successful
+         *  @return true if conversion succeeded, false otherwise
+         *
+         *  \par Valid options for T
+         *   - std::string or csv::string_view
+         *   - signed integral types (signed char, short, int, long int, long long int)
+         *   - floating point types (float, double, long double)
+         *   - unsigned integers are not supported at this time, but may be in a later release
+         *
+         *  \par When conversion fails (returns false)
+         *   - Converting non-numeric values to any numeric type
+         *   - Converting floating point values to integers
+         *   - Converting a large integer to a smaller type that will not hold it
+         *   - Converting negative values to unsigned types
+         *
+         *  @note This method is capable of parsing scientific E-notation.
+         *
+         *  @warning Currently, conversions to floating point types are not
+         *           checked for loss of precision
+         *
+         *  @warning Any string_views returned are only guaranteed to be valid
+         *           if the parent CSVRow is still alive.
+         *
+         *  Example:
+         *  @code
+         *  int value;
+         *  if (field.try_get(value)) {
+         *      // Use value safely
+         *  } else {
+         *      // Handle conversion failure
+         *  }
+         *  @endcode
+         */
+        template<typename T = std::string>
+        bool try_get(T& out) noexcept {
+            IF_CONSTEXPR(std::is_arithmetic<T>::value) {
+                // Check if value is numeric
+                if (this->type() <= DataType::CSV_STRING) {
+                    return false;
+                }
+            }
+
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                // Check for float-to-int conversion
+                if (this->is_float()) {
+                    return false;
+                }
+
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value < 0) {
+                        return false;
+                    }
+                }
+            }
+
+            // Check for overflow
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value > internals::get_uint_max<sizeof(T)>()) {
+                        return false;
+                    }
+                }
+                else if (internals::type_num<T>() < this->_type) {
+                    return false;
+                }
+            }
+
+            out = static_cast<T>(this->value);
+            return true;
+        }
+
+        /** Parse a hexadecimal value, returning false if the value is not hex.
+         *  @tparam T An integral type (int, long, long long, etc.)
+         */
+        template<typename T = long long>
+        bool try_parse_hex(T& parsedValue) {
+            static_assert(std::is_integral<T>::value,
+                "try_parse_hex only works with integral types (int, long, long long, etc.)");
+            return internals::try_parse_hex(this->sv, parsedValue);
+        }
 
         /** Attempts to parse a decimal (or integer) value using the given symbol,
          *  returning `true` if the value is numeric.
@@ -284,7 +282,7 @@ namespace csv {
         }
 
         /** Returns true if field is a floating point value */
-        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; };
+        CONSTEXPR_14 bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; }
 
         /** Return the type of the underlying CSV data */
         CONSTEXPR_14 DataType type() noexcept {
@@ -317,6 +315,8 @@ namespace csv {
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
         CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
             : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
+        CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds, size_t _row_length)
+            : data(_data), data_start(_data_start), fields_start(_field_bounds), row_length(_row_length) {}
 
         /** Indicates whether row is empty or not */
         CONSTEXPR bool empty() const noexcept { return this->size() == 0; }
@@ -336,9 +336,35 @@ namespace csv {
             return this->data->col_names->get_col_names();
         }
 
-        /** Convert this CSVRow into a vector of strings.
-         *  **Note**: This is a less efficient method of
-         *  accessing data than using the [] operator.
+        /** Convert this CSVRow into an unordered map.
+         *  The keys are the column names and the values are the corresponding field values.
+         */
+        std::unordered_map<std::string, std::string> to_unordered_map() const;
+
+        /** Convert this CSVRow into an unordered map.
+         *  The keys are the column names and the values are the corresponding field values.
+         * 
+         * @param[in] subset Vector of column names to include in the map.
+         */
+        std::unordered_map<std::string, std::string> to_unordered_map(
+            const std::vector<std::string>& subset
+        ) const;
+
+        #ifdef CSV_HAS_CXX20
+        /** Convert this CSVRow into a std::ranges::input_range of string_views. */
+        auto to_sv_range() const {
+            return std::views::iota(size_t{0}, this->size())
+                | std::views::transform([this](size_t i) { return this->get_field(i); });
+        }
+        #endif
+
+        /** Convert this row into a `std::vector<std::string>`.
+         *
+         * This conversion is primarily intended for write-side workflows, such as
+         * reordering or selecting columns before forwarding the row to `CSVWriter`.
+         *
+         * @note This is less efficient than indexed access via `operator[]` because
+         *       it materializes all fields as owning strings.
          */
         operator std::vector<std::string>() const;
         ///@}
@@ -379,9 +405,10 @@ namespace csv {
 #endif
 
         private:
-            const CSVRow * daddy = nullptr;            // Pointer to parent
-            std::shared_ptr<CSVField> field = nullptr; // Current field pointed at
-            int i = 0;                                 // Index of current field
+            const CSVRow * daddy = nullptr;                      // Pointer to parent
+            internals::RawCSVDataPtr data = nullptr;             // Keep data alive for lifetime of iterator
+            std::shared_ptr<CSVField> field = nullptr;           // Current field pointed at
+            int i = 0;                                           // Index of current field
         };
 
         /** A reverse iterator over the contents of a CSVRow. */
@@ -398,8 +425,54 @@ namespace csv {
         ///@}
 
     private:
+        /** Shared implementation for field access (handles quoting and caching). */
+        inline csv::string_view get_field_impl(size_t index, const internals::RawCSVDataPtr& _data) const {
+            using internals::ParseFlags;
+
+            if (index >= this->size())
+                throw std::runtime_error("Index out of bounds.");
+
+            const size_t field_index = this->fields_start + index;
+            auto field = _data->fields[field_index];
+            auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start, field.length);
+
+            if (field.has_double_quote) {
+                auto& value = _data->double_quote_fields[field_index];
+                CSV_INIT_WITH_OPTIONAL_DCL((*_data), value,
+                    bool prev_ch_quote = false;
+                    for (size_t i = 0; i < field.length; i++) {
+                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                            if (prev_ch_quote) {
+                                prev_ch_quote = false;
+                                continue;
+                            }
+                            else {
+                                prev_ch_quote = true;
+                            }
+                        }
+
+                        value += field_str[i];
+                    }
+                );
+
+                if (_data->has_ws_trimming)
+                    return internals::get_trimmed(csv::string_view(value), _data->ws_flags);
+                return value;
+            }
+            else if (_data->has_ws_trimming) {
+                field_str = internals::get_trimmed(field_str, _data->ws_flags);
+            }
+
+            return field_str;
+        }
+
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;
+
+        /** Iterator-safe field access using explicit data pointer 
+         *  (prevents accessing freed data when CSVRow is reassigned)
+         */
+        csv::string_view get_field_safe(size_t index, internals::RawCSVDataPtr _data) const;
 
         internals::RawCSVDataPtr data;
 
@@ -440,6 +513,30 @@ namespace csv {
 
         return this->value;
     }
+
+    /** Non-throwing retrieval of field as std::string */
+    template<>
+    inline bool CSVField::try_get<std::string>(std::string& out) noexcept {
+        out = std::string(this->sv);
+        return true;
+    }
+
+    /** Non-throwing retrieval of field as csv::string_view */
+    template<>
+    CONSTEXPR_14 bool CSVField::try_get<csv::string_view>(csv::string_view& out) noexcept {
+        out = this->sv;
+        return true;
+    }
+
+    /** Non-throwing retrieval of field as long double */
+    template<>
+    CONSTEXPR_14 bool CSVField::try_get<long double>(long double& out) noexcept {
+        if (!is_num())
+            return false;
+
+        out = this->value;
+        return true;
+    }
 #ifdef _MSC_VER
 #pragma endregion CSVField::get Specializations
 #endif
@@ -459,7 +556,4 @@ namespace csv {
     }
 }
 
-inline std::ostream& operator << (std::ostream& os, csv::CSVField const& value) {
-    os << std::string(value);
-    return os;
-}
+#undef CSV_INIT_WITH_OPTIONAL_DCL

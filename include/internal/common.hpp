@@ -24,16 +24,74 @@
   *  in the single header version
   */
 #define CSV_INLINE
-
-#pragma once
 #include <type_traits>
 
-#include "../external/string_view.hpp"
+#if defined(__EMSCRIPTEN__)
+#undef CSV_ENABLE_THREADS
+#define CSV_ENABLE_THREADS 0
+#elif !defined(CSV_ENABLE_THREADS)
+#define CSV_ENABLE_THREADS 1
+#endif
 
-  // If there is another version of Hedley, then the newer one 
-  // takes precedence.
-  // See: https://github.com/nemequ/hedley
-#include "../external/hedley.h"
+// Minimal portability macros (Hedley subset) with CSV_ prefix.
+#if defined(__clang__) || defined(__GNUC__)
+    #define CSV_CONST __attribute__((__const__))
+    #define CSV_PURE __attribute__((__pure__))
+    #if defined(_WIN32)
+        #define CSV_PRIVATE
+    #else
+        #define CSV_PRIVATE __attribute__((__visibility__("hidden")))
+    #endif
+    #define CSV_NON_NULL(...) __attribute__((__nonnull__(__VA_ARGS__)))
+#elif defined(_MSC_VER)
+    #define CSV_CONST
+    #define CSV_PURE
+    #define CSV_PRIVATE
+    #define CSV_NON_NULL(...)
+#else
+    #define CSV_CONST
+    #define CSV_PURE
+    #define CSV_PRIVATE
+    #define CSV_NON_NULL(...)
+#endif
+
+// This library uses C++ exceptions for error reporting in public APIs.
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND) || defined(__EXCEPTIONS)
+    #define CSV_EXCEPTIONS_ENABLED 1
+#else
+    #define CSV_EXCEPTIONS_ENABLED 0
+#endif
+
+#if !CSV_EXCEPTIONS_ENABLED
+    #error "csv-parser requires C++ exceptions. Enable exception handling (for example, remove -fno-exceptions or use /EHsc)."
+#endif
+
+// Detect C++ standard version BEFORE namespace to properly include string_view
+// MSVC: __cplusplus == 199711L unless /Zc:__cplusplus is set; use _MSVC_LANG instead.
+#if defined(_MSVC_LANG) && _MSVC_LANG > __cplusplus
+#  define CSV_CPLUSPLUS _MSVC_LANG
+#else
+#  define CSV_CPLUSPLUS __cplusplus
+#endif
+
+#if CSV_CPLUSPLUS >= 202002L
+#define CSV_HAS_CXX20
+#endif
+
+#if CSV_CPLUSPLUS >= 201703L
+#define CSV_HAS_CXX17
+#endif
+
+#if CSV_CPLUSPLUS >= 201402L
+#define CSV_HAS_CXX14
+#endif
+
+// Include string_view BEFORE csv namespace to avoid namespace pollution issues
+#ifdef CSV_HAS_CXX17
+#include <string_view>
+#else
+#include "../external/string_view.hpp"
+#endif
 
 namespace csv {
 #ifdef _MSC_VER
@@ -54,16 +112,7 @@ namespace csv {
 
 #define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
 
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD == 17) || __cplusplus >= 201703L
-#define CSV_HAS_CXX17
-#endif
-
-#if (defined(CMAKE_CXX_STANDARD) && CMAKE_CXX_STANDARD >= 14) || __cplusplus >= 201402L
-#define CSV_HAS_CXX14
-#endif
-
 #ifdef CSV_HAS_CXX17
-#include <string_view>
      /** @typedef string_view
       *  The string_view class used by this library.
       */
@@ -101,14 +150,24 @@ namespace csv {
     #define CONSTEXPR_VALUE_14 const
 #endif
 
-    // Resolves g++ bug with regard to constexpr methods
+#ifdef CSV_HAS_CXX17
+    template<typename F, typename... Args>
+    using invoke_result_t = typename std::invoke_result<F, Args...>::type;
+#else
+    template<typename F, typename... Args>
+    using invoke_result_t = typename std::result_of<F(Args...)>::type;
+#endif
+
+    // Resolves g++ bug with regard to constexpr methods.
+    // Keep this gated to C++17+, since C++11/14 pedantic mode rejects constexpr
+    // non-static members when the enclosing class is non-literal.
     // See: https://stackoverflow.com/questions/36489369/constexpr-non-static-member-function-with-non-constexpr-constructor-gcc-clang-d
-#if defined __GNUC__ && !defined __clang__
-    #if (__GNUC__ >= 7 &&__GNUC_MINOR__ >= 2) || (__GNUC__ >= 8)
+#if defined(__GNUC__) && !defined(__clang__)
+    #if defined(CSV_HAS_CXX17) && (((__GNUC__ == 7) && (__GNUC_MINOR__ >= 2)) || (__GNUC__ >= 8))
         #define CONSTEXPR constexpr
     #endif
-    #else
-        #ifdef CSV_HAS_CXX17
+#else
+    #ifdef CSV_HAS_CXX17
         #define CONSTEXPR constexpr
     #endif
 #endif
@@ -145,8 +204,15 @@ namespace csv {
         const int PAGE_SIZE = 4096;
 #endif
 
-        /** For functions that lazy load a large CSV, this determines how
-         *  many bytes are read at a time
+        /** Chunk size for lazy-loading large CSV files
+         * 
+         * The worker thread reads this many bytes at a time (10MB).
+         * 
+         * CRITICAL INVARIANT: Field boundaries at chunk transitions must be preserved.
+         * Bug #280 was caused by fields spanning chunk boundaries being corrupted.
+         * 
+         * @note Tests must write >10MB of data to cross chunk boundaries
+         * @see basic_csv_parser.cpp MmapParser::next() for chunk transition logic
          */
         constexpr size_t ITERATION_CHUNK_SIZE = 10000000; // 10MB
 
@@ -205,4 +271,7 @@ namespace csv {
 
     /** Integer indicating a requested column wasn't found. */
     constexpr int CSV_NOT_FOUND = -1;
+
+    /** Offset to convert char into array index. */
+    constexpr unsigned CHAR_OFFSET = std::numeric_limits<char>::is_signed ? 128 : 0;
 }
