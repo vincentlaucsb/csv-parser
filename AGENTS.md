@@ -31,7 +31,7 @@ CSVReader reader(infile, format);
 
 ## Threading: Worker + 10MB Chunks
 
-- Worker thread reads in 10MB chunks (`ITERATION_CHUNK_SIZE`)
+- Worker thread reads in 10MB chunks (`CSV_CHUNK_SIZE_DEFAULT`)
 - Communicates via `ThreadSafeDeque<CSVRow>`
 - Exceptions propagate via `std::exception_ptr`
 - Critical: Fields spanning chunk boundaries must not corrupt

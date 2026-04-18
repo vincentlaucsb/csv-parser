@@ -306,7 +306,7 @@ namespace csv {
      * Retrieve rows as CSVRow objects, returning true if more rows are available.
      *
      * @par Performance Notes
-     *  - Reads chunks of data that are csv::internals::ITERATION_CHUNK_SIZE bytes large at a time
+    *  - Reads chunks of data that are csv::internals::CSV_CHUNK_SIZE_DEFAULT bytes large at a time
      *  - For performance details, read the documentation for CSVRow and CSVField.
      *
      * @param[out] row The variable where the parsed row will be stored
@@ -344,7 +344,7 @@ namespace csv {
                 // This fires when a single row spans more than 2 × _chunk_size bytes:
                 //   - chunk N   fills without finding '\n'  → _read_requested set to true
                 //   - chunk N+1 also fills without '\n'     → guard fires here
-                // Default _chunk_size is ITERATION_CHUNK_SIZE (10 MB), so the threshold is
+                // Default _chunk_size is CSV_CHUNK_SIZE_DEFAULT (10 MB), so the threshold is
                 // rows > 20 MB.  Use CSVFormat::chunk_size() to raise the limit.
                 if (this->_read_requested && this->records->empty()) {
                     throw std::runtime_error(

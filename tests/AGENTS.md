@@ -253,7 +253,7 @@ TEST_CASE("Multithreaded parsing", "[threading]") {
 3. **FileGuard RAII**: Guaranteed cleanup for temp files
 4. **Timeout Guards**: Use `test_with_timeout()` for race/deadlock-sensitive tests
 5. **Distinct Values**: Detect cross-field corruption
-6. **Chunk Boundary Testing**: Cross 10MB ITERATION_CHUNK_SIZE
+6. **Chunk Boundary Testing**: Cross 10MB CSV_CHUNK_SIZE_DEFAULT
 
 ### Data Files
 Test data in `tests/data/` is a git submodule:

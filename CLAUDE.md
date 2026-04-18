@@ -16,7 +16,7 @@
 - Bugs can exist in one and not the other — always test both with Catch2 `SECTION`
 
 ## Threading
-- Worker thread reads 10MB chunks (`ITERATION_CHUNK_SIZE`)
+- Worker thread reads 10MB chunks (`CSV_CHUNK_SIZE_DEFAULT`)
 - Communication via `ThreadSafeDeque<CSVRow>`
 - Exceptions propagate via `std::exception_ptr`
 - Tests must use ≥500K rows to cross chunk boundary

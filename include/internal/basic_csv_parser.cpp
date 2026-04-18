@@ -165,9 +165,11 @@ namespace csv {
                     while (this->data_pos_ < in.size() && parse_flag(in[this->data_pos_]) == ParseFlags::NEWLINE)
                         this->data_pos_++;
 
-                    // End of record -> Write record
-                    this->push_field();
-                    this->push_row();
+                    // End of record -> Write non-empty record
+                    if (this->field_length_ > 0 || !this->current_row_.empty()) {
+                        this->push_field();
+                        this->push_row();
+                    }
 
                     // Reset
                     this->current_row_ = CSVRow(data_ptr_, this->data_pos_, fields_->size());
@@ -257,7 +259,7 @@ namespace csv {
 #pragma region Specializations
 #endif
 #if !defined(__EMSCRIPTEN__)
-        CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
+        CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
             // chunk boundaries. The 'remainder' calculation below ensures partial fields

@@ -48,11 +48,11 @@ namespace csv {
     }
 
     CSV_INLINE CSVFormat& CSVFormat::chunk_size(size_t size) {
-        if (size < internals::ITERATION_CHUNK_SIZE) {
+        if (size < internals::CSV_CHUNK_SIZE_FLOOR) {
             throw std::invalid_argument(
                 "Chunk size must be at least " +
-                std::to_string(internals::ITERATION_CHUNK_SIZE) +
-                " bytes (10MB). Provided: " + std::to_string(size)
+                std::to_string(internals::CSV_CHUNK_SIZE_FLOOR) +
+                " bytes (500KB). Provided: " + std::to_string(size)
             );
         }
         this->_chunk_size = size;
