@@ -157,10 +157,7 @@ namespace csv {
         }
     }
 
-    /** Sets how many places after the decimal will be written for floating point numbers
-     *
-     *  @param  precision   Number of decimal places
-     */
+    /** Sets how many places after the decimal will be written for floating point numbers. */
 #ifndef __clang__
     inline static void set_decimal_places(int precision) {
         internals::DECIMAL_PLACES = precision;
@@ -233,19 +230,12 @@ namespace csv {
     template<class OutputStream, char Delim, char Quote, bool Flush>
     class DelimWriter {
     public:
-        /** Construct a DelimWriter over the specified output stream
-         *
-         *  @param  _out           Stream to write to
-         *  @param  _quote_minimal Limit field quoting to only when necessary
-        */
+        /** Construct a DelimWriter over the specified output stream. */
 
         DelimWriter(OutputStream& _out, bool _quote_minimal = true)
             : out(&_out), quote_minimal(_quote_minimal) {}
 
-        /** Construct a DelimWriter over the file
-         *
-         *  @param[out] filename  File to write to
-         */
+        /** Construct a DelimWriter that owns an output file stream. */
         template<typename T = OutputStream,
             csv::enable_if_t<std::is_same<T, std::ofstream>::value, int> = 0>
         DelimWriter(const std::string& filename, bool _quote_minimal = true)
@@ -286,33 +276,19 @@ namespace csv {
             return *this;
         }
 
-        /** Destructor will flush remaining data
-         *
-         */
+        /** Destructor will flush remaining data. */
         ~DelimWriter() {
             if (out) out->flush();
         }
 
-        /** Write a C-style array of strings as one delimited row.
-         *
-         *  @tparam T      Element type (typically std::string or csv::string_view)
-         *  @tparam N      Array size (deduced)
-         *  @param record  Array of strings
-         *  @return        The current DelimWriter instance
-         */
+        /** Write a C-style array of strings as one delimited row. */
         template<typename T, size_t N>
         DelimWriter& operator<<(const T (&record)[N]) {
             write_range_impl(record);
             return *this;
         }
 
-        /** Write a std::array of strings as one delimited row.
-         *
-         *  @tparam T      Element type (typically std::string or csv::string_view)
-         *  @tparam N      Array size (deduced)
-         *  @param record  std::array of strings
-         *  @return        The current DelimWriter instance
-         */
+        /** Write a std::array of strings as one delimited row. */
         template<typename T, size_t N>
         DelimWriter& operator<<(const std::array<T, N>& record) {
             write_range_impl(record);
@@ -360,9 +336,7 @@ namespace csv {
             return *this;
         }
 
-        /** Flushes the written data
-         *
-         */
+        /** Flushes the written data. */
         void flush() {
             out->flush();
         }
@@ -417,11 +391,7 @@ namespace csv {
         }
 
         std::string _csv_escape(csv::string_view in) {
-            /** Format a string to be RFC 4180-compliant
-             *  @param[in]  in              String to be CSV-formatted
-             *  @param[out] quote_minimal   Only quote fields if necessary.
-             *                              If False, everything is quoted.
-             */
+            // Format a string to be RFC 4180-compliant.
 
             // Do we need a quote escape
             bool quote_escape = false;

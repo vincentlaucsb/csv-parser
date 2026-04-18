@@ -11,8 +11,6 @@ namespace csv {
      *  Copies the input into an owned stringstream, so the caller's backing
      *  memory may be freed immediately after this call returns.
      *
-     *  @return A collection of CSVRow objects
-     *
      *  @par Example
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
@@ -27,20 +25,15 @@ namespace csv {
      *  The caller is responsible for keeping backing memory valid and immutable
      *  while CSVReader may request additional rows.
      *
-     *  Already materialized CSVRows remain safe because parsed chunk data is
-     *  owned by RawCSVData.
-     *
-     *  @return A collection of CSVRow objects
+        *  Rows already obtained from the reader remain valid, but unread rows
+        *  still depend on the source view staying alive.
      */
     CSV_INLINE CSVReader parse_unsafe(csv::string_view in, CSVFormat format) {
         std::unique_ptr<std::istream> stream(new internals::StringViewStream(in));
         return CSVReader(std::move(stream), format);
     }
 
-    /** Parses a CSV string with no headers
-     *
-     *  @return A collection of CSVRow objects
-     */
+    /** Parses a CSV string with no headers. */
     CSV_INLINE CSVReader parse_no_header(csv::string_view in) {
         CSVFormat format;
         format.header_row(-1);
@@ -74,11 +67,7 @@ namespace csv {
     }
 
     /**
-     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] col_name  Column whose position we should resolve
-     *  @param[in] format    Format of the CSV file
+     *  Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise.
      */
     CSV_INLINE int get_col_pos(
         csv::string_view filename,

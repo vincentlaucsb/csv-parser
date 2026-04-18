@@ -44,8 +44,6 @@ namespace csv {
      *  @complexity
      *  Constant. This calls the other CSVRow::operator[]() after
      *  converting column names into indices using a hash table.
-     *
-     *  @param[in] col_name The column to look for
      */
     CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
         auto & col_names = this->data->col_names;
@@ -78,11 +76,7 @@ namespace csv {
         return row_map;
     }
 
-    /**
-     * Build a map from column names to values for a given row.
-     * 
-     * @param[in] subset Vector of column names to include in the map.
-     */
+    /** Build a map from a subset of column names to values for a given row. */
     CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map(
         const std::vector<std::string>& subset
     ) const {

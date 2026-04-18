@@ -113,12 +113,7 @@ namespace csv {
             const KeyType* _key
         ) : row(_row), row_edits(_edits), key_ptr(_key) {}
 
-        /**
-         * Access a field by column name, checking edits first.
-         * 
-         * @param col Column name
-         * @return CSVField representing the field value (edited if present, otherwise original)
-         */
+        /** Access a field by column name, checking edits first. */
         CSVField operator[](const std::string& col) const {
             // Find column index by searching column names
             auto col_names = row->get_col_names();
@@ -351,23 +346,16 @@ namespace csv {
             this->init_unkeyed_from_reader(reader);
         }
 
-        /**
-         * Construct a keyed DataFrame from a CSV reader with options.
-         * 
-         * @param reader CSV reader to consume
-         * @param options Configuration including key column and duplicate policies
+        /** Construct a keyed DataFrame from a CSV reader with options.
+         *
          * @throws std::runtime_error if key column is empty or not found
          */
         explicit DataFrame(CSVReader& reader, const DataFrameOptions& options) {
             this->init_from_reader(reader, options);
         }
 
-        /**
-         * Construct a keyed DataFrame directly from a CSV file.
-         * 
-         * @param filename Path to the CSV file
-         * @param options Configuration including key column and duplicate policies
-         * @param format CSV format specification (defaults to auto-detection)
+        /** Construct a keyed DataFrame directly from a CSV file.
+         *
          * @throws std::runtime_error if key column is empty or not found
          */
         DataFrame(
@@ -379,13 +367,8 @@ namespace csv {
             this->init_from_reader(reader, options);
         }
 
-        /**
-         * Construct a keyed DataFrame using a column name as the key.
-         * 
-         * @param reader CSV reader to consume
-         * @param _key_column Name of the column to use as the key
-         * @param policy How to handle duplicate keys (default: OVERWRITE)
-         * @param throw_on_missing_key Whether to throw if a key value cannot be parsed (default: true)
+        /** Construct a keyed DataFrame using a column name as the key.
+         *
          * @throws std::runtime_error if key column is empty or not found
          */
         DataFrame(
@@ -401,12 +384,8 @@ namespace csv {
                 .set_throw_on_missing_key(throw_on_missing_key)
         ) {}
 
-        /**
-         * Construct a keyed DataFrame using a custom key function.
-         * 
-         * @param reader CSV reader to consume
-         * @param key_func Function that extracts a key from each row
-         * @param policy How to handle duplicate keys (default: OVERWRITE)
+        /** Construct a keyed DataFrame using a custom key function.
+         *
          * @throws std::runtime_error if policy is THROW and duplicate keys are encountered
          */
         template<
@@ -423,13 +402,7 @@ namespace csv {
             this->build_from_key_function(reader, key_func, policy);
         }
 
-        /**
-         * Construct a keyed DataFrame using a custom key function with options.
-         * 
-         * @param reader CSV reader to consume
-         * @param key_func Function that extracts a key from each row
-         * @param options Configuration for duplicate key policy
-         */
+        /** Construct a keyed DataFrame using a custom key function with options. */
         template<
             typename KeyFunc,
             typename ResultType = invoke_result_t<KeyFunc, const CSVRow&>,
@@ -457,22 +430,12 @@ namespace csv {
         /** Get the number of columns in the DataFrame. */
         size_t n_cols() const noexcept { return col_names_.size(); }
 
-        /**
-         * Check if a column exists in the DataFrame.
-         * 
-         * @param name Column name to check
-         * @return true if the column exists, false otherwise
-         */
+        /** Check if a column exists in the DataFrame. */
         bool has_column(const std::string& name) const {
             return std::find(col_names_.begin(), col_names_.end(), name) != col_names_.end();
         }
 
-        /**
-         * Get the index of a column by name.
-         * 
-         * @param name Column name to find
-         * @return Column index (0-based) or CSV_NOT_FOUND if not found
-         */
+        /** Get the index of a column by name. */
         int index_of(const std::string& name) const {
             auto it = std::find(col_names_.begin(), col_names_.end(), name);
             if (it == col_names_.end())
@@ -497,8 +460,6 @@ namespace csv {
          *       operator[](const KeyType&). Use iloc() for positional access on
          *       integer-keyed DataFrames.
          *
-         * @param i Row index (0-based)
-         * @return DataFrameRow proxy with edit support
          * @throws std::out_of_range if index is out of bounds (via std::vector::at)
          */
         template<typename K = KeyType,
@@ -521,9 +482,7 @@ namespace csv {
 
         /**
          * Access a row by position with bounds checking.
-         * 
-         * @param i Row index (0-based)
-         * @return DataFrameRow proxy with edit support
+         *
          * @throws std::out_of_range if index is out of bounds
          */
         DataFrameRow<KeyType> at(size_t i) {
@@ -547,9 +506,7 @@ namespace csv {
 
         /**
          * Access a row by its key.
-         * 
-         * @param key The row key to look up
-         * @return DataFrameRow proxy with edit support
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if the key is not found
          */
@@ -574,9 +531,7 @@ namespace csv {
 
         /**
          * Access a row by position (iloc-style, pandas naming).
-         * 
-         * @param i Row index (0-based)
-         * @return DataFrameRow proxy with edit support
+         *
          * @throws std::out_of_range if index is out of bounds
          */
         DataFrameRow<KeyType> iloc(size_t i) {
@@ -598,13 +553,7 @@ namespace csv {
             return DataFrameRow<KeyType>(&rows.at(i).second, row_edits, &rows.at(i).first);
         }
 
-        /**
-         * Attempt to access a row by position without throwing.
-         * 
-         * @param i Row index (0-based)
-         * @param out Output parameter that receives the DataFrameRow if found
-         * @return true if the row exists, false otherwise
-         */
+        /** Attempt to access a row by position without throwing. */
         bool try_get(size_t i, DataFrameRow<KeyType>& out) {
             if (i >= rows.size()) {
                 return false;
@@ -634,9 +583,7 @@ namespace csv {
 
         /**
          * Get the key for a row at a given position.
-         * 
-         * @param i Row index (0-based)
-         * @return Reference to the key
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if index is out of bounds
          */
@@ -647,9 +594,7 @@ namespace csv {
 
         /**
          * Check if a key exists in the DataFrame.
-         * 
-         * @param key The key to check
-         * @return true if the key exists, false otherwise
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          */
         bool contains(const KeyType& key) const {
@@ -660,9 +605,7 @@ namespace csv {
 
         /**
          * Access a row by its key with bounds checking.
-         * 
-         * @param key The row key to look up
-         * @return DataFrameRow proxy with edit support
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if the key is not found
          */
@@ -687,10 +630,7 @@ namespace csv {
 
         /**
          * Attempt to access a row by key without throwing.
-         * 
-         * @param key The row key to look up
-         * @param out Output parameter that receives the DataFrameRow if found
-         * @return true if the key exists, false otherwise
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          */
         bool try_get(const KeyType& key, DataFrameRow<KeyType>& out) {
@@ -724,10 +664,7 @@ namespace csv {
 
         /**
          * Get a cell value as a string, accounting for edits.
-         * 
-         * @param key The row key
-         * @param column The column name
-         * @return Cell value as a string (edited value if present, otherwise original)
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if the key is not found
          */
@@ -754,10 +691,7 @@ namespace csv {
 
         /**
          * Set a cell value (stored in edit overlay).
-         * 
-         * @param key The row key
-         * @param column The column name
-         * @param value The new value as a string
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if the key is not found
          */
@@ -778,9 +712,7 @@ namespace csv {
 
         /**
          * Remove a row by its key.
-         * 
-         * @param key The row key to remove
-         * @return true if the row was removed, false if not found
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          */
         bool erase_row(const KeyType& key) {
@@ -798,12 +730,7 @@ namespace csv {
             return true;
         }
 
-        /**
-         * Remove a row by its position.
-         * 
-         * @param i Row index (0-based)
-         * @return true if the row was removed, false if index out of bounds
-         */
+        /** Remove a row by its position. */
         bool erase_row_at(size_t i) {
             if (i >= rows.size()) return false;
             if (is_keyed) edits.erase(rows[i].first);
@@ -815,10 +742,7 @@ namespace csv {
 
         /**
          * Set a cell value by position (stored in edit overlay).
-         * 
-         * @param i Row index (0-based)
-         * @param column The column name
-         * @param value The new value as a string
+         *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if index is out of bounds
          */
@@ -844,10 +768,8 @@ namespace csv {
         /**
          * Extract all values from a column with type conversion.
          * Accounts for edited values in the overlay.
-         * 
+         *
          * @tparam T Target type for conversion (default: std::string)
-         * @param name Column name
-         * @return Vector of values converted to type T
          * @throws std::runtime_error if column is not found
          */
         template<typename T = std::string>
@@ -881,10 +803,8 @@ namespace csv {
 
         /**
          * Group row positions using an arbitrary grouping function.
-         * 
+         *
          * @tparam GroupFunc Callable that takes a CSVRow and returns a hashable key
-         * @param group_func Function to extract group key from each row
-         * @return Map of group key -> vector of row indices belonging to that group
          */
         template<
             typename GroupFunc,
@@ -908,10 +828,7 @@ namespace csv {
 
         /**
          * Group row positions by the value of a column.
-         * 
-         * @param name Column to group by
-         * @param use_edits If true, use edited values when present (default: true)
-         * @return Map of column value -> vector of row indices with that value
+         *
          * @throws std::runtime_error if column is not found
          */
         std::unordered_map<std::string, std::vector<size_t>> group_by(

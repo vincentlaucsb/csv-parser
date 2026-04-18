@@ -53,14 +53,12 @@ namespace csv {
         /** Sets a list of potential delimiters
          *  
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
-         *  @param[in] delim An array of possible delimiters to try parsing the CSV with
          */
         CSVFormat& delimiter(const std::vector<char> & delim);
 
         /** Sets the whitespace characters to be trimmed
          *
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
-         *  @param[in] ws An array of whitespace characters that should be trimmed
          */
         CSVFormat& trim(const std::vector<char> & ws);
 

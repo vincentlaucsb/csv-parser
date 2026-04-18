@@ -48,10 +48,6 @@ namespace csv {
 
     /** @brief Guess the delimiter and header row of a CSV file
      *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] delims    Candidate delimiters to test
-     *  @return CSVGuessResult containing the detected delimiter and header row index
-     *
      *  **Heuristic:** For each candidate delimiter, calculate a score based on
      *  the most common row length (mode). The delimiter with the highest score wins.
      *  
@@ -107,28 +103,23 @@ namespace csv {
          * streaming large CSV files that may exceed available RAM (e.g., 50+ GB files).
          * 
          * @par CRITICAL DESIGN CONSTRAINT:
-         * - The underlying RawCSVData chunks are automatically freed as the iterator advances
-         * - Only the CURRENT row's data is kept alive (via CSVRow's RawCSVDataPtr member)
-         * - Previous chunks are freed to allow unlimited file sizes with bounded memory
+         * - Storage for previously consumed positions may be released as the iterator advances
+         * - Only the current position is guaranteed to remain valid without copying
+         * - This bounded-memory behavior is what allows very large CSV files to stream safely
          * 
          * @par WHY FORWARD ITERATOR IS NOT POSSIBLE:
          * - ForwardIterator requires multi-pass guarantees (can hold multiple valid positions)
-         * - Supporting this would require caching ALL RawCSVDataPtr chunks in the iterator
+         * - Supporting this would require retaining all parsed row storage in memory
          * - This defeats the streaming purpose: a 50 GB CSV would require 50+ GB of RAM
          * - The entire library design depends on automatic chunk cleanup for memory efficiency
          * 
          * @par IMPLICATIONS FOR ALGORITHM USE:
          * - Algorithms requiring ForwardIterator (std::max_element, std::sort, etc.) may
-         *   appear to work in tests with small files, but will cause heap-use-after-free
-         *   when the algorithm tries to access iterators pointing to freed chunks
+         *   appear to work in tests with small files, but are not safe on this iterator
+         *   once earlier positions have been released during streaming
          * - CORRECT approach: Copy rows to std::vector first, then use algorithms
          * - Example: auto rows = std::vector<CSVRow>(reader.begin(), reader.end());
          *            auto max_row = std::max_element(rows.begin(), rows.end(), ...);
-         * 
-         * @par FOR AI AGENTS AND MAINTAINERS:
-         * If you encounter heap-use-after-free with ForwardIterator algorithms, the solution
-         * is NOT to cache all RawCSVDataPtr chunks - this violates the fundamental streaming
-         * architecture. Instead, document the limitation or provide vector-based workarounds.
          */
         class iterator {
         public:

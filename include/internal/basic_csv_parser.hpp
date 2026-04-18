@@ -178,10 +178,7 @@ namespace csv {
             /** Whether or not source needs to be read in chunks */
             CONSTEXPR bool no_chunk() const { return this->source_size_ < CSV_CHUNK_SIZE_DEFAULT; }
 
-            /** Parse the current chunk of data *
-             *
-             *  @returns How many character were read that are part of complete rows
-             */
+            /** Parse the current chunk of data and return the completed-row prefix length. */
             size_t parse();
 
             /** Create a new RawCSVDataPtr for a new chunk of data */

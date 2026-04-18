@@ -39,9 +39,8 @@ namespace csv {
      *  remains valid and immutable while the reader may request additional rows
      *  from the source stream.
      *
-     *  Already materialized CSVRows remain safe because parsed chunk data is
-     *  owned by RawCSVData, so make sure you grab all the CSVRows you need
-     *  before the underlying string is destroyed.
+        *  Rows already obtained from the reader remain valid, but unread rows
+        *  still depend on the source view staying alive.
      */
     CSVReader parse_unsafe(csv::string_view in, CSVFormat format = CSVFormat::guess_csv());
 
