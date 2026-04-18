@@ -38,6 +38,7 @@ target_sources(csv_test
         test_edge_cases_large_rows.cpp
         test_error_handling.cpp
         test_guess_csv.cpp
+        test_parser_edge_cases.cpp
         test_raw_csv_data.cpp
         test_read_csv.cpp
         test_read_csv_file.cpp

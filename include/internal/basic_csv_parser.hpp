@@ -176,7 +176,7 @@ namespace csv {
             ///@}
 
             /** Whether or not source needs to be read in chunks */
-            CONSTEXPR bool no_chunk() const { return this->source_size_ < ITERATION_CHUNK_SIZE; }
+            CONSTEXPR bool no_chunk() const { return this->source_size_ < CSV_CHUNK_SIZE_DEFAULT; }
 
             /** Parse the current chunk of data *
              *
@@ -287,7 +287,7 @@ namespace csv {
 
             ~StreamParser() {}
 
-            void next(size_t bytes = ITERATION_CHUNK_SIZE) override {
+            void next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) override {
                 if (this->eof()) return;
 
                 // Reset parser state

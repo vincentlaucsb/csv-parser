@@ -124,7 +124,7 @@ TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integ
         FileGuard cleanup(test_file);
         
         // Create CSV larger than chunk size to test boundary handling
-        // internals::ITERATION_CHUNK_SIZE is typically 10MB
+        // internals::CSV_CHUNK_SIZE_DEFAULT is typically 10MB
         {
             std::ofstream out(test_file);
             out << "id,name,value,timestamp\n";

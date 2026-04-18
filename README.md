@@ -38,7 +38,7 @@
 ## Motivation
 I wanted a CSV library that was fast and reliable without forcing you into either:
  * A 1990s C-style API
- * A high-level wrapper that murders `malloc()` and your memory cache
+ * A high-level wrapper that murders `malloc()` and your cache
 
 This library tries to be **fast for developers** and **fast for your computer**.
 
@@ -57,17 +57,16 @@ All benchmarks shown are warm cache runs to focus on parser/CPU performance rath
 
 #### Chunk Size Tuning
 
-By default, the parser reads CSV data in 10MB chunks. This balance was determined through empirical testing to optimize throughput while minimizing memory overhead and thread synchronization costs, but feel free to experiment and measure with different numbers yourself.
+By default, the parser reads CSV data in 10MB chunks. 10MB was chosen after empirical testing to optimize throughput while minimizing memory and thread synchronization costs, but feel free to experiment with different numbers yourself.
 
-If you encounter rows larger than the chunk size, pass a custom `CSVFormat` with `chunk_size()`:
+A custom `CSVFormat` with `chunk_size()` can be passed to:
+ * Shrink the chunk size (down to a minimum of 500KB)
+ * Expand the chunk size (necessary if you encounter very large rows)
 
 ```cpp
 CSVFormat fmt;
 fmt.chunk_size(100 * 1024 * 1024);  // 100MB chunks
 CSVReader reader("massive_rows.csv", fmt);
-for (auto& row : reader) {
-    // Process row
-}
 ```
 
 ### Robust Yet Flexible

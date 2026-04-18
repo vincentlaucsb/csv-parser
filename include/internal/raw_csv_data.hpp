@@ -67,7 +67,7 @@ namespace csv {
             /** Construct a RawCSVFieldList which allocates blocks of a certain size */
             RawCSVFieldList(size_t single_buffer_capacity = (size_t)(internals::PAGE_SIZE / sizeof(RawCSVField))) :
                 _single_buffer_capacity(single_buffer_capacity) {
-                const size_t max_fields = internals::ITERATION_CHUNK_SIZE + 1;
+                const size_t max_fields = internals::CSV_CHUNK_SIZE_DEFAULT + 1;
                 const size_t block_capacity = (max_fields + _single_buffer_capacity - 1) / _single_buffer_capacity;
                 _owned_blocks.reserve(block_capacity);
 

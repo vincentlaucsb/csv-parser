@@ -250,7 +250,7 @@ namespace csv {
             other._n_rows = 0;
             other.header_trimmed = false;
             other._read_requested = false;
-            other._chunk_size = internals::ITERATION_CHUNK_SIZE;
+            other._chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
         }
 
         /** Move assignment.
@@ -287,7 +287,7 @@ namespace csv {
             other._n_rows = 0;
             other.header_trimmed = false;
             other._read_requested = false;
-            other._chunk_size = internals::ITERATION_CHUNK_SIZE;
+            other._chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
 
             return *this;
         }
@@ -373,7 +373,7 @@ namespace csv {
 
         /** @name Multi-Threaded File Reading Functions */
         ///@{
-        bool read_csv(size_t bytes = internals::ITERATION_CHUNK_SIZE);
+        bool read_csv(size_t bytes = internals::CSV_CHUNK_SIZE_DEFAULT);
         ///@}
 
         /**@}*/
@@ -386,7 +386,7 @@ namespace csv {
     #if CSV_ENABLE_THREADS
         std::thread read_csv_worker; /**< Worker thread for read_csv() */
     #endif
-        size_t _chunk_size = internals::ITERATION_CHUNK_SIZE; /**< Current chunk size in bytes */
+        size_t _chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT; /**< Current chunk size in bytes */
         bool _read_requested = false; /**< Flag to detect infinite read loops (Issue #218) */
         ///@}
 

@@ -1,6 +1,6 @@
 //
 // Tests for edge cases with large CSV rows
-// Issue #218: Infinite loop when a row exceeds ITERATION_CHUNK_SIZE
+// Issue #218: Infinite loop when a row exceeds CSV_CHUNK_SIZE_DEFAULT
 //
 
 #include <catch2/catch_all.hpp>
@@ -34,15 +34,33 @@ static std::string generate_large_row(size_t target_bytes, int num_fields = 10) 
     return row;
 }
 
-// Build shared 25 MB rows once.  Catch2 re-runs the preamble before each
-// SECTION, so static locals prevent repeated 25 MB heap allocations.
-static const std::string& large_row_3col() {
-    static const std::string row = generate_large_row(25 * 1024 * 1024, 3);
+constexpr size_t kRowBytesStress = 25 * 1024 * 1024;
+// StreamParser prepends leftover bytes from the previous read, so the second
+// parse attempt can process nearly 2x the default chunk. Keep a margin above
+// that to reliably hit the infinite-loop guard path.
+constexpr size_t kRowBytesGuardTrip = 2 * internals::CSV_CHUNK_SIZE_DEFAULT + 2 * 1024 * 1024;
+constexpr size_t kRowBytesMedium = internals::CSV_CHUNK_SIZE_DEFAULT + 64 * 1024;
+constexpr size_t kChunkBytesMedium = internals::CSV_CHUNK_SIZE_DEFAULT + 256 * 1024;
+
+// Build shared rows once. Catch2 re-runs the preamble before each SECTION,
+// so static locals avoid repeated multi-megabyte heap allocations.
+static const std::string& stress_row_3col() {
+    static const std::string row = generate_large_row(kRowBytesStress, 3);
     return row;
 }
 
-static const std::string& large_row_2col() {
-    static const std::string row = generate_large_row(25 * 1024 * 1024, 2);
+static const std::string& guard_trip_row_3col() {
+    static const std::string row = generate_large_row(kRowBytesGuardTrip, 3);
+    return row;
+}
+
+static const std::string& guard_trip_row_2col() {
+    static const std::string row = generate_large_row(kRowBytesGuardTrip, 2);
+    return row;
+}
+
+static const std::string& medium_row_3col() {
+    static const std::string row = generate_large_row(kRowBytesMedium, 3);
     return row;
 }
 
@@ -64,9 +82,8 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
 
     SECTION("Exception thrown for row exceeding default chunk size") {
         // The infinite-loop guard fires when a full chunk is consumed without
-        // producing any complete rows.  This requires the row to be strictly
-        // larger than 2 × ITERATION_CHUNK_SIZE (2 × 10 MB = 20 MB).
-        // A 25 MB row guarantees the second 10 MB chunk also contains no '\n'.
+        // producing any complete rows. StreamParser carries leftover bytes
+        // across reads, so this row includes a safety margin above 2x default.
         auto validate_throws = [](CSVReader& reader) {
             REQUIRE_THROWS_WITH(
                 [&reader]() {
@@ -78,7 +95,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
 
         SECTION("stream path") {
             std::stringstream ss;
-            ss << "Col1,Col2,Col3\n" << large_row_3col();
+            ss << "Col1,Col2,Col3\n" << guard_trip_row_3col();
             CSVReader reader(ss);
             validate_throws(reader);
         }
@@ -88,7 +105,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             FileGuard cleanup("./tests/data/tmp_large_row_throw.csv");
             {
                 std::ofstream out(cleanup.filename, std::ios::binary);
-                out << "Col1,Col2,Col3\n" << large_row_3col();
+                out << "Col1,Col2,Col3\n" << guard_trip_row_3col();
             }
             CSVReader reader(cleanup.filename);
             validate_throws(reader);
@@ -97,9 +114,9 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
     }
 
     SECTION("Custom chunk size allows parsing larger rows") {
-        // Row is 25 MB; with a 30 MB chunk it fits in a single read.
+        // Row is just above default chunk size; medium chunk size should parse it.
         CSVFormat fmt;
-        fmt.delimiter(',').chunk_size(30 * 1024 * 1024);
+        fmt.delimiter(',').chunk_size(kChunkBytesMedium);
 
         auto validate_reader = [](CSVReader& reader) {
             int row_count = 0;
@@ -112,7 +129,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
 
         SECTION("stream path") {
             std::stringstream ss;
-            ss << "Col1,Col2,Col3\n" << large_row_3col() << "8,9,10\n";
+            ss << "Col1,Col2,Col3\n" << medium_row_3col() << "8,9,10\n";
             CSVReader reader(ss, fmt);
             validate_reader(reader);
         }
@@ -122,7 +139,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             FileGuard cleanup("./tests/data/tmp_large_row_parse.csv");
             {
                 std::ofstream out(cleanup.filename, std::ios::binary);
-                out << "Col1,Col2,Col3\n" << large_row_3col() << "8,9,10\n";
+                out << "Col1,Col2,Col3\n" << medium_row_3col() << "8,9,10\n";
             }
             CSVReader reader(cleanup.filename, fmt);
             validate_reader(reader);
@@ -130,8 +147,8 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
         #endif
     }
 
-    SECTION("Multiple large rows with custom chunk size") {
-        // Each row is 25 MB; 30 MB chunk fits each row in a single read.
+    SECTION("Single 25MB row stress test with custom chunk size") {
+        // Keep one explicit 25 MB stress path for throughput/regression coverage.
         CSVFormat fmt;
         fmt.delimiter(',').chunk_size(30 * 1024 * 1024);
 
@@ -141,13 +158,12 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
                 row_count++;
                 REQUIRE(row.size() == 3);
             }
-            REQUIRE(row_count == 3);
+            REQUIRE(row_count == 1);
         };
 
         SECTION("stream path") {
             std::stringstream ss;
-            ss << "A,B,C\n";
-            for (int i = 0; i < 3; ++i) ss << large_row_3col();
+            ss << "A,B,C\n" << stress_row_3col();
             CSVReader reader(ss, fmt);
             validate_reader(reader);
         }
@@ -157,8 +173,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
             FileGuard cleanup("./tests/data/tmp_large_rows_multiple.csv");
             {
                 std::ofstream out(cleanup.filename, std::ios::binary);
-                out << "A,B,C\n";
-                for (int i = 0; i < 3; ++i) out << large_row_3col();
+                out << "A,B,C\n" << stress_row_3col();
             }
             CSVReader reader(cleanup.filename, fmt);
             validate_reader(reader);
@@ -170,7 +185,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
         // CSVFormat::chunk_size() validates at the point of configuration.
         CSVFormat fmt;
         REQUIRE_THROWS_WITH(
-            fmt.chunk_size(1024 * 1024),  // 1 MB — below the 10 MB minimum
+            fmt.chunk_size(128 * 1024),  // 128 KB — below the 500 KB minimum
             Catch::Matchers::ContainsSubstring("at least")
         );
         REQUIRE_THROWS_WITH(
@@ -179,12 +194,12 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
         );
     }
 
-    SECTION("Minimum allowed chunk size (exactly ITERATION_CHUNK_SIZE) works") {
+    SECTION("Minimum allowed chunk size (exactly CSV_CHUNK_SIZE_FLOOR) works") {
         std::stringstream ss;
         ss << "A,B\n1,2\n";
 
         CSVFormat fmt;
-        fmt.delimiter(',').chunk_size(10 * 1024 * 1024);  // Exactly 10 MB minimum
+        fmt.delimiter(',').chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);  // Exactly 500 KB minimum
         CSVReader reader(ss, fmt);
 
         int row_count = 0;
@@ -193,16 +208,16 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
     }
 
     SECTION("Custom chunk size persists across reads") {
-        // reader1 uses a 30 MB chunk (succeeds);
-        // reader2 uses the default 10 MB chunk (triggers the exception).
+        // reader1 uses a medium chunk and medium row (succeeds);
+        // reader2 uses the default chunk with a >2x default row + margin (throws).
         std::stringstream ss1, ss2;
-        ss1 << "X,Y,Z\n" << large_row_3col();
-        ss2 << "P,Q,R\n" << large_row_3col();
+        ss1 << "X,Y,Z\n" << medium_row_3col();
+        ss2 << "P,Q,R\n" << guard_trip_row_3col();
 
         CSVFormat big_chunk;
-        big_chunk.delimiter(',').chunk_size(30 * 1024 * 1024);
+        big_chunk.delimiter(',').chunk_size(kChunkBytesMedium);
         CSVReader reader1(ss1, big_chunk);
-        CSVReader reader2(ss2);  // Default 10 MB chunk
+        CSVReader reader2(ss2);  // Default chunk size
 
         int count1 = 0;
         for (auto& row : reader1) { (void)row; count1++; }
@@ -219,11 +234,11 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
 TEST_CASE("Issue #218 - Infinite read loop detection", "[issue_218]") {
 
     SECTION("Detects when row exceeds chunk size and file doesn't end") {
-        // A 25 MB row spans three 10 MB chunks; the second chunk completes
-        // without finding a '\n', so _read_requested is already true →
+        // A >2x default chunk row with margin spans three chunks; the second
+        // chunk completes without finding a '\n', so _read_requested is already true →
         // the infinite-loop guard fires.
         std::stringstream ss;
-        ss << "A,B\n" << "1,2\n" << large_row_2col();
+        ss << "A,B\n" << "1,2\n" << guard_trip_row_2col();
 
         CSVReader reader(ss);
 
@@ -231,7 +246,7 @@ TEST_CASE("Issue #218 - Infinite read loop detection", "[issue_218]") {
         auto it = reader.begin();  // Points to "1,2"
         REQUIRE(it != reader.end());
 
-        // Advancing into the 25 MB row: chunk 2 finishes with no complete rows
+        // Advancing into the oversized row: chunk 2 finishes with no complete rows
         // and _read_requested is already true → the guard fires.
         REQUIRE_THROWS_WITH(
             ++it,

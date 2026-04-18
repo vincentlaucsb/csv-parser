@@ -123,8 +123,8 @@ namespace csv {
 
         /** Sets the chunk size used when reading the CSV
          *
-         *  @param[in] size Chunk size in bytes (minimum: 10MB = ITERATION_CHUNK_SIZE)
-         *  @throws std::invalid_argument if size < ITERATION_CHUNK_SIZE
+         *  @param[in] size Chunk size in bytes (minimum: CSV_CHUNK_SIZE_FLOOR)
+         *  @throws std::invalid_argument if size < CSV_CHUNK_SIZE_FLOOR
          *
          *  Use this when constructing a CSVReader from a filename and individual rows
          *  may exceed the default 10MB chunk size. The value is passed to CSVReader at
@@ -198,6 +198,6 @@ namespace csv {
         ColumnNamePolicy _column_name_policy = ColumnNamePolicy::EXACT;
 
         /**< Chunk size for reading; passed to CSVReader at construction time */
-        size_t _chunk_size = internals::ITERATION_CHUNK_SIZE;
+        size_t _chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
     };
 }

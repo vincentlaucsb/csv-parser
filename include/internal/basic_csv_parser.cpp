@@ -259,7 +259,7 @@ namespace csv {
 #pragma region Specializations
 #endif
 #if !defined(__EMSCRIPTEN__)
-        CSV_INLINE void MmapParser::next(size_t bytes = ITERATION_CHUNK_SIZE) {
+        CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
             // chunk boundaries. The 'remainder' calculation below ensures partial fields
