@@ -262,4 +262,33 @@ TEST_CASE("Trim regression: quoted unescape and bounded field slice", "[read_csv
         validate_reader(reader);
     }
 }
+
+TEST_CASE("Issue #195 - header_row() preserved when delimiter guessing", "[issue_195][skip_rows_file]") {
+    // When the user explicitly sets header_row(N) alongside guess_csv(),
+    // the guesser must not override the user's chosen header row.
+    FileGuard cleanup("./tests/data/tmp_issue_195_skip_rows.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "a;b;c;d\n"
+            << "this;is;before;header\n"
+            << "this;is;before;header_too\n"
+            << "timestamp;distance;angle;amplitude\n"
+            << "22857782;30000;314159;0\n"
+            << "22857786;30000;314109;0\n";
+    }
+
+    std::vector<std::string> expected = { "timestamp", "distance", "angle", "amplitude" };
+
+    auto format = CSVFormat::guess_csv();
+    format.header_row(3);
+
+    CSVReader reader(cleanup.filename, format);
+    REQUIRE(reader.get_col_names() == expected);
+
+    // Verify data rows are also correct
+    std::vector<CSVRow> rows;
+    for (auto& row : reader) rows.push_back(row);
+    REQUIRE(rows.size() == 2);
+    REQUIRE(rows[0]["timestamp"].get<int>() == 22857782);
+}
 #endif

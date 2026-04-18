@@ -39,10 +39,7 @@ namespace csv {
 
     namespace internals {
         /*!
-         @brief calculates the extra space to escape a JSON string
-
-         @param[in] s  the string to escape
-         @return the number of characters required to escape string @a s
+         @brief Calculate the extra space required to escape a JSON string.
 
          @complexity Linear in the length of string @a s.
         */
@@ -193,8 +190,7 @@ namespace csv {
      *  `{"col1":"value1","col2":"value2"}`
      *
      *  @note All strings are properly escaped. Numeric values are not quoted.
-     *  @param[in] subset A subset of columns to contain in the JSON.
-     *                    Leave empty for original columns.
+        *  Leave `subset` empty to include the row's original columns.
      */
     CSV_INLINE std::string CSVRow::to_json(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;
@@ -231,8 +227,7 @@ namespace csv {
      *  `["value1","value2",...]`
      *
      *  @note All strings are properly escaped. Numeric values are not quoted.
-     *  @param[in] subset A subset of columns to contain in the JSON.
-     *                    Leave empty for all columns.
+        *  Leave `subset` empty to include all columns.
      */
     CSV_INLINE std::string CSVRow::to_json_array(const std::vector<std::string>& subset) const {
         std::vector<std::string> col_names = subset;

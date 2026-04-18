@@ -73,9 +73,7 @@ ThreadSafeDeque<CSVRow>
 3. **Don't use uniform values:** Each column needs distinct values to detect corruption.
 4. **Don't ignore async:** Worker thread means exceptions must use `exception_ptr`.
 5. **Don't change one constructor:** Likely affects both mmap and stream paths.
-6. **Don't delete or simplify comments** unless they are trivially obvious (e.g. `// increment i`) or factually incorrect. Comments in this codebase frequently encode concurrency invariants, non-obvious design decisions, and hard-won bug context that cannot be recovered from the code alone.
 7. **Compatibility macros defined in `common.hpp` MUST be referenced only after including `common.hpp`.** Any macro (such as `CSV_HAS_CXX20`) that is defined in `common.hpp` must not be used or checked before `#include "common.hpp"` appears in the file. This ensures feature detection and conditional compilation work as intended across all supported compilers and build modes.
-7. **Don't reference internal functions in public API comments.** Public API docs should describe user-visible behavior and contracts; internal helper/function details belong in internal docs.
 8. **`CSVReader` is non-copyable and move-enabled.** Prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when sharing/handing off parser ownership across APIs.
 9. **Prefer trailing underscore for private members** (for example `source_`, `leftover_`). When you touch code with mixed private-member naming styles, normalize the edited region toward trailing underscores instead of introducing more leading-underscore or unsuffixed names.
 10. **Prefer user-friendly API constraints.** Do not narrow template constraints unless required for correctness, safety, or a measured performance win. If an implementation already handles common standard-library containers/ranges correctly, keep those inputs accepted instead of over-constraining APIs for aesthetic purity.
@@ -86,3 +84,9 @@ ThreadSafeDeque<CSVRow>
 15. **If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.** Provide a short justification before expanding further.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
+
+### Rules for Comments
+1. **Always update or remove incorrect comments.**
+2. **Don't reference internal functions in public API comments.** Public API docs should describe user-visible behavior and contracts; internal helper/function details belong in internal docs.
+3. **Avoid meaningless @param and @return descriptions.** Do not add comments that could trivially be inferred by the function's name or other existing comments. When editing a function, remove any @param/@return descriptions that merely restate the function name or signature.
+4. **Don't delete or simplify comments** unless allowed by other rules in this section. Comments in this codebase frequently encode concurrency invariants, non-obvious design decisions, and hard-won bug context that cannot be recovered from the code alone.

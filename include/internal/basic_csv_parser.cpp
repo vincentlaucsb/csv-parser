@@ -140,7 +140,7 @@ namespace csv {
             field_length_ = 0;
         }
 
-        /** @return The number of characters parsed that belong to complete rows */
+        /** Parse the current chunk and return the number of bytes belonging to complete rows. */
         CSV_INLINE size_t IBasicCSVParser::parse()
         {
             using internals::ParseFlags;

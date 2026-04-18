@@ -311,7 +311,7 @@ namespace csv {
 
         CSVRow() = default;
         
-        /** Construct a CSVRow from a RawCSVDataPtr */
+        /** Construct a CSVRow view over parsed row storage. */
         CSVRow(internals::RawCSVDataPtr _data) : data(_data) {}
         CSVRow(internals::RawCSVDataPtr _data, size_t _data_start, size_t _field_bounds)
             : data(_data), data_start(_data_start), fields_start(_field_bounds) {}
@@ -341,11 +341,7 @@ namespace csv {
          */
         std::unordered_map<std::string, std::string> to_unordered_map() const;
 
-        /** Convert this CSVRow into an unordered map.
-         *  The keys are the column names and the values are the corresponding field values.
-         * 
-         * @param[in] subset Vector of column names to include in the map.
-         */
+        /** Convert a selected subset of columns into an unordered map. */
         std::unordered_map<std::string, std::string> to_unordered_map(
             const std::vector<std::string>& subset
         ) const;
@@ -476,10 +472,10 @@ namespace csv {
 
         internals::RawCSVDataPtr data;
 
-        /** Where in RawCSVData.data we start */
+        /** Byte offset where this row begins within the shared row storage. */
         size_t data_start = 0;
 
-        /** Where in the RawCSVDataPtr.fields array we start */
+        /** Field-list offset where this row begins. */
         size_t fields_start = 0;
 
         /** How many columns this row spans */

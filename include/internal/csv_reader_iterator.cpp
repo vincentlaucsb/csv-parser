@@ -14,8 +14,8 @@ namespace csv {
         return CSVReader::iterator(this, std::move(row));
     }
 
-    /** A placeholder for the imaginary past the end row in a CSV.
-     *  Attempting to deference this will lead to bad things.
+    /** A placeholder for the imaginary past-the-end row in a CSV.
+     *  Attempting to dereference this iterator is undefined.
      */
     CSV_INLINE CSV_CONST CSVReader::iterator CSVReader::end() const noexcept {
         return CSVReader::iterator();

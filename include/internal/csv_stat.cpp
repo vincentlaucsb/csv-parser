@@ -129,10 +129,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVStat::calc_worker(const size_t &i) {
-        /** Worker thread for CSVStat::calc() which calculates statistics for one column.
-         * 
-         *  @param[in] i Column index
-         */
+        // Worker routine for CSVStat::calc() that processes one column.
 
         auto current_record = this->records.begin();
 
@@ -164,11 +161,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVStat::dtype(CSVField& data, const size_t &i) {
-        /** Given a record update the type counter
-         *  @param[in]  record Data observation
-         *  @param[out] i      The column index that should be updated
-         */
-        
+        // Update the type counter for one field.
         auto type = data.type();
         if (this->dtypes[i].find(type) !=
             this->dtypes[i].end()) {
@@ -181,11 +174,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVStat::count(CSVField& data, const size_t &i) {
-        /** Given a record update the frequency counter
-         *  @param[in]  record Data observation
-         *  @param[out] i      The column index that should be updated
-         */
-
+        // Update the frequency counter for one field.
         auto item = data.get<std::string>();
 
         if (this->counts[i].find(item) !=
@@ -199,10 +188,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVStat::min_max(const long double &x_n, const size_t &i) {
-        /** Update current minimum and maximum
-         *  @param[in]  x_n Data observation
-         *  @param[out] i   The column index that should be updated
-         */
+        // Update the current minimum and maximum for one column.
         if (std::isnan(this->mins[i]))
             this->mins[i] = x_n;
         if (std::isnan(this->maxes[i]))
@@ -215,11 +201,7 @@ namespace csv {
     }
 
     CSV_INLINE void CSVStat::variance(const long double &x_n, const size_t &i) {
-        /** Given a record update rolling mean and variance for all columns
-         *  using Welford's Algorithm
-         *  @param[in]  x_n Data observation
-         *  @param[out] i   The column index that should be updated
-         */
+        // Update the rolling mean and variance for one column using Welford's algorithm.
         long double& current_rolling_mean = this->rolling_means[i];
         long double& current_rolling_var = this->rolling_vars[i];
         long double& current_n = this->n[i];
@@ -242,9 +224,6 @@ namespace csv {
      *
      *  Return a data type for each column such that every value in a column can be
      *  converted to the corresponding data type without data loss.
-     *  @param[in]  filename The CSV file
-     *
-     *  \return A mapping of column names to csv::DataType enums
      */
     CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
         CSVStat stat(filename);

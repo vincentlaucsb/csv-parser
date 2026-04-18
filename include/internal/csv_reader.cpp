@@ -19,12 +19,7 @@ namespace csv {
             return ret.str();
         }
 
-        /** Return a CSV's column names
-         *
-         *  @param[in] filename  Path to CSV file
-         *  @param[in] format    Format of the CSV file
-         *
-         */
+        /** Return the selected header row from a parsed head buffer. */
         CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
             // Parse the CSV
             auto trim_chars = format.get_trim_chars();
@@ -129,12 +124,7 @@ namespace csv {
         }
     }
 
-    /** Return a CSV's column names
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] format    Format of the CSV file
-     *
-     */
+    /** Return a CSV's column names. */
     CSV_INLINE std::vector<std::string> get_col_names(csv::string_view filename, CSVFormat format) {
         auto head = internals::get_csv_head(filename);
 
@@ -157,9 +147,6 @@ namespace csv {
      *
      *  **Details:** Reads the first block of a CSV file synchronously to get information
      *               such as column names and delimiting character.
-     *
-     *  @param[in] filename  Path to CSV file
-     *  @param[in] format    Format of the CSV file
      *
      *  \snippet tests/test_read_csv.cpp CSVField Example
      *
@@ -184,10 +171,11 @@ namespace csv {
         if (format.guess_delim()) {
             auto guess_result = internals::_guess_format(head, format.possible_delimiters);
             format.delimiter(guess_result.delim);
-            // Only override header if user hasn't explicitly called no_header()
-            // Note: column_names() also sets header=-1, but it populates col_names,
-            // so we can distinguish: no_header() means header=-1 && col_names.empty()
-            if (format.header != -1 || !format.col_names.empty()) {
+            // Only override header if the user hasn't explicitly set one via
+            // header_row() or no_header(). column_names() sets col_names but
+            // does not set header_explicitly_set_, so the guesser can still
+            // determine where the data rows begin in that case.
+            if (!format.header_explicitly_set_) {
                 format.header = guess_result.header_row;
             }
             
@@ -246,9 +234,7 @@ namespace csv {
         }
     }
 
-    /**
-     *  @param[in] names Column names
-     */
+    /** Install the active column names for this reader. */
     CSV_INLINE void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
         this->col_names->set_policy(this->_format.get_column_name_policy());
@@ -261,8 +247,6 @@ namespace csv {
      *
      * @note This method is meant to be run on its own thread. Only one `read_csv()` thread
      *       should be active at a time.
-     *
-     * @param[in] bytes Number of bytes to read.
      *
      * @see CSVReader::read_csv_worker
      * @see CSVReader::read_row()
@@ -309,7 +293,6 @@ namespace csv {
     *  - Reads chunks of data that are csv::internals::CSV_CHUNK_SIZE_DEFAULT bytes large at a time
      *  - For performance details, read the documentation for CSVRow and CSVField.
      *
-     * @param[out] row The variable where the parsed row will be stored
      * @see CSVRow, CSVField
      *
      * **Example:**
