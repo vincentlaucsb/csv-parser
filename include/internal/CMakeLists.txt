@@ -4,6 +4,7 @@ target_sources(csv
 	PRIVATE
 		basic_csv_parser.hpp
 		basic_csv_parser.cpp
+		basic_csv_parser_guessing.cpp
 		col_names.cpp
 		col_names.hpp
 		common.hpp
@@ -17,13 +18,12 @@ target_sources(csv
 		csv_row_json.cpp
 		csv_stat.cpp
 		csv_stat.hpp
-		csv_utility.cpp
 		csv_utility.hpp
 		csv_writer.hpp
 		csv_writer_extensions.hpp
 		data_type.hpp
 		raw_csv_data.hpp
-		raw_csv_data.cpp
+		raw_csv_data.hpp
 		row_deque.hpp
 		single_thread_deque.hpp
 		string_view_stream.hpp

@@ -68,6 +68,7 @@ See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 6. If a class has both a `.hpp` and `.cpp` file, put methods inside the `.cpp` and prefix the definition with `CSV_INLINE` to ensure proper single-header compilation (the macro is `inline` in the generated single-header and empty otherwise). Exceptions:
    - **Templates must stay in `.hpp`** — the compiler needs the definition at instantiation time. `init_from_stream` is the standing example.
    - **Trivial one-liner accessors** may be unconditionally `inline` in the header when the call overhead is measurable and the body will never change.
+   - **Consolidation:** If a `.cpp` would be under ~100 lines *and* the split causes excessive comment duplication between the two files, prefer a single `.hpp` with definitions marked `inline` (free functions and methods alike). Do not use `CSV_INLINE` for consolidated definitions — `CSV_INLINE` expands to empty in multi-header mode, which would produce ODR violations across TUs. Do not consolidate just for brevity — only when duplication is the dominant cost.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**

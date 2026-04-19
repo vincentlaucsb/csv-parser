@@ -8,6 +8,7 @@
 #include <deque>
 #include <exception>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <sstream>
@@ -31,41 +32,11 @@ namespace csv {
         std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
 
         std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
-
-        struct GuessScore {
-            size_t header;
-            size_t mode_row_length;
-            double score;
-        };
-
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
-
-        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
     }
 
     std::vector<std::string> get_col_names(
         csv::string_view filename,
         const CSVFormat format = CSVFormat::guess_csv());
-
-    /** @brief Guess the delimiter, header row, and mode column count of a CSV file
-     *
-     *  **Heuristic:** For each candidate delimiter, calculate a score based on
-     *  the most common row length (mode). The delimiter with the highest score wins.
-     *  
-     *  **Header Detection:**
-     *  - If the first row has >= columns than the mode, it's treated as the header
-     *  - Otherwise, the first row with the mode length is treated as the header
-     *  
-     *  This approach handles:
-     *  - Headers with trailing delimiters or optional columns (wider than data rows)
-     *  - Comment lines before the actual header (first row shorter than mode)
-     *  - Standard CSVs where first row is the header
-     *  
-    *  @note Score = (row_length × count_of_rows_with_that_length)
-    *  @note Also returns inferred mode-width column count (CSVGuessResult::n_cols)
-     */
-    CSVGuessResult guess_format(csv::string_view filename,
-        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
 #if CSV_ENABLE_THREADS
     inline void join_worker(std::thread& worker) {
@@ -407,64 +378,19 @@ namespace csv {
             }
         }
 
-        /** Apply guessed delimiter/header settings in one place for all reader paths. */
-        void apply_guessed_format(csv::string_view head, CSVFormat& format) {
-            const bool infer_delimiter = format.guess_delim();
-            const bool infer_header = !format.header_explicitly_set_
-                && (infer_delimiter || !format.col_names_explicitly_set_);
-            const bool infer_n_cols = (format.header < 0 && format.col_names.empty());
-
-            if (!(infer_delimiter || infer_header || infer_n_cols)) {
-                return;
-            }
-
-            auto guess_result = internals::_guess_format(head, format.possible_delimiters);
-            if (infer_delimiter) {
-                format.delimiter(guess_result.delim);
-            }
-
-            // Only override header when header behavior is inferable.
-            // Explicit header_row()/no_header() wins, and explicit column names
-            // suppress header inference.
-            if (infer_header) {
-                format.header = guess_result.header_row;
-            }
-
-            this->n_cols = guess_result.n_cols;
-            this->_format = format;
-        }
-
-        /** Apply all CSVFormat-derived initialization in one place. */
-        void apply_format(csv::string_view head, CSVFormat& format) {
-            // Apply chunk size from format before any reading occurs.
-            this->_chunk_size = format.get_chunk_size();
-
-            // Apply inferred delimiter/header/n_cols behavior.
-            this->apply_guessed_format(head, format);
-
-            // Install explicit user-provided column names, if any.
-            if (!format.col_names.empty()) {
-                this->set_col_names(format.col_names);
-            }
-        }
+        /** Shared parser installation after source-specific bootstrap has completed
+         *  in concrete parser implementations.
+         */
+        void init_parser(std::unique_ptr<internals::IBasicCSVParser> parser);
 
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
-            // Read a head buffer without rewinding. Works with non-seekable streams
-            // (pipes, decompression filters). The buffer is passed to StreamParser
-            // as its initial leftover_ so those bytes are parsed as the first chunk.
-            auto head = internals::read_head_buffer(source);
-            using Parser = internals::StreamParser<TStream>;
-
-            this->apply_format(head, format);
-
-            CSV_MSVC_PUSH_DISABLE(4316)
-            this->parser = std::unique_ptr<Parser>(
-                new Parser(source, format, col_names, std::move(head))); // For C++11
-            CSV_MSVC_POP
-            
-            this->initial_read();
+            this->init_parser(
+                std::unique_ptr<internals::IBasicCSVParser>(
+                    new internals::StreamParser<TStream>(source, format, this->col_names)
+                )
+            );
         }
 
         /** Read initial chunk to get metadata */

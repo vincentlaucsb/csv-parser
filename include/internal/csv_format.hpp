@@ -154,6 +154,7 @@ namespace csv {
         CONSTEXPR int get_header() const { return this->header; }
         std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
         std::vector<char> get_trim_chars() const { return this->trim_chars; }
+        const std::vector<std::string>& get_col_names() const { return this->col_names; }
         CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         CONSTEXPR ColumnNamePolicy get_column_name_policy() const { return this->_column_name_policy; }
         CONSTEXPR size_t get_chunk_size() const { return this->_chunk_size; }
@@ -172,7 +173,7 @@ namespace csv {
             return format;
         }
 
-        bool guess_delim() {
+        bool guess_delim() const {
             return this->possible_delimiters.size() > 1;
         }
 
