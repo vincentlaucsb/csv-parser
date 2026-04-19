@@ -182,10 +182,15 @@ namespace csv {
                         this->data_pos_++;
                     }
 
-                    // Intentionally fall through to handle the newline in the next case
-                    // If CR (old Mac style newline), fallthrough handles it
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
 
                 case ParseFlags::NEWLINE:
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
                     this->data_pos_++;
 
                     // End of record. Preserve intentional empty fields such as
