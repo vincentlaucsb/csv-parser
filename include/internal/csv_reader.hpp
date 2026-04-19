@@ -67,6 +67,16 @@ namespace csv {
     CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
 
+#if CSV_ENABLE_THREADS
+    inline void join_worker(std::thread& worker) {
+        if (worker.joinable()) worker.join();
+    }
+
+    #define JOIN_WORKER(worker) join_worker(worker)
+#else
+    #define JOIN_WORKER(worker) ((void)0)
+#endif
+
     /** @class CSVReader
      *  @brief Main class for parsing CSVs from files and in-memory sources
      *
@@ -233,11 +243,7 @@ namespace csv {
             _chunk_size(other._chunk_size),
             _read_requested(other._read_requested),
             read_csv_exception(other.take_read_csv_exception()) {
-#if CSV_ENABLE_THREADS
-            if (other.read_csv_worker.joinable()) {
-                other.read_csv_worker.join();
-            }
-#endif
+            JOIN_WORKER(other.read_csv_worker);
 
             other.n_cols = 0;
             other._n_rows = 0;
@@ -255,14 +261,8 @@ namespace csv {
                 return *this;
             }
 
-#if CSV_ENABLE_THREADS
-            if (this->read_csv_worker.joinable()) {
-                this->read_csv_worker.join();
-            }
-            if (other.read_csv_worker.joinable()) {
-                other.read_csv_worker.join();
-            }
-#endif
+            JOIN_WORKER(this->read_csv_worker);
+            JOIN_WORKER(other.read_csv_worker);
 
             this->_format = std::move(other._format);
             this->col_names = std::move(other.col_names);
@@ -286,11 +286,7 @@ namespace csv {
         }
 
         ~CSVReader() {
-#if CSV_ENABLE_THREADS
-            if (this->read_csv_worker.joinable()) {
-                this->read_csv_worker.join();
-            }
-#endif
+            JOIN_WORKER(this->read_csv_worker);
         }
 
         /** @name Retrieving CSV Rows */
@@ -438,6 +434,20 @@ namespace csv {
             this->_format = format;
         }
 
+        /** Apply all CSVFormat-derived initialization in one place. */
+        void apply_format(csv::string_view head, CSVFormat& format) {
+            // Apply chunk size from format before any reading occurs.
+            this->_chunk_size = format.get_chunk_size();
+
+            // Apply inferred delimiter/header/n_cols behavior.
+            this->apply_guessed_format(head, format);
+
+            // Install explicit user-provided column names, if any.
+            if (!format.col_names.empty()) {
+                this->set_col_names(format.col_names);
+            }
+        }
+
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
@@ -447,24 +457,13 @@ namespace csv {
             auto head = internals::read_head_buffer(source);
             using Parser = internals::StreamParser<TStream>;
 
-            // Apply chunk size from format before any reading occurs
-            this->_chunk_size = format.get_chunk_size();
+            this->apply_format(head, format);
 
-            this->apply_guessed_format(head, format);
-
-            if (!format.col_names.empty()) {
-                this->set_col_names(format.col_names);
-            }
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4316)
-#endif
+            CSV_MSVC_PUSH_DISABLE(4316)
             this->parser = std::unique_ptr<Parser>(
                 new Parser(source, format, col_names, std::move(head))); // For C++11
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+            CSV_MSVC_POP
+            
             this->initial_read();
         }
 

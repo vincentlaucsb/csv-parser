@@ -64,40 +64,37 @@ namespace csv {
 
     CSV_INLINE void CSVFormat::assert_no_char_overlap()
     {
-        auto delims = std::set<char>(
-            this->possible_delimiters.begin(), this->possible_delimiters.end()),
-            trims = std::set<char>(
-                this->trim_chars.begin(), this->trim_chars.end());
+        const std::set<char> delims(this->possible_delimiters.begin(), this->possible_delimiters.end());
+        const std::set<char> trims(this->trim_chars.begin(), this->trim_chars.end());
+        std::set<char> offenders;
 
-        // Stores intersection of possible delimiters and trim characters
-        std::vector<char> intersection = {};
-
-        // Find which characters overlap, if any
-        std::set_intersection(
-            delims.begin(), delims.end(),
-            trims.begin(), trims.end(),
-            std::back_inserter(intersection));
-
-        // Make sure quote character is not contained in possible delimiters
-        // or whitespace characters
-        if (delims.find(this->quote_char) != delims.end() ||
-            trims.find(this->quote_char) != trims.end()) {
-            intersection.push_back(this->quote_char);
+        for (std::set<char>::const_iterator it = delims.begin(); it != delims.end(); ++it) {
+            if (trims.find(*it) != trims.end()) {
+                offenders.insert(*it);
+            }
         }
 
-        if (!intersection.empty()) {
+        // Make sure quote character is not contained in possible delimiters
+        // or whitespace characters.
+        if (delims.find(this->quote_char) != delims.end() ||
+            trims.find(this->quote_char) != trims.end()) {
+            offenders.insert(this->quote_char);
+        }
+
+        if (!offenders.empty()) {
             std::string err_msg = "There should be no overlap between the quote character, "
                 "the set of possible delimiters "
                 "and the set of whitespace characters. Offending characters: ";
 
             // Create a pretty error message with the list of overlapping
             // characters
-            for (size_t i = 0; i < intersection.size(); i++) {
+            size_t i = 0;
+            for (std::set<char>::const_iterator it = offenders.begin(); it != offenders.end(); ++it, ++i) {
                 err_msg += "'";
-                err_msg += intersection[i];
+                err_msg += *it;
                 err_msg += "'";
 
-                if (i + 1 < intersection.size())
+                if (i + 1 < offenders.size())
                     err_msg += ", ";
             }
 

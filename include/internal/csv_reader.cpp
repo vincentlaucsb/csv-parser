@@ -152,24 +152,19 @@ namespace csv {
      */
 	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
 #if defined(__EMSCRIPTEN__)
-    this->owned_stream = std::unique_ptr<std::istream>(
-        new std::ifstream(std::string(filename), std::ios::binary)
-    );
+        this->owned_stream = std::unique_ptr<std::istream>(
+            new std::ifstream(std::string(filename), std::ios::binary)
+        );
 
-    if (!(*this->owned_stream)) {
-        throw std::runtime_error("Cannot open file " + std::string(filename));
-    }
+        if (!(*this->owned_stream)) {
+            throw std::runtime_error("Cannot open file " + std::string(filename));
+        }
 
-    this->init_from_stream(*this->owned_stream, format);
+        this->init_from_stream(*this->owned_stream, format);
 #else
-    auto head = internals::get_csv_head(filename);
+        auto head = internals::get_csv_head(filename);
         using Parser = internals::MmapParser;
-        // Apply chunk size from format before any reading occurs
-        this->_chunk_size = format.get_chunk_size();
-        this->apply_guessed_format(head, format);
-
-        if (!format.col_names.empty())
-            this->set_col_names(format.col_names);
+        this->apply_format(head, format);
 
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
         this->initial_read();
@@ -297,10 +292,7 @@ namespace csv {
 #endif
 
                 // Reading thread is not active
-#if CSV_ENABLE_THREADS
-                if (this->read_csv_worker.joinable())
-                    this->read_csv_worker.join();
-#endif
+                JOIN_WORKER(this->read_csv_worker);
 
                 // If the worker thread failed, rethrow the error here
                 this->rethrow_read_csv_exception_if_any();

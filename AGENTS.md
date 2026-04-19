@@ -65,6 +65,9 @@ See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 	1. If equivalent behavior exists in 2 or more code paths and each copy is about 5+ meaningful lines, extract a shared helper.
 	2. If duplication is intentionally kept, add a brief comment explaining why (for example performance, API boundary, or template constraints).
 	3. For behavior-sensitive duplicated logic, keep at least one regression test that exercises each path (for example mmap and stream via separate Catch2 `SECTION`s).
+6. If a class has both a `.hpp` and `.cpp` file, put methods inside the `.cpp` and prefix the definition with `CSV_INLINE` to ensure proper single-header compilation (the macro is `inline` in the generated single-header and empty otherwise). Exceptions:
+   - **Templates must stay in `.hpp`** — the compiler needs the definition at instantiation time. `init_from_stream` is the standing example.
+   - **Trivial one-liner accessors** may be unconditionally `inline` in the header when the call overhead is measurable and the body will never change.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**

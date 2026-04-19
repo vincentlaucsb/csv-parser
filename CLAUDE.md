@@ -44,6 +44,7 @@
 - **Explain compile-time tradeoffs explicitly** — when a change affects compile-time behavior, call out impact on codegen/perf/portability/readability
 - **Scope guard for build fixes** — if a fix grows beyond roughly 3 files or 60 changed lines, pause and confirm scope with justification
 - **Apply the 5/2 anti-duplication rule** — if equivalent behavior exists in 2+ code paths and each copy is ~5+ meaningful lines, extract a shared helper; if duplication remains, document why; keep at least one regression test that exercises each path
+- **Non-trivial methods go in `.cpp` with `CSV_INLINE`** — `CSV_INLINE` is `inline` in the generated single-header and empty otherwise; omitting it causes ODR violations. Exceptions: templated methods must stay in `.hpp` (`init_from_stream` is the standing example); trivial one-liner accessors may stay `inline` in the header when call overhead matters.
 
 ## Tests
 See `tests/AGENTS.md` for full test strategy, checklist, and conventions.
