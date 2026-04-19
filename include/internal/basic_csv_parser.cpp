@@ -2,6 +2,13 @@
 
 #include <system_error>
 
+// Because g++ wants to be a pedantic little brat about fallthroughs
+#ifdef CXX_CSV_HAS_17
+#define FALLTHROUGH_TO_NEXT_CASE [[fallthrough]];
+#else
+#define FALLTHROUGH_TO_NEXT_CASE goto next_newline_case;
+#endif
+
 namespace csv {
     namespace internals {
         CSV_INLINE size_t get_file_size(csv::string_view filename) {
@@ -182,15 +189,10 @@ namespace csv {
                         this->data_pos_++;
                     }
 
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#endif
+                    FALLTHROUGH_TO_NEXT_CASE
 
+                next_newline_case:
                 case ParseFlags::NEWLINE:
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
                     this->data_pos_++;
 
                     // End of record. Preserve intentional empty fields such as
