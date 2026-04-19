@@ -63,6 +63,17 @@ namespace csv {
         return ret;
     }
 
+    CSV_INLINE csv::string_view CSVRow::raw_str() const noexcept {
+        if (!data) return csv::string_view();
+        const csv::string_view full = data->data;
+        if (data_start >= full.size()) return csv::string_view();
+        const size_t end = full.find('\n', data_start);
+        const size_t len = (end == csv::string_view::npos)
+            ? (full.size() - data_start)
+            : (end - data_start);
+        return full.substr(data_start, len);
+    }
+
     /** Build a map from column names to values for a given row. */
     CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
         std::unordered_map<std::string, std::string> row_map;

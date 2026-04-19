@@ -363,6 +363,15 @@ namespace csv {
          *       it materializes all fields as owning strings.
          */
         operator std::vector<std::string>() const;
+
+        /** Return a string_view of the raw bytes of this row as they appear in
+         *  the underlying parse buffer, up to (but not including) the trailing
+         *  newline character.
+         *
+         *  @warning The view is only valid for as long as the CSVRow (and its
+         *           associated data chunk) remains alive.
+         */
+        csv::string_view raw_str() const noexcept;
         ///@}
 
         /** A random access iterator over the contents of a CSV row.

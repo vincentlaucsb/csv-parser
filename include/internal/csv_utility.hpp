@@ -34,7 +34,7 @@ namespace csv {
      *  @par Example
      *  @snippet tests/test_read_csv.cpp Parse Example
      */
-    inline CSVReader parse(csv::string_view in, CSVFormat format = CSVFormat::guess_csv()) {
+    inline CSVReader parse(csv::string_view in, const CSVFormat& format = CSVFormat::guess_csv()) {
         std::unique_ptr<std::istream> ss(new std::stringstream(std::string(in)));
         return CSVReader(std::move(ss), format);
     }
@@ -105,11 +105,20 @@ namespace csv {
         };
     }
 
-    /** Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise. */
-    inline int get_col_pos(csv::string_view filename, csv::string_view col_name,
+    /** Get the column names of a CSV file using just the first 500KB. */
+    inline std::vector<std::string> get_col_names(
+        csv::string_view filename,
         const CSVFormat& format = CSVFormat::guess_csv()) {
-        CSVReader reader(filename, format);
-        return reader.index_of(col_name);
+        auto head = internals::get_csv_head(filename);
+        return parse_unsafe(head, format).get_col_names();
+    }
+
+    /** Find the position of a column in a CSV file or CSV_NOT_FOUND otherwise. */
+    inline long long get_col_pos(csv::string_view filename, csv::string_view col_name,
+        const CSVFormat& format = CSVFormat::guess_csv()) {
+        auto col_names = get_col_names(filename, format);
+        return col_names.empty() ? CSV_NOT_FOUND :
+            std::distance(col_names.begin(), std::find(col_names.begin(), col_names.end(), col_name));
     }
     ///@}
 }

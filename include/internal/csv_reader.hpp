@@ -27,17 +27,6 @@
 
 /** The all encompassing namespace */
 namespace csv {
-    /** Stuff that is generally not of interest to end-users */
-    namespace internals {
-        std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
-
-        std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
-    }
-
-    std::vector<std::string> get_col_names(
-        csv::string_view filename,
-        const CSVFormat format = CSVFormat::guess_csv());
-
 #if CSV_ENABLE_THREADS
     inline void join_worker(std::thread& worker) {
         if (worker.joinable()) worker.join();
@@ -386,11 +375,16 @@ namespace csv {
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
+            // C4316: StreamParser may have over-aligned SIMD members; heap allocation
+            // alignment is handled correctly at runtime via the allocator on supported
+            // platforms. Suppress the MSVC false-positive here.
+            CSV_MSVC_PUSH_DISABLE(4316)
             this->init_parser(
                 std::unique_ptr<internals::IBasicCSVParser>(
                     new internals::StreamParser<TStream>(source, format, this->col_names)
                 )
             );
+            CSV_MSVC_POP
         }
 
         /** Read initial chunk to get metadata */

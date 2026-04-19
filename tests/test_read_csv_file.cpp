@@ -15,7 +15,7 @@ using std::string;
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
-    int pos = get_col_pos(
+    auto pos = get_col_pos(
         "./tests/data/real_data/2015_StateDepartment.csv",
         "Entity Type");
     REQUIRE(pos == 1);

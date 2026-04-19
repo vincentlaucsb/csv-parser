@@ -12,8 +12,12 @@ int main(int argc, char** argv) {
     std::string file = argv[1];
     auto info = get_file_info(file);
 
-    std::cout << file << std::endl
-        << "Columns: " << internals::format_row(info.col_names, ", ")
+    std::cout << file << std::endl << "Columns: ";
+    for (size_t i = 0; i < info.col_names.size(); i++) {
+        if (i) std::cout << ", ";
+        std::cout << info.col_names[i];
+    }
+    std::cout << std::endl
         << "Dimensions: " << info.n_rows << " rows x " << info.n_cols << " columns" << std::endl
         << "Delimiter: " << info.delim << std::endl;
 

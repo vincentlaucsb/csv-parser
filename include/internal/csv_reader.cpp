@@ -5,48 +5,6 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    namespace internals {
-        CSV_INLINE std::string format_row(const std::vector<std::string>& row, csv::string_view delim) {
-            /** Print a CSV row */
-            std::stringstream ret;
-            for (size_t i = 0; i < row.size(); i++) {
-                ret << row[i];
-                if (i + 1 < row.size()) ret << delim;
-                else ret << '\n';
-            }
-            ret.flush();
-
-            return ret.str();
-        }
-
-        /** Return the selected header row from a parsed head buffer. */
-        CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
-            // Parse the CSV
-            auto trim_chars = format.get_trim_chars();
-            std::stringstream source(head.data());
-            RowCollection rows;
-
-            StreamParser<std::stringstream> parser(source, format);
-            parser.set_output(rows);
-            parser.next();
-
-            return CSVRow(std::move(rows[format.get_header()]));
-        }
-    }
-
-    /** Return a CSV's column names. */
-    CSV_INLINE std::vector<std::string> get_col_names(csv::string_view filename, CSVFormat format) {
-        auto head = internals::get_csv_head(filename);
-
-        /** Guess delimiter and header row */
-        if (format.guess_delim()) {
-            auto guess_result = guess_format(filename, format.get_possible_delims());
-            format.delimiter(guess_result.delim).header_row(guess_result.header_row);
-        }
-
-        return internals::_get_col_names(head, format);
-    }
-
     /** Reads an arbitrarily large CSV file using memory-mapped IO.
      *
      *  **Details:** Reads the first block of a CSV file synchronously to get information
@@ -104,11 +62,8 @@ namespace csv {
 
     /** Return the CSV's column names as a vector of strings. */
     CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
-        if (this->col_names) {
-            return this->col_names->get_col_names();
-        }
-
-        return std::vector<std::string>();
+        return (this->col_names) ? this->col_names->get_col_names() : 
+            std::vector<std::string>();
     }
 
     /** Return the index of the column name if found or
@@ -263,9 +218,9 @@ namespace csv {
 
                     if (policy == VariableColumnPolicy::THROW) {
                         if (errored_row.size() < this->n_cols)
-                            throw std::runtime_error("Line too short " + internals::format_row(errored_row));
+                            throw std::runtime_error("Line too short " + std::string(errored_row.raw_str()));
 
-                        throw std::runtime_error("Line too long " + internals::format_row(errored_row));
+                        throw std::runtime_error("Line too long " + std::string(errored_row.raw_str()));
                     }
 
                     continue;
