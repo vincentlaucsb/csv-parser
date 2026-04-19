@@ -28,7 +28,7 @@
     - [Converting to JSON](#converting-to-json)
     - [Specifying the CSV Format](#specifying-the-csv-format)
       - [Trimming Whitespace](#trimming-whitespace)
-      - [Handling Variable Numbers of Columns](#handling-variable-numbers-of-columns)
+      - [Handling Variable Numbers of Columns and Empty Rows](#handling-variable-numbers-of-columns-and-empty-rows)
       - [Setting Column Names](#setting-column-names)
     - [Parsing an In-Memory String](#parsing-an-in-memory-string)
     - [DataFrames for Random Access and Updates](#dataframes-for-random-access-and-updates)
@@ -77,7 +77,7 @@ However, in reality we know that RFC 4180 is just a suggestion, so this library 
  * Automatic delimiter guessing
  * Ability to ignore comments in leading rows and elsewhere
  * Ability to handle rows of different lengths
- * Ability to handle arbitrary line endings (as long as they are some combination of carriage return and newline)
+ * Ability to handle Windows, Unix, and old Mac newlines seamlessly
 
 By default, rows of variable length are silently ignored, although you may elect to keep them or throw an error.
 
@@ -403,23 +403,27 @@ CSVFormat format;
 format.trim({ ' ', '\t'  });
 ```
 
-#### Handling Variable Numbers of Columns
+#### Handling Variable Numbers of Columns and Empty Rows
 Sometimes, the rows in a CSV are not all of the same length. Whether this was intentional or not,
 this library is built to handle all use cases.
 
 ```cpp
 CSVFormat format;
 
-// Default: Silently ignoring rows with missing or extraneous columns
+// Default: Silently ignoring rows with zero, missing or extraneous columns
 format.variable_columns(false); // Short-hand
 format.variable_columns(VariableColumnPolicy::IGNORE_ROW);
 
-// Case 2: Keeping variable-length rows
+// Case 2a: Keeping variable-length rows and empty rows
 format.variable_columns(true); // Short-hand
 format.variable_columns(VariableColumnPolicy::KEEP);
 
+// Case 2b: Keeping variable-length rows but dropping empty rows
+format.variable_columns(VariableColumnPolicy::KEEP_NON_EMPTY);
+
 // Case 3: Throwing an error if variable-length rows are encountered
 format.variable_columns(VariableColumnPolicy::THROW);
+
 ```
 
 #### Setting Column Names
