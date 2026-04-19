@@ -112,8 +112,6 @@ namespace csv {
             return make_ws_flags(flags.data(), flags.size());
         }
 
-        CSV_INLINE size_t get_file_size(csv::string_view filename);
-
         /** Read the first 500KB from a seekless stream source. */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int>  = 0>
@@ -129,8 +127,10 @@ namespace csv {
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename);
 
     #if !defined(__EMSCRIPTEN__)
-        /** Read the first 500KB from a filename using mmap. */
-        CSV_INLINE std::string get_csv_head_mmap(csv::string_view filename);
+        /** Read the first 500KB from a filename using mmap.
+         *  Also returns the total file size so callers avoid a second mmap open.
+         */
+        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename);
     #endif
 
         /** Compatibility shim selecting stream on Emscripten and mmap otherwise. */
@@ -437,14 +437,16 @@ namespace csv {
                 const ColNamesPtr& col_names = nullptr
             ) : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
-                this->source_size_ = get_file_size(filename);
+                auto head_and_size = get_csv_head_mmap(filename);
+                this->head_ = std::move(head_and_size.first);
+                this->source_size_ = head_and_size.second;
                 this->resolve_format_from_head(format);
             };
 
             ~MmapParser() {}
 
             std::string& get_csv_head() override {
-                head_ = get_csv_head_mmap(this->_filename);
+                // head_ was already populated in the constructor.
                 return this->head_;
             }
 

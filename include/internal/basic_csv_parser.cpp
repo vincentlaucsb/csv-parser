@@ -11,23 +11,6 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE size_t get_file_size(csv::string_view filename) {
-            std::ifstream infile(std::string(filename), std::ios::binary);
-            if (!infile.is_open()) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-            }
-
-            const auto start = infile.tellg();
-            infile.seekg(0, std::ios::end);
-            const auto end = infile.tellg();
-
-            if (start < 0 || end < 0) {
-                throw std::runtime_error("Cannot determine file size for " + std::string(filename));
-            }
-
-            return static_cast<size_t>(end - start);
-        }
-
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
             const size_t bytes = 500000;
             std::ifstream infile(std::string(filename), std::ios::binary);
@@ -42,18 +25,16 @@ namespace csv {
         }
 
 #if !defined(__EMSCRIPTEN__)
-        CSV_INLINE std::string get_csv_head_mmap(csv::string_view filename) {
+        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename) {
             const size_t bytes = 500000;
-            const size_t file_size = get_file_size(filename);
             std::error_code error;
-            const size_t length = std::min(file_size, bytes);
-            auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
-
+            auto mmap = mio::make_mmap_source(std::string(filename), 0, mio::map_entire_file, error);
             if (error) {
                 throw std::runtime_error("Cannot open file " + std::string(filename));
             }
-
-            return std::string(mmap.begin(), mmap.end());
+            const size_t file_size = mmap.size();
+            const size_t length = std::min(file_size, bytes);
+            return { std::string(mmap.begin(), mmap.begin() + length), file_size };
         }
 #endif
 
@@ -61,7 +42,7 @@ namespace csv {
 #if defined(__EMSCRIPTEN__)
             return get_csv_head_stream(filename);
 #else
-            return get_csv_head_mmap(filename);
+            return get_csv_head_mmap(filename).first;
 #endif
         }
 
