@@ -158,6 +158,26 @@ Trimming/unescaping/conversion behavior must remain coherent across parser and f
 
 Avoid designs that force retaining all parsed chunks globally.
 
+### CSVReader::iterator is single-pass by design
+
+`CSVReader::iterator` carries `std::input_iterator_tag` intentionally — this is a hard architectural constraint, not an oversight:
+
+- Rows are backed by `RawCSVData` chunks that are freed as the iterator advances.
+- Promoting to `ForwardIterator` would require retaining every chunk for the lifetime of any copy of the iterator, which means a 50 GB CSV would require 50+ GB of resident memory — defeating the entire streaming architecture.
+- Algorithms that require `ForwardIterator` (`std::max_element`, `std::sort`, etc.) may appear to work on small files (where only one chunk is ever allocated) but are unsafe in general: accessing an earlier iterator position after the chunk it pointed into has been freed is undefined behavior.
+
+**Correct pattern when random-access algorithms are needed:**
+```cpp
+std::vector<csv::CSVRow> rows(reader.begin(), reader.end());
+auto it = std::max_element(rows.begin(), rows.end(), cmp);
+```
+
+**What NOT to do:**
+- Do not add a `std::vector<RawCSVDataPtr>` cache to `CSVReader::iterator` to support multi-pass. That destroys bounded-memory behavior.
+- Do not change `iterator_category` to `forward_iterator_tag` without first solving the chunk-lifetime problem.
+
+This invariant is also documented in `.claude/rules/csv_reader_rules.md`.
+
 ## 5. Change Impact Map
 
 - Parser state machine changes:

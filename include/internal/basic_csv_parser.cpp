@@ -54,20 +54,9 @@ namespace csv {
             const CSVFormat& format,
             const ColNamesPtr& col_names
         ) : col_names_(col_names) {
-            const char initial_delim = format.guess_delim()
-                ? format.get_possible_delims().at(0)
-                : format.get_delim();
-            if (format.no_quote) {
-                parse_flags_ = internals::make_parse_flags(initial_delim);
-            }
-            else {
-                parse_flags_ = internals::make_parse_flags(initial_delim, format.quote_char);
-            }
-
-            // When no_quote, quote bytes are NOT_SPECIAL — use delimiter as safe dummy
-            // so SIMD does not stop early on quote bytes and cause an infinite loop.
-            const char eff_quote = format.no_quote ? initial_delim : format.quote_char;
-            simd_sentinels_ = SentinelVecs(initial_delim, eff_quote);
+            // Only initialize the fields that are stable before format resolution.
+            // parse_flags_ and simd_sentinels_ are always set by resolve_format_from_head,
+            // so there is no point computing them here with a placeholder delimiter.
             ws_flags_ = internals::make_ws_flags(
                 format.trim_chars.data(), format.trim_chars.size()
             );

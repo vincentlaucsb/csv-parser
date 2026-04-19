@@ -142,12 +142,6 @@ namespace csv {
         };
 
         class IBasicCSVParser;
-
-        struct ParserBootstrapResult {
-            std::unique_ptr<IBasicCSVParser> parser;
-            CSVFormat format;
-            size_t n_cols = 0;
-        };
     }
 
     /** @brief Guess the delimiter, header row, and mode column count of a CSV file
@@ -315,11 +309,11 @@ namespace csv {
          *  semantically identical to the old seek-back approach but works on
          *  any istream and avoids the syscall overhead of seekg().
          *
-         *  @par Head buffer
-         *  init_from_stream() may read a head buffer for format guessing before
-         *  constructing this parser. That buffer can be primed via
-         *  prime_head_for_reuse(), so its bytes are fed into the first chunk as
-         *  if they had just been read from the stream.
+         *  @par Format resolution
+         *  The constructor reads a head buffer from the stream via get_csv_head()
+         *  and passes it to resolve_format_from_head(), which infers the delimiter
+         *  and header row when not explicitly set. The head bytes are stored in
+         *  `leftover_` so the first next() call re-parses them without re-reading.
          */
         template<typename TStream>
         class StreamParser: public IBasicCSVParser {
@@ -328,13 +322,10 @@ namespace csv {
         public:
             StreamParser(TStream& source,
                 const CSVFormat& format,
-                const ColNamesPtr& col_names = nullptr,
-                bool resolve_format = true
+                const ColNamesPtr& col_names = nullptr
             ) : IBasicCSVParser(format, col_names),
                 source_(source) {
-                if (resolve_format) {
-                    this->resolve_format_from_head(format);
-                }
+                this->resolve_format_from_head(format);
             }
 
             StreamParser(
@@ -426,12 +417,6 @@ namespace csv {
          */
         class MmapParser : public IBasicCSVParser {
         public:
-            static ParserBootstrapResult bootstrap(
-                csv::string_view filename,
-                CSVFormat unresolved,
-                const ColNamesPtr& col_names = nullptr
-            );
-
             MmapParser(csv::string_view filename,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr

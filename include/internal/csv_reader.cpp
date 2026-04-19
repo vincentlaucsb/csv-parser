@@ -5,32 +5,6 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    /** Reads an arbitrarily large CSV file using memory-mapped IO.
-     *
-     *  **Details:** Reads the first block of a CSV file synchronously to get information
-     *               such as column names and delimiting character.
-     *
-     *  \snippet tests/test_read_csv.cpp CSVField Example
-     *
-     */
-	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
-#if defined(__EMSCRIPTEN__)
-        this->owned_stream = std::unique_ptr<std::istream>(
-            new std::ifstream(std::string(filename), std::ios::binary)
-        );
-
-        if (!(*this->owned_stream)) {
-            throw std::runtime_error("Cannot open file " + std::string(filename));
-        }
-
-        this->init_from_stream(*this->owned_stream, format);
-#else
-        this->init_parser(std::unique_ptr<internals::IBasicCSVParser>(
-            new internals::MmapParser(filename, format, this->col_names)
-        ));
-#endif
-    }
-
     CSV_INLINE void CSVReader::init_parser(
         std::unique_ptr<internals::IBasicCSVParser> parser
     ) {

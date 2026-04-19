@@ -70,28 +70,11 @@ namespace csv {
          * @par Using with `<algorithm>` library
          * @snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
          * 
-         * @warning STREAMING CONSTRAINT - DO NOT ATTEMPT TO CACHE ALL DATA
-         * This iterator is intentionally std::input_iterator_tag (single-pass) to support
-         * streaming large CSV files that may exceed available RAM (e.g., 50+ GB files).
-         * 
-         * @par CRITICAL DESIGN CONSTRAINT:
-         * - Storage for previously consumed positions may be released as the iterator advances
-         * - Only the current position is guaranteed to remain valid without copying
-         * - This bounded-memory behavior is what allows very large CSV files to stream safely
-         * 
-         * @par WHY FORWARD ITERATOR IS NOT POSSIBLE:
-         * - ForwardIterator requires multi-pass guarantees (can hold multiple valid positions)
-         * - Supporting this would require retaining all parsed row storage in memory
-         * - This defeats the streaming purpose: a 50 GB CSV would require 50+ GB of RAM
-         * - The entire library design depends on automatic chunk cleanup for memory efficiency
-         * 
-         * @par IMPLICATIONS FOR ALGORITHM USE:
-         * - Algorithms requiring ForwardIterator (std::max_element, std::sort, etc.) may
-         *   appear to work in tests with small files, but are not safe on this iterator
-         *   once earlier positions have been released during streaming
-         * - CORRECT approach: Copy rows to std::vector first, then use algorithms
-         * - Example: auto rows = std::vector<CSVRow>(reader.begin(), reader.end());
-         *            auto max_row = std::max_element(rows.begin(), rows.end(), ...);
+         * @note This iterator is `std::input_iterator_tag` (single-pass) by design.
+         *       Algorithms requiring ForwardIterator are not safe to use directly on it.
+         *       Copy to `std::vector<CSVRow>` first when random-access algorithms are needed.
+         *       See `include/internal/ARCHITECTURE.md` § "CSVReader::iterator is single-pass by design"
+         *       for the full rationale.
          */
         class iterator {
         public:
@@ -140,12 +123,31 @@ namespace csv {
          * 
          * Native builds use CODE PATH 1 of 2: MmapParser with mio for maximum performance.
          * Emscripten builds fall back to the stream-based implementation because mmap is unavailable.
-         * 
-         * @note On native builds, bugs can exist in this path independently of the stream path
-         * @note When writing tests that validate I/O behavior, test both filename and stream constructors
-         * @see StreamParser for the stream-based alternative
+         *
+         * During construction, parser installation performs an initial synchronous metadata
+         * read so delimiter and header information are resolved before user reads begin.
+         *
+         * @note On native builds, bugs can exist in this path independently of the stream path.
+         * @note When writing tests that validate I/O behavior, test both filename and stream constructors.
+         * @see StreamParser for the stream-based alternative.
          */
-        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
+        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv()) : _format(format) {
+#if defined(__EMSCRIPTEN__)
+            this->owned_stream = std::unique_ptr<std::istream>(
+                new std::ifstream(std::string(filename), std::ios::binary)
+            );
+
+            if (!(*this->owned_stream)) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            this->init_from_stream(*this->owned_stream, format);
+#else
+            this->init_parser(std::unique_ptr<internals::IBasicCSVParser>(
+                new internals::MmapParser(filename, format, this->col_names)
+            ));
+#endif
+        }
 
         /** @brief Construct CSVReader from std::istream
          * 

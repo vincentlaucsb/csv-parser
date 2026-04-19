@@ -12,11 +12,17 @@ namespace csv {
             // Map row lengths to row num where they first occurred
             std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
 
-            // Parse the CSV
+            // Parse the CSV using the low-level constructor that takes pre-built flag
+            // tables — bypasses format resolution entirely and avoids recursion back
+            // into guess_format.
             std::stringstream source(head.data());
             RowCollection rows;
 
-            StreamParser<std::stringstream> parser(source, format, nullptr, false);
+            const auto parse_flags = format.is_quoting_enabled()
+                ? internals::make_parse_flags(format.get_delim(), format.get_quote_char())
+                : internals::make_parse_flags(format.get_delim());
+            const auto ws_flags = internals::make_ws_flags(format.get_trim_chars());
+            StreamParser<std::stringstream> parser(source, parse_flags, ws_flags);
             parser.set_output(rows);
             parser.next();
 
