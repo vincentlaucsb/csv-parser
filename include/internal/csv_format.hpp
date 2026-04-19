@@ -21,7 +21,8 @@ namespace csv {
     enum class VariableColumnPolicy {
         THROW = -1,
         IGNORE_ROW = 0,
-        KEEP   = 1
+        KEEP   = 1,
+        KEEP_NON_EMPTY = 2
     };
 
     /** Determines how column name lookups are performed */

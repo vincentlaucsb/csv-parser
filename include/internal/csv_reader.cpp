@@ -185,6 +185,10 @@ namespace csv {
         if (!format.col_names.empty())
             this->set_col_names(format.col_names);
 
+        if (format.header < 0 && format.col_names.empty()) {
+            this->n_cols = internals::infer_n_cols_from_head(head, format);
+        }
+
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
         this->initial_read();
 #endif
@@ -352,18 +356,29 @@ namespace csv {
                 this->_read_requested = true;
                 continue;
             }
-            else if (this->records->front().size() != this->n_cols &&
-                this->_format.variable_column_policy != VariableColumnPolicy::KEEP) {
-                auto errored_row = this->records->pop_front();
-
-                if (this->_format.variable_column_policy == VariableColumnPolicy::THROW) {
-                    if (errored_row.size() < this->n_cols)
-                        throw std::runtime_error("Line too short " + internals::format_row(errored_row));
-
-                    throw std::runtime_error("Line too long " + internals::format_row(errored_row));
-                }
-            }
             else {
+                const auto policy = this->_format.variable_column_policy;
+                const size_t next_row_size = this->records->front().size();
+
+                if (policy == VariableColumnPolicy::KEEP_NON_EMPTY && next_row_size == 0) {
+                    this->records->pop_front();
+                    continue;
+                }
+
+                if (next_row_size != this->n_cols &&
+                    (policy == VariableColumnPolicy::THROW || policy == VariableColumnPolicy::IGNORE_ROW)) {
+                    auto errored_row = this->records->pop_front();
+
+                    if (policy == VariableColumnPolicy::THROW) {
+                        if (errored_row.size() < this->n_cols)
+                            throw std::runtime_error("Line too short " + internals::format_row(errored_row));
+
+                        throw std::runtime_error("Line too long " + internals::format_row(errored_row));
+                    }
+
+                    continue;
+                }
+
                 row = this->records->pop_front();
                 this->_n_rows++;
                 this->_read_requested = false;  // Reset flag on successful read

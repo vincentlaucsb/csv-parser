@@ -43,7 +43,7 @@ namespace csv {
         CSV_CONST CONSTEXPR_17 ParseFlagMap make_parse_flags(char delimiter) {
             auto ret = arrayToDefault<ParseFlagMap>(ParseFlags::NOT_SPECIAL);
             ret[delimiter + CHAR_OFFSET] = ParseFlags::DELIMITER;
-            ret['\r' + CHAR_OFFSET] = ParseFlags::NEWLINE;
+            ret['\r' + CHAR_OFFSET] = ParseFlags::CARRIAGE_RETURN;
             ret['\n' + CHAR_OFFSET] = ParseFlags::NEWLINE;
             return ret;
         }
@@ -101,6 +101,8 @@ namespace csv {
         CSV_INLINE size_t get_file_size(csv::string_view filename);
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
+
+        CSV_INLINE size_t infer_n_cols_from_head(csv::string_view head, CSVFormat format);
     }
 
     /** Standard type for storing collection of rows */

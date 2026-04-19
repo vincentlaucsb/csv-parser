@@ -437,6 +437,10 @@ namespace csv {
                 this->set_col_names(format.col_names);
             }
 
+            if (format.header < 0 && format.col_names.empty()) {
+                this->n_cols = internals::infer_n_cols_from_head(head, format);
+            }
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable:4316)

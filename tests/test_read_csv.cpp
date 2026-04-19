@@ -114,6 +114,36 @@ TEST_CASE("Test Escaped Newline & Empty Last Column", "[read_csv_empty_last_colu
         vector<string>({ "4", "5", "6", ""}));
 }
 
+TEST_CASE("Test Unquoted Trailing Empty Field", "[read_csv_empty_last_column]") {
+    auto rows = "A,B,C,D\r\n" // Header row
+        "1,2,3,\r\n"
+        "4,5,6,"_csv;
+
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "1", "2", "3", "" }));
+
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "4", "5", "6", "" }));
+}
+
+TEST_CASE("Test Quoted Empty Single-Column Row", "[read_csv_empty_last_column]") {
+    auto rows = "A\r\n" // Header row
+        "\"\"\r\n"
+        "value"_csv;
+
+    CSVRow row;
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "" }));
+
+    rows.read_row(row);
+    REQUIRE(vector<string>(row) ==
+        vector<string>({ "value" }));
+}
+
 TEST_CASE( "Test Empty Field", "[read_empty_field]" ) {
     // Per RFC 1480, escaped quotes should be doubled up
     auto rows = "A,B,C\r\n" // Header row
@@ -183,8 +213,7 @@ TEST_CASE( "Test leading and trailing escaped quote", "[read_csv_quote]" ) {
 }
 //! [Parse Example]
 
-// Verify the CSV parser can handle any arbitrary line endings composed of carriage return & newline
-TEST_CASE("Cursed Newlines", "[read_csv_cursed_newline]") {
+TEST_CASE("Normal Newlines", "[read_csv_normal_newline]") {
     auto row_str = GENERATE(as<std::string> {},
         // Windows style
         "A,B,C\r\n" // Header row
@@ -198,20 +227,13 @@ TEST_CASE("Cursed Newlines", "[read_csv_cursed_newline]") {
         "1,2,3\n"
         "4,5,6",
 
-        // Eww brother what is that...
-        "A,B,C\r\r\n" // Header row
-        "123,234,345\r\r\n"
-        "1,2,3\r\r\n"
-        "4,5,6",
-
-        // Doubled-up Windows style (ridiculous: but I'm sure it exists somewhere)
-        "A,B,C\r\n\r\n" // Header row
-        "123,234,345\r\n\r\n"
-        "1,2,3\r\n\r\n"
+        // Old Mac Style
+        "A,B,C\r" // Header row
+        "123,234,345\r"
+        "1,2,3\r"
         "4,5,6"
     );
 
-    // Set CSVFormat to KEEP all rows, even empty ones (because there shouldn't be any)
     CSVFormat format;
     format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
     auto rows = parse(row_str, format);
@@ -233,6 +255,85 @@ TEST_CASE("Cursed Newlines", "[read_csv_cursed_newline]") {
     REQUIRE(vector<string>(row) == third_row);
 
     REQUIRE(rows.n_rows() == 3);
+}
+
+
+TEST_CASE("Edge-Case Newlines", "[read_csv_edge_case_newline]") {
+    auto row_str = GENERATE(as<std::string> {},
+        // Eww brother what is that...
+        "A,B,C\r\r\n" // Header row
+        "123,234,345\r\r\n"
+        "1,2,3\r\r\n"
+        "4,5,6",
+
+        // Doubled-up Windows style
+        "A,B,C\r\n\r\n" // Header row
+        "123,234,345\r\n\r\n"
+        "1,2,3\r\n\r\n"
+        "4,5,6"
+    );
+
+    SECTION("KEEP policy - all rows including blanks") {
+        CSVFormat format;
+        format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+        auto rows = parse(row_str, format);
+
+        CSVRow row;
+
+        // Blank line from the trailing \r\n after the header
+        rows.read_row(row);
+        REQUIRE(row.empty());
+        
+        rows.read_row(row);
+        vector<string> first_row = { "123", "234", "345" };
+        REQUIRE(vector<string>(row) == first_row);
+        REQUIRE(row["A"] == "123");
+        REQUIRE(row["B"] == "234");
+        REQUIRE(row["C"] == "345");
+
+        // Blank line
+        rows.read_row(row);
+        REQUIRE(row.empty());
+
+        rows.read_row(row);
+        vector<string> second_row = { "1", "2", "3" };
+        REQUIRE(vector<string>(row) == second_row);
+
+        // Blank line
+        rows.read_row(row);
+        REQUIRE(row.empty());
+
+        rows.read_row(row);
+        vector<string> third_row = { "4", "5", "6" };
+        REQUIRE(vector<string>(row) == third_row);
+
+        REQUIRE(rows.n_rows() == 6);
+    }
+
+    SECTION("KEEP_NON_EMPTY policy - skip blank rows") {
+        CSVFormat format;
+        format.header_row(0).variable_columns(VariableColumnPolicy::KEEP_NON_EMPTY);
+        auto rows = parse(row_str, format);
+
+        CSVRow row;
+
+        rows.read_row(row);
+        vector<string> first_row = { "123", "234", "345" };
+        REQUIRE(vector<string>(row) == first_row);
+        REQUIRE(row["A"] == "123");
+        REQUIRE(row["B"] == "234");
+        REQUIRE(row["C"] == "345");
+
+        rows.read_row(row);
+        vector<string> second_row = { "1", "2", "3" };
+        REQUIRE(vector<string>(row) == second_row);
+
+        rows.read_row(row);
+        vector<string> third_row = { "4", "5", "6" };
+        REQUIRE(vector<string>(row) == third_row);
+
+        REQUIRE(rows.n_rows() == 3);
+    }
 }
 
 TEST_CASE("Test Whitespace Trimming", "[read_csv_trim]") {

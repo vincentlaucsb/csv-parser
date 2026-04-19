@@ -25,6 +25,24 @@ namespace csv {
             return get_csv_head(filename, get_file_size(filename));
         }
 
+        CSV_INLINE size_t infer_n_cols_from_head(csv::string_view head, CSVFormat format) {
+            std::stringstream source(head.data());
+            RowCollection rows;
+
+            StreamParser<std::stringstream> parser(source, format);
+            parser.set_output(rows);
+            parser.next();
+
+            for (size_t i = 0; i < rows.size(); i++) {
+                auto& row = rows[i];
+                if (row.size() > 0) {
+                    return row.size();
+                }
+            }
+
+            return 0;
+        }
+
         CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
             const size_t bytes = 500000;
 
@@ -158,18 +176,27 @@ namespace csv {
                     this->data_pos_++;
                     break;
 
+                case ParseFlags::CARRIAGE_RETURN:
+                    // Handles CRLF (we do not advance by 2 here, the NEWLINE case will handle it)
+                    if (this->data_pos_ + 1 < in.size() && parse_flag(in[this->data_pos_ + 1]) == ParseFlags::NEWLINE) {
+                        this->data_pos_++;
+                    }
+
+                    // Intentionally fall through to handle the newline in the next case
+                    // If CR (old Mac style newline), fallthrough handles it
+
                 case ParseFlags::NEWLINE:
                     this->data_pos_++;
 
-                    // Catches CRLF (or LFLF, CRCRLF, or any other non-sensical combination of newlines)
-                    while (this->data_pos_ < in.size() && parse_flag(in[this->data_pos_]) == ParseFlags::NEWLINE)
-                        this->data_pos_++;
-
-                    // End of record -> Write non-empty record
-                    if (this->field_length_ > 0 || !this->current_row_.empty()) {
+                    // End of record. Preserve intentional empty fields such as
+                    // trailing delimiters and quoted empty strings, but leave a
+                    // truly blank line as an empty row.
+                    if (this->field_length_ > 0
+                        || this->field_start_ != UNINITIALIZED_FIELD
+                        || !this->current_row_.empty()) {
                         this->push_field();
-                        this->push_row();
                     }
+                    this->push_row();
 
                     // Reset
                     this->current_row_ = CSVRow(data_ptr_, this->data_pos_, fields_->size());

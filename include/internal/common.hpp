@@ -240,7 +240,8 @@ namespace csv {
             QUOTE_ESCAPE_QUOTE = 0, /**< A quote inside or terminating a quote_escaped field */
             QUOTE = 2 | 1,          /**< Characters which may signify a quote escape */
             NOT_SPECIAL = 4,        /**< Characters with no special meaning or escaped delimiters and newlines */
-            DELIMITER = 4 | 2,      /**< Characters which signify a new field */
+            DELIMITER = 4 | 1,      /**< Characters which signify a new field */
+            CARRIAGE_RETURN = 4 | 2, /**< Characters which signify a carriage return */
             NEWLINE = 4 | 2 | 1     /**< Characters which signify a new row */
         };
 
@@ -252,7 +253,9 @@ namespace csv {
 
         // Assumed to be true by parsing functions: allows for testing
         // if an item is DELIMITER or NEWLINE with a >= statement
+        STATIC_ASSERT(ParseFlags::DELIMITER < ParseFlags::CARRIAGE_RETURN);
         STATIC_ASSERT(ParseFlags::DELIMITER < ParseFlags::NEWLINE);
+        STATIC_ASSERT(ParseFlags::CARRIAGE_RETURN < ParseFlags::NEWLINE);
 
         /** Optimizations for reducing branching in parsing loop
          *
@@ -262,11 +265,13 @@ namespace csv {
         STATIC_ASSERT(quote_escape_flag(ParseFlags::NOT_SPECIAL, false) == ParseFlags::NOT_SPECIAL);
         STATIC_ASSERT(quote_escape_flag(ParseFlags::QUOTE, false) == ParseFlags::QUOTE);
         STATIC_ASSERT(quote_escape_flag(ParseFlags::DELIMITER, false) == ParseFlags::DELIMITER);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::CARRIAGE_RETURN, false) == ParseFlags::CARRIAGE_RETURN);
         STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, false) == ParseFlags::NEWLINE);
 
         STATIC_ASSERT(quote_escape_flag(ParseFlags::NOT_SPECIAL, true) == ParseFlags::NOT_SPECIAL);
         STATIC_ASSERT(quote_escape_flag(ParseFlags::QUOTE, true) == ParseFlags::QUOTE_ESCAPE_QUOTE);
         STATIC_ASSERT(quote_escape_flag(ParseFlags::DELIMITER, true) == ParseFlags::NOT_SPECIAL);
+        STATIC_ASSERT(quote_escape_flag(ParseFlags::CARRIAGE_RETURN, true) == ParseFlags::NOT_SPECIAL);
         STATIC_ASSERT(quote_escape_flag(ParseFlags::NEWLINE, true) == ParseFlags::NOT_SPECIAL);
 
         /** An array which maps ASCII chars to a parsing flag */
