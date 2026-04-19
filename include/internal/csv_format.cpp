@@ -36,6 +36,7 @@ namespace csv {
     CSV_INLINE CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
         this->col_names = names;
         this->header = -1;
+        this->col_names_explicitly_set_ = true;
         return *this;
     }
 
@@ -45,6 +46,7 @@ namespace csv {
         this->header = row;
         this->header_explicitly_set_ = true;
         this->col_names = {};
+        this->col_names_explicitly_set_ = false;
         return *this;
     }
 

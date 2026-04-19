@@ -33,8 +33,9 @@ namespace csv {
         std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
 
         struct GuessScore {
-            double score;
             size_t header;
+            size_t mode_row_length;
+            double score;
         };
 
         CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
@@ -46,7 +47,7 @@ namespace csv {
         csv::string_view filename,
         const CSVFormat format = CSVFormat::guess_csv());
 
-    /** @brief Guess the delimiter and header row of a CSV file
+    /** @brief Guess the delimiter, header row, and mode column count of a CSV file
      *
      *  **Heuristic:** For each candidate delimiter, calculate a score based on
      *  the most common row length (mode). The delimiter with the highest score wins.
@@ -60,7 +61,8 @@ namespace csv {
      *  - Comment lines before the actual header (first row shorter than mode)
      *  - Standard CSVs where first row is the header
      *  
-     *  @note Score = (row_length × count_of_rows_with_that_length)
+    *  @note Score = (row_length × count_of_rows_with_that_length)
+    *  @note Also returns inferred mode-width column count (CSVGuessResult::n_cols)
      */
     CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
@@ -409,6 +411,33 @@ namespace csv {
             }
         }
 
+        /** Apply guessed delimiter/header settings in one place for all reader paths. */
+        void apply_guessed_format(csv::string_view head, CSVFormat& format) {
+            const bool infer_delimiter = format.guess_delim();
+            const bool infer_header = !format.header_explicitly_set_
+                && (infer_delimiter || !format.col_names_explicitly_set_);
+            const bool infer_n_cols = (format.header < 0 && format.col_names.empty());
+
+            if (!(infer_delimiter || infer_header || infer_n_cols)) {
+                return;
+            }
+
+            auto guess_result = internals::_guess_format(head, format.possible_delimiters);
+            if (infer_delimiter) {
+                format.delimiter(guess_result.delim);
+            }
+
+            // Only override header when header behavior is inferable.
+            // Explicit header_row()/no_header() wins, and explicit column names
+            // suppress header inference.
+            if (infer_header) {
+                format.header = guess_result.header_row;
+            }
+
+            this->n_cols = guess_result.n_cols;
+            this->_format = format;
+        }
+
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
@@ -421,24 +450,10 @@ namespace csv {
             // Apply chunk size from format before any reading occurs
             this->_chunk_size = format.get_chunk_size();
 
-            if (format.guess_delim()) {
-                auto guess_result = internals::_guess_format(head, format.possible_delimiters);
-                format.delimiter(guess_result.delim);
-                // Only override header if user hasn't explicitly called no_header()
-                // Note: column_names() also sets header=-1, but it populates col_names,
-                // so we can distinguish: no_header() means header=-1 && col_names.empty()
-                if (format.header != -1 || !format.col_names.empty()) {
-                    format.header = guess_result.header_row;
-                }
-                this->_format = format;
-            }
+            this->apply_guessed_format(head, format);
 
             if (!format.col_names.empty()) {
                 this->set_col_names(format.col_names);
-            }
-
-            if (format.header < 0 && format.col_names.empty()) {
-                this->n_cols = internals::infer_n_cols_from_head(head, format);
             }
 
 #ifdef _MSC_VER

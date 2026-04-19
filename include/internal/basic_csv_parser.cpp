@@ -32,24 +32,6 @@ namespace csv {
             return get_csv_head(filename, get_file_size(filename));
         }
 
-        CSV_INLINE size_t infer_n_cols_from_head(csv::string_view head, CSVFormat format) {
-            std::stringstream source(head.data());
-            RowCollection rows;
-
-            StreamParser<std::stringstream> parser(source, format);
-            parser.set_output(rows);
-            parser.next();
-
-            for (size_t i = 0; i < rows.size(); i++) {
-                auto& row = rows[i];
-                if (row.size() > 0) {
-                    return row.size();
-                }
-            }
-
-            return 0;
-        }
-
         CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
             const size_t bytes = 500000;
 

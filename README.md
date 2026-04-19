@@ -385,6 +385,12 @@ format.delimiter('\t')
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out
 
+// Inference contract:
+// - Single delimiter: delimiter is fixed (no delimiter inference)
+// - Header row is still inferred unless you explicitly call header_row(...), no_header(),
+//   or provide column_names(...)
+// - Multiple delimiters: delimiter inference is enabled
+
 CSVReader reader("weird_csv_dialect.csv", format);
 
 for (auto& row: reader) {

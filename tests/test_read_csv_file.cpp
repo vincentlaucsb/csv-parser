@@ -279,16 +279,124 @@ TEST_CASE("Issue #195 - header_row() preserved when delimiter guessing", "[issue
 
     std::vector<std::string> expected = { "timestamp", "distance", "angle", "amplitude" };
 
-    auto format = CSVFormat::guess_csv();
-    format.header_row(3);
+    auto validate_reader = [&](CSVReader& reader) {
+        REQUIRE(reader.get_col_names() == expected);
 
-    CSVReader reader(cleanup.filename, format);
-    REQUIRE(reader.get_col_names() == expected);
+        // Verify data rows are also correct
+        std::vector<CSVRow> rows;
+        for (auto& row : reader) rows.push_back(row);
+        REQUIRE(rows.size() == 2);
+        REQUIRE(rows[0]["timestamp"].get<int>() == 22857782);
+    };
 
-    // Verify data rows are also correct
-    std::vector<CSVRow> rows;
-    for (auto& row : reader) rows.push_back(row);
-    REQUIRE(rows.size() == 2);
-    REQUIRE(rows[0]["timestamp"].get<int>() == 22857782);
+    SECTION("Memory-mapped file path") {
+        auto format = CSVFormat::guess_csv();
+        format.header_row(3);
+
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        auto format = CSVFormat::guess_csv();
+        format.header_row(3);
+
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+}
+
+TEST_CASE("Header inference with explicit delimiter", "[header_infer_explicit_delim]") {
+    // Even when delimiter guessing is disabled (single explicit delimiter),
+    // header and mode-width inference should still run unless header is
+    // explicitly user-set.
+    FileGuard cleanup("./tests/data/tmp_header_infer_explicit_delim.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "comment\n"
+            << "metadata\n"
+            << "A;B;C\n"
+            << "1;2;3\n"
+            << "4;5;6\n";
+    }
+
+    auto validate_reader = [&](CSVReader& reader) {
+        REQUIRE(reader.get_col_names() == std::vector<std::string>({ "A", "B", "C" }));
+
+        std::vector<CSVRow> rows;
+        for (auto& row : reader) rows.push_back(row);
+
+        REQUIRE(rows.size() == 2);
+        REQUIRE(rows[0]["A"].get<int>() == 1);
+        REQUIRE(rows[0]["B"].get<int>() == 2);
+        REQUIRE(rows[0]["C"].get<int>() == 3);
+        REQUIRE(rows[1]["A"].get<int>() == 4);
+        REQUIRE(rows[1]["B"].get<int>() == 5);
+        REQUIRE(rows[1]["C"].get<int>() == 6);
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVFormat format;
+        format.delimiter(';');
+
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        CSVFormat format;
+        format.delimiter(';');
+
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+}
+
+TEST_CASE("No-header n_cols inference with explicit delimiter", "[no_header_ncols_explicit_delim]") {
+    // With an explicit delimiter and no_header(), n_cols should still be inferred
+    // so variable-column policies can behave correctly.
+    FileGuard cleanup("./tests/data/tmp_no_header_ncols_explicit_delim.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "junk\n"
+            << "meta\n"
+            << "1;2;3\n"
+            << "4;5;6\n";
+    }
+
+    auto validate_reader = [&](CSVReader& reader) {
+        std::vector<CSVRow> rows;
+        for (auto& row : reader) rows.push_back(row);
+
+        // Mode width is 3, so short rows should be dropped by IGNORE_ROW.
+        REQUIRE(rows.size() == 2);
+        REQUIRE(rows[0].size() == 3);
+        REQUIRE(rows[0][0].get<int>() == 1);
+        REQUIRE(rows[0][1].get<int>() == 2);
+        REQUIRE(rows[0][2].get<int>() == 3);
+        REQUIRE(rows[1].size() == 3);
+        REQUIRE(rows[1][0].get<int>() == 4);
+        REQUIRE(rows[1][1].get<int>() == 5);
+        REQUIRE(rows[1][2].get<int>() == 6);
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVFormat format;
+        format.delimiter(';').no_header().variable_columns(VariableColumnPolicy::IGNORE_ROW);
+
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        CSVFormat format;
+        format.delimiter(';').no_header().variable_columns(VariableColumnPolicy::IGNORE_ROW);
+
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
 }
 #endif

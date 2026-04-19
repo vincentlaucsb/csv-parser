@@ -88,10 +88,7 @@ namespace csv {
                 header_row = 0;
             }
 
-            return {
-                final_score,
-                header_row
-            };
+            return { header_row, mode_row_length, final_score };
         }
 
         /** Guess the delimiter used by a delimiter-separated values file */
@@ -107,7 +104,8 @@ namespace csv {
 
             CSVFormat format;
             size_t max_score = 0,
-                header = 0;
+                header = 0,
+                n_cols = 0;
             char current_delim = delims[0];
 
             for (char cand_delim : delims) {
@@ -117,10 +115,11 @@ namespace csv {
                     max_score = (size_t)result.score;
                     current_delim = cand_delim;
                     header = result.header;
+                    n_cols = result.mode_row_length;
                 }
             }
 
-            return { current_delim, (int)header };
+            return { current_delim, (int)header, n_cols };
         }
     }
 
@@ -167,27 +166,10 @@ namespace csv {
         using Parser = internals::MmapParser;
         // Apply chunk size from format before any reading occurs
         this->_chunk_size = format.get_chunk_size();
-        /** Guess delimiter and header row */
-        if (format.guess_delim()) {
-            auto guess_result = internals::_guess_format(head, format.possible_delimiters);
-            format.delimiter(guess_result.delim);
-            // Only override header if the user hasn't explicitly set one via
-            // header_row() or no_header(). column_names() sets col_names but
-            // does not set header_explicitly_set_, so the guesser can still
-            // determine where the data rows begin in that case.
-            if (!format.header_explicitly_set_) {
-                format.header = guess_result.header_row;
-            }
-            
-            this->_format = format;
-        }
+        this->apply_guessed_format(head, format);
 
         if (!format.col_names.empty())
             this->set_col_names(format.col_names);
-
-        if (format.header < 0 && format.col_names.empty()) {
-            this->n_cols = internals::infer_n_cols_from_head(head, format);
-        }
 
         this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
         this->initial_read();

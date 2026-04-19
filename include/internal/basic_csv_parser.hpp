@@ -101,8 +101,6 @@ namespace csv {
         CSV_INLINE size_t get_file_size(csv::string_view filename);
 
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
-
-        CSV_INLINE size_t infer_n_cols_from_head(csv::string_view head, CSVFormat format);
     }
 
     /** Standard type for storing collection of rows */
