@@ -63,7 +63,7 @@ namespace csv {
             has_ws_trimming_ = !format.trim_chars.empty();
         }
 
-        CSV_INLINE void IBasicCSVParser::resolve_format_from_head(CSVFormat format) {
+        CSV_INLINE void IBasicCSVParser::resolve_format_from_head(const CSVFormat& format) {
             auto head = this->get_csv_head();
 
             ResolvedFormat resolved;
