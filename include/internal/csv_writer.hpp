@@ -5,7 +5,6 @@
 #pragma once
 #include <cmath>
 #include <fstream>
-#include <initializer_list>
 #include <iostream>
 #include <memory>
 #ifdef CSV_HAS_CXX20
@@ -290,34 +289,35 @@ namespace csv {
             return *this;
         }
 
-        /** Write a row from a braced initializer list of string fields.
+        /** Write a row from any single argument accepted by operator<<
+         *  (std::vector, std::array, std::tuple, C-array, C++20 range, etc.).
          *
-         *  This is the most concise syntax for all-string rows:
          *  @code
-         *  writer << {"Name", "Age", "City"};
-         *  writer << {"Alice", "30", "Paris"};
+         *  writer.write_row(my_vector);
+         *  writer.write_row(my_tuple);
          *  @endcode
          *
-         *  For rows with mixed numeric and string fields, use write_row():
-         *  @code
-         *  writer.write_row("Alice", 30, 1.75);
-         *  @endcode
+         *  SFINAE ensures this overload is only viable when the argument type
+         *  is accepted by an existing operator<< overload.
          */
-        DelimWriter& operator<<(std::initializer_list<csv::string_view> record) {
-            write_range_impl(record);
-            return *this;
+        template<typename T>
+        auto write_row(T&& record) -> decltype(*this << std::forward<T>(record)) {
+            return *this << std::forward<T>(record);
         }
 
-        /** Write a row from a variadic argument list.
+        /** Write a row from a variadic list of mixed-type values.
          *
-         *  Accepts any mix of string and numeric types:
+         *  Requires at least two arguments; for a single container or tuple,
+         *  use the single-argument overload above.
+         *
          *  @code
          *  writer.write_row("Alice", 30, 1.75, "Paris");
          *  @endcode
          */
-        template<typename... Args>
-        DelimWriter& write_row(Args&&... args) {
-            this->write_tuple<0>(std::forward_as_tuple(std::forward<Args>(args)...));
+        template<typename T, typename U, typename... Rest>
+        DelimWriter& write_row(T&& first, U&& second, Rest&&... rest) {
+            this->write_tuple<0>(std::forward_as_tuple(
+                std::forward<T>(first), std::forward<U>(second), std::forward<Rest>(rest)...));
             return *this;
         }
 

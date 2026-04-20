@@ -143,9 +143,14 @@ namespace csv {
 
             this->init_from_stream(*this->owned_stream, format);
 #else
+            // C4316: MmapParser may carry over-aligned SIMD members. Allocation
+            // alignment is handled by the allocator on supported platforms;
+            // suppress MSVC's false-positive warning at this site.
+            CSV_MSVC_PUSH_DISABLE(4316)
             this->init_parser(std::unique_ptr<internals::IBasicCSVParser>(
                 new internals::MmapParser(filename, format, this->col_names)
             ));
+            CSV_MSVC_POP
 #endif
         }
 
