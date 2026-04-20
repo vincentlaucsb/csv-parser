@@ -11,17 +11,13 @@
 
 namespace csv {
     namespace internals {
+        // Opens the file and delegates to the template overload to avoid duplicating the read/resize logic.
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
-            const size_t bytes = 500000;
             std::ifstream infile(std::string(filename), std::ios::binary);
             if (!infile.is_open()) {
                 throw std::runtime_error("Cannot open file " + std::string(filename));
             }
-
-            std::string head(bytes, '\0');
-            infile.read(&head[0], (std::streamsize)bytes);
-            head.resize((size_t)infile.gcount());
-            return head;
+            return get_csv_head_stream(infile);
         }
 
 #if !defined(__EMSCRIPTEN__)

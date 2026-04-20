@@ -123,9 +123,6 @@ namespace csv {
             return buf;
         }
 
-        /** Read the first 500KB from a filename using stream I/O. */
-        CSV_INLINE std::string get_csv_head_stream(csv::string_view filename);
-
     #if !defined(__EMSCRIPTEN__)
         /** Read the first 500KB from a filename using mmap.
          *  Also returns the total file size so callers avoid a second mmap open.
