@@ -11,7 +11,6 @@ using std::queue;
 using std::vector;
 using std::string;
 
-#ifndef __clang__
 TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
     SECTION("num_digits") {
         REQUIRE(csv::internals::num_digits(99.0) == 2);
@@ -25,6 +24,11 @@ TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
     }
 
     SECTION("Custom Precision") {
+        struct LocalDecimalGuard {
+            int saved = internals::DECIMAL_PLACES;
+            ~LocalDecimalGuard() { set_decimal_places(saved); }
+        } precision_guard;
+
         // Test setting precision
         REQUIRE(csv::internals::to_string(1.234) == "1.23400");
         REQUIRE(csv::internals::to_string(20.0045) == "20.00450");
@@ -32,8 +36,15 @@ TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
         set_decimal_places(2);
         REQUIRE(csv::internals::to_string(1.234) == "1.23");
 
-        // Reset
-        set_decimal_places(5);
+        // Expose precision/truncation bug for non-binary-exact decimal inputs.
+        // With one decimal place, these should remain .3/.8 respectively.
+        set_decimal_places(1);
+        REQUIRE(csv::internals::to_string(87.3) == "87.3");
+        REQUIRE(csv::internals::to_string(92.8) == "92.8");
+
+        // Regression: rounding should carry into the integral part when needed.
+        REQUIRE(csv::internals::to_string(1.96) == "2.0");
+        REQUIRE(csv::internals::to_string(-1.96) == "-2.0");
     }
 
     SECTION("Decimal Numbers x where -1 < x < 0") {
@@ -51,9 +62,22 @@ TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
         REQUIRE(csv::internals::to_string(1000000.0) == "1000000.0");
     }
 }
-#endif
 
 namespace {
+    struct DecimalPlacesGuard {
+        int previous;
+
+        DecimalPlacesGuard()
+            : previous(internals::DECIMAL_PLACES) {}
+
+        ~DecimalPlacesGuard() {
+            set_decimal_places(previous);
+        }
+
+        DecimalPlacesGuard(const DecimalPlacesGuard&) = delete;
+        DecimalPlacesGuard& operator=(const DecimalPlacesGuard&) = delete;
+    };
+
     struct StringOutput {
         std::stringstream stream;
 
@@ -173,16 +197,23 @@ TEST_CASE("CSV Writer - write_row() with variadic fields", "[test_csv_write_row_
     std::stringstream output, correct;
     auto writer = make_csv_writer(output);
 
+    // Important! Call this or else the default will be used
+    set_decimal_places(1);
+
     // Write rows with mixed types using write_row()
     writer.write_row("Name", "Age", "Score");
     writer.write_row("Alice", 30, 95.5);
-    writer.write_row("Bob", 25, 87.3);
-    writer.write_row("Charlie", 35, 92.8);
+        // Use values with binary-exact fractional parts for a stable user-facing example.
+        writer.write_row("Bob", 25, 87.5);
+        writer.write_row("Charlie", 35, 92.5);
+
+    // Reset to default
+    set_decimal_places(5);
 
     correct << "Name,Age,Score" << std::endl
         << "Alice,30,95.5" << std::endl
-        << "Bob,25,87.3" << std::endl
-        << "Charlie,35,92.8" << std::endl;
+            << "Bob,25,87.5" << std::endl
+            << "Charlie,35,92.5" << std::endl;
 
     REQUIRE(output.str() == correct.str());
 }
@@ -221,7 +252,7 @@ TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
     correct_output << "One,2,Three,4.0,5:30" << std::endl
         << "One,2,Three,4.0,5:30" << std::endl
         << "-1,-2.0" << std::endl
-        << "20.19999,-20.30000,-20.12300" << std::endl
+        << "20.20000,-20.30000,-20.12300" << std::endl
         << "0.0,0.0,0" << std::endl;
 
     REQUIRE(output.str() == correct_output.str());
@@ -297,7 +328,10 @@ TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overl
         "3,Dan Abramov Disciple,31,Principal React Engineer,7,useMemo,\"If it's not memoized it's not React\"\n"
         "6,Class Component Carl,42,Legacy React Dev,12,none,\"Remember when React was fun? Pepperidge Farm remembers.\""_csv;
     
-    csv::DataFrame<std::string> df(reader);
+    auto options = DataFrameOptions();
+    options.set_key_column("id");
+
+    csv::DataFrame<std::string> df(reader, options);
     
     // Make sparse edits to specific cells using the overlay
     df.set("1", "age", "29");  // Chad Hooks has a birthday

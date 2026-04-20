@@ -61,3 +61,10 @@ With C++20, you can use `std::ranges::views` to elegantly reorder fields in a si
 When working with DataFrames, you can efficiently update specific cells without reconstructing entire rows. The overlay mechanism stores only the changed cells and writes them correctly:
 
 \snippet tests/test_write_csv.cpp DataFrame Sparse Overlay Write Example
+
+## End-to-End Round-Trip Integrity Example
+
+The following test is intentionally write-first then read/verify, but it validates
+the same data-integrity guarantee as read-transform-write user workflows.
+
+\snippet tests/test_round_trip.cpp Round Trip Distinct Field Values Example

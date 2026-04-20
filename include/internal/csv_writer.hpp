@@ -118,19 +118,31 @@ namespace csv {
             inline std::string to_string(T value) {
             std::string result = "";
 
-            T integral_part;
-            T fractional_part = csv_abs(std::modf(value, &integral_part));
-            integral_part = csv_abs(integral_part);
+            long double integral_part;
+            long double fractional_part = csv_abs(std::modf((long double)value, &integral_part));
+
+            const long double scale = pow10(DECIMAL_PLACES);
+            long double rounded_fractional = std::round(fractional_part * scale);
+
+            // Work with the absolute value of the integral part so digit extraction
+            // and carry both work correctly for negative numbers.
+            long double abs_integral = csv_abs(integral_part);
+
+            // Carry rounding overflow from fractional digits into integral digits.
+            if (rounded_fractional >= scale) {
+                abs_integral += 1;
+                rounded_fractional = 0;
+            }
 
             // Integral part
             if (value < 0) result = "-";
 
-            if (integral_part == 0) {
+            if (abs_integral == 0) {
                 result += "0";
             }
             else {
-                for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
-                    int digit = (int)(std::fmod(integral_part, pow10(n_digits)) / pow10(n_digits - 1));
+                for (int n_digits = num_digits(abs_integral); n_digits > 0; n_digits --) {
+                    int digit = (int)(std::fmod(abs_integral, pow10(n_digits)) / pow10(n_digits - 1));
                     result += (char)('0' + digit);
                 }
             }
@@ -138,10 +150,9 @@ namespace csv {
             // Decimal part
             result += ".";
 
-            if (fractional_part > 0) {
-                fractional_part *= (T)(pow10(DECIMAL_PLACES));
+            if (rounded_fractional > 0) {
                 for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
-                    int digit = (int)(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
+                    int digit = (int)(std::fmod(rounded_fractional, pow10(n_digits)) / pow10(n_digits - 1));
                     result += (char)('0' + digit);
                 }
             }
