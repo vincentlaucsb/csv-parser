@@ -3,6 +3,7 @@
   */
 
 #pragma once
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -115,54 +116,58 @@ namespace csv {
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
             inline std::string to_string(T value) {
-#ifdef __clang__
-            return std::to_string(value);
-#else
-            // TODO: Figure out why the below code doesn't work on clang
-                std::string result = "";
+            std::string result = "";
 
-                T integral_part;
-                T fractional_part = std::abs(std::modf(value, &integral_part));
-                integral_part = std::abs(integral_part);
+            long double integral_part;
+            long double fractional_part = csv_abs(std::modf((long double)value, &integral_part));
 
-                // Integral part
-                if (value < 0) result = "-";
+            const long double scale = pow10(DECIMAL_PLACES);
+            long double rounded_fractional = std::round(fractional_part * scale);
 
-                if (integral_part == 0) {
-                    result += "0";
+            // Work with the absolute value of the integral part so digit extraction
+            // and carry both work correctly for negative numbers.
+            long double abs_integral = csv_abs(integral_part);
+
+            // Carry rounding overflow from fractional digits into integral digits.
+            if (rounded_fractional >= scale) {
+                abs_integral += 1;
+                rounded_fractional = 0;
+            }
+
+            // Integral part
+            if (value < 0) result = "-";
+
+            if (abs_integral == 0) {
+                result += "0";
+            }
+            else {
+                for (int n_digits = num_digits(abs_integral); n_digits > 0; n_digits --) {
+                    int digit = (int)(std::fmod(abs_integral, pow10(n_digits)) / pow10(n_digits - 1));
+                    result += (char)('0' + digit);
                 }
-                else {
-                    for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
-                        int digit = (int)(std::fmod(integral_part, pow10(n_digits)) / pow10(n_digits - 1));
-                        result += (char)('0' + digit);
-                    }
-                }
+            }
 
-                // Decimal part
-                result += ".";
+            // Decimal part
+            result += ".";
 
-                if (fractional_part > 0) {
-                    fractional_part *= (T)(pow10(DECIMAL_PLACES));
-                    for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
-                        int digit = (int)(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
-                        result += (char)('0' + digit);
-                    }
+            if (rounded_fractional > 0) {
+                for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
+                    int digit = (int)(std::fmod(rounded_fractional, pow10(n_digits)) / pow10(n_digits - 1));
+                    result += (char)('0' + digit);
                 }
-                else {
-                    result += "0";
-                }
+            }
+            else {
+                result += "0";
+            }
 
-                return result;
-#endif
+            return result;
         }
     }
 
     /** Sets how many places after the decimal will be written for floating point numbers. */
-#ifndef __clang__
     inline static void set_decimal_places(int precision) {
         internals::DECIMAL_PLACES = precision;
     }
-#endif
 
     namespace internals {
         /** SFINAE trait: detects if a type is iterable (has std::begin/end). */
@@ -295,6 +300,38 @@ namespace csv {
             return *this;
         }
 
+        /** Write a row from any single argument accepted by operator<<
+         *  (std::vector, std::array, std::tuple, C-array, C++20 range, etc.).
+         *
+         *  @code
+         *  writer.write_row(my_vector);
+         *  writer.write_row(my_tuple);
+         *  @endcode
+         *
+         *  SFINAE ensures this overload is only viable when the argument type
+         *  is accepted by an existing operator<< overload.
+         */
+        template<typename T>
+        auto write_row(T&& record) -> decltype(*this << std::forward<T>(record)) {
+            return *this << std::forward<T>(record);
+        }
+
+        /** Write a row from a variadic list of mixed-type values.
+         *
+         *  Requires at least two arguments; for a single container or tuple,
+         *  use the single-argument overload above.
+         *
+         *  @code
+         *  writer.write_row("Alice", 30, 1.75, "Paris");
+         *  @endcode
+         */
+        template<typename T, typename U, typename... Rest>
+        DelimWriter& write_row(T&& first, U&& second, Rest&&... rest) {
+            this->write_tuple<0>(std::forward_as_tuple(
+                std::forward<T>(first), std::forward<U>(second), std::forward<Rest>(rest)...));
+            return *this;
+        }
+
         #ifdef CSV_HAS_CXX20
         /** Write a range of string-like fields as one delimited row.
          *
@@ -315,6 +352,8 @@ namespace csv {
          *  Accepts any input_range whose elements are convertible to csv::string_view.
          *  This includes std::vector<std::string>, std::vector<csv::string_view>,
          *  std::array, C++20 views, etc.
+         *
+         *  @note Implementation detail: Uses SFINAE for runtime compatibility.
          */
         template<typename Range>
         typename std::enable_if<
@@ -382,28 +421,24 @@ namespace csv {
             , int> = 0
         >
         std::string csv_escape(T in) {
-            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
+            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value)
                 return _csv_escape(in);
-            }
-            else {
-                return _csv_escape(std::string(in));
-            }
+
+            return _csv_escape(std::string(in));
         }
 
         std::string _csv_escape(csv::string_view in) {
             // Format a string to be RFC 4180-compliant.
-
-            // Do we need a quote escape
-            bool quote_escape = false;
+            bool quote_escape_needed = false;
 
             for (auto ch : in) {
                 if (ch == Quote || ch == Delim || ch == '\r' || ch == '\n') {
-                    quote_escape = true;
+                    quote_escape_needed = true;
                     break;
                 }
             }
 
-            if (!quote_escape) {
+            if (!quote_escape_needed) {
                 if (quote_minimal) return std::string(in);
                 else {
                     std::string ret(1, Quote);
@@ -425,19 +460,14 @@ namespace csv {
             return ret;
         }
 
-        /** Recurisve template for writing std::tuples */
+        /** Recursive template for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
             (*out) << csv_escape(std::get<Index>(record));
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4127)
-#endif
+            CSV_MSVC_PUSH_DISABLE(4127)
             IF_CONSTEXPR (Index + 1 < sizeof...(T)) (*out) << Delim;
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+            CSV_MSVC_POP
 
             this->write_tuple<Index + 1>(record);
         }

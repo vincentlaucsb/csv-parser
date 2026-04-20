@@ -35,6 +35,7 @@ namespace csv {
     struct CSVGuessResult {
         char delim;
         int header_row;
+        size_t n_cols;
     };
 
     /** Stores information about how to parse a CSV file.
@@ -47,11 +48,17 @@ namespace csv {
 
         /** Sets the delimiter of the CSV file
          *
+         *  Passing a single delimiter disables delimiter inference. Header-row
+         *  inference still runs unless header_row()/no_header() was set explicitly
+         *  or column_names() was provided.
+         *
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          */
         CSVFormat& delimiter(char delim);
 
         /** Sets a list of potential delimiters
+         *
+         *  Passing multiple delimiters enables delimiter inference.
          *  
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          */
@@ -77,6 +84,7 @@ namespace csv {
 
         /** Sets the header row
          *
+         *  @param[in] row Row index containing column names; negative means no header row.
          *  @note Unsets any values set by column_names()
          */
         CSVFormat& header_row(int row);
@@ -146,12 +154,13 @@ namespace csv {
         CONSTEXPR int get_header() const { return this->header; }
         std::vector<char> get_possible_delims() const { return this->possible_delimiters; }
         std::vector<char> get_trim_chars() const { return this->trim_chars; }
+        const std::vector<std::string>& get_col_names() const { return this->col_names; }
         CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         CONSTEXPR ColumnNamePolicy get_column_name_policy() const { return this->_column_name_policy; }
         CONSTEXPR size_t get_chunk_size() const { return this->_chunk_size; }
         #endif
         
-        /** CSVFormat for guessing the delimiter */
+        /** CSVFormat preset for delimiter inference with header/n_cols inference enabled. */
         CSV_INLINE static CSVFormat guess_csv() {
             CSVFormat format;
             format.delimiter({ ',', '|', '\t', ';', '^' })
@@ -164,7 +173,7 @@ namespace csv {
             return format;
         }
 
-        bool guess_delim() {
+        bool guess_delim() const {
             return this->possible_delimiters.size() > 1;
         }
 
@@ -181,7 +190,7 @@ namespace csv {
         /**< Set of whitespace characters to trim */
         std::vector<char> trim_chars = {};
 
-        /**< Row number with columns (ignored if col_names is non-empty) */
+        /**< Row number with columns; negative means no header row (ignored if col_names is non-empty) */
         int header = 0;
 
         /**< True if the user explicitly called header_row() or no_header() */
@@ -195,6 +204,9 @@ namespace csv {
 
         /**< Should be left empty unless file doesn't include header */
         std::vector<std::string> col_names = {};
+
+        /**< True if the user explicitly called column_names() */
+        bool col_names_explicitly_set_ = false;
 
         /**< Allow variable length columns? */
         VariableColumnPolicy variable_column_policy = VariableColumnPolicy::IGNORE_ROW;

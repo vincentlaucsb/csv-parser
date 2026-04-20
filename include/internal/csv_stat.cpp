@@ -153,7 +153,7 @@ namespace csv {
                 }
             }
             else if (this->reader.get_format().get_variable_column_policy() == VariableColumnPolicy::THROW) {
-                throw std::runtime_error("Line has different length than the others " + internals::format_row(*current_record));
+                throw std::runtime_error("Line has different length than the others " + std::string(current_record->raw_str()));
             }
 
             ++current_record;

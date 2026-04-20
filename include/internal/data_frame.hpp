@@ -199,7 +199,7 @@ namespace csv {
                         }
                     }
                     // Use original value
-                    return this->get_underlying_row().get_field(i);
+                    return (*row)[i].template get<csv::string_view>();
                 });
         }
         #endif

@@ -55,6 +55,16 @@
     #define CSV_NON_NULL(...)
 #endif
 
+// MSVC-specific warning suppression helpers. Use __pragma so the macros
+// work inside other macro bodies (where #pragma is not allowed).
+#ifdef _MSC_VER
+#  define CSV_MSVC_PUSH_DISABLE(w) __pragma(warning(push)) __pragma(warning(disable: w))
+#  define CSV_MSVC_POP             __pragma(warning(pop))
+#else
+#  define CSV_MSVC_PUSH_DISABLE(w)
+#  define CSV_MSVC_POP
+#endif
+
 // This library uses C++ exceptions for error reporting in public APIs.
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND) || defined(__EXCEPTIONS)
     #define CSV_EXCEPTIONS_ENABLED 1
@@ -110,6 +120,7 @@ namespace csv {
      *  Intended for functions and methods.
      */
 
+// Allows static assertions without specifying a message
 #define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
 
 #ifdef CSV_HAS_CXX17

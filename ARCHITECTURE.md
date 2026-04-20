@@ -14,6 +14,7 @@ Operational/testing guidance:
 
 Notes:
 - Internal architecture content lives under include/internal to stay close to implementation.
+- Detailed file map, parser data flow, and component relationship diagrams are maintained in include/internal/ARCHITECTURE.md.
 - Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
 - Always update or remove incorrect comments.
 - Public API comments should remain user-facing and avoid references to internal helper/function details.
@@ -27,4 +28,5 @@ Notes:
 - Opportunistic rewrites are acceptable when safe/justified, but should be kept separate from urgent compiler triage unless requested.
 - When changing compile-time behavior, explicitly document tradeoffs (codegen, performance, portability, readability).
 - If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.
+- Apply the 5/2 anti-duplication rule: if equivalent behavior exists in 2+ code paths and each copy is ~5+ meaningful lines, extract a shared helper; if duplication remains, document why and keep regression coverage for each path.
 

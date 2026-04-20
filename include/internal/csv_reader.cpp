@@ -5,193 +5,20 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    namespace internals {
-        CSV_INLINE std::string format_row(const std::vector<std::string>& row, csv::string_view delim) {
-            /** Print a CSV row */
-            std::stringstream ret;
-            for (size_t i = 0; i < row.size(); i++) {
-                ret << row[i];
-                if (i + 1 < row.size()) ret << delim;
-                else ret << '\n';
-            }
-            ret.flush();
+    CSV_INLINE void CSVReader::init_parser(
+        std::unique_ptr<internals::IBasicCSVParser> parser_impl
+    ) {
+        auto resolved = parser_impl->get_resolved_format();
+        this->_format = resolved.format;
+        this->_chunk_size = this->_format.get_chunk_size();
+        this->n_cols = resolved.n_cols;
 
-            return ret.str();
+        if (!this->_format.col_names.empty()) {
+            this->set_col_names(this->_format.col_names);
         }
 
-        /** Return the selected header row from a parsed head buffer. */
-        CSV_INLINE std::vector<std::string> _get_col_names(csv::string_view head, CSVFormat format) {
-            // Parse the CSV
-            auto trim_chars = format.get_trim_chars();
-            std::stringstream source(head.data());
-            RowCollection rows;
-
-            StreamParser<std::stringstream> parser(source, format);
-            parser.set_output(rows);
-            parser.next();
-
-            return CSVRow(std::move(rows[format.get_header()]));
-        }
-
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format) {
-            // Frequency counter of row length
-            std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
-
-            // Map row lengths to row num where they first occurred
-            std::unordered_map<size_t, size_t> row_when = { { 0, 0 } };
-
-            // Parse the CSV
-            std::stringstream source(head.data());
-            RowCollection rows;
-
-            StreamParser<std::stringstream> parser(source, format);
-            parser.set_output(rows);
-            parser.next();
-
-            for (size_t i = 0; i < rows.size(); i++) {
-                auto& row = rows[i];
-
-                // Ignore zero-length rows
-                if (row.size() > 0) {
-                    if (row_tally.find(row.size()) != row_tally.end()) {
-                        row_tally[row.size()]++;
-                    }
-                    else {
-                        row_tally[row.size()] = 1;
-                        row_when[row.size()] = i;
-                    }
-                }
-            }
-
-            double final_score = 0;
-            size_t header_row = 0;
-            size_t mode_row_length = 0;
-
-            // Final score is equal to the largest
-            // row size times rows of that size
-            for (auto& pair : row_tally) {
-                auto row_size = pair.first;
-                auto row_count = pair.second;
-                double score = (double)(row_size * row_count);
-                if (score > final_score) {
-                    final_score = score;
-                    mode_row_length = row_size;
-                    header_row = row_when[row_size];
-                }
-            }
-
-            // Heuristic: If first row has >= columns than mode, use it as header
-            // This handles headers with optional columns, trailing delimiters, etc.
-            // while still supporting CSVs with comment lines before the header
-            size_t first_row_length = rows.size() > 0 ? rows[0].size() : 0;
-            if (first_row_length >= mode_row_length && first_row_length > 0) {
-                header_row = 0;
-            }
-
-            return {
-                final_score,
-                header_row
-            };
-        }
-
-        /** Guess the delimiter used by a delimiter-separated values file */
-        CSV_INLINE CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims) {
-            /** For each delimiter, find out which row length was most common (mode).
-             *  The delimiter with the highest score (row_length × count) wins.
-             *  
-             *  Header detection: If first row has >= columns than mode, use row 0.
-             *  Otherwise use the first row with the mode length.
-             *  
-             *  See csv::guess_format() public API documentation for detailed heuristic explanation.
-             */
-
-            CSVFormat format;
-            size_t max_score = 0,
-                header = 0;
-            char current_delim = delims[0];
-
-            for (char cand_delim : delims) {
-                auto result = calculate_score(head, format.delimiter(cand_delim));
-
-                if ((size_t)result.score > max_score) {
-                    max_score = (size_t)result.score;
-                    current_delim = cand_delim;
-                    header = result.header;
-                }
-            }
-
-            return { current_delim, (int)header };
-        }
-    }
-
-    /** Return a CSV's column names. */
-    CSV_INLINE std::vector<std::string> get_col_names(csv::string_view filename, CSVFormat format) {
-        auto head = internals::get_csv_head(filename);
-
-        /** Guess delimiter and header row */
-        if (format.guess_delim()) {
-            auto guess_result = guess_format(filename, format.get_possible_delims());
-            format.delimiter(guess_result.delim).header_row(guess_result.header_row);
-        }
-
-        return internals::_get_col_names(head, format);
-    }
-
-    /** Guess the delimiter used by a delimiter-separated values file */
-    CSV_INLINE CSVGuessResult guess_format(csv::string_view filename, const std::vector<char>& delims) {
-        auto head = internals::get_csv_head(filename);
-        return internals::_guess_format(head, delims);
-    }
-
-    /** Reads an arbitrarily large CSV file using memory-mapped IO.
-     *
-     *  **Details:** Reads the first block of a CSV file synchronously to get information
-     *               such as column names and delimiting character.
-     *
-     *  \snippet tests/test_read_csv.cpp CSVField Example
-     *
-     */
-	CSV_INLINE CSVReader::CSVReader(csv::string_view filename, CSVFormat format) : _format(format) {
-#if defined(__EMSCRIPTEN__)
-    this->owned_stream = std::unique_ptr<std::istream>(
-        new std::ifstream(std::string(filename), std::ios::binary)
-    );
-
-    if (!(*this->owned_stream)) {
-        throw std::runtime_error("Cannot open file " + std::string(filename));
-    }
-
-    this->init_from_stream(*this->owned_stream, format);
-#else
-    auto head = internals::get_csv_head(filename);
-        using Parser = internals::MmapParser;
-        // Apply chunk size from format before any reading occurs
-        this->_chunk_size = format.get_chunk_size();
-        /** Guess delimiter and header row */
-        if (format.guess_delim()) {
-            auto guess_result = internals::_guess_format(head, format.possible_delimiters);
-            format.delimiter(guess_result.delim);
-            // Only override header if the user hasn't explicitly set one via
-            // header_row() or no_header(). column_names() sets col_names but
-            // does not set header_explicitly_set_, so the guesser can still
-            // determine where the data rows begin in that case.
-            if (!format.header_explicitly_set_) {
-                format.header = guess_result.header_row;
-            }
-            
-            this->_format = format;
-        }
-
-        if (!format.col_names.empty())
-            this->set_col_names(format.col_names);
-
-        if (format.header < 0 && format.col_names.empty()) {
-            this->n_cols = internals::infer_n_cols_from_head(head, format);
-        }
-
-        this->parser = std::unique_ptr<Parser>(new Parser(filename, format, this->col_names)); // For C++11
+        this->parser = std::move(parser_impl);
         this->initial_read();
-#endif
     }
 
     /** Return the format of the original raw CSV */
@@ -209,11 +36,8 @@ namespace csv {
 
     /** Return the CSV's column names as a vector of strings. */
     CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
-        if (this->col_names) {
-            return this->col_names->get_col_names();
-        }
-
-        return std::vector<std::string>();
+        return (this->col_names) ? this->col_names->get_col_names() : 
+            std::vector<std::string>();
     }
 
     /** Return the index of the column name if found or
@@ -315,10 +139,7 @@ namespace csv {
 #endif
 
                 // Reading thread is not active
-#if CSV_ENABLE_THREADS
-                if (this->read_csv_worker.joinable())
-                    this->read_csv_worker.join();
-#endif
+                JOIN_WORKER(this->read_csv_worker);
 
                 // If the worker thread failed, rethrow the error here
                 this->rethrow_read_csv_exception_if_any();
@@ -371,9 +192,9 @@ namespace csv {
 
                     if (policy == VariableColumnPolicy::THROW) {
                         if (errored_row.size() < this->n_cols)
-                            throw std::runtime_error("Line too short " + internals::format_row(errored_row));
+                            throw std::runtime_error("Line too short " + std::string(errored_row.raw_str()));
 
-                        throw std::runtime_error("Line too long " + internals::format_row(errored_row));
+                        throw std::runtime_error("Line too long " + std::string(errored_row.raw_str()));
                     }
 
                     continue;

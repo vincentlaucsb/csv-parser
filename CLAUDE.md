@@ -21,13 +21,8 @@
 - Exceptions propagate via `std::exception_ptr`
 - Tests must use ≥500K rows to cross chunk boundary
 
-## Key Files
-- `csv_reader.hpp` — mmap vs stream constructors
-- `basic_csv_parser.hpp` — MmapParser, StreamParser implementations
-- `basic_csv_parser.cpp` — chunk transitions, worker thread
-- `raw_csv_data.hpp` — RawCSVField, CSVFieldList, RawCSVData
-- `thread_safe_deque.hpp` — producer-consumer queue
-- `csv_row.hpp` — CSVField, CSVRow public API
+## Architecture Detail
+- File mapping, parser data flow, and component relationships are maintained in `ARCHITECTURE.md` and `include/internal/ARCHITECTURE.md`
 
 ## Common Pitfalls
 - Always test both mmap and stream paths
@@ -48,6 +43,8 @@
 - **Opportunistic rewrites are allowed when safe and justified** — avoid mixing unrelated churn into urgent compiler triage unless requested
 - **Explain compile-time tradeoffs explicitly** — when a change affects compile-time behavior, call out impact on codegen/perf/portability/readability
 - **Scope guard for build fixes** — if a fix grows beyond roughly 3 files or 60 changed lines, pause and confirm scope with justification
+- **Apply the 5/2 anti-duplication rule** — if equivalent behavior exists in 2+ code paths and each copy is ~5+ meaningful lines, extract a shared helper; if duplication remains, document why; keep at least one regression test that exercises each path
+- **Non-trivial methods go in `.cpp` with `CSV_INLINE`** — `CSV_INLINE` is `inline` in the generated single-header and empty otherwise; omitting it causes ODR violations. Exceptions: templated methods must stay in `.hpp` (`init_from_stream` is the standing example); trivial one-liner accessors may stay `inline` in the header when call overhead matters. Consolidate into a single `.hpp` only when the `.cpp` would be under ~100 lines *and* the split causes excessive comment duplication — consolidated definitions (free functions and methods alike) must use `inline`, not `CSV_INLINE`, to avoid ODR violations across TUs.
 
 ## Tests
 See `tests/AGENTS.md` for full test strategy, checklist, and conventions.

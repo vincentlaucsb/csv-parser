@@ -38,33 +38,7 @@ CSVReader reader(infile, format);
 
 **Testing requirement:** Use ≥500K rows to cross 10MB boundary.
 
-## Key Files
-
-| File | Contains |
-|------|----------|
-| `csv_reader.hpp` | Mmap vs stream constructors |
-| `csv_reader.cpp` | Delimiter guessing, header detection |
-| `basic_csv_parser.hpp` | Parser base class (IBasicCSVParser, MmapParser, StreamParser) |
-| `basic_csv_parser.cpp` | Chunk transitions, worker thread |
-| `raw_csv_data.hpp` | Internal parser data structures (RawCSVField, CSVFieldList, RawCSVData) |
-| `thread_safe_deque.hpp` | Producer-consumer queue for parser→main thread communication |
-| `csv_row.hpp` | Public API types (CSVField, CSVRow) |
-| `test_round_trip.cpp` | Exemplar test patterns |
-
-## Data Flow: Parser → Row API
-
-```
-Parser Thread                      Main Thread
-	↓                                  ↓
-RawCSVData (shared_ptr) ─────────────→ CSVRow
-	↓                                  ↓
-CSVFieldList → RawCSVField[]       CSVField (lazy unescaping)
-	↓
-ThreadSafeDeque<CSVRow>
-(producer-consumer queue)
-```
-
-**Thread Safety:** Parser populates `RawCSVData`, pushes `CSVRow` to `ThreadSafeDeque`, main thread pops and reads. The `CSVFieldList` uses chunked allocation (~170 fields/chunk) for cache locality. See `raw_csv_data.hpp` and `thread_safe_deque.hpp` for implementation details.
+For detailed file mapping, parser data flow, and component relationships, see `ARCHITECTURE.md` and `include/internal/ARCHITECTURE.md`.
 
 ## Common Pitfalls
 
@@ -73,17 +47,28 @@ ThreadSafeDeque<CSVRow>
 3. **Don't use uniform values:** Each column needs distinct values to detect corruption.
 4. **Don't ignore async:** Worker thread means exceptions must use `exception_ptr`.
 5. **Don't change one constructor:** Likely affects both mmap and stream paths.
-7. **Compatibility macros defined in `common.hpp` MUST be referenced only after including `common.hpp`.** Any macro (such as `CSV_HAS_CXX20`) that is defined in `common.hpp` must not be used or checked before `#include "common.hpp"` appears in the file. This ensures feature detection and conditional compilation work as intended across all supported compilers and build modes.
-8. **`CSVReader` is non-copyable and move-enabled.** Prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when sharing/handing off parser ownership across APIs.
-9. **Prefer trailing underscore for private members** (for example `source_`, `leftover_`). When you touch code with mixed private-member naming styles, normalize the edited region toward trailing underscores instead of introducing more leading-underscore or unsuffixed names.
-10. **Prefer user-friendly API constraints.** Do not narrow template constraints unless required for correctness, safety, or a measured performance win. If an implementation already handles common standard-library containers/ranges correctly, keep those inputs accepted instead of over-constraining APIs for aesthetic purity.
-11. **Respect existing compile-time compatibility macros.** Keep `IF_CONSTEXPR`, `CONSTEXPR_VALUE`, and similar macros unless there is a correctness bug.
-12. **Do not replace compile-time constructs with runtime control flow to silence warnings.** Prefer smallest scoped warning suppression at the exact site (for example, local `#pragma warning(push/pop)` on MSVC) over semantic rewrites.
-13. **Opportunistic rewrites/refactors are allowed when they are safe and justified.** Keep them separated from build-fix urgency where possible, and avoid bundling unrelated churn with compiler triage unless explicitly requested.
-14. **When proposing changes that affect compile-time behavior, explain the tradeoff clearly.** Call out any impact to codegen, performance, portability, and readability before applying the change.
-15. **If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.** Provide a short justification before expanding further.
+6. **`CSVReader` is non-copyable and move-enabled.** Prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when sharing/handing off parser ownership across APIs.
+7. **Prefer user-friendly API constraints.** Do not narrow template constraints unless required for correctness, safety, or a measured performance win. If an implementation already handles common standard-library containers/ranges correctly, keep those inputs accepted instead of over-constraining APIs for aesthetic purity.
+8.  **Opportunistic rewrites/refactors are allowed when they are safe and justified.** Keep them separated from build-fix urgency where possible, and avoid bundling unrelated churn with compiler triage unless explicitly requested.
+9. **When proposing changes that affect compile-time behavior, explain the tradeoff clearly.** Call out any impact to codegen, performance, portability, and readability before applying the change.
+10. **If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.** Provide a short justification before expanding further.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
+
+### Rules for Coding
+1. **Use compatibility macros defined in `common.hpp`** for cross-compiler or cross-standard concerns. If it doesn't exist, consider creating one.
+2. **Compatibility macros defined in `common.hpp` MUST be referenced only after including `common.hpp`** to ensure correctness.
+3. **Prefer compile time control flow and assertions where possible**. For example, if a branch may be safely written with `if constexpr`, then use the `IF_CONSTEXPR` macro (from `common.hpp`) to ensure C++11 compatibility while ensuring optimal control flow for C++17 and later users.
+   1. **If this causes compiler warnings, always silence the compiler. Do not revert to unnecessary runtime flow.**
+4. **Prefer trailing underscore for private members** (for example `source_`, `leftover_`). When you touch code with mixed private-member naming styles, normalize the edited region toward trailing underscores instead of introducing more leading-underscore or unsuffixed names.
+5. **Apply the 5/2 anti-duplication rule.**
+	1. If equivalent behavior exists in 2 or more code paths and each copy is about 5+ meaningful lines, extract a shared helper.
+	2. If duplication is intentionally kept, add a brief comment explaining why (for example performance, API boundary, or template constraints).
+	3. For behavior-sensitive duplicated logic, keep at least one regression test that exercises each path (for example mmap and stream via separate Catch2 `SECTION`s).
+6. If a class has both a `.hpp` and `.cpp` file, put methods inside the `.cpp` and prefix the definition with `CSV_INLINE` to ensure proper single-header compilation (the macro is `inline` in the generated single-header and empty otherwise). Exceptions:
+   - **Templates must stay in `.hpp`** — the compiler needs the definition at instantiation time. `init_from_stream` is the standing example.
+   - **Trivial one-liner accessors** may be unconditionally `inline` in the header when the call overhead is measurable and the body will never change.
+   - **Consolidation:** If a `.cpp` would be under ~100 lines *and* the split causes excessive comment duplication between the two files, prefer a single `.hpp` with definitions marked `inline` (free functions and methods alike). Do not use `CSV_INLINE` for consolidated definitions — `CSV_INLINE` expands to empty in multi-header mode, which would produce ODR violations across TUs. Do not consolidate just for brevity — only when duplication is the dominant cost.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**

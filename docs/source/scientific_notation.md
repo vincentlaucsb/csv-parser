@@ -1,3 +1,5 @@
+@page scientific_notation Scientific Notation Parsing
+
 # Scientific Notation Parsing
 
 This library has support for parsing scientific notation through `csv::internals::data_type()`,

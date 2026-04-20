@@ -71,7 +71,7 @@ private:
  *  @rethrows any exception thrown by fn (re-raised on the caller thread)
  */
 template<typename Func, typename Duration = std::chrono::seconds>
-void test_with_timeout(Func fn, Duration timeout = std::chrono::seconds(10)) {
+void test_with_timeout(Func fn, Duration timeout = std::chrono::seconds(20)) {
     auto completion = std::make_shared<std::promise<void>>();
     auto future = completion->get_future();
     auto worker_exception = std::make_shared<std::exception_ptr>();

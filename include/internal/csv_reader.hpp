@@ -8,6 +8,7 @@
 #include <deque>
 #include <exception>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <sstream>
@@ -26,44 +27,15 @@
 
 /** The all encompassing namespace */
 namespace csv {
-    /** Stuff that is generally not of interest to end-users */
-    namespace internals {
-        std::string format_row(const std::vector<std::string>& row, csv::string_view delim = ", ");
-
-        std::vector<std::string> _get_col_names( csv::string_view head, const CSVFormat format = CSVFormat::guess_csv());
-
-        struct GuessScore {
-            double score;
-            size_t header;
-        };
-
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
-
-        CSVGuessResult _guess_format(csv::string_view head, const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
+#if CSV_ENABLE_THREADS
+    inline void join_worker(std::thread& worker) {
+        if (worker.joinable()) worker.join();
     }
 
-    std::vector<std::string> get_col_names(
-        csv::string_view filename,
-        const CSVFormat format = CSVFormat::guess_csv());
-
-    /** @brief Guess the delimiter and header row of a CSV file
-     *
-     *  **Heuristic:** For each candidate delimiter, calculate a score based on
-     *  the most common row length (mode). The delimiter with the highest score wins.
-     *  
-     *  **Header Detection:**
-     *  - If the first row has >= columns than the mode, it's treated as the header
-     *  - Otherwise, the first row with the mode length is treated as the header
-     *  
-     *  This approach handles:
-     *  - Headers with trailing delimiters or optional columns (wider than data rows)
-     *  - Comment lines before the actual header (first row shorter than mode)
-     *  - Standard CSVs where first row is the header
-     *  
-     *  @note Score = (row_length × count_of_rows_with_that_length)
-     */
-    CSVGuessResult guess_format(csv::string_view filename,
-        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' });
+    #define JOIN_WORKER(worker) join_worker(worker)
+#else
+    #define JOIN_WORKER(worker) ((void)0)
+#endif
 
     /** @class CSVReader
      *  @brief Main class for parsing CSVs from files and in-memory sources
@@ -98,28 +70,11 @@ namespace csv {
          * @par Using with `<algorithm>` library
          * @snippet tests/test_csv_iterator.cpp CSVReader Iterator 2
          * 
-         * @warning STREAMING CONSTRAINT - DO NOT ATTEMPT TO CACHE ALL DATA
-         * This iterator is intentionally std::input_iterator_tag (single-pass) to support
-         * streaming large CSV files that may exceed available RAM (e.g., 50+ GB files).
-         * 
-         * @par CRITICAL DESIGN CONSTRAINT:
-         * - Storage for previously consumed positions may be released as the iterator advances
-         * - Only the current position is guaranteed to remain valid without copying
-         * - This bounded-memory behavior is what allows very large CSV files to stream safely
-         * 
-         * @par WHY FORWARD ITERATOR IS NOT POSSIBLE:
-         * - ForwardIterator requires multi-pass guarantees (can hold multiple valid positions)
-         * - Supporting this would require retaining all parsed row storage in memory
-         * - This defeats the streaming purpose: a 50 GB CSV would require 50+ GB of RAM
-         * - The entire library design depends on automatic chunk cleanup for memory efficiency
-         * 
-         * @par IMPLICATIONS FOR ALGORITHM USE:
-         * - Algorithms requiring ForwardIterator (std::max_element, std::sort, etc.) may
-         *   appear to work in tests with small files, but are not safe on this iterator
-         *   once earlier positions have been released during streaming
-         * - CORRECT approach: Copy rows to std::vector first, then use algorithms
-         * - Example: auto rows = std::vector<CSVRow>(reader.begin(), reader.end());
-         *            auto max_row = std::max_element(rows.begin(), rows.end(), ...);
+         * @note This iterator is `std::input_iterator_tag` (single-pass) by design.
+         *       Algorithms requiring ForwardIterator are not safe to use directly on it.
+         *       Copy to `std::vector<CSVRow>` first when random-access algorithms are needed.
+         *       See `include/internal/ARCHITECTURE.md` § "CSVReader::iterator is single-pass by design"
+         *       for the full rationale.
          */
         class iterator {
         public:
@@ -168,12 +123,36 @@ namespace csv {
          * 
          * Native builds use CODE PATH 1 of 2: MmapParser with mio for maximum performance.
          * Emscripten builds fall back to the stream-based implementation because mmap is unavailable.
-         * 
-         * @note On native builds, bugs can exist in this path independently of the stream path
-         * @note When writing tests that validate I/O behavior, test both filename and stream constructors
-         * @see StreamParser for the stream-based alternative
+         *
+         * During construction, parser installation performs an initial synchronous metadata
+         * read so delimiter and header information are resolved before user reads begin.
+         *
+         * @note On native builds, bugs can exist in this path independently of the stream path.
+         * @note When writing tests that validate I/O behavior, test both filename and stream constructors.
+         * @see StreamParser for the stream-based alternative.
          */
-        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv());
+        CSVReader(csv::string_view filename, const CSVFormat& format = CSVFormat::guess_csv()) : _format(format) {
+#if defined(__EMSCRIPTEN__)
+            this->owned_stream = std::unique_ptr<std::istream>(
+                new std::ifstream(std::string(filename), std::ios::binary)
+            );
+
+            if (!(*this->owned_stream)) {
+                throw std::runtime_error("Cannot open file " + std::string(filename));
+            }
+
+            this->init_from_stream(*this->owned_stream, format);
+#else
+            // C4316: MmapParser may carry over-aligned SIMD members. Allocation
+            // alignment is handled by the allocator on supported platforms;
+            // suppress MSVC's false-positive warning at this site.
+            CSV_MSVC_PUSH_DISABLE(4316)
+            this->init_parser(std::unique_ptr<internals::IBasicCSVParser>(
+                new internals::MmapParser(filename, format, this->col_names)
+            ));
+            CSV_MSVC_POP
+#endif
+        }
 
         /** @brief Construct CSVReader from std::istream
          * 
@@ -231,11 +210,7 @@ namespace csv {
             _chunk_size(other._chunk_size),
             _read_requested(other._read_requested),
             read_csv_exception(other.take_read_csv_exception()) {
-#if CSV_ENABLE_THREADS
-            if (other.read_csv_worker.joinable()) {
-                other.read_csv_worker.join();
-            }
-#endif
+            JOIN_WORKER(other.read_csv_worker);
 
             other.n_cols = 0;
             other._n_rows = 0;
@@ -253,14 +228,8 @@ namespace csv {
                 return *this;
             }
 
-#if CSV_ENABLE_THREADS
-            if (this->read_csv_worker.joinable()) {
-                this->read_csv_worker.join();
-            }
-            if (other.read_csv_worker.joinable()) {
-                other.read_csv_worker.join();
-            }
-#endif
+            JOIN_WORKER(this->read_csv_worker);
+            JOIN_WORKER(other.read_csv_worker);
 
             this->_format = std::move(other._format);
             this->col_names = std::move(other.col_names);
@@ -284,11 +253,7 @@ namespace csv {
         }
 
         ~CSVReader() {
-#if CSV_ENABLE_THREADS
-            if (this->read_csv_worker.joinable()) {
-                this->read_csv_worker.join();
-            }
-#endif
+            JOIN_WORKER(this->read_csv_worker);
         }
 
         /** @name Retrieving CSV Rows */
@@ -409,48 +374,24 @@ namespace csv {
             }
         }
 
+        /** Shared parser installation after source-specific bootstrap has completed
+         *  in concrete parser implementations.
+         */
+        void init_parser(std::unique_ptr<internals::IBasicCSVParser> parser);
+
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
-            // Read a head buffer without rewinding. Works with non-seekable streams
-            // (pipes, decompression filters). The buffer is passed to StreamParser
-            // as its initial leftover_ so those bytes are parsed as the first chunk.
-            auto head = internals::read_head_buffer(source);
-            using Parser = internals::StreamParser<TStream>;
-
-            // Apply chunk size from format before any reading occurs
-            this->_chunk_size = format.get_chunk_size();
-
-            if (format.guess_delim()) {
-                auto guess_result = internals::_guess_format(head, format.possible_delimiters);
-                format.delimiter(guess_result.delim);
-                // Only override header if user hasn't explicitly called no_header()
-                // Note: column_names() also sets header=-1, but it populates col_names,
-                // so we can distinguish: no_header() means header=-1 && col_names.empty()
-                if (format.header != -1 || !format.col_names.empty()) {
-                    format.header = guess_result.header_row;
-                }
-                this->_format = format;
-            }
-
-            if (!format.col_names.empty()) {
-                this->set_col_names(format.col_names);
-            }
-
-            if (format.header < 0 && format.col_names.empty()) {
-                this->n_cols = internals::infer_n_cols_from_head(head, format);
-            }
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4316)
-#endif
-            this->parser = std::unique_ptr<Parser>(
-                new Parser(source, format, col_names, std::move(head))); // For C++11
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-            this->initial_read();
+            // C4316: StreamParser may have over-aligned SIMD members; heap allocation
+            // alignment is handled correctly at runtime via the allocator on supported
+            // platforms. Suppress the MSVC false-positive here.
+            CSV_MSVC_PUSH_DISABLE(4316)
+            this->init_parser(
+                std::unique_ptr<internals::IBasicCSVParser>(
+                    new internals::StreamParser<TStream>(source, format, this->col_names)
+                )
+            );
+            CSV_MSVC_POP
         }
 
         /** Read initial chunk to get metadata */

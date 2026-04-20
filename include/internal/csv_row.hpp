@@ -69,6 +69,10 @@ namespace csv {
         /** Constructs a CSVField from a string_view */
         constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
+        operator csv::string_view() const noexcept {
+            return this->sv;
+        }
+
         operator std::string() const {
             return std::string(this->sv);
         }
@@ -102,66 +106,15 @@ namespace csv {
         *
         */
         template<typename T = std::string> T get() {
-            IF_CONSTEXPR(std::is_arithmetic<T>::value) {
-                // Note: this->type() also converts the CSV value to float
-                if (this->type() <= DataType::CSV_STRING) {
-                    throw std::runtime_error(internals::ERROR_NAN);
-                }
-            }
-
-            IF_CONSTEXPR(std::is_integral<T>::value) {
-                // Note: this->is_float() also converts the CSV value to float
-                if (this->is_float()) {
-                    throw std::runtime_error(internals::ERROR_FLOAT_TO_INT);
-                }
-
-                IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                    if (this->value < 0) {
-                        throw std::runtime_error(internals::ERROR_NEG_TO_UNSIGNED);
-                    }
-                }
-            }
-
-            // Allow fallthrough from previous if branch
-            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
-                IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                    // Quick hack to perform correct unsigned integer boundary checks
-                    if (this->value > internals::get_uint_max<sizeof(T)>()) {
-                        throw std::runtime_error(internals::ERROR_OVERFLOW);
-                    }
-                }
-                else if (internals::type_num<T>() < this->_type) {
-                    throw std::runtime_error(internals::ERROR_OVERFLOW);
-                }
-            }
-
-            return static_cast<T>(this->value);
+            T out{};
+            if (const auto* err = check_convert(out)) throw std::runtime_error(err);
+            return out;
         }
 
-        /** Attempts to retrieve the value as the requested type without throwing exceptions.
+        /** Non-throwing equivalent of get(). Applies the same type checks and conversions;
+         *  returns true and writes to @p out on success, or returns false without throwing.
          *
-         *  @param[out] out Output parameter that receives the converted value if successful
-         *  @return true if conversion succeeded, false otherwise
-         *
-         *  \par Valid options for T
-         *   - std::string or csv::string_view
-         *   - signed integral types (signed char, short, int, long int, long long int)
-         *   - floating point types (float, double, long double)
-         *   - unsigned integers are not supported at this time, but may be in a later release
-         *
-         *  \par When conversion fails (returns false)
-         *   - Converting non-numeric values to any numeric type
-         *   - Converting floating point values to integers
-         *   - Converting a large integer to a smaller type that will not hold it
-         *   - Converting negative values to unsigned types
-         *
-         *  @note This method is capable of parsing scientific E-notation.
-         *
-         *  @warning Currently, conversions to floating point types are not
-         *           checked for loss of precision
-         *
-         *  @warning Any string_views returned are only guaranteed to be valid
-         *           if the parent CSVRow is still alive.
+         *  @sa get() for the full description of valid types, conversion rules, and warnings.
          *
          *  Example:
          *  @code
@@ -175,40 +128,7 @@ namespace csv {
          */
         template<typename T = std::string>
         bool try_get(T& out) noexcept {
-            IF_CONSTEXPR(std::is_arithmetic<T>::value) {
-                // Check if value is numeric
-                if (this->type() <= DataType::CSV_STRING) {
-                    return false;
-                }
-            }
-
-            IF_CONSTEXPR(std::is_integral<T>::value) {
-                // Check for float-to-int conversion
-                if (this->is_float()) {
-                    return false;
-                }
-
-                IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                    if (this->value < 0) {
-                        return false;
-                    }
-                }
-            }
-
-            // Check for overflow
-            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
-                IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                    if (this->value > internals::get_uint_max<sizeof(T)>()) {
-                        return false;
-                    }
-                }
-                else if (internals::type_num<T>() < this->_type) {
-                    return false;
-                }
-            }
-
-            out = static_cast<T>(this->value);
-            return true;
+            return check_convert(out) == nullptr;
         }
 
         /** Parse a hexadecimal value, returning false if the value is not hex.
@@ -294,6 +214,42 @@ namespace csv {
         long double value = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
         DataType _type = DataType::UNKNOWN; /**< Cached data type value */
+
+        /** Shared validation + conversion kernel used by get() and try_get().
+         *  Assigns to @p out and returns nullptr on success;
+         *  returns a pointer to a static error message on failure, without throwing.
+         */
+        template<typename T>
+        const char* check_convert(T& out) noexcept {
+            IF_CONSTEXPR(std::is_arithmetic<T>::value) {
+                if (this->type() <= DataType::CSV_STRING)
+                    return internals::ERROR_NAN.c_str();
+            }
+
+            IF_CONSTEXPR(std::is_integral<T>::value) {
+                if (this->is_float())
+                    return internals::ERROR_FLOAT_TO_INT.c_str();
+
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value < 0)
+                        return internals::ERROR_NEG_TO_UNSIGNED.c_str();
+                }
+            }
+
+            IF_CONSTEXPR(!std::is_floating_point<T>::value) {
+                IF_CONSTEXPR(std::is_unsigned<T>::value) {
+                    if (this->value > internals::get_uint_max<sizeof(T)>())
+                        return internals::ERROR_OVERFLOW.c_str();
+                }
+                else if (internals::type_num<T>() < this->_type) {
+                    return internals::ERROR_OVERFLOW.c_str();
+                }
+            }
+
+            out = static_cast<T>(this->value);
+            return nullptr;
+        }
+
         CONSTEXPR_14 void get_value() noexcept {
             /* Check to see if value has been cached previously, if not
              * evaluate it
@@ -327,7 +283,7 @@ namespace csv {
         /** @name Value Retrieval */
         ///@{
         CSVField operator[](size_t n) const;
-        CSVField operator[](const std::string&) const;
+        CSVField operator[](csv::string_view) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
 
@@ -363,6 +319,15 @@ namespace csv {
          *       it materializes all fields as owning strings.
          */
         operator std::vector<std::string>() const;
+
+        /** Return a string_view of the raw bytes of this row as they appear in
+         *  the underlying parse buffer, up to (but not including) the trailing
+         *  newline character.
+         *
+         *  @warning The view is only valid for as long as the CSVRow (and its
+         *           associated data chunk) remains alive.
+         */
+        csv::string_view raw_str() const noexcept;
         ///@}
 
         /** A random access iterator over the contents of a CSV row.

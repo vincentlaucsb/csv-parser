@@ -11,97 +11,99 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE size_t get_file_size(csv::string_view filename) {
+        // Opens the file and delegates to the template overload to avoid duplicating the read/resize logic.
+        CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
             std::ifstream infile(std::string(filename), std::ios::binary);
             if (!infile.is_open()) {
                 throw std::runtime_error("Cannot open file " + std::string(filename));
             }
-
-            const auto start = infile.tellg();
-            infile.seekg(0, std::ios::end);
-            const auto end = infile.tellg();
-
-            if (start < 0 || end < 0) {
-                throw std::runtime_error("Cannot determine file size for " + std::string(filename));
-            }
-
-            return static_cast<size_t>(end - start);
+            return get_csv_head_stream(infile);
         }
 
-        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
-            return get_csv_head(filename, get_file_size(filename));
-        }
-
-        CSV_INLINE size_t infer_n_cols_from_head(csv::string_view head, CSVFormat format) {
-            std::stringstream source(head.data());
-            RowCollection rows;
-
-            StreamParser<std::stringstream> parser(source, format);
-            parser.set_output(rows);
-            parser.next();
-
-            for (size_t i = 0; i < rows.size(); i++) {
-                auto& row = rows[i];
-                if (row.size() > 0) {
-                    return row.size();
-                }
-            }
-
-            return 0;
-        }
-
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size) {
+#if !defined(__EMSCRIPTEN__)
+        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename) {
             const size_t bytes = 500000;
-
-#if defined(__EMSCRIPTEN__)
-            std::ifstream infile(std::string(filename), std::ios::binary);
-            if (!infile.is_open()) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
-            }
-
-            const size_t length = std::min((size_t)file_size, bytes);
-            std::string head(length, '\0');
-            infile.read(&head[0], (std::streamsize)length);
-            head.resize((size_t)infile.gcount());
-            return head;
-#else
-
             std::error_code error;
-            size_t length = std::min((size_t)file_size, bytes);
-            auto mmap = mio::make_mmap_source(std::string(filename), 0, length, error);
-
+            auto mmap = mio::make_mmap_source(std::string(filename), 0, mio::map_entire_file, error);
             if (error) {
                 throw std::runtime_error("Cannot open file " + std::string(filename));
             }
+            const size_t file_size = mmap.size();
+            const size_t length = std::min(file_size, bytes);
+            return { std::string(mmap.begin(), mmap.begin() + length), file_size };
+        }
+#endif
 
-            return std::string(mmap.begin(), mmap.end());
+        CSV_INLINE std::string get_csv_head(csv::string_view filename) {
+#if defined(__EMSCRIPTEN__)
+            return get_csv_head_stream(filename);
+#else
+            return get_csv_head_mmap(filename).first;
 #endif
         }
+
 
 #ifdef _MSC_VER
-#pragma region IBasicCVParser
+#pragma region IBasicCSVParser
 #endif
         CSV_INLINE IBasicCSVParser::IBasicCSVParser(
-            const CSVFormat& format,
+            const CSVFormat& source_format,
             const ColNamesPtr& col_names
         ) : col_names_(col_names) {
-            if (format.no_quote) {
-                parse_flags_ = internals::make_parse_flags(format.get_delim());
-            }
-            else {
-                parse_flags_ = internals::make_parse_flags(format.get_delim(), format.quote_char);
-            }
-
-            // When no_quote, quote bytes are NOT_SPECIAL — use delimiter as safe dummy
-            // so SIMD does not stop early on quote bytes and cause an infinite loop.
-            const char eff_quote = format.no_quote ? format.get_delim() : format.quote_char;
-            simd_sentinels_ = SentinelVecs(format.get_delim(), eff_quote);
+            // Only initialize the fields that are stable before format resolution.
+            // parse_flags_ and simd_sentinels_ are always set by resolve_format_from_head,
+            // so there is no point computing them here with a placeholder delimiter.
             ws_flags_ = internals::make_ws_flags(
-                format.trim_chars.data(), format.trim_chars.size()
+                source_format.trim_chars.data(), source_format.trim_chars.size()
             );
-            has_ws_trimming_ = !format.trim_chars.empty();
+            has_ws_trimming_ = !source_format.trim_chars.empty();
         }
 
+        CSV_INLINE void IBasicCSVParser::resolve_format_from_head(const CSVFormat& source_format) {
+            auto head = this->get_csv_head();
+
+            ResolvedFormat resolved;
+            resolved.format = source_format;
+
+            const bool infer_delimiter = source_format.guess_delim();
+            const bool infer_header = !source_format.header_explicitly_set_
+                && (infer_delimiter || !source_format.col_names_explicitly_set_);
+            const bool infer_n_cols = (source_format.get_header() < 0 && source_format.get_col_names().empty());
+
+            if (infer_delimiter || infer_header || infer_n_cols) {
+                auto guess_result = guess_format(head, source_format.get_possible_delims());
+                if (infer_delimiter) {
+                    resolved.format.delimiter(guess_result.delim);
+                }
+
+                if (infer_header) {
+                    // Inferred header should not clear user-provided column names.
+                    resolved.format.header = guess_result.header_row;
+                }
+
+                resolved.n_cols = guess_result.n_cols;
+            }
+
+            if (resolved.format.no_quote) {
+                parse_flags_ = internals::make_parse_flags(resolved.format.get_delim());
+            }
+            else {
+                parse_flags_ = internals::make_parse_flags(resolved.format.get_delim(), resolved.format.quote_char);
+            }
+            const char resolved_eff_quote = resolved.format.no_quote
+                ? resolved.format.get_delim()
+                : resolved.format.quote_char;
+            simd_sentinels_ = SentinelVecs(resolved.format.get_delim(), resolved_eff_quote);
+
+            this->format = resolved;
+        }
+#ifdef _MSC_VER
+#pragma endregion
+#endif
+
+#ifdef _MSC_VER
+#pragma region IBasicCVParser: Core Parse Loop
+#endif
         CSV_INLINE void IBasicCSVParser::end_feed() {
             using internals::ParseFlags;
 
@@ -293,6 +295,20 @@ namespace csv {
 #pragma region Specializations
 #endif
 #if !defined(__EMSCRIPTEN__)
+        CSV_INLINE void MmapParser::finalize_loaded_chunk(size_t length, bool eof_on_no_chunk) {
+            // Parse the currently loaded chunk and advance/re-align mmap_pos so
+            // the next read resumes at the start of the incomplete trailing row.
+            this->current_row_ = CSVRow(this->data_ptr_);
+            size_t remainder = this->parse();
+
+            if (this->mmap_pos == this->source_size_ || (eof_on_no_chunk && no_chunk())) {
+                this->eof_ = true;
+                this->end_feed();
+            }
+
+            this->mmap_pos -= (length - remainder);
+        }
+
         CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
@@ -306,6 +322,20 @@ namespace csv {
             this->field_start_ = UNINITIALIZED_FIELD;
             this->field_length_ = 0;
             this->reset_data_ptr();
+
+            // Reuse the pre-read head buffer (if any) as the first chunk.
+            // This avoids re-reading the same bytes that were already consumed
+            // for delimiter/header guessing.
+            if (!head_.empty()) {
+                this->data_ptr_->_data = std::make_shared<std::string>(std::move(head_));
+                auto* head_ptr = static_cast<std::string*>(this->data_ptr_->_data.get());
+                const size_t length = head_ptr->size();
+                this->mmap_pos += length;
+
+                this->data_ptr_->data = *head_ptr;
+                this->finalize_loaded_chunk(length);
+                return;
+            }
 
             // Create memory map
             const size_t offset = this->mmap_pos;
@@ -336,17 +366,7 @@ namespace csv {
 
             // Create string view
             this->data_ptr_->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
-
-            // Parse
-            this->current_row_ = CSVRow(this->data_ptr_);
-            size_t remainder = this->parse();            
-
-            if (this->mmap_pos == this->source_size_ || no_chunk()) {
-                this->eof_ = true;
-                this->end_feed();
-            }
-
-            this->mmap_pos -= (length - remainder);
+            this->finalize_loaded_chunk(length, true);
         }
 #endif
 #ifdef _MSC_VER

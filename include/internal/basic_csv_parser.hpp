@@ -36,6 +36,20 @@ namespace csv {
             return a;
         }
 
+        struct GuessScore {
+            size_t header;
+            size_t mode_row_length;
+            double score;
+        };
+
+        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
+
+        /** Guess the delimiter used by a delimiter-separated values file. */
+        CSV_INLINE CSVGuessResult guess_format(
+            csv::string_view head,
+            const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }
+        );
+
         /** Create a vector v where each index i corresponds to the
          *  ASCII number for a character and, v[i + 128] labels it according to
          *  the CSVReader::ParseFlags enum
@@ -58,28 +72,28 @@ namespace csv {
             return ret;
         }
 
-        inline char infer_delimiter(const ParseFlagMap& parse_flags) noexcept {
-            for (int i = 0; i < 256; ++i) {
-                char ch = static_cast<char>(i);
-                if (parse_flags[ch + CHAR_OFFSET] == ParseFlags::DELIMITER) {
-                    return ch;
+        inline char infer_char_for_flag(
+            const ParseFlagMap& parse_flags,
+            ParseFlags target,
+            char fallback
+        ) noexcept {
+            for (size_t i = 0; i < parse_flags.size(); ++i) {
+                if (parse_flags[i] == target) {
+                    return static_cast<char>(static_cast<int>(i) - CHAR_OFFSET);
                 }
             }
 
-            return ',';
+            return fallback;
+        }
+
+        inline char infer_delimiter(const ParseFlagMap& parse_flags) noexcept {
+            return infer_char_for_flag(parse_flags, ParseFlags::DELIMITER, ',');
         }
 
         // fallback is returned when no QUOTE flag exists in parse_flags (e.g. no_quote mode).
         // Pass the delimiter so SIMD stops there instead of on a byte that is NOT_SPECIAL.
         inline char infer_quote_char(const ParseFlagMap& parse_flags, char fallback = '"') noexcept {
-            for (int i = 0; i < 256; ++i) {
-                char ch = static_cast<char>(i);
-                if (parse_flags[ch + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                    return ch;
-                }
-            }
-
-            return fallback;
+            return infer_char_for_flag(parse_flags, ParseFlags::QUOTE, fallback);
         }
 
         /** Create a vector v where each index i corresponds to the
@@ -98,11 +112,56 @@ namespace csv {
             return make_ws_flags(flags.data(), flags.size());
         }
 
-        CSV_INLINE size_t get_file_size(csv::string_view filename);
+        /** Read the first 500KB from a seekless stream source. */
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int>  = 0>
+        std::string get_csv_head_stream(TStream& source) {
+            const size_t limit = 500000;
+            std::string buf(limit, '\0');
+            source.read(&buf[0], (std::streamsize)limit);
+            buf.resize(static_cast<size_t>(source.gcount()));
+            return buf;
+        }
 
+    #if !defined(__EMSCRIPTEN__)
+        /** Read the first 500KB from a filename using mmap.
+         *  Also returns the total file size so callers avoid a second mmap open.
+         */
+        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename);
+    #endif
+
+        /** Compatibility shim selecting stream on Emscripten and mmap otherwise. */
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
 
-        CSV_INLINE size_t infer_n_cols_from_head(csv::string_view head, CSVFormat format);
+        struct ResolvedFormat {
+            CSVFormat format;
+            size_t n_cols = 0;
+        };
+
+        class IBasicCSVParser;
+    }
+
+    /** @brief Guess the delimiter, header row, and mode column count of a CSV file
+         *
+         *  **Heuristic:** For each candidate delimiter, calculate a score based on
+         *  the most common row length (mode). The delimiter with the highest score wins.
+         *
+         *  **Header Detection:**
+         *  - If the first row has >= columns than the mode, it's treated as the header
+         *  - Otherwise, the first row with the mode length is treated as the header
+         *
+         *  This approach handles:
+         *  - Headers with trailing delimiters or optional columns (wider than data rows)
+         *  - Comment lines before the actual header (first row shorter than mode)
+         *  - Standard CSVs where first row is the header
+         *
+        *  @note Score = (row_length � count_of_rows_with_that_length)
+        *  @note Also returns inferred mode-width column count (CSVGuessResult::n_cols)
+         */
+    inline CSVGuessResult guess_format(csv::string_view filename,
+        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }) {
+        auto head = internals::get_csv_head(filename);
+        return internals::guess_format(head, delims);
     }
 
     /** Standard type for storing collection of rows */
@@ -132,6 +191,8 @@ namespace csv {
 
             /** Whether or not we have reached the end of source */
             bool eof() { return this->eof_; }
+
+            ResolvedFormat get_resolved_format() { return this->format; }
 
             /** Parse the next block of data */
             virtual void next(size_t bytes) = 0;
@@ -173,9 +234,13 @@ namespace csv {
             ///@{
             bool eof_ = false;
 
+            ResolvedFormat format;
+
             /** The size of the incoming CSV */
             size_t source_size_ = 0;
             ///@}
+
+            virtual std::string& get_csv_head() = 0;
 
             /** Whether or not source needs to be read in chunks */
             CONSTEXPR bool no_chunk() const { return this->source_size_ < CSV_CHUNK_SIZE_DEFAULT; }
@@ -185,6 +250,8 @@ namespace csv {
 
             /** Create a new RawCSVDataPtr for a new chunk of data */
             void reset_data_ptr();
+
+            void resolve_format_from_head(const CSVFormat& format);
         private:
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
@@ -228,25 +295,6 @@ namespace csv {
             void trim_utf8_bom();
         };
 
-        /** Read up to 500KB from a stream without rewinding.
-         *
-         *  Replaces the old get_csv_head(TStream&) which required seekg/tellg.
-         *  Works with any std::istream, including non-seekable sources such as
-         *  pipes and decompression filters.
-         */
-        template<typename TStream,
-            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int>  = 0>
-        std::string read_head_buffer(TStream& source) {
-            const size_t limit = 500000;
-            std::string buf(limit, '\0');
-            source.read(&buf[0], (std::streamsize)limit);
-            buf.resize(static_cast<size_t>(source.gcount()));
-            return buf;
-        }
-
-        /** Read the first 500KB of a CSV file */
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, size_t file_size);
-
         /** A class for parsing CSV data from any std::istream, including
          *  non-seekable sources such as pipes and decompression filters.
          *
@@ -258,11 +306,11 @@ namespace csv {
          *  semantically identical to the old seek-back approach but works on
          *  any istream and avoids the syscall overhead of seekg().
          *
-         *  @par Head buffer
-         *  init_from_stream() reads a head buffer for format guessing before
-         *  constructing this parser. That buffer is passed in as the initial
-         *  `leftover_`, so its bytes are fed into the first chunk as if they had
-         *  just been read from the stream.
+         *  @par Format resolution
+         *  The constructor reads a head buffer from the stream via get_csv_head()
+         *  and passes it to resolve_format_from_head(), which infers the delimiter
+         *  and header row when not explicitly set. The head bytes are stored in
+         *  `leftover_` so the first next() call re-parses them without re-reading.
          */
         template<typename TStream>
         class StreamParser: public IBasicCSVParser {
@@ -271,10 +319,11 @@ namespace csv {
         public:
             StreamParser(TStream& source,
                 const CSVFormat& format,
-                const ColNamesPtr& col_names = nullptr,
-                std::string head = {}
-            ) : IBasicCSVParser(format, col_names), leftover_(std::move(head)),
-                source_(source) {}
+                const ColNamesPtr& col_names = nullptr
+            ) : IBasicCSVParser(format, col_names),
+                source_(source) {
+                this->resolve_format_from_head(format);
+            }
 
             StreamParser(
                 TStream& source,
@@ -285,6 +334,11 @@ namespace csv {
             {}
 
             ~StreamParser() {}
+
+            std::string& get_csv_head() override {
+                leftover_ = get_csv_head_stream(this->source_);
+                return this->leftover_;
+            }
 
             void next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) override {
                 if (this->eof()) return;
@@ -351,6 +405,12 @@ namespace csv {
          *  than the user has available. It contains logic to automatically
          *  re-align each memory map to the beginning of a CSV row.
          *
+         *  @par Head buffer
+         *  CSVReader may prime a pre-read head buffer used for format guessing
+         *  via prime_head_for_reuse(). When provided, the first next() call
+         *  parses that buffer directly, then resumes mmap reads from the proper
+         *  file offset while preserving chunk-boundary remainder semantics.
+         *
          */
         class MmapParser : public IBasicCSVParser {
         public:
@@ -359,16 +419,27 @@ namespace csv {
                 const ColNamesPtr& col_names = nullptr
             ) : IBasicCSVParser(format, col_names) {
                 this->_filename = filename.data();
-                this->source_size_ = get_file_size(filename);
+                auto head_and_size = get_csv_head_mmap(filename);
+                this->head_ = std::move(head_and_size.first);
+                this->source_size_ = head_and_size.second;
+                this->resolve_format_from_head(format);
             };
 
             ~MmapParser() {}
 
+            std::string& get_csv_head() override {
+                // head_ was already populated in the constructor.
+                return this->head_;
+            }
+
             void next(size_t bytes) override;
 
         private:
+            void finalize_loaded_chunk(size_t length, bool eof_on_no_chunk = false);
+
             std::string _filename;
             size_t mmap_pos = 0;
+            std::string head_;
         };
 #endif
     }

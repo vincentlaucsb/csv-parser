@@ -385,6 +385,12 @@ format.delimiter('\t')
 // Alternatively, we can use format.delimiter({ '\t', ',', ... })
 // to tell the CSV guesser which delimiters to try out
 
+// Inference contract:
+// - Single delimiter: delimiter is fixed (no delimiter inference)
+// - Header row is still inferred unless you explicitly call header_row(...), no_header(),
+//   or provide column_names(...)
+// - Multiple delimiters: delimiter inference is enabled
+
 CSVReader reader("weird_csv_dialect.csv", format);
 
 for (auto& row: reader) {
@@ -577,6 +583,8 @@ for (auto& row : df) {
 ```
 
 ### Writing CSV Files
+*For a more in-depth guide, check out the [Doxygen page on CSV writing](https://vincentlaucsb.github.io/csv-parser/csv_writing_guide.html).*
+
 Writing CSVs is powered by the generic `DelimWriter`, with helpful factory functions like `make_csv_writer()` and `make_tsv_writer()` that cut down on boilerplate.
 
 ```cpp
@@ -599,8 +607,12 @@ writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })
     << list<string>({ "to", "write", "documentation." });
 
+// Uses compile time templates
 writer << array<string, 3>({ "The quick brown", "fox", "jumps over the lazy dog" });
-writer << make_tuple(1, 2.0, "Three");
+writer << make_tuple(1, 2.0, "Three", "Quatro");
+
+// write_row() does everything operator<< does and then some
+writer.write_row(67, "six", "seven", 6.7, "mogged");
 ...
 ```
 

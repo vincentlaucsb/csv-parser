@@ -116,7 +116,11 @@ namespace csv {
             /** Access a field by its index. This allows CSVRow objects to access fields
              *  without knowing internal implementation details of RawCSVFieldList.
              */
-            RawCSVField& operator[](size_t n) const;
+                inline RawCSVField& operator[](size_t n) const {
+                    const size_t page_no = n / _single_buffer_capacity;
+                    const size_t buffer_idx = n % _single_buffer_capacity;
+                    return this->_owned_blocks[page_no].get()[buffer_idx];
+                }
 
         private:
             const size_t _single_buffer_capacity;
@@ -134,7 +138,14 @@ namespace csv {
             RawCSVField* _back = nullptr;
 
             /** Allocate a new page of memory */
-            void allocate();
+            inline void allocate() {
+                if (_back != nullptr) {
+                    _current_block++;
+                }
+                this->_owned_blocks.push_back(std::unique_ptr<RawCSVField[]>(new RawCSVField[_single_buffer_capacity]));
+                _current_buffer_size = 0;
+                _back = this->_owned_blocks.back().get();
+            }
         };
 
         /** A class for storing raw CSV data and associated metadata

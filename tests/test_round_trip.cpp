@@ -114,8 +114,15 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
 // ==============================================================================
 
 #ifndef __EMSCRIPTEN__
+//! [Round Trip Distinct Field Values Example]
 TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") {
-    // This test uses DIFFERENT values in each column to detect cross-field corruption
+    // User-facing note:
+    // This test is intentionally "inverted" (write first, then read/verify), but it
+    // validates the same round-trip guarantee users care about: every field survives
+    // serialization and parsing without being shifted into a neighboring column.
+    //
+    // Using different values per column makes corruption obvious. If column boundaries
+    // break, at least one of the assertions below will fail immediately.
     auto filename = "round_trip_distinct.csv";
     FileGuard cleanup(filename);
     
@@ -141,7 +148,10 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
 
     const size_t expected_rows = 500000;
 
-    // Test validation logic (same for both mmap and stream)
+    // Shared validation for both CSVReader implementations:
+    // 1) mmap constructor path
+    // 2) std::istream constructor path
+    // Keeping both paths here prevents regressions that only affect one parser backend.
     auto validate_reader = [&](CSVReader& reader) {
         size_t i = 0;
         for (auto& row : reader) {
@@ -155,7 +165,8 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
             REQUIRE(row["col_D"].get<size_t>() == i * 5 + 3);
             REQUIRE(row["col_E"].get<size_t>() == i * 5 + 4);
             
-            // Verify no corruption markers in any field
+            // Verify fields are clean numeric tokens and were not contaminated by
+            // delimiter/newline handling bugs.
             for (auto& col : row) {
                 auto field_str = col.get_sv();
                 REQUIRE(field_str.find('\n') == std::string::npos);
@@ -179,6 +190,7 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
         validate_reader(reader);
     }
 }
+//! [Round Trip Distinct Field Values Example]
 #endif
 
 // ==============================================================================

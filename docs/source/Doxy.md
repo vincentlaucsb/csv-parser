@@ -28,7 +28,7 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
    * csv::get_col_pos(): Returns the zero-based index of a named column
 
  #### See also
- [Dealing with Variable Length CSV Rows](md_docs_source_variable_row_lengths.html)
+ [Dealing with Variable Length CSV Rows](variable_row_lengths.html)
 
  #### Working with parsed data
  * csv::CSVRow: \copybrief csv::CSVRow
@@ -97,7 +97,7 @@ column extraction, editing, and grouping.
    * csv::CSVStat::get_col_names()
 
 ### CSV Writing
-The [CSV Writing Guide](\ref md_docs_2source_2csv__writing) contains a 
+The [CSV Writing Guide](@ref csv_writing_guide) contains a 
 high-level overview of writing CSVs.
 
  * csv::make_csv_writer(): Construct a csv::CSVWriter
@@ -127,3 +127,4 @@ experimenting should follow these guidelines:
  * csv::CSVRow may be safely processed from multiple threads
  * csv::CSVField objects should only be read from one thread at a time
    * **Note**: csv::CSVRow::operator[]() produces separate copies of `csv::CSVField` objects
+
