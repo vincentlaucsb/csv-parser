@@ -1,3 +1,5 @@
+@page variable_row_lengths Dealing with Variable Length CSV Rows
+
 # Dealing with Variable Length CSV Rows
 
 `csv::CSVReader` generally assumes that most rows in a CSV are of the same length.

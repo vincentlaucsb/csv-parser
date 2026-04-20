@@ -45,14 +45,14 @@ namespace csv {
      *  Constant. This calls the other CSVRow::operator[]() after
      *  converting column names into indices using a hash table.
      */
-    CSV_INLINE CSVField CSVRow::operator[](const std::string& col_name) const {
+    CSV_INLINE CSVField CSVRow::operator[](csv::string_view col_name) const {
         auto & col_names = this->data->col_names;
         auto col_pos = col_names->index_of(col_name);
         if (col_pos > -1) {
             return this->operator[](col_pos);
         }
 
-        throw std::runtime_error("Can't find a column named " + col_name);
+        throw std::runtime_error("Can't find a column named " + std::string(col_name));
     }
 
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {

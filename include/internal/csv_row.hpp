@@ -69,6 +69,10 @@ namespace csv {
         /** Constructs a CSVField from a string_view */
         constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
 
+        operator csv::string_view() const noexcept {
+            return this->sv;
+        }
+
         operator std::string() const {
             return std::string(this->sv);
         }
@@ -279,7 +283,7 @@ namespace csv {
         /** @name Value Retrieval */
         ///@{
         CSVField operator[](size_t n) const;
-        CSVField operator[](const std::string&) const;
+        CSVField operator[](csv::string_view) const;
         std::string to_json(const std::vector<std::string>& subset = {}) const;
         std::string to_json_array(const std::vector<std::string>& subset = {}) const;
 

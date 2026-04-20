@@ -341,6 +341,8 @@ namespace csv {
          *  Accepts any input_range whose elements are convertible to csv::string_view.
          *  This includes std::vector<std::string>, std::vector<csv::string_view>,
          *  std::array, C++20 views, etc.
+         *
+         *  @note Implementation detail: Uses SFINAE for runtime compatibility.
          */
         template<typename Range>
         typename std::enable_if<
@@ -447,7 +449,7 @@ namespace csv {
             return ret;
         }
 
-        /** Recurisve template for writing std::tuples */
+        /** Recursive template for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
             (*out) << csv_escape(std::get<Index>(record));

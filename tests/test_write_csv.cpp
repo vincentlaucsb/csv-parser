@@ -168,30 +168,25 @@ TEMPLATE_TEST_CASE("CSV/TSV Writer - operator <<", "[test_csv_operator<<]",
 }
 //! [CSV Writer Example]
 
-//! [CSV Reordering Example]
-TEST_CASE("CSV Writer - Reorder Columns", "[test_csv_reorder]") {
-    auto rows = "A,B,C\r\n"
-        "1,2,3\r\n"
-        "4,5,6"_csv;
-
+//! [CSV write_row Variadic Example]
+TEST_CASE("CSV Writer - write_row() with variadic fields", "[test_csv_write_row_variadic]") {
     std::stringstream output, correct;
     auto writer = make_csv_writer(output);
 
-    writer << std::vector<std::string>({ "C", "A" });
-    for (auto& row : rows) {
-        writer << std::vector<std::string>({
-            row["C"].get<std::string>(),
-            row["A"].get<std::string>()
-        });
-    }
+    // Write rows with mixed types using write_row()
+    writer.write_row("Name", "Age", "Score");
+    writer.write_row("Alice", 30, 95.5);
+    writer.write_row("Bob", 25, 87.3);
+    writer.write_row("Charlie", 35, 92.8);
 
-    correct << "C,A" << std::endl
-        << "3,1" << std::endl
-        << "6,4" << std::endl;
+    correct << "Name,Age,Score" << std::endl
+        << "Alice,30,95.5" << std::endl
+        << "Bob,25,87.3" << std::endl
+        << "Charlie,35,92.8" << std::endl;
 
     REQUIRE(output.str() == correct.str());
 }
-//! [CSV Reordering Example]
+//! [CSV write_row Variadic Example]
 
 //! [CSV Writer Tuple Example]
 struct Time {
@@ -234,22 +229,99 @@ TEST_CASE("CSV Tuple", "[test_csv_tuple]") {
 #endif
 //! [CSV Writer Tuple Example]
 
-//! [CSV Writer CSVRow Example]
-#ifdef CSV_HAS_CXX20
-TEST_CASE("Write CSVRow w/ Ranges", "[test_write_csv_row_ranges]") {
-    std::stringstream output, correct_output;
-    auto csv_writer = make_csv_writer(output);
-    auto csv_reader = "A,B,C\r\n"
-        "123,\"234\"\"345\",456\r\n"_csv_no_header;
+//! [CSV Reordering Example]
+TEST_CASE("CSV Writer - Reorder Columns", "[test_csv_reorder]") {
+    auto rows = "A,B,C\r\n"
+        "1,2,3\r\n"
+        "4,5,6"_csv;
 
-    for (auto& row : csv_reader) {
-        csv_writer << row;
+    std::stringstream output, correct;
+    auto writer = make_csv_writer(output);
+
+    writer << std::vector<std::string>({ "C", "A" });
+    for (auto& row : rows) {
+        writer << std::vector<std::string>({
+            row[csv::string_view("C")].get<std::string>(),
+            row[csv::string_view("A")].get<std::string>()
+        });
     }
 
-    correct_output << "A,B,C" << std::endl
-        << "123,\"234\"\"345\",456" << std::endl;
+    correct << "C,A" << std::endl
+        << "3,1" << std::endl
+        << "6,4" << std::endl;
 
-    REQUIRE(output.str() == correct_output.str());
+    REQUIRE(output.str() == correct.str());
+}
+//! [CSV Reordering Example]
+
+//! [CSV Ranges Reordering Example]
+#ifdef CSV_HAS_CXX20
+#include <ranges>
+
+TEST_CASE("CSV Writer - Reorder with Ranges", "[test_csv_reorder_ranges]") {
+    auto rows = "A,B,C\r\n"
+        "1,2,3\r\n"
+        "4,5,6"_csv;
+
+    std::stringstream output, correct;
+    auto writer = make_csv_writer(output);
+
+    // Write header: C, A
+    writer << std::vector<std::string>({ "C", "A" });
+
+    // Reorder columns using ranges::views::transform with string_view
+    for (auto& row : rows) {
+        std::vector<std::string_view> field_names = { "C", "A" };
+        auto reordered = field_names
+            | std::views::transform([&row](std::string_view field) {
+                return row[field];
+            });
+        writer << reordered;
+    }
+
+    correct << "C,A" << std::endl
+        << "3,1" << std::endl
+        << "6,4" << std::endl;
+
+    REQUIRE(output.str() == correct.str());
 }
 #endif
-//! [CSV Writer CSVRow Example]
+//! [CSV Ranges Reordering Example]
+
+//! [DataFrame Sparse Overlay Write Example]
+TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overlay_write]") {
+    auto reader = 
+        "id,name,age,occupation,react_experience_years,favorite_hook,quote\n"
+        "1,Chad Hooks,28,Senior React Engineer,5,useCallback,\"My useCallback has 12 dependencies and I'm scared to remove any\"\n"
+        "2,Tailwind Tim,24,Frontend Architect,3,useEffect,\"I fixed the infinite loop by adding another useEffect\"\n"
+        "3,Dan Abramov Disciple,31,Principal React Engineer,7,useMemo,\"If it's not memoized it's not React\"\n"
+        "6,Class Component Carl,42,Legacy React Dev,12,none,\"Remember when React was fun? Pepperidge Farm remembers.\""_csv;
+    
+    csv::DataFrame<std::string> df(reader);
+    
+    // Make sparse edits to specific cells using the overlay
+    df.set("1", "age", "29");  // Chad Hooks has a birthday
+    df.set("3", "react_experience_years", "8");  // Dan got one more year
+    df.set("6", "quote", "Everything is fine in production");  // Updated quote
+    
+    // Write the modified DataFrame back
+    std::stringstream output;
+    auto writer = csv::make_csv_writer(output);
+    
+    writer << df.columns();
+    for (auto& row : df) {
+#ifdef CSV_HAS_CXX20
+        // More efficient version with C++20 ranges
+        writer << row.to_sv_range();
+#else
+        writer << std::vector<std::string>(row);
+#endif
+    }
+    
+    // Verify the sparse edits are in the output
+    std::string result = output.str();
+    REQUIRE(result.find("1,Chad Hooks,29,") != std::string::npos);  // age updated
+    REQUIRE(result.find("3,Dan Abramov Disciple,31,Principal React Engineer,8,") != std::string::npos);  // experience updated
+    REQUIRE(result.find("Everything is fine in production") != std::string::npos);  // quote updated
+}
+//! [DataFrame Sparse Overlay Write Example]

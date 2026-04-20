@@ -1,3 +1,5 @@
+@page csv_writing_guide CSV Writing Guide
+
 # CSV Writing Guide
 
 This page summarizes write-side APIs and practical usage patterns for emitting
@@ -18,12 +20,20 @@ Any row-like container of string-convertible values can be streamed directly.
 
 \snippet tests/test_write_csv.cpp CSV Writer Example
 
-## Writing Tuples and Custom Types
+### Writing Tuples and Custom Types
 
 `DelimWriter` can also serialize tuples and custom types that provide a string
 conversion.
 
 \snippet tests/test_write_csv.cpp CSV Writer Tuple Example
+
+## Using `write_row()`
+
+The `write_row()` method can be used to write rows with arbitrary fields and mixed types without having to construct a container first.
+
+Through the magic of SFINAE, `write_row()` also supports any of the operations of `operator<<`.
+
+\snippet tests/test_write_csv.cpp CSV write_row Variadic Example
 
 ## Data Reordering Workflow
 
@@ -39,3 +49,15 @@ Typical flow:
 4. Emit with `CSVWriter`
 
 \snippet tests/test_write_csv.cpp CSV Reordering Example
+
+### C++20 Ranges Version
+
+With C++20, you can use `std::ranges::views` to elegantly reorder fields in a single expression:
+
+\snippet tests/test_write_csv.cpp CSV Ranges Reordering Example
+
+## DataFrame with Sparse Overlay
+
+When working with DataFrames, you can efficiently update specific cells without reconstructing entire rows. The overlay mechanism stores only the changed cells and writes them correctly:
+
+\snippet tests/test_write_csv.cpp DataFrame Sparse Overlay Write Example

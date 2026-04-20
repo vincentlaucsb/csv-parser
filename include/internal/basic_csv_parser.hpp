@@ -254,7 +254,7 @@ namespace csv {
             /** Create a new RawCSVDataPtr for a new chunk of data */
             void reset_data_ptr();
 
-            void resolve_format_from_head(CSVFormat format);
+            void resolve_format_from_head(const CSVFormat& format);
         private:
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
