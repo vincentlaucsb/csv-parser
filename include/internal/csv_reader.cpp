@@ -6,9 +6,9 @@
 
 namespace csv {
     CSV_INLINE void CSVReader::init_parser(
-        std::unique_ptr<internals::IBasicCSVParser> parser
+        std::unique_ptr<internals::IBasicCSVParser> parser_impl
     ) {
-        auto resolved = parser->get_resolved_format();
+        auto resolved = parser_impl->get_resolved_format();
         this->_format = resolved.format;
         this->_chunk_size = this->_format.get_chunk_size();
         this->n_cols = resolved.n_cols;
@@ -17,7 +17,7 @@ namespace csv {
             this->set_col_names(this->_format.col_names);
         }
 
-        this->parser = std::move(parser);
+        this->parser = std::move(parser_impl);
         this->initial_read();
     }
 

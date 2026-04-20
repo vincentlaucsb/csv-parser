@@ -51,31 +51,31 @@ namespace csv {
 #pragma region IBasicCSVParser
 #endif
         CSV_INLINE IBasicCSVParser::IBasicCSVParser(
-            const CSVFormat& format,
+            const CSVFormat& source_format,
             const ColNamesPtr& col_names
         ) : col_names_(col_names) {
             // Only initialize the fields that are stable before format resolution.
             // parse_flags_ and simd_sentinels_ are always set by resolve_format_from_head,
             // so there is no point computing them here with a placeholder delimiter.
             ws_flags_ = internals::make_ws_flags(
-                format.trim_chars.data(), format.trim_chars.size()
+                source_format.trim_chars.data(), source_format.trim_chars.size()
             );
-            has_ws_trimming_ = !format.trim_chars.empty();
+            has_ws_trimming_ = !source_format.trim_chars.empty();
         }
 
-        CSV_INLINE void IBasicCSVParser::resolve_format_from_head(const CSVFormat& format) {
+        CSV_INLINE void IBasicCSVParser::resolve_format_from_head(const CSVFormat& source_format) {
             auto head = this->get_csv_head();
 
             ResolvedFormat resolved;
-            resolved.format = format;
+            resolved.format = source_format;
 
-            const bool infer_delimiter = format.guess_delim();
-            const bool infer_header = !format.header_explicitly_set_
-                && (infer_delimiter || !format.col_names_explicitly_set_);
-            const bool infer_n_cols = (format.get_header() < 0 && format.get_col_names().empty());
+            const bool infer_delimiter = source_format.guess_delim();
+            const bool infer_header = !source_format.header_explicitly_set_
+                && (infer_delimiter || !source_format.col_names_explicitly_set_);
+            const bool infer_n_cols = (source_format.get_header() < 0 && source_format.get_col_names().empty());
 
             if (infer_delimiter || infer_header || infer_n_cols) {
-                auto guess_result = guess_format(head, format.get_possible_delims());
+                auto guess_result = guess_format(head, source_format.get_possible_delims());
                 if (infer_delimiter) {
                     resolved.format.delimiter(guess_result.delim);
                 }
