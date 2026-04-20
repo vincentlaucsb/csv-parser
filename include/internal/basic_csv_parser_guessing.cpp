@@ -1,6 +1,6 @@
 #include "basic_csv_parser.hpp"
+#include "string_view_stream.hpp"
 
-#include <sstream>
 #include <unordered_map>
 
 namespace csv {
@@ -15,14 +15,14 @@ namespace csv {
             // Parse the CSV using the low-level constructor that takes pre-built flag
             // tables — bypasses format resolution entirely and avoids recursion back
             // into guess_format.
-            std::stringstream source(head.data());
+            internals::StringViewStream source(head);
             RowCollection rows;
 
             const auto parse_flags = format.is_quoting_enabled()
                 ? internals::make_parse_flags(format.get_delim(), format.get_quote_char())
                 : internals::make_parse_flags(format.get_delim());
             const auto ws_flags = internals::make_ws_flags(format.get_trim_chars());
-            StreamParser<std::stringstream> parser(source, parse_flags, ws_flags);
+            StreamParser<internals::StringViewStream> parser(source, parse_flags, ws_flags);
             parser.set_output(rows);
             parser.next();
 

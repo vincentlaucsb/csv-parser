@@ -382,28 +382,24 @@ namespace csv {
             , int> = 0
         >
         std::string csv_escape(T in) {
-            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
+            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value)
                 return _csv_escape(in);
-            }
-            else {
-                return _csv_escape(std::string(in));
-            }
+
+            return _csv_escape(std::string(in));
         }
 
         std::string _csv_escape(csv::string_view in) {
             // Format a string to be RFC 4180-compliant.
-
-            // Do we need a quote escape
-            bool quote_escape = false;
+            bool quote_escape_needed = false;
 
             for (auto ch : in) {
                 if (ch == Quote || ch == Delim || ch == '\r' || ch == '\n') {
-                    quote_escape = true;
+                    quote_escape_needed = true;
                     break;
                 }
             }
 
-            if (!quote_escape) {
+            if (!quote_escape_needed) {
                 if (quote_minimal) return std::string(in);
                 else {
                     std::string ret(1, Quote);
