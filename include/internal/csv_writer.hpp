@@ -3,7 +3,9 @@
   */
 
 #pragma once
+#include <cmath>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
 #ifdef CSV_HAS_CXX20
@@ -115,54 +117,47 @@ namespace csv {
             csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
         >
             inline std::string to_string(T value) {
-#ifdef __clang__
-            return std::to_string(value);
-#else
-            // TODO: Figure out why the below code doesn't work on clang
-                std::string result = "";
+            std::string result = "";
 
-                T integral_part;
-                T fractional_part = std::abs(std::modf(value, &integral_part));
-                integral_part = std::abs(integral_part);
+            T integral_part;
+            T fractional_part = csv_abs(std::modf(value, &integral_part));
+            integral_part = csv_abs(integral_part);
 
-                // Integral part
-                if (value < 0) result = "-";
+            // Integral part
+            if (value < 0) result = "-";
 
-                if (integral_part == 0) {
-                    result += "0";
+            if (integral_part == 0) {
+                result += "0";
+            }
+            else {
+                for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
+                    int digit = (int)(std::fmod(integral_part, pow10(n_digits)) / pow10(n_digits - 1));
+                    result += (char)('0' + digit);
                 }
-                else {
-                    for (int n_digits = num_digits(integral_part); n_digits > 0; n_digits --) {
-                        int digit = (int)(std::fmod(integral_part, pow10(n_digits)) / pow10(n_digits - 1));
-                        result += (char)('0' + digit);
-                    }
-                }
+            }
 
-                // Decimal part
-                result += ".";
+            // Decimal part
+            result += ".";
 
-                if (fractional_part > 0) {
-                    fractional_part *= (T)(pow10(DECIMAL_PLACES));
-                    for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
-                        int digit = (int)(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
-                        result += (char)('0' + digit);
-                    }
+            if (fractional_part > 0) {
+                fractional_part *= (T)(pow10(DECIMAL_PLACES));
+                for (int n_digits = DECIMAL_PLACES; n_digits > 0; n_digits--) {
+                    int digit = (int)(std::fmod(fractional_part, pow10(n_digits)) / pow10(n_digits - 1));
+                    result += (char)('0' + digit);
                 }
-                else {
-                    result += "0";
-                }
+            }
+            else {
+                result += "0";
+            }
 
-                return result;
-#endif
+            return result;
         }
     }
 
     /** Sets how many places after the decimal will be written for floating point numbers. */
-#ifndef __clang__
     inline static void set_decimal_places(int precision) {
         internals::DECIMAL_PLACES = precision;
     }
-#endif
 
     namespace internals {
         /** SFINAE trait: detects if a type is iterable (has std::begin/end). */
@@ -292,6 +287,37 @@ namespace csv {
         template<typename T, size_t N>
         DelimWriter& operator<<(const std::array<T, N>& record) {
             write_range_impl(record);
+            return *this;
+        }
+
+        /** Write a row from a braced initializer list of string fields.
+         *
+         *  This is the most concise syntax for all-string rows:
+         *  @code
+         *  writer << {"Name", "Age", "City"};
+         *  writer << {"Alice", "30", "Paris"};
+         *  @endcode
+         *
+         *  For rows with mixed numeric and string fields, use write_row():
+         *  @code
+         *  writer.write_row("Alice", 30, 1.75);
+         *  @endcode
+         */
+        DelimWriter& operator<<(std::initializer_list<csv::string_view> record) {
+            write_range_impl(record);
+            return *this;
+        }
+
+        /** Write a row from a variadic argument list.
+         *
+         *  Accepts any mix of string and numeric types:
+         *  @code
+         *  writer.write_row("Alice", 30, 1.75, "Paris");
+         *  @endcode
+         */
+        template<typename... Args>
+        DelimWriter& write_row(Args&&... args) {
+            this->write_tuple<0>(std::forward_as_tuple(std::forward<Args>(args)...));
             return *this;
         }
 
