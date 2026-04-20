@@ -131,7 +131,7 @@ namespace csv {
          * @note When writing tests that validate I/O behavior, test both filename and stream constructors.
          * @see StreamParser for the stream-based alternative.
          */
-        CSVReader(csv::string_view filename, CSVFormat format = CSVFormat::guess_csv()) : _format(format) {
+        CSVReader(csv::string_view filename, const CSVFormat& format = CSVFormat::guess_csv()) : _format(format) {
 #if defined(__EMSCRIPTEN__)
             this->owned_stream = std::unique_ptr<std::istream>(
                 new std::ifstream(std::string(filename), std::ios::binary)
