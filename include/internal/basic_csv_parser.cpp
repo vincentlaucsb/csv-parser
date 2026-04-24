@@ -123,7 +123,7 @@ namespace csv {
                 this->push_row();
         }
 
-        CSV_INLINE void IBasicCSVParser::parse_field() noexcept {
+        CSV_FORCE_INLINE CSV_INLINE void IBasicCSVParser::parse_field() noexcept {
             using internals::ParseFlags;
             auto& in = this->data_ptr_->data;
 
@@ -150,7 +150,7 @@ namespace csv {
             // read field values (e.g. row counting) pay no trimming cost.
         }
 
-        CSV_INLINE void IBasicCSVParser::push_field()
+        CSV_FORCE_INLINE CSV_INLINE void IBasicCSVParser::push_field()
         {
             // Update
             fields_->emplace_back(

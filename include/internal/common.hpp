@@ -37,6 +37,7 @@
 #if defined(__clang__) || defined(__GNUC__)
     #define CSV_CONST __attribute__((__const__))
     #define CSV_PURE __attribute__((__pure__))
+    #define CSV_FORCE_INLINE inline __attribute__((__always_inline__))
     #if defined(_WIN32)
         #define CSV_PRIVATE
     #else
@@ -46,11 +47,13 @@
 #elif defined(_MSC_VER)
     #define CSV_CONST
     #define CSV_PURE
+    #define CSV_FORCE_INLINE __forceinline
     #define CSV_PRIVATE
     #define CSV_NON_NULL(...)
 #else
     #define CSV_CONST
     #define CSV_PURE
+    #define CSV_FORCE_INLINE inline
     #define CSV_PRIVATE
     #define CSV_NON_NULL(...)
 #endif

@@ -4,7 +4,7 @@ project(csv)
 if(CSV_CXX_STANDARD)
 	set(CMAKE_CXX_STANDARD ${CSV_CXX_STANDARD})
 else()
-	set(CMAKE_CXX_STANDARD 17)
+	set(CMAKE_CXX_STANDARD 20)
 endif(CSV_CXX_STANDARD)
 
 option(BUILD_PYTHON "Build Python Binding" OFF)
@@ -61,15 +61,16 @@ endif(MSVC)
 
 # SIMD policy:
 # - CSV_NO_SIMD=ON: hard-disable SIMD in code
-# - default: enable AVX2 codegen (MSVC always; others use CI matrix or manual flags)
+# - default: enable AVX2 codegen on MSVC; GCC/Clang use CI matrix or manual flags
 if(CSV_NO_SIMD)
   message(STATUS "CSV SIMD: disabled (CSV_NO_SIMD=ON)")
 else()
-  # On MSVC, __AVX2__ is only defined if /arch:AVX2 is explicit, so always add it
-  # On GCC/Clang, CI matrix or user supplies flags; assume baseline ISA here
   if(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
     message(STATUS "CSV SIMD: AVX2 enabled (MSVC /arch:AVX2 added)")
+  elseif(CSV_FORCE_AVX2)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+    message(STATUS "CSV SIMD: AVX2 codegen requested (-mavx2 added)")
   else()
     message(STATUS "CSV SIMD: default config (CI/user supplies ISA flags if needed)")
   endif()

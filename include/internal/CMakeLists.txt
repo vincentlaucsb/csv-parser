@@ -43,6 +43,10 @@ else()
 	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=0)
 endif()
 
+if(MSVC AND NOT CSV_NO_SIMD)
+	target_compile_options(csv PUBLIC /arch:AVX2)
+endif()
+
 target_include_directories(csv INTERFACE ../)
 
 # Scalar-only variant of the library: same sources, CSV_NO_SIMD defined.

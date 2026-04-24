@@ -22,9 +22,6 @@ TEST_CASE("SIMD skip returns end for lane-aligned non-special run", "[simd][pars
 }
 
 TEST_CASE("SIMD skip returns pos unchanged when data shorter than one lane", "[simd][parser]") {
-    // 8 bytes < minimum SIMD lane width (16 for SSE2). No complete lane to
-    // process — function returns the start pos immediately. The caller's
-    // scalar loop is responsible for these bytes.
     const SentinelVecs sentinels(',', '"');
 
     std::string data(8, 'x');

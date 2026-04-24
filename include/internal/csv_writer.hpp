@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "basic_csv_parser_simd.hpp"
 #include "common.hpp"
 #include "data_type.hpp"
 
@@ -375,6 +376,26 @@ namespace csv {
             return *this;
         }
 
+        /** Write a row by index using a field getter callback.
+         *
+         *  This keeps bulk writer integrations on the same escaping path without
+         *  materializing an intermediate container of strings.
+         */
+        template<typename FieldGetter>
+        DelimWriter& write_indexed_row(size_t field_count, FieldGetter&& get_field) {
+            if (field_count != 0) {
+                write_field(get_field(0));
+
+                for (size_t i = 1; i < field_count; ++i) {
+                    (*out) << Delim;
+                    write_field(get_field(i));
+                }
+            }
+
+            end_out();
+            return *this;
+        }
+
         /** Flushes the written data. */
         void flush() {
             out->flush();
@@ -391,12 +412,13 @@ namespace csv {
             auto end = std::end(record);
 
             if (it != end) {
-                (*out) << csv_escape(*it);
+                write_field(*it);
                 ++it;
             }
 
             for (; it != end; ++it) {
-                (*out) << Delim << csv_escape(*it);
+                (*out) << Delim;
+                write_field(*it);
             }
 
             end_out();
@@ -409,8 +431,9 @@ namespace csv {
                 && !std::is_convertible<T, csv::string_view>::value
             , int> = 0
         >
-        std::string csv_escape(T in) {
-            return internals::to_string(in);
+        void write_field(T in) {
+            const std::string serialized = internals::to_string(in);
+            write_raw(serialized);
         }
 
         template<
@@ -420,50 +443,75 @@ namespace csv {
                 || std::is_convertible<T, csv::string_view>::value
             , int> = 0
         >
-        std::string csv_escape(T in) {
-            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value)
-                return _csv_escape(in);
+        void write_field(T in) {
+            IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
+                write_escaped_field(in);
+                return;
+            }
 
-            return _csv_escape(std::string(in));
+            const std::string serialized(in);
+            write_escaped_field(serialized);
         }
 
-        std::string _csv_escape(csv::string_view in) {
-            // Format a string to be RFC 4180-compliant.
-            bool quote_escape_needed = false;
+        void write_raw(csv::string_view in) {
+            if (!in.empty()) {
+                out->write(in.data(), static_cast<std::streamsize>(in.size()));
+            }
+        }
 
-            for (auto ch : in) {
+        size_t find_first_special_for_writer(csv::string_view in) const {
+            size_t pos = internals::find_next_non_special(in, 0, simd_sentinels_);
+
+            for (; pos < in.size(); ++pos) {
+                char ch = in[pos];
                 if (ch == Quote || ch == Delim || ch == '\r' || ch == '\n') {
-                    quote_escape_needed = true;
-                    break;
+                    return pos;
                 }
             }
 
-            if (!quote_escape_needed) {
-                if (quote_minimal) return std::string(in);
-                else {
-                    std::string ret(1, Quote);
-                    ret += in.data();
-                    ret += Quote;
-                    return ret;
+            return in.size();
+        }
+
+        void write_quoted_field(csv::string_view in, size_t first_special) {
+            (*out) << Quote;
+
+            size_t chunk_start = 0;
+            size_t pos = first_special;
+            while (pos < in.size()) {
+                if (in[pos] == Quote) {
+                    write_raw(in.substr(chunk_start, pos - chunk_start));
+                    (*out) << Quote << Quote;
+                    chunk_start = pos + 1;
                 }
+
+                ++pos;
             }
 
-            // Start initial quote escape sequence
-            std::string ret(1, Quote);
-            for (auto ch: in) {
-                if (ch == Quote) ret += std::string(2, Quote);
-                else ret += ch;
+            write_raw(in.substr(chunk_start));
+            (*out) << Quote;
+        }
+
+        void write_escaped_field(csv::string_view in) {
+            const size_t first_special = find_first_special_for_writer(in);
+
+            if (first_special == in.size()) {
+                if (!quote_minimal) {
+                    (*out) << Quote;
+                    write_raw(in);
+                    (*out) << Quote;
+                } else {
+                    write_raw(in);
+                }
+                return;
             }
 
-            // Finish off quote escape
-            ret += Quote;
-            return ret;
+            write_quoted_field(in, first_special);
         }
 
         /** Recursive template for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
-            (*out) << csv_escape(std::get<Index>(record));
+            write_field(std::get<Index>(record));
 
             CSV_MSVC_PUSH_DISABLE(4127)
             IF_CONSTEXPR (Index + 1 < sizeof...(T)) (*out) << Delim;
@@ -496,6 +544,7 @@ namespace csv {
         OutputStream* out;
 
         bool quote_minimal;
+        internals::SentinelVecs simd_sentinels_{Delim, Quote};
     };
 
     /** An alias for csv::DelimWriter for writing standard CSV files
