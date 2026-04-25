@@ -538,8 +538,8 @@ auto employee = by_name["Ada_Lovelace"]["department"].get<std::string>();
 **Updating Values**
 ```cpp
 // Updates are stored in an efficient overlay without copying the entire dataset
-df.set(12345, "salary", "95000");
-df.set(67890, "department", "Engineering");
+df[12345]["salary"] = "95000";
+df[67890]["department"] = "Engineering";
 
 // Access methods return updated values transparently
 std::cout << df[12345]["salary"].get<std::string>(); // "95000"
@@ -573,6 +573,58 @@ auto by_salary_range_cpp11 = df.group_by([](DataFrame<>::row_type row) {
     double salary = row["salary"].get<double>();
     return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
 });
+```
+
+**Using DataFrame as a Batch Bridge**
+```cpp
+// DataFrame can wrap a custom subset of rows that you collected yourself.
+// This makes it a convenient bridge object for ETL workflows, filtered
+// batches, and executor-driven column analysis.
+std::vector<CSVRow> promoted_rows;
+
+for (auto& row : reader) {
+    if (row["department"] == "Engineering") {
+        promoted_rows.push_back(row);
+    }
+}
+
+DataFrame<> engineering(std::move(promoted_rows));
+
+// Run grouping, edits, vectorization, or executor-driven analysis on just that subset.
+auto salaries = engineering.column<double>("salary");
+
+struct ColumnSummary {
+    size_t non_empty = 0;
+};
+
+std::vector<ColumnSummary> column_summaries(engineering.n_cols());
+DataFrameExecutor exec;
+
+engineering.column_parallel_apply(exec, column_summaries,
+    [](DataFrame<>::column_type column, ColumnSummary& summary) {
+        summary.non_empty = 0;
+        for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+            if (!column[row_index].get<std::string>().empty()) {
+                summary.non_empty++;
+            }
+        }
+    }
+);
+
+// Or use the common-case helper directly on a CSVReader:
+CSVReader big_reader("employees.csv");
+std::vector<ColumnSummary> direct_summaries(big_reader.get_col_names().size());
+
+chunk_parallel_apply(big_reader, direct_summaries,
+    [](DataFrame<>::column_type column, ColumnSummary& summary) {
+        summary.non_empty = 0;
+        for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+            if (!column[row_index].get<std::string>().empty()) {
+                summary.non_empty++;
+            }
+        }
+    }
+);
 ```
 
 **Writing Back to CSV**

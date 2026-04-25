@@ -2,6 +2,7 @@
 #include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
+#include "data_frame.hpp"
 #include "data_type.hpp"
 #include "string_view_stream.hpp"
 
@@ -87,6 +88,55 @@ namespace csv {
     /** @name Utility Functions */
     ///@{
     std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
+
+    /** Apply a per-column batch function over a CSVReader using a reusable executor.
+     *
+     *  Reads the source in chunks, promotes each chunk into a temporary DataFrame,
+     *  and applies `fn(column, states[column.index()])`.
+     *
+     *  @throws std::invalid_argument if `chunk_size == 0`
+     */
+    template<typename State, typename Fn>
+    inline void chunk_parallel_apply(
+        CSVReader& reader,
+        DataFrameExecutor& executor,
+        std::vector<State>& states,
+        Fn&& fn,
+        size_t chunk_size = 50000
+    ) {
+        if (chunk_size == 0) {
+            throw std::invalid_argument("chunk_parallel_apply() requires a non-zero chunk size.");
+        }
+
+        std::vector<CSVRow> rows;
+        DataFrame<> batch;
+
+        while (reader.read_chunk(rows, chunk_size)) {
+            if (batch.empty()) {
+                batch = DataFrame<>(std::move(rows));
+            } else {
+                batch.swap_rows(rows);
+            }
+
+            batch.column_parallel_apply(executor, states, std::forward<Fn>(fn));
+        }
+    }
+
+    /** Apply a per-column batch function over a CSVReader with a temporary executor.
+     *
+     *  This is the convenience overload for the common case where callers do not
+     *  need to reuse worker threads across multiple reader pipelines.
+     */
+    template<typename State, typename Fn>
+    inline void chunk_parallel_apply(
+        CSVReader& reader,
+        std::vector<State>& states,
+        Fn&& fn,
+        size_t chunk_size = 50000
+    ) {
+        DataFrameExecutor executor;
+        chunk_parallel_apply(reader, executor, states, std::forward<Fn>(fn), chunk_size);
+    }
 
     /** Get basic information about a CSV file
      *  @include programs/csv_info.cpp

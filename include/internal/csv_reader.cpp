@@ -209,4 +209,19 @@ namespace csv {
 
         return false;
     }
+
+    CSV_INLINE bool CSVReader::read_chunk(std::vector<CSVRow>& out, size_t max_rows) {
+        out.clear();
+
+        if (max_rows == 0) {
+            return false;
+        }
+
+        CSVRow row;
+        while (out.size() < max_rows && this->read_row(row)) {
+            out.push_back(std::move(row));
+        }
+
+        return !out.empty();
+    }
 }

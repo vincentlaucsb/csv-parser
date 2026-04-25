@@ -32,8 +32,8 @@ target_sources(csv_test
         test_csv_ranges.cpp
         test_csv_row.cpp
         test_csv_row_json.cpp
-        test_csv_stat.cpp
         test_data_frame.cpp
+        test_data_frame_etl.cpp
         test_data_type.cpp
         test_edge_cases_large_rows.cpp
         test_error_handling.cpp

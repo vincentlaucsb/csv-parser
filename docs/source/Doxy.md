@@ -86,15 +86,8 @@ column extraction, editing, and grouping.
    * `set_key_column()`: Specify which column to use as the key
    * `set_throw_on_missing_key()`: Control exception behavior for missing keys
 
-### Statistics
- * csv::CSVStat
-   * csv::CSVStat::get_mean(): Per-column means
-   * csv::CSVStat::get_variance(): Per-column variances
-   * csv::CSVStat::get_mins(): Per-column minimums
-   * csv::CSVStat::get_maxes(): Per-column maximums
-   * csv::CSVStat::get_counts(): Per-column value frequency counts
-   * csv::CSVStat::get_dtypes(): Per-column inferred data types
-   * csv::CSVStat::get_col_names()
+### ETL Utilities
+ * csv::csv_data_types(): Infer SQL-friendly column data types
 
 ### CSV Writing
 The [CSV Writing Guide](@ref csv_writing_guide) contains a 

@@ -47,6 +47,46 @@ TEST_CASE("DataFrame: basic helpers", "[data_frame]") {
     REQUIRE(frame.at(2)["name"].get<std::string>() == "Carol");
 }
 
+TEST_CASE("DataFrame: construct from row batch", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+    DataFrame<> frame(std::move(rows));
+
+    REQUIRE(frame.size() == 3);
+    REQUIRE(frame.columns().size() == 3);
+    REQUIRE(frame.at(0)["id"].get<std::string>() == "1");
+    REQUIRE(frame.at(1)["name"].get<std::string>() == "Bob");
+    REQUIRE(frame.at(2)["value"].get<std::string>() == "30");
+}
+
+TEST_CASE("DataFrame: swap_rows replaces batch and clears edits", "[data_frame]") {
+    auto initial_input = make_people_stream();
+    CSVReader initial_reader(initial_input);
+    DataFrame<> frame(initial_reader);
+
+    frame.at(0)["name"] = "Alicia";
+    REQUIRE(frame.at(0)["name"].get<std::string>() == "Alicia");
+
+    std::istringstream replacement_input(
+        "id,name,value\n"
+        "10,Xavier,100\n"
+        "11,Yvonne,110\n"
+    );
+    CSVReader replacement_reader(replacement_input);
+    std::vector<CSVRow> replacement_rows(replacement_reader.begin(), replacement_reader.end());
+
+    frame.swap_rows(replacement_rows);
+
+    REQUIRE(replacement_rows.empty());
+    REQUIRE(frame.size() == 2);
+    REQUIRE(frame.columns().size() == 3);
+    REQUIRE(frame.at(0)["id"].get<std::string>() == "10");
+    REQUIRE(frame.at(0)["name"].get<std::string>() == "Xavier");
+    REQUIRE(frame.at(1)["value"].get<std::string>() == "110");
+}
+
 TEST_CASE("DataFrame: row-wise iteration", "[data_frame]") {
     auto input = make_people_stream();
     CSVReader reader(input);
@@ -73,6 +113,25 @@ TEST_CASE("DataFrame: row-wise iteration", "[data_frame]") {
         count++;
     }
     REQUIRE(count == 3);
+}
+
+TEST_CASE("DataFrame: column iteration respects visible values", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    frame["1"]["name"] = "Alicia";
+
+    auto name_col = frame.column_view("name");
+    std::vector<std::string> values;
+    for (const auto& cell : name_col) {
+        values.push_back(cell.get<std::string>());
+    }
+
+    REQUIRE(name_col.name() == "name");
+    REQUIRE(name_col.index() == 1);
+    REQUIRE(name_col.size() == 2);
+    REQUIRE(values == std::vector<std::string>{"Alicia", "Bob"});
 }
 
 TEST_CASE("DataFrame: keyed access with overwrite and lazy index", "[data_frame]") {

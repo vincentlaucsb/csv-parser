@@ -254,6 +254,20 @@ namespace csv {
         /** @name Retrieving CSV Rows */
         ///@{
         bool read_row(CSVRow &row);
+
+        /** Read up to `max_rows` rows into a caller-owned batch buffer.
+         *
+         * Clears `out` before appending newly-read rows.
+         *
+         * @returns `true` if any rows were produced, `false` only when end-of-stream
+         *          is reached and no rows were produced.
+         *
+         * @note Like read_row(), this permanently consumes rows from the stream.
+         * @note `std::vector<CSVRow>` is intentionally the only supported container:
+         *       it matches the public batch-consumption pattern better than the
+         *       internal deque-based producer/consumer queue.
+         */
+        bool read_chunk(std::vector<CSVRow>& out, size_t max_rows);
         iterator begin();
         CSV_CONST iterator end() const noexcept;
 

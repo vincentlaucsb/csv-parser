@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -17,6 +19,67 @@
 namespace csv {
     template<typename KeyType>
     class DataFrame;
+    template<typename KeyType>
+    class DataFrameColumn;
+    template<typename KeyType>
+    class DataFrameRow;
+
+    namespace internals {
+        template<typename Owner, typename Proxy, typename Accessor>
+        class indexed_proxy_iterator {
+        public:
+            using value_type = Proxy;
+            using difference_type = std::ptrdiff_t;
+            using pointer = const Proxy*;
+            using reference = const Proxy&;
+            using iterator_category = std::random_access_iterator_tag;
+
+            indexed_proxy_iterator() = default;
+            indexed_proxy_iterator(Owner* owner, size_t index, Accessor accessor = Accessor())
+                : owner_(owner), index_(index), accessor_(accessor) {}
+
+            reference operator*() const {
+                cached_proxy_ = accessor_(owner_, index_);
+                return cached_proxy_;
+            }
+
+            pointer operator->() const {
+                operator*();
+                return &cached_proxy_;
+            }
+
+            indexed_proxy_iterator& operator++() { ++index_; return *this; }
+            indexed_proxy_iterator operator++(int) { auto tmp = *this; ++index_; return tmp; }
+            indexed_proxy_iterator& operator--() { --index_; return *this; }
+            indexed_proxy_iterator operator--(int) { auto tmp = *this; --index_; return tmp; }
+
+            indexed_proxy_iterator operator+(difference_type n) const {
+                return indexed_proxy_iterator(owner_, static_cast<size_t>(index_ + n), accessor_);
+            }
+
+            indexed_proxy_iterator operator-(difference_type n) const {
+                return indexed_proxy_iterator(owner_, static_cast<size_t>(index_ - n), accessor_);
+            }
+
+            difference_type operator-(const indexed_proxy_iterator& other) const {
+                return static_cast<difference_type>(index_) - static_cast<difference_type>(other.index_);
+            }
+
+            bool operator==(const indexed_proxy_iterator& other) const {
+                return owner_ == other.owner_ && index_ == other.index_;
+            }
+
+            bool operator!=(const indexed_proxy_iterator& other) const {
+                return !(*this == other);
+            }
+
+        private:
+            Owner* owner_ = nullptr;
+            size_t index_ = 0;
+            Accessor accessor_;
+            mutable Proxy cached_proxy_;
+        };
+    }
 
     /** Allows configuration of DataFrame behavior. */
     class DataFrameOptions {
@@ -66,8 +129,164 @@ namespace csv {
         bool throw_on_missing_key = true;
     };
 
+    /** Persistent execution backend for batch-oriented DataFrame column work. */
+    class DataFrameExecutor {
+    public:
+        explicit DataFrameExecutor(size_t worker_count = default_worker_count()) {
+            this->start_workers(worker_count);
+        }
+
+        DataFrameExecutor(const DataFrameExecutor&) = delete;
+        DataFrameExecutor& operator=(const DataFrameExecutor&) = delete;
+
+        ~DataFrameExecutor() {
+            this->stop_workers();
+        }
+
+        size_t worker_count() const noexcept {
+#if CSV_ENABLE_THREADS
+            return workers_.size();
+#else
+            return 0;
+#endif
+        }
+
+        template<typename Fn>
+        void parallel_for(size_t task_count, Fn&& fn) {
+            if (task_count == 0) {
+                return;
+            }
+
+#if CSV_ENABLE_THREADS
+            if (workers_.empty() || task_count == 1) {
+                this->run_serial(task_count, std::forward<Fn>(fn));
+                return;
+            }
+
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                current_task_ = std::forward<Fn>(fn);
+                next_task_.store(0);
+                task_count_ = task_count;
+                active_workers_ = workers_.size();
+                ++generation_;
+            }
+
+            task_ready_.notify_all();
+
+            std::unique_lock<std::mutex> lock(mutex_);
+            task_done_.wait(lock, [this]() {
+                return completed_generation_ == generation_;
+            });
+
+            current_task_ = std::function<void(size_t)>();
+#else
+            this->run_serial(task_count, std::forward<Fn>(fn));
+#endif
+        }
+
+    private:
+        template<typename Fn>
+        void run_serial(size_t task_count, Fn&& fn) {
+            for (size_t i = 0; i < task_count; ++i) {
+                fn(i);
+            }
+        }
+
+        static size_t default_worker_count() {
+#if CSV_ENABLE_THREADS
+            const unsigned int hw = std::thread::hardware_concurrency();
+            return hw > 0 ? static_cast<size_t>(hw) : 1;
+#else
+            return 0;
+#endif
+        }
+
+#if CSV_ENABLE_THREADS
+        void start_workers(size_t worker_count) {
+            workers_.reserve(worker_count);
+            for (size_t i = 0; i < worker_count; ++i) {
+                workers_.push_back(std::thread(&DataFrameExecutor::worker_loop, this));
+            }
+        }
+
+        void stop_workers() {
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                stop_ = true;
+            }
+
+            task_ready_.notify_all();
+            for (auto& worker : workers_) {
+                if (worker.joinable()) {
+                    worker.join();
+                }
+            }
+        }
+
+        void worker_loop() {
+            size_t seen_generation = 0;
+            std::unique_lock<std::mutex> lock(mutex_);
+
+            while (true) {
+                task_ready_.wait(lock, [this, seen_generation]() {
+                    return stop_ || generation_ != seen_generation;
+                });
+
+                if (stop_) {
+                    return;
+                }
+
+                const size_t local_generation = generation_;
+                seen_generation = local_generation;
+                lock.unlock();
+
+                while (true) {
+                    const size_t task_index = next_task_.fetch_add(1);
+                    if (task_index >= task_count_) {
+                        break;
+                    }
+
+                    current_task_(task_index);
+                }
+
+                lock.lock();
+                if (--active_workers_ == 0) {
+                    completed_generation_ = local_generation;
+                    task_done_.notify_one();
+                }
+            }
+        }
+
+        std::vector<std::thread> workers_;
+        std::mutex mutex_;
+        std::condition_variable task_ready_;
+        std::condition_variable task_done_;
+        std::function<void(size_t)> current_task_;
+        std::atomic<size_t> next_task_{0};
+        size_t task_count_ = 0;
+        size_t active_workers_ = 0;
+        size_t generation_ = 0;
+        size_t completed_generation_ = 0;
+        bool stop_ = false;
+#else
+        void start_workers(size_t) {}
+        void stop_workers() {}
+#endif
+    };
+
     class DataFrameCell : public CSVField {
     public:
+        using CSVField::get;
+        using CSVField::get_sv;
+        using CSVField::is_float;
+        using CSVField::is_int;
+        using CSVField::is_null;
+        using CSVField::is_num;
+        using CSVField::is_str;
+        using CSVField::try_get;
+        using CSVField::type;
+
         DataFrameCell() : CSVField(csv::string_view()), row_edits(nullptr), col_index(0), can_mutate(false) {}
 
         DataFrameCell(
@@ -90,6 +309,41 @@ namespace csv {
 
         DataFrameCell& operator=(csv::string_view value) {
             return this->assign(std::string(value));
+        }
+
+        /** Const-friendly read access for proxy use in column iteration and callbacks. */
+        template<typename T = std::string>
+        T get() const {
+            return const_cast<DataFrameCell*>(this)->CSVField::template get<T>();
+        }
+
+        bool is_null() const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::is_null();
+        }
+
+        bool is_str() const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::is_str();
+        }
+
+        bool is_num() const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::is_num();
+        }
+
+        bool is_int() const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::is_int();
+        }
+
+        bool is_float() const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::is_float();
+        }
+
+        DataType type() const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::type();
+        }
+
+        template<typename T>
+        bool try_get(T& out) const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::template try_get<T>(out);
         }
 
     private:
@@ -292,121 +546,114 @@ namespace csv {
         bool can_mutate;
     };
 
+    /** Lightweight non-owning view over one DataFrame column. */
+    template<typename KeyType>
+    class DataFrameColumn {
+    public:
+        struct cell_accessor {
+            DataFrameCell operator()(const DataFrameColumn<KeyType>* owner, size_t row_index) const {
+                return owner->operator[](row_index);
+            }
+        };
+
+        using iterator = internals::indexed_proxy_iterator<const DataFrameColumn<KeyType>, DataFrameCell, cell_accessor>;
+        using const_iterator = iterator;
+
+        DataFrameColumn() : frame_(nullptr), col_index_(0) {}
+
+        DataFrameColumn(const DataFrame<KeyType>* frame, size_t col_index)
+            : frame_(frame), col_index_(col_index) {}
+
+        /** Column name. */
+        const std::string& name() const {
+            return frame_->col_names_.at(col_index_);
+        }
+
+        /** Zero-based column position. */
+        size_t index() const noexcept {
+            return col_index_;
+        }
+
+        /** Number of rows in the parent batch. */
+        size_t size() const noexcept {
+            return frame_->size();
+        }
+
+        /** Access a visible cell value by row index. */
+        DataFrameCell operator[](size_t row_index) const {
+            const auto& row = frame_->rows.at(row_index);
+            const auto* row_edits = frame_->find_row_edits(row_index);
+            return DataFrameCell(&row.second, row_edits, col_index_);
+        }
+
+        /** Materialize this column as a vector of converted values. */
+        template<typename T = std::string>
+        std::vector<T> to_vector() const {
+            std::vector<T> values;
+            values.reserve(this->size());
+
+            for (size_t row_index = 0; row_index < this->size(); ++row_index) {
+                CSVField field(frame_->visible_value_at(row_index, col_index_));
+                values.push_back(field.template get<T>());
+            }
+
+            return values;
+        }
+
+        /** Convert to a vector of strings. */
+        operator std::vector<std::string>() const {
+            return this->to_vector<std::string>();
+        }
+
+        #ifdef CSV_HAS_CXX20
+        /** Convert this DataFrameColumn into a std::ranges::input_range of string_views. */
+        auto to_sv_range() const {
+            return std::views::iota(size_t{0}, this->size())
+                | std::views::transform([this](size_t row_index) {
+                    return frame_->visible_value_at(row_index, col_index_);
+                });
+        }
+        #endif
+
+        /** Iterate over visible cells in this column. */
+        iterator begin() const { return iterator(this, 0); }
+        iterator end() const { return iterator(this, this->size()); }
+        const_iterator cbegin() const { return const_iterator(this, 0); }
+        const_iterator cend() const { return const_iterator(this, this->size()); }
+
+    private:
+        const DataFrame<KeyType>* frame_;
+        size_t col_index_;
+    };
+
     template<typename KeyType = std::string>
     class DataFrame {
     public:
         friend class DataFrameRow<KeyType>;
+        friend class DataFrameColumn<KeyType>;
         using row_type = DataFrameRow<KeyType>;
+        using column_type = DataFrameColumn<KeyType>;
 
         /** Type alias for internal row storage: pair of key and CSVRow. */
         using row_entry = std::pair<KeyType, CSVRow>;
 
-        /** Row-wise iterator over DataFrameRow entries. Provides access to rows with edit support. */
-        class iterator {
-        public:
-            using value_type = DataFrameRow<KeyType>;
-            using difference_type = std::ptrdiff_t;
-            using pointer = const DataFrameRow<KeyType>*;
-            using reference = const DataFrameRow<KeyType>&;
-            using iterator_category = std::random_access_iterator_tag;
-
-            iterator() = default;
-            iterator(
-                DataFrame<KeyType>* owner,
-                typename std::vector<row_entry>::iterator it,
-                typename std::vector<row_entry>::iterator begin_it,
-                std::unordered_map<size_t, std::unordered_map<size_t, std::string>>* edits
-            ) : owner(owner), iter(it), begin_iter(begin_it), edits_map(edits) {}
-
-            reference operator*() const {
-                const auto row_index = static_cast<size_t>(iter - begin_iter);
-                auto* row_edits = edits_map ? &(*edits_map)[row_index] : nullptr;
-                cached_row = DataFrameRow<KeyType>(&iter->second, owner, row_index, row_edits, &iter->first);
-                return cached_row;
+        struct mutable_row_accessor {
+            DataFrameRow<KeyType> operator()(DataFrame<KeyType>* owner, size_t row_index) const {
+                return owner->make_row_proxy(row_index);
             }
-
-            pointer operator->() const {
-                // Ensure cached_row is populated
-                operator*();
-                return &cached_row;
-            }
-
-            iterator& operator++() { ++iter; return *this; }
-            iterator operator++(int) { auto tmp = *this; ++iter; return tmp; }
-            iterator& operator--() { --iter; return *this; }
-            iterator operator--(int) { auto tmp = *this; --iter; return tmp; }
-
-            iterator operator+(difference_type n) const { return iterator(owner, iter + n, begin_iter, edits_map); }
-            iterator operator-(difference_type n) const { return iterator(owner, iter - n, begin_iter, edits_map); }
-            difference_type operator-(const iterator& other) const { return iter - other.iter; }
-
-            bool operator==(const iterator& other) const { return iter == other.iter; }
-            bool operator!=(const iterator& other) const { return iter != other.iter; }
-
-        private:
-            DataFrame<KeyType>* owner = nullptr;
-            typename std::vector<row_entry>::iterator iter;
-            typename std::vector<row_entry>::iterator begin_iter;
-            std::unordered_map<size_t, std::unordered_map<size_t, std::string>>* edits_map = nullptr;
-            mutable DataFrameRow<KeyType> cached_row;
         };
+
+        struct const_row_accessor {
+            DataFrameRow<KeyType> operator()(const DataFrame<KeyType>* owner, size_t row_index) const {
+                return owner->make_const_row_proxy(row_index);
+            }
+        };
+
+        /** Row-wise iterator over DataFrameRow entries. Provides access to rows with edit support. */
+        using iterator = internals::indexed_proxy_iterator<DataFrame<KeyType>, DataFrameRow<KeyType>, mutable_row_accessor>;
 
         /** Row-wise const iterator over DataFrameRow entries. Provides read-only access to rows with edit support. */
-        class const_iterator {
-        public:
-            using value_type = DataFrameRow<KeyType>;
-            using difference_type = std::ptrdiff_t;
-            using pointer = const DataFrameRow<KeyType>*;
-            using reference = const DataFrameRow<KeyType>&;
-            using iterator_category = std::random_access_iterator_tag;
-
-            const_iterator() = default;
-            const_iterator(
-                const DataFrame<KeyType>* owner,
-                typename std::vector<row_entry>::const_iterator it,
-                typename std::vector<row_entry>::const_iterator begin_it,
-                const std::unordered_map<size_t, std::unordered_map<size_t, std::string>>* edits
-            ) : owner(owner), iter(it), begin_iter(begin_it), edits_map(edits) {}
-
-            reference operator*() const {
-                const std::unordered_map<size_t, std::string>* row_edits = nullptr;
-                if (edits_map) {
-                    const auto row_index = static_cast<size_t>(iter - begin_iter);
-                    auto it = edits_map->find(row_index);
-                    if (it != edits_map->end()) {
-                        row_edits = &it->second;
-                    }
-                }
-                const auto row_index = static_cast<size_t>(iter - begin_iter);
-                cached_row = DataFrameRow<KeyType>(&iter->second, owner, row_index, row_edits, &iter->first);
-                return cached_row;
-            }
-
-            pointer operator->() const {
-                // Ensure cached_row is populated
-                operator*();
-                return &cached_row;
-            }
-
-            const_iterator& operator++() { ++iter; return *this; }
-            const_iterator operator++(int) { auto tmp = *this; ++iter; return tmp; }
-            const_iterator& operator--() { --iter; return *this; }
-            const_iterator operator--(int) { auto tmp = *this; --iter; return tmp; }
-
-            const_iterator operator+(difference_type n) const { return const_iterator(owner, iter + n, begin_iter, edits_map); }
-            const_iterator operator-(difference_type n) const { return const_iterator(owner, iter - n, begin_iter, edits_map); }
-            difference_type operator-(const const_iterator& other) const { return iter - other.iter; }
-
-            bool operator==(const const_iterator& other) const { return iter == other.iter; }
-            bool operator!=(const const_iterator& other) const { return iter != other.iter; }
-
-        private:
-            const DataFrame<KeyType>* owner = nullptr;
-            typename std::vector<row_entry>::const_iterator iter;
-            typename std::vector<row_entry>::const_iterator begin_iter;
-            const std::unordered_map<size_t, std::unordered_map<size_t, std::string>>* edits_map = nullptr;
-            mutable DataFrameRow<KeyType> cached_row;
-        };
+        using const_iterator = internals::indexed_proxy_iterator<const DataFrame<KeyType>, DataFrameRow<KeyType>, const_row_accessor>;
 
         static_assert(
             internals::is_hashable<KeyType>::value,
@@ -434,6 +681,11 @@ namespace csv {
          */
         explicit DataFrame(CSVReader& reader) {
             this->init_unkeyed_from_reader(reader);
+        }
+
+        /** Construct an unkeyed DataFrame from an existing batch of rows. */
+        explicit DataFrame(std::vector<CSVRow> rows) {
+            this->init_unkeyed_from_rows(rows);
         }
 
         /** Construct a keyed DataFrame from a CSV reader with options.
@@ -536,6 +788,29 @@ namespace csv {
             return col_names_;
         }
 
+        /** Access a column view by position. */
+        DataFrameColumn<KeyType> column_view(size_t col_index) const {
+            if (col_index >= this->n_cols()) {
+                throw std::out_of_range("Column index out of range.");
+            }
+
+            return DataFrameColumn<KeyType>(this, col_index);
+        }
+
+        /** Access a column view by name. */
+        DataFrameColumn<KeyType> column_view(const std::string& name) const {
+            return this->column_view(this->find_column(name));
+        }
+
+        /** Replace the current contents with a new unkeyed batch of rows.
+         *
+         *  Clears sparse edits and invalidates caches. Structural reset invalidates
+         *  outstanding row and cell proxies.
+         */
+        void swap_rows(std::vector<CSVRow>& new_rows) {
+            this->init_unkeyed_from_rows(new_rows);
+        }
+
         /**
          * Access a row by position (unchecked).
          *
@@ -633,6 +908,28 @@ namespace csv {
             return values;
         }
 
+        /** Apply a batch-oriented function to each column, potentially in parallel.
+         *
+         * The callback receives a lightweight column view plus a mutable per-column
+         * state object from `states`.
+         *
+         * @throws std::invalid_argument if `states.size() != n_cols()`
+         */
+        template<typename State, typename Fn>
+        void column_parallel_apply(
+            DataFrameExecutor& executor,
+            std::vector<State>& states,
+            Fn&& fn
+        ) const {
+            if (states.size() != this->n_cols()) {
+                throw std::invalid_argument("column_parallel_apply() requires one state object per column.");
+            }
+
+            executor.parallel_for(this->n_cols(), [this, &states, &fn](size_t column_index) {
+                fn(this->column_view(column_index), states[column_index]);
+            });
+        }
+
         /**
          * Group row positions using an arbitrary grouping function.
          *
@@ -675,22 +972,22 @@ namespace csv {
         }
 
         /** Get iterator to the first row. */
-        iterator begin() { return iterator(this, rows.begin(), rows.begin(), &edits); }
+        iterator begin() { return iterator(this, 0); }
         
         /** Get iterator past the last row. */
-        iterator end() { return iterator(this, rows.end(), rows.begin(), &edits); }
-        
+        iterator end() { return iterator(this, this->size()); }
+
         /** Get const iterator to the first row. */
-        const_iterator begin() const { return const_iterator(this, rows.begin(), rows.begin(), &edits); }
-        
+        const_iterator begin() const { return const_iterator(this, 0); }
+
         /** Get const iterator past the last row. */
-        const_iterator end() const { return const_iterator(this, rows.end(), rows.begin(), &edits); }
-        
+        const_iterator end() const { return const_iterator(this, this->size()); }
+
         /** Get const iterator to the first row (explicit). */
-        const_iterator cbegin() const { return const_iterator(this, rows.begin(), rows.begin(), &edits); }
-        
+        const_iterator cbegin() const { return const_iterator(this, 0); }
+
         /** Get const iterator past the last row (explicit). */
-        const_iterator cend() const { return const_iterator(this, rows.end(), rows.begin(), &edits); }
+        const_iterator cend() const { return const_iterator(this, this->size()); }
 
     private:
         /** Whether this DataFrame was created with a key. */
@@ -714,10 +1011,24 @@ namespace csv {
 
         /** Initialize an unkeyed DataFrame from a CSV reader. */
         void init_unkeyed_from_reader(CSVReader& reader) {
+            this->reset_unkeyed_state();
             this->col_names_ = reader.get_col_names();
             for (auto& row : reader) {
                 rows.push_back(row_entry{KeyType(), row});
             }
+        }
+
+        /** Initialize an unkeyed DataFrame from an existing row batch. */
+        void init_unkeyed_from_rows(std::vector<CSVRow>& source_rows) {
+            this->reset_unkeyed_state();
+            this->col_names_ = source_rows.empty() ? std::vector<std::string>() : source_rows.front().get_col_names();
+
+            rows.reserve(source_rows.size());
+            for (auto& row : source_rows) {
+                rows.push_back(row_entry{KeyType(), std::move(row)});
+            }
+
+            source_rows.clear();
         }
 
         /** Initialize a keyed DataFrame from a CSV reader using column-based key extraction. */
@@ -796,6 +1107,16 @@ namespace csv {
             return it != edits.end() ? &it->second : nullptr;
         }
 
+        DataFrameRow<KeyType> make_row_proxy(size_t row_index) {
+            const auto& row = rows.at(row_index);
+            return DataFrameRow<KeyType>(&row.second, this, row_index, &edits[row_index], &row.first);
+        }
+
+        DataFrameRow<KeyType> make_const_row_proxy(size_t row_index) const {
+            const auto& row = rows.at(row_index);
+            return DataFrameRow<KeyType>(&row.second, this, row_index, this->find_row_edits(row_index), &row.first);
+        }
+
         csv::string_view visible_value_at(size_t row_index, size_t col_index) const {
             const auto* row_edits = this->find_row_edits(row_index);
             if (row_edits) {
@@ -844,6 +1165,15 @@ namespace csv {
             if (!is_keyed) {
                 throw std::runtime_error("This DataFrame was created without a key column.");
             }
+        }
+
+        /** Reset state that should not survive replacing the current batch. */
+        void reset_unkeyed_state() {
+            this->is_keyed = false;
+            this->rows.clear();
+            this->edits.clear();
+            this->invalidate_key_index();
+            this->json_converter_ = internals::lazy_shared_ptr<internals::JsonConverter>();
         }
 
         /** Invalidate the lazy key index after structural changes. */
