@@ -109,15 +109,8 @@ namespace csv {
         }
 
         std::vector<CSVRow> rows;
-        DataFrame<> batch;
-
         while (reader.read_chunk(rows, chunk_size)) {
-            if (batch.empty()) {
-                batch = DataFrame<>(std::move(rows));
-            } else {
-                batch.swap_rows(rows);
-            }
-
+            DataFrame<> batch(std::move(rows));
             batch.column_parallel_apply(executor, states, std::forward<Fn>(fn));
         }
     }

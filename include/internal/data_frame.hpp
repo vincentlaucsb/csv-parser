@@ -583,7 +583,7 @@ namespace csv {
         DataFrameCell operator[](size_t row_index) const {
             const auto& row = frame_->rows.at(row_index);
             const auto* row_edits = frame_->find_row_edits(row_index);
-            return DataFrameCell(&row.second, row_edits, col_index_);
+            return DataFrameCell(&row, row_edits, col_index_);
         }
 
         /** Materialize this column as a vector of converted values. */
@@ -633,9 +633,6 @@ namespace csv {
         friend class DataFrameColumn<KeyType>;
         using row_type = DataFrameRow<KeyType>;
         using column_type = DataFrameColumn<KeyType>;
-
-        /** Type alias for internal row storage: pair of key and CSVRow. */
-        using row_entry = std::pair<KeyType, CSVRow>;
 
         struct mutable_row_accessor {
             DataFrameRow<KeyType> operator()(DataFrame<KeyType>* owner, size_t row_index) const {
@@ -802,15 +799,6 @@ namespace csv {
             return this->column_view(this->find_column(name));
         }
 
-        /** Replace the current contents with a new unkeyed batch of rows.
-         *
-         *  Clears sparse edits and invalidates caches. Structural reset invalidates
-         *  outstanding row and cell proxies.
-         */
-        void swap_rows(std::vector<CSVRow>& new_rows) {
-            this->init_unkeyed_from_rows(new_rows);
-        }
-
         /**
          * Access a row by position (unchecked).
          *
@@ -846,14 +834,14 @@ namespace csv {
         DataFrameRow<KeyType> at(size_t i) {
             const auto& row = rows.at(i);
             auto* row_edits = &edits[i];
-            return DataFrameRow<KeyType>(&row.second, this, i, row_edits, &row.first);
+            return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
         }
         
         /** Access a row by position with bounds checking (const version). */
         DataFrameRow<KeyType> at(size_t i) const {
             const auto& row = rows.at(i);
             const std::unordered_map<size_t, std::string>* row_edits = this->find_row_edits(i);
-            return DataFrameRow<KeyType>(&row.second, this, i, row_edits, &row.first);
+            return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
         }
 
         /**
@@ -865,7 +853,7 @@ namespace csv {
         DataFrameRow<KeyType> operator[](const KeyType& key) {
             this->require_keyed_frame();
             auto position = this->position_of(key);
-            return DataFrameRow<KeyType>(&rows.at(position).second, this, position, &edits[position], &rows.at(position).first);
+            return DataFrameRow<KeyType>(&rows.at(position), this, position, &edits[position], this->key_ptr_at(position));
         }
 
         /** Access a row by its key (const version). */
@@ -873,7 +861,7 @@ namespace csv {
             this->require_keyed_frame();
             auto position = this->position_of(key);
             const std::unordered_map<size_t, std::string>* row_edits = this->find_row_edits(position);
-            return DataFrameRow<KeyType>(&rows.at(position).second, this, position, row_edits, &rows.at(position).first);
+            return DataFrameRow<KeyType>(&rows.at(position), this, position, row_edits, this->key_ptr_at(position));
         }
 
         /**
@@ -996,8 +984,11 @@ namespace csv {
         /** Column names in order. */
         std::vector<std::string> col_names_;
         
-        /** Internal storage: vector of (key, row) pairs. */
-        std::vector<row_entry> rows;
+        /** Internal storage for row data. */
+        std::vector<CSVRow> rows;
+
+        /** Stored keys for keyed DataFrames only. Empty for unkeyed frames. */
+        std::vector<KeyType> keys_;
 
         /** Lazily-built index mapping keys to row positions (mutable for const methods). */
         mutable std::unique_ptr<std::unordered_map<KeyType, size_t>> key_index;
@@ -1013,8 +1004,9 @@ namespace csv {
         void init_unkeyed_from_reader(CSVReader& reader) {
             this->reset_unkeyed_state();
             this->col_names_ = reader.get_col_names();
+            this->rows.clear();
             for (auto& row : reader) {
-                rows.push_back(row_entry{KeyType(), row});
+                rows.push_back(row);
             }
         }
 
@@ -1022,17 +1014,16 @@ namespace csv {
         void init_unkeyed_from_rows(std::vector<CSVRow>& source_rows) {
             this->reset_unkeyed_state();
             this->col_names_ = source_rows.empty() ? std::vector<std::string>() : source_rows.front().get_col_names();
-
-            rows.reserve(source_rows.size());
-            for (auto& row : source_rows) {
-                rows.push_back(row_entry{KeyType(), std::move(row)});
-            }
-
-            source_rows.clear();
+            this->rows = std::move(source_rows);
         }
 
         /** Initialize a keyed DataFrame from a CSV reader using column-based key extraction. */
         void init_from_reader(CSVReader& reader, const DataFrameOptions& options) {
+            this->rows.clear();
+            this->keys_.clear();
+            this->edits.clear();
+            this->invalidate_key_index();
+            this->json_converter_ = internals::lazy_shared_ptr<internals::JsonConverter>();
             this->is_keyed = true;
             this->col_names_ = reader.get_col_names();
             const std::string key_column = options.get_key_column();
@@ -1073,6 +1064,8 @@ namespace csv {
             DuplicateKeyPolicy policy
         ) {
             std::unordered_map<KeyType, size_t> key_to_pos;
+            this->rows.clear();
+            this->keys_.clear();
 
             for (auto& row : reader) {
                 KeyType key = key_func(row);
@@ -1084,13 +1077,14 @@ namespace csv {
                     }
 
                     if (policy == DuplicateKeyPolicy::OVERWRITE) {
-                        rows[existing->second].second = row;
+                        rows[existing->second] = row;
                     }
 
                     continue;
                 }
 
-                rows.push_back(row_entry{key, row});
+                rows.push_back(row);
+                keys_.push_back(key);
                 key_to_pos[key] = rows.size() - 1;
             }
         }
@@ -1109,12 +1103,12 @@ namespace csv {
 
         DataFrameRow<KeyType> make_row_proxy(size_t row_index) {
             const auto& row = rows.at(row_index);
-            return DataFrameRow<KeyType>(&row.second, this, row_index, &edits[row_index], &row.first);
+            return DataFrameRow<KeyType>(&row, this, row_index, &edits[row_index], this->key_ptr_at(row_index));
         }
 
         DataFrameRow<KeyType> make_const_row_proxy(size_t row_index) const {
             const auto& row = rows.at(row_index);
-            return DataFrameRow<KeyType>(&row.second, this, row_index, this->find_row_edits(row_index), &row.first);
+            return DataFrameRow<KeyType>(&row, this, row_index, this->find_row_edits(row_index), this->key_ptr_at(row_index));
         }
 
         csv::string_view visible_value_at(size_t row_index, size_t col_index) const {
@@ -1126,7 +1120,7 @@ namespace csv {
                 }
             }
 
-            return rows[row_index].second[col_index].template get<csv::string_view>();
+            return rows[row_index][col_index].template get<csv::string_view>();
         }
 
         void erase_row_edits(size_t row_index) {
@@ -1156,6 +1150,9 @@ namespace csv {
 
             this->erase_row_edits(row_index);
             rows.erase(rows.begin() + row_index);
+            if (this->is_keyed) {
+                keys_.erase(keys_.begin() + row_index);
+            }
             this->invalidate_key_index();
             return true;
         }
@@ -1171,6 +1168,7 @@ namespace csv {
         void reset_unkeyed_state() {
             this->is_keyed = false;
             this->rows.clear();
+            this->keys_.clear();
             this->edits.clear();
             this->invalidate_key_index();
             this->json_converter_ = internals::lazy_shared_ptr<internals::JsonConverter>();
@@ -1192,7 +1190,7 @@ namespace csv {
             );
 
             for (size_t i = 0; i < rows.size(); i++) {
-                (*key_index)[rows[i].first] = i;
+                (*key_index)[keys_[i]] = i;
             }
         }
 
@@ -1205,6 +1203,10 @@ namespace csv {
             }
 
             return it->second;
+        }
+
+        const KeyType* key_ptr_at(size_t row_index) const {
+            return this->is_keyed ? &keys_.at(row_index) : nullptr;
         }
     };
 

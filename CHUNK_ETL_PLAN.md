@@ -8,7 +8,6 @@ heavyweight dataframe engine.
 
 - [x] `CSVReader::read_chunk(std::vector<CSVRow>&, size_t)`
 - [x] `DataFrame(std::vector<CSVRow>)`
-- [x] `DataFrame::swap_rows(std::vector<CSVRow>&)`
 - [x] `DataFrameExecutor`
 - [x] `DataFrame::column_parallel_apply(...)`
 - [x] `chunk_parallel_apply(...)` convenience helper
@@ -130,12 +129,11 @@ This allows repeated chunk workflows like:
 
 ```cpp
 std::vector<CSVRow> rows;
-csv::DataFrame<> batch;
 csv::DataFrameExecutor exec;
 std::vector<ColumnInferenceState> states;
 
 while (reader.read_chunk(rows, 50000)) {
-    batch.swap_rows(rows);
+    csv::DataFrame<> batch(std::move(rows));
     batch.column_parallel_apply(exec, states, infer_column);
 }
 ```
@@ -185,30 +183,7 @@ Recommendation:
 - Add keyed/options-based construction only when the low-level semantics are
   nailed down
 
-### B. Reuse a `DataFrame` Shell Across Chunks
-
-Add a row-swap/reset operation so one `DataFrame` can be reused across many
-chunks without reconstruction overhead.
-
-Proposed baseline API:
-
-```cpp
-void swap_rows(std::vector<CSVRow>& rows);
-```
-
-Required semantics:
-
-- Swaps in the new row batch
-- Clears sparse edits
-- Invalidates key index
-- Invalidates any cached JSON conversion state if column metadata changes
-- Preserves lightweight `DataFrame` object reuse across chunks
-
-Important note:
-
-Structural reset must invalidate outstanding row/cell proxies.
-
-### C. Column-Parallel Compute API
+### B. Column-Parallel Compute API
 
 This should be designed for batch analysis workloads such as:
 
@@ -308,9 +283,8 @@ Status: in progress
 Tasks:
 
 1. Add unkeyed `DataFrame(std::vector<CSVRow>)` -- done
-2. Add `swap_rows(std::vector<CSVRow>&)` -- done
-3. Define invalidation/reset behavior clearly -- done for batch replacement
-4. Add tests for:
+2. Avoid storing per-row key payloads for unkeyed batches
+3. Add tests for:
    - construction from row vector -- done
    - swap reuse -- done
    - edits cleared after swap -- done
@@ -349,7 +323,6 @@ Tasks:
    - Mitigation: keep thread ownership in `DataFrameExecutor`
 
 2. **Proxy invalidation confusion**
-   - Risk: `swap_rows()` makes old row/cell proxies dangerous
    - Mitigation: document structural reset invalidation clearly
 
 3. **Over-generalized callback API**
@@ -385,7 +358,6 @@ Proceed with:
 
 1. `CSVReader::read_chunk(...)`
 2. `DataFrame(std::vector<CSVRow>)`
-3. `DataFrame::swap_rows(...)`
 4. `DataFrameExecutor`
 5. `DataFrame::column_parallel_apply(...)`
 
