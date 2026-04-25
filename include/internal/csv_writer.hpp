@@ -275,9 +275,15 @@ namespace internals {
         }
 
         /** Configure whether each write operation flushes the underlying stream. */
-        DelimWriter& set_auto_flush(bool value) noexcept {
+        DelimWriter& set_auto_flush(bool value) & noexcept {
             this->auto_flush_ = value;
             return *this;
+        }
+
+        /** Configure whether each write operation flushes the underlying stream. */
+        DelimWriter&& set_auto_flush(bool value) && noexcept {
+            this->auto_flush_ = value;
+            return std::move(*this);
         }
 
         /** Return whether each write operation flushes the underlying stream. */
@@ -583,8 +589,7 @@ namespace internals {
                 return;
             }
 
-            if (batch_buffer_.size() >= batch_flush_threshold_)
-                flush_batch();
+            flush_batch_if_needed();
         }
 
         void flush_batch() {
@@ -592,6 +597,11 @@ namespace internals {
 
             out->write(batch_buffer_.data(), static_cast<std::streamsize>(batch_buffer_.size()));
             batch_buffer_.clear();
+        }
+
+        void flush_batch_if_needed() {
+            if (batch_buffer_.size() >= batch_flush_threshold_)
+                flush_batch();
         }
 
         /**
