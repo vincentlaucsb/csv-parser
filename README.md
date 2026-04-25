@@ -497,8 +497,8 @@ DataFrame<int> df2(reader, "employee_id");
 auto salary = df[12345]["salary"].get<double>();
 
 // Positional access: operator[](size_t) is disabled when KeyType is an integer
-// type to prevent ambiguity with operator[](const KeyType&). Use iloc() instead.
-auto first_row = df.iloc(0);
+// type to prevent ambiguity with operator[](const KeyType&). Use at(size_t) instead.
+auto first_row = df.at(0);
 auto name = first_row["name"].get<std::string>();
 
 // Check if a key exists

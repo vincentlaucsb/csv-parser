@@ -136,7 +136,9 @@ if (-not (Test-Path $exeDir)) {
 
 $benches = @(
     "csv_parser_read_bench",
+    "csv_parser_multi_pass_bench",
     "fast_cpp_csv_parser_read_bench",
+    "fast_cpp_csv_parser_multi_pass_bench",
     "dataframe_rapidcsv_roundtrip_bench"
 )
 
@@ -148,8 +150,12 @@ foreach ($datasetSpec in $datasetSpecs) {
         "benchmark_input.csv",
         "csv_parser_read_bench.json",
         "csv_parser_read_bench.json.tmp",
+        "csv_parser_multi_pass_bench.json",
+        "csv_parser_multi_pass_bench.json.tmp",
         "fast_cpp_csv_parser_read_bench.json",
         "fast_cpp_csv_parser_read_bench.json.tmp",
+        "fast_cpp_csv_parser_multi_pass_bench.json",
+        "fast_cpp_csv_parser_multi_pass_bench.json.tmp",
         "dataframe_rapidcsv_roundtrip_bench.json",
         "dataframe_rapidcsv_roundtrip_bench.json.tmp"
     )) {
@@ -187,7 +193,10 @@ foreach ($datasetSpec in $datasetSpecs) {
         Write-Host "Saved benchmark input $resultsDataset"
 
         foreach ($bench in $benches) {
-            if (($datasetProfile -eq "multiline") -and ($bench -eq "fast_cpp_csv_parser_read_bench")) {
+            if (($datasetProfile -eq "multiline") -and (
+                ($bench -eq "fast_cpp_csv_parser_read_bench") -or
+                ($bench -eq "fast_cpp_csv_parser_multi_pass_bench")
+            )) {
                 Write-Host "Skipping $bench for multiline payload: fast-cpp-csv-parser does not support quoted line breaks."
                 continue
             }

@@ -8,8 +8,13 @@ developer or CI builds.
 
 - `csv_parser_read_bench`: read benchmarks for this library, using the filename
   constructor and therefore the native mmap parser where supported.
+- `csv_parser_multi_pass_bench`: single-threaded materialization and multi-pass
+  ETL-style benchmarks using reusable `CSVRow` objects.
 - `fast_cpp_csv_parser_read_bench`: read-focused benchmarks for
   `fast-cpp-csv-parser`.
+- `fast_cpp_csv_parser_multi_pass_bench`: single-threaded materialization and
+  multi-pass ETL-style benchmarks for `fast-cpp-csv-parser`, materializing into
+  fixed-width STL rows before running repeated passes.
 - `dataframe_rapidcsv_roundtrip_bench`: table/round-trip-oriented benchmarks
   comparing this library's `DataFrame` workflow with `rapidcsv`, including
   load-only, save-only, and full round-trip cases.
@@ -69,7 +74,9 @@ Example run:
 
 ```powershell
 build/benchmarks/Release/csv_parser_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
+build/benchmarks/Release/csv_parser_multi_pass_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/fast_cpp_csv_parser_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
+build/benchmarks/Release/fast_cpp_csv_parser_multi_pass_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/dataframe_rapidcsv_roundtrip_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 ```
 
@@ -96,7 +103,7 @@ By default the script runs `clean`, `quoted`, and `multiline` payloads at
 `build/benchmarks/data` and are not regenerated when they already exist. Use
 `-ForceDatasets` to recreate them, pass `-Rows 10` for a quick smoke run, or
 pass `-Profiles clean` when you want to isolate the simple payload. The helper
-skips `fast_cpp_csv_parser_read_bench` on the `multiline` payload because
+skips the fast-cpp-csv-parser benchmarks on the `multiline` payload because
 fast-cpp-csv-parser does not support quoted line breaks. For compatibility,
 `-Profiles realistic` is still accepted as an alias for `multiline`.
 

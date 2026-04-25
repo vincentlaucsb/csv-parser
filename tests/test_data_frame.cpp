@@ -1,4 +1,5 @@
 #include <sstream>
+#include <list>
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
@@ -24,7 +25,7 @@ TEST_CASE("DataFrame: positional access", "[data_frame]") {
     REQUIRE(frame.size() == 3);
     REQUIRE(frame.columns().size() == 3);
     REQUIRE(frame[0]["id"].get<std::string>() == "1");
-    REQUIRE(frame.iloc(1)["name"].get<std::string>() == "Bob");
+    REQUIRE(frame.at(1)["name"].get<std::string>() == "Bob");
 
     REQUIRE_THROWS_AS(frame["1"], std::runtime_error);
 }
@@ -44,10 +45,7 @@ TEST_CASE("DataFrame: basic helpers", "[data_frame]") {
     REQUIRE(frame.at(0)["name"].get<std::string>() == "Alice");
     REQUIRE_THROWS_AS(frame.at(99), std::out_of_range);
 
-    csv::DataFrameRow<std::string> row;
-    REQUIRE(frame.try_get(2, row));
-    REQUIRE(row["name"].get<std::string>() == "Carol");
-    REQUIRE_FALSE(frame.try_get(99, row));
+    REQUIRE(frame.at(2)["name"].get<std::string>() == "Carol");
 }
 
 TEST_CASE("DataFrame: row-wise iteration", "[data_frame]") {
@@ -90,7 +88,7 @@ TEST_CASE("DataFrame: keyed access with overwrite and lazy index", "[data_frame]
 
     REQUIRE(frame["1"]["name"].get<std::string>() == "Carol");
     REQUIRE(frame["1"]["value"].get<std::string>() == "30");
-    REQUIRE(frame.key_at(0) == "1");
+    REQUIRE(frame.at(0).key() == "1");
 }
 
 TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
@@ -98,31 +96,19 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     CSVReader reader(input);
     DataFrame<> frame(reader, "id");
 
-    REQUIRE(frame.at("1")["name"].get<std::string>() == "Carol");
-    REQUIRE_THROWS_AS(frame.at("missing"), std::out_of_range);
+    REQUIRE(frame["1"]["name"].get<std::string>() == "Carol");
+    REQUIRE_THROWS_AS(frame["missing"], std::out_of_range);
 
-    csv::DataFrameRow<std::string> row;
-    REQUIRE(frame.try_get("2", row));
-    REQUIRE(row["name"].get<std::string>() == "Bob");
-    REQUIRE_FALSE(frame.try_get("missing", row));
+    REQUIRE(frame["2"]["name"].get<std::string>() == "Bob");
+    REQUIRE(frame["2"].key() == "2");
 
-    // Positional try_get on keyed DataFrame before edits: row_edits stays nullptr.
-    csv::DataFrameRow<std::string> positional_row;
-    REQUIRE(frame.try_get(1, positional_row));
-    REQUIRE(positional_row["name"].get<std::string>() == "Bob");
-    REQUIRE_FALSE(frame.try_get(99, positional_row));
+    frame.at(0)["name"] = "Carly";
+    REQUIRE(frame["1"]["name"].get<std::string>() == "Carly");
 
-    frame.set_at(0, "name", "Carly");
-    REQUIRE(frame.get("1", "name") == "Carly");
-
-    // Positional try_get on keyed DataFrame after edits: row_edits points to overlay.
-    REQUIRE(frame.try_get(0, positional_row));
-    REQUIRE(positional_row["name"].get<std::string>() == "Carly");
-    
     // Verify edits are visible through all access methods
     REQUIRE(frame.at(0)["name"].get<std::string>() == "Carly");
     REQUIRE(frame["1"]["name"].get<std::string>() == "Carly");
-    REQUIRE(frame.iloc(0)["name"].get<std::string>() == "Carly");
+    REQUIRE(frame.at(0)["name"].get<std::string>() == "Carly");
     
     // Verify edits are visible through iteration
     bool found_carly = false;
@@ -146,21 +132,14 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     REQUIRE(found_carly_const);
     REQUIRE(found_bob_const);
 
-    // Const positional try_get should also surface the keyed edit overlay.
-    csv::DataFrameRow<std::string> const_positional_row;
-    REQUIRE(cframe.try_get(0, const_positional_row));
-    REQUIRE(const_positional_row["name"].get<std::string>() == "Carly");
-    REQUIRE_FALSE(cframe.try_get(99, const_positional_row));
-    
     // Verify DataFrameRow stores key and can be converted to vector
     auto row_0 = frame.at(0);
-    REQUIRE(row_0.get_key() == "1");
+    REQUIRE(row_0.key() == "1");
     std::vector<std::string> vec = row_0;
     REQUIRE(vec.size() == 3);
     REQUIRE(vec[1] == "Carly");  // Edited value
 
-    REQUIRE_FALSE(frame.erase_row_at(99));
-    REQUIRE(frame.erase_row_at(0));
+    REQUIRE(frame.at(0).erase());
     REQUIRE_FALSE(frame.contains("1"));
     REQUIRE(frame.size() == 1);
 }
@@ -250,8 +229,8 @@ TEST_CASE("DataFrame: group_by", "[data_frame]") {
         REQUIRE(grouped["low"].size() == 1);
         REQUIRE(grouped["high"].size() == 1);
 
-        REQUIRE(frame.iloc(grouped["low"][0])["name"].get<std::string>() == "Alice");
-        REQUIRE(frame.iloc(grouped["high"][0])["name"].get<std::string>() == "Bob");
+        REQUIRE(frame.at(grouped["low"][0])["name"].get<std::string>() == "Alice");
+        REQUIRE(frame.at(grouped["high"][0])["name"].get<std::string>() == "Bob");
     }
 
     SECTION("Group by column honors edits") {
@@ -259,7 +238,7 @@ TEST_CASE("DataFrame: group_by", "[data_frame]") {
         CSVReader reader(input);
         DataFrame<> frame(reader, "id");
 
-        frame.set("2", "name", "Bobby");
+        frame["2"]["name"] = "Bobby";
 
         auto grouped = frame.group_by("name");
 
@@ -273,7 +252,7 @@ TEST_CASE("DataFrame: group_by", "[data_frame]") {
         CSVReader reader(input);
         DataFrame<> frame(reader, "id");
 
-        REQUIRE_THROWS_AS(frame.group_by("missing"), std::runtime_error);
+        REQUIRE_THROWS_AS(frame.group_by("missing"), std::out_of_range);
     }
 }
 
@@ -336,7 +315,7 @@ TEST_CASE("DataFrame: group_by on NOAA real data", "[data_frame]") {
 
         bool found = false;
         for (size_t idx : it->second) {
-            const auto& row = frame.iloc(idx);
+            const auto& row = frame.at(idx);
             if (row["LATITUDE"].get<std::string>() == "30.909" &&
                 row["LONGITUDE"].get<std::string>() == "-102.28") {
                 found = true;
@@ -438,33 +417,45 @@ TEST_CASE("DataFrame: edit overlay and column extraction", "[data_frame]") {
     CSVReader reader(input);
     DataFrame<> frame(reader, "id");
 
-    REQUIRE(frame.get("2", "name") == "Bob");
+    REQUIRE(frame["2"]["name"].get<std::string>() == "Bob");
 
-    frame.set("2", "name", "Bobby");
-    frame.set("1", "value", "31");
+    frame["2"]["name"] = "Bobby";
+    frame["1"]["value"] = "31";
 
-    REQUIRE(frame.get("2", "name") == "Bobby");
-    REQUIRE(frame.get("1", "value") == "31");
+    REQUIRE(frame["2"]["name"].get<std::string>() == "Bobby");
+    REQUIRE(frame["1"]["value"].get<std::string>() == "31");
 
     auto names = frame.column("name");
     REQUIRE(names.size() == 2);
     REQUIRE(names[0] == "Carol");
     REQUIRE(names[1] == "Bobby");
 
-    REQUIRE(frame.erase_row("2"));
+    REQUIRE(frame["2"].erase());
     REQUIRE_FALSE(frame.contains("2"));
     REQUIRE(frame.size() == 1);
 
-    REQUIRE_THROWS_AS(frame.column("missing"), std::runtime_error);
+    REQUIRE_THROWS_AS(frame.column("missing"), std::out_of_range);
 }
 
-TEST_CASE("DataFrame: set_at error handling", "[data_frame]") {
-    SECTION("throws on non-keyed DataFrame") {
+TEST_CASE("DataFrame: column() supports alternate sequence containers", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id");
+
+    frame["2"]["name"] = "Bobby";
+
+    auto names = frame.column<std::string, std::list>("name");
+    REQUIRE(names == std::list<std::string>{"Carol", "Bobby"});
+}
+
+TEST_CASE("DataFrame: cell assignment error handling", "[data_frame]") {
+    SECTION("supports unkeyed DataFrame") {
         auto input = make_people_stream();
         CSVReader reader(input);
         DataFrame<> frame(reader);  // no key column
 
-        REQUIRE_THROWS_AS(frame.set_at(0, "name", "X"), std::runtime_error);
+        frame[0]["name"] = "X";
+        REQUIRE(frame.at(0)["name"].get<std::string>() == "X");
     }
 
     SECTION("throws on out-of-range row index") {
@@ -472,7 +463,7 @@ TEST_CASE("DataFrame: set_at error handling", "[data_frame]") {
         CSVReader reader(input);
         DataFrame<> frame(reader, "id");
 
-        REQUIRE_THROWS_AS(frame.set_at(99, "name", "X"), std::out_of_range);
+        REQUIRE_THROWS_AS(frame.at(99)["name"] = "X", std::out_of_range);
     }
 
     SECTION("throws on unknown column") {
@@ -480,44 +471,85 @@ TEST_CASE("DataFrame: set_at error handling", "[data_frame]") {
         CSVReader reader(input);
         DataFrame<> frame(reader, "id");
 
-        REQUIRE_THROWS_AS(frame.set_at(0, "nonexistent", "X"), std::out_of_range);
+        REQUIRE_THROWS_AS(frame.at(0)["nonexistent"] = "X", std::runtime_error);
     }
 }
 
-TEST_CASE("DataFrame: set_at overwrites previous edit", "[data_frame]") {
+TEST_CASE("DataFrame: cell assignment overwrites previous edit", "[data_frame]") {
     auto input = make_people_stream();
     CSVReader reader(input);
     DataFrame<> frame(reader, "id");
 
     // First edit
-    frame.set_at(0, "name", "First");
-    REQUIRE(frame.get("1", "name") == "First");
+    frame.at(0)["name"] = "First";
+    REQUIRE(frame["1"]["name"].get<std::string>() == "First");
 
     // Second edit to same cell overwrites the first
-    frame.set_at(0, "name", "Second");
-    REQUIRE(frame.get("1", "name") == "Second");
+    frame.at(0)["name"] = "Second";
+    REQUIRE(frame["1"]["name"].get<std::string>() == "Second");
 
     // Other cells are unaffected
-    REQUIRE(frame.get("1", "value") == "30");
-    REQUIRE(frame.get("2", "name") == "Bob");
+    REQUIRE(frame["1"]["value"].get<std::string>() == "30");
+    REQUIRE(frame["2"]["name"].get<std::string>() == "Bob");
 }
 
-TEST_CASE("DataFrame: set_at independent edits across rows and columns", "[data_frame]") {
+TEST_CASE("DataFrame: cell assignment tracks independent edits across rows and columns", "[data_frame]") {
     auto input = make_people_stream();
     CSVReader reader(input);
     DataFrame<> frame(reader, "id");
 
-    frame.set_at(0, "name", "NewName1");
-    frame.set_at(0, "value", "99");
-    frame.set_at(1, "name", "NewName2");
+    frame.at(0)["name"] = "NewName1";
+    frame.at(0)["value"] = "99";
+    frame.at(1)["name"] = "NewName2";
 
-    REQUIRE(frame.get("1", "name") == "NewName1");
-    REQUIRE(frame.get("1", "value") == "99");
-    REQUIRE(frame.get("2", "name") == "NewName2");
-    REQUIRE(frame.get("2", "value") == "20");  // unedited
+    REQUIRE(frame["1"]["name"].get<std::string>() == "NewName1");
+    REQUIRE(frame["1"]["value"].get<std::string>() == "99");
+    REQUIRE(frame["2"]["name"].get<std::string>() == "NewName2");
+    REQUIRE(frame["2"]["value"].get<std::string>() == "20");  // unedited
 
     // column() extraction reflects all edits
     auto names = frame.column("name");
     REQUIRE(names[0] == "NewName1");
     REQUIRE(names[1] == "NewName2");
+}
+
+TEST_CASE("DataFrame: row erase shifts sparse edit indices", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+        "3,Carol,30\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    frame.at(1)["name"] = "Bobby";
+    frame.at(2)["value"] = "31";
+
+    REQUIRE(frame.at(0).erase());
+
+    REQUIRE(frame.size() == 2);
+    REQUIRE_FALSE(frame.contains("1"));
+
+    // The later-row edits should stay attached to their rows after the index shift.
+    REQUIRE(frame.at(0).key() == "2");
+    REQUIRE(frame.at(0)["name"].get<std::string>() == "Bobby");
+    REQUIRE(frame.at(0)["value"].get<std::string>() == "20");
+
+    REQUIRE(frame.at(1).key() == "3");
+    REQUIRE(frame.at(1)["name"].get<std::string>() == "Carol");
+    REQUIRE(frame.at(1)["value"].get<std::string>() == "31");
+
+    auto names = frame.column("name");
+    REQUIRE(names == std::vector<std::string>{"Bobby", "Carol"});
+}
+
+TEST_CASE("DataFrame: const row erase is rejected", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id");
+    const auto& cframe = frame;
+
+    auto row = cframe["1"];
+    REQUIRE_THROWS_AS(row.erase(), std::runtime_error);
 }

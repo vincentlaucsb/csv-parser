@@ -168,12 +168,12 @@ namespace csv {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
 
-            if (this->_type != DataType::UNKNOWN) {
-                if (this->_type == DataType::CSV_STRING) {
+            if (this->type_ != DataType::UNKNOWN) {
+                if (this->type_ == DataType::CSV_STRING) {
                     return false;
                 }
 
-                return internals::is_equal(value, static_cast<long double>(other), 0.000001L);
+                return internals::is_equal(value_, static_cast<long double>(other), 0.000001L);
             }
 
             long double out = 0;
@@ -207,13 +207,13 @@ namespace csv {
         /** Return the type of the underlying CSV data */
         CONSTEXPR_14 DataType type() noexcept {
             this->get_value();
-            return _type;
+            return type_;
         }
 
     private:
-        long double value = 0;    /**< Cached numeric value */
+        long double value_ = 0;    /**< Cached numeric value */
         csv::string_view sv = ""; /**< A pointer to this field's text */
-        DataType _type = DataType::UNKNOWN; /**< Cached data type value */
+        DataType type_ = DataType::UNKNOWN; /**< Cached data type value */
 
         /** Shared validation + conversion kernel used by get() and try_get().
          *  Assigns to @p out and returns nullptr on success;
@@ -231,22 +231,22 @@ namespace csv {
                     return internals::ERROR_FLOAT_TO_INT.c_str();
 
                 IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                    if (this->value < 0)
+                    if (this->value_ < 0)
                         return internals::ERROR_NEG_TO_UNSIGNED.c_str();
                 }
             }
 
             IF_CONSTEXPR(!std::is_floating_point<T>::value) {
                 IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                    if (this->value > internals::get_uint_max<sizeof(T)>())
+                    if (this->value_ > internals::get_uint_max<sizeof(T)>())
                         return internals::ERROR_OVERFLOW.c_str();
                 }
-                else if (internals::type_num<T>() < this->_type) {
+                else if (internals::type_num<T>() < this->type_) {
                     return internals::ERROR_OVERFLOW.c_str();
                 }
             }
 
-            out = static_cast<T>(this->value);
+            out = static_cast<T>(this->value_);
             return nullptr;
         }
 
@@ -254,8 +254,8 @@ namespace csv {
             /* Check to see if value has been cached previously, if not
              * evaluate it
              */
-            if ((int)_type < 0) {
-                this->_type = internals::data_type(this->sv, &this->value);
+            if ((int)type_ < 0) {
+                this->type_ = internals::data_type(this->sv, &this->value_);
             }
         }
     };
@@ -472,7 +472,7 @@ namespace csv {
         if (!is_num())
             throw std::runtime_error(internals::ERROR_NAN);
 
-        return this->value;
+        return this->value_;
     }
 
     /** Non-throwing retrieval of field as std::string */
@@ -495,7 +495,7 @@ namespace csv {
         if (!is_num())
             return false;
 
-        out = this->value;
+        out = this->value_;
         return true;
     }
 #ifdef _MSC_VER

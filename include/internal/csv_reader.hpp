@@ -397,4 +397,11 @@ namespace csv {
 
         void trim_header();
     };
+
+    #ifdef CSV_HAS_CXX20
+    static_assert(
+        internals::csv_write_rows_input_range<CSVReader>,
+        "CSVReader must remain compatible with csv::DelimWriter::write_rows()."
+    );
+    #endif
 }

@@ -46,6 +46,9 @@ endif()
 add_executable(csv_parser_read_bench csv_parser_read_bench.cpp)
 target_link_libraries(csv_parser_read_bench PRIVATE csv benchmark::benchmark)
 
+add_executable(csv_parser_multi_pass_bench csv_parser_multi_pass_bench.cpp)
+target_link_libraries(csv_parser_multi_pass_bench PRIVATE csv benchmark::benchmark)
+
 
 if(NOT FAST_CPP_CSV_PARSER_INCLUDE_DIR)
     set(_FAST_CPP_CSV_PARSER_FETCHED_DIR "${CMAKE_BINARY_DIR}/_deps/fast_cpp_csv_parser-src")
@@ -68,6 +71,10 @@ if(FAST_CPP_CSV_PARSER_INCLUDE_DIR)
     add_executable(fast_cpp_csv_parser_read_bench fast_cpp_csv_parser_read_bench.cpp)
     target_include_directories(fast_cpp_csv_parser_read_bench PRIVATE "${FAST_CPP_CSV_PARSER_INCLUDE_DIR}")
     target_link_libraries(fast_cpp_csv_parser_read_bench PRIVATE benchmark::benchmark)
+
+    add_executable(fast_cpp_csv_parser_multi_pass_bench fast_cpp_csv_parser_multi_pass_bench.cpp)
+    target_include_directories(fast_cpp_csv_parser_multi_pass_bench PRIVATE "${FAST_CPP_CSV_PARSER_INCLUDE_DIR}")
+    target_link_libraries(fast_cpp_csv_parser_multi_pass_bench PRIVATE benchmark::benchmark)
 else()
     message(STATUS "Skipping fast-cpp-csv-parser benchmarks; set FAST_CPP_CSV_PARSER_INCLUDE_DIR or enable fetching.")
 endif()

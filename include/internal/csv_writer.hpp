@@ -204,6 +204,7 @@ namespace csv {
         public:
             static constexpr bool value = decltype(test<T>(0))::value;
         };
+
     }
 
     /** @name CSV Writing */
@@ -258,7 +259,8 @@ namespace csv {
         DelimWriter(DelimWriter&& other) noexcept
             : owned_out(std::move(other.owned_out)),
             out(other.out),
-            quote_minimal(other.quote_minimal) {
+            quote_minimal(other.quote_minimal),
+            batch_buffer_(std::move(other.batch_buffer_)) {
             if (owned_out) {
                 out = owned_out.get();
             }
@@ -272,6 +274,7 @@ namespace csv {
             owned_out = std::move(other.owned_out);
             out = other.out;
             quote_minimal = other.quote_minimal;
+            batch_buffer_ = std::move(other.batch_buffer_);
 
             if (owned_out) {
                 out = owned_out.get();
@@ -284,7 +287,10 @@ namespace csv {
 
         /** Destructor will flush remaining data. */
         ~DelimWriter() {
-            if (out) out->flush();
+            if (out) {
+                flush_batch();
+                out->flush();
+            }
         }
 
         /** Write a C-style array of strings as one delimited row. */
@@ -334,6 +340,28 @@ namespace csv {
         }
 
         #ifdef CSV_HAS_CXX20
+        /** Write many rows using a shared batch buffer.
+         *
+         *  Accepts any input_range whose elements are either:
+         *   - ranges of string-like fields, or
+         *   - row-like objects exposing to_sv_range().
+         *
+         *  Buffered writers flush the batch when it grows large or when this call ends.
+         *  Auto-flushing writers additionally flush the underlying stream once at the
+         *  end of the bulk call.
+         */
+        template<std::ranges::input_range Rows>
+            requires internals::csv_write_rows_input_range<Rows>
+        DelimWriter& write_rows(Rows&& rows) {
+            for (auto&& row : rows) {
+                append_row_like(row);
+                flush_batch_if_needed();
+            }
+
+            finish_write_call();
+            return *this;
+        }
+
         /** Write a range of string-like fields as one delimited row.
          *
          *  Accepts any input_range whose elements are convertible to csv::string_view.
@@ -387,17 +415,19 @@ namespace csv {
                 write_field(get_field(0));
 
                 for (size_t i = 1; i < field_count; ++i) {
-                    (*out) << Delim;
+                    batch_buffer_.push_back(Delim);
                     write_field(get_field(i));
                 }
             }
 
-            end_out();
+            end_record();
+            finish_write_call();
             return *this;
         }
 
         /** Flushes the written data. */
         void flush() {
+            flush_batch();
             out->flush();
         }
 
@@ -417,12 +447,44 @@ namespace csv {
             }
 
             for (; it != end; ++it) {
-                (*out) << Delim;
+                batch_buffer_.push_back(Delim);
                 write_field(*it);
             }
 
-            end_out();
+            end_record();
+            finish_write_call();
         }
+
+        #ifdef CSV_HAS_CXX20
+        template<typename Row>
+        void append_row_like(Row&& row) {
+            IF_CONSTEXPR(internals::csv_string_field_range<Row>) {
+                append_range_fields(std::forward<Row>(row));
+            }
+            else {
+                append_range_fields(row.to_sv_range());
+            }
+
+            end_record();
+        }
+
+        template<std::ranges::input_range Range>
+            requires std::convertible_to<std::ranges::range_reference_t<Range>, csv::string_view>
+        void append_range_fields(Range&& record) {
+            auto it = std::begin(record);
+            auto end = std::end(record);
+
+            if (it != end) {
+                write_field(*it);
+                ++it;
+            }
+
+            for (; it != end; ++it) {
+                batch_buffer_.push_back(Delim);
+                write_field(*it);
+            }
+        }
+        #endif
 
         template<
             typename T,
@@ -455,7 +517,7 @@ namespace csv {
 
         void write_raw(csv::string_view in) {
             if (!in.empty()) {
-                out->write(in.data(), static_cast<std::streamsize>(in.size()));
+                batch_buffer_.append(in.data(), in.size());
             }
         }
 
@@ -473,14 +535,15 @@ namespace csv {
         }
 
         void write_quoted_field(csv::string_view in, size_t first_special) {
-            (*out) << Quote;
+            batch_buffer_.push_back(Quote);
 
             size_t chunk_start = 0;
             size_t pos = first_special;
             while (pos < in.size()) {
                 if (in[pos] == Quote) {
                     write_raw(in.substr(chunk_start, pos - chunk_start));
-                    (*out) << Quote << Quote;
+                    batch_buffer_.push_back(Quote);
+                    batch_buffer_.push_back(Quote);
                     chunk_start = pos + 1;
                 }
 
@@ -488,7 +551,7 @@ namespace csv {
             }
 
             write_raw(in.substr(chunk_start));
-            (*out) << Quote;
+            batch_buffer_.push_back(Quote);
         }
 
         void write_escaped_field(csv::string_view in) {
@@ -496,9 +559,9 @@ namespace csv {
 
             if (first_special == in.size()) {
                 if (!quote_minimal) {
-                    (*out) << Quote;
+                    batch_buffer_.push_back(Quote);
                     write_raw(in);
-                    (*out) << Quote;
+                    batch_buffer_.push_back(Quote);
                 } else {
                     write_raw(in);
                 }
@@ -514,7 +577,7 @@ namespace csv {
             write_field(std::get<Index>(record));
 
             CSV_MSVC_PUSH_DISABLE(4127)
-            IF_CONSTEXPR (Index + 1 < sizeof...(T)) (*out) << Delim;
+            IF_CONSTEXPR (Index + 1 < sizeof...(T)) batch_buffer_.push_back(Delim);
             CSV_MSVC_POP
 
             this->write_tuple<Index + 1>(record);
@@ -524,13 +587,38 @@ namespace csv {
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index == sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
             (void)record;
-            end_out();
+            end_record();
+            finish_write_call();
         }
 
-        /** Ends a line in 'out' and flushes, if Flush is true.*/
-        void end_out() {
-            (*out) << '\n';
-            IF_CONSTEXPR(Flush) out->flush();
+        /** Finalize a single CSV row inside the shared batch buffer. */
+        void end_record() {
+            batch_buffer_.push_back('\n');
+        }
+
+        void finish_write_call() {
+            IF_CONSTEXPR(Flush) {
+                flush_batch();
+                out->flush();
+                return;
+            }
+
+            flush_batch_if_needed();
+        }
+
+        void flush_batch_if_needed() {
+            if (batch_buffer_.size() >= batch_flush_threshold_) {
+                flush_batch();
+            }
+        }
+
+        void flush_batch() {
+            if (batch_buffer_.empty()) {
+                return;
+            }
+
+            out->write(batch_buffer_.data(), static_cast<std::streamsize>(batch_buffer_.size()));
+            batch_buffer_.clear();
         }
 
         /**
@@ -544,6 +632,8 @@ namespace csv {
         OutputStream* out;
 
         bool quote_minimal;
+        static constexpr size_t batch_flush_threshold_ = 64 * 1024;
+        std::string batch_buffer_;
         internals::SentinelVecs simd_sentinels_{Delim, Quote};
     };
 

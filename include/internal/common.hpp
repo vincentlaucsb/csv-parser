@@ -106,6 +106,10 @@
 #include "../external/string_view.hpp"
 #endif
 
+#ifdef CSV_HAS_CXX20
+#include <ranges>
+#endif
+
 namespace csv {
 #ifdef _MSC_VER
 #pragma region Compatibility Macros
@@ -195,6 +199,43 @@ namespace csv {
 #endif
 
     namespace internals {
+        #ifdef CSV_HAS_CXX20
+        #ifdef _MSC_VER
+        #pragma region CXX20 Concepts
+        #endif
+
+        template<typename T>
+        concept csv_string_field_range =
+            std::ranges::input_range<std::remove_reference_t<T>>
+            && std::convertible_to<
+                std::ranges::range_reference_t<std::remove_reference_t<T>>,
+                csv::string_view
+            >;
+
+        template<typename T>
+        concept has_to_sv_range = requires(const std::remove_reference_t<T>& value) {
+            { value.to_sv_range() } -> std::ranges::input_range;
+            requires std::convertible_to<
+                std::ranges::range_reference_t<decltype(value.to_sv_range())>,
+                csv::string_view
+            >;
+        };
+
+        template<typename T>
+        concept csv_row_like = csv_string_field_range<T> || has_to_sv_range<T>;
+
+        template<typename T>
+        concept csv_write_rows_input_range =
+            std::ranges::input_range<std::remove_reference_t<T>>
+            && csv_row_like<
+                std::ranges::range_reference_t<std::remove_reference_t<T>>
+            >;
+
+        #ifdef _MSC_VER
+        #pragma endregion
+        #endif
+        #endif
+
         // PAGE_SIZE macro could be already defined by the host system.
 #if defined(PAGE_SIZE)
 #undef PAGE_SIZE

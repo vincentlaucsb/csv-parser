@@ -316,6 +316,43 @@ TEST_CASE("CSV Writer - Reorder with Ranges", "[test_csv_reorder_ranges]") {
 
     REQUIRE(output.str() == correct.str());
 }
+
+TEST_CASE("CSV Writer - write_rows()", "[test_csv_write_rows]") {
+    SECTION("Nested string-like ranges") {
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+
+        std::vector<std::vector<std::string>> rows = {
+            { "A", "B", "C" },
+            { "1,1", "2", "3" },
+            { "\"quoted\"", "line 1\nline 2", "tail" }
+        };
+
+        writer.write_rows(rows);
+
+        correct << "A,B,C" << std::endl
+            << "\"1,1\",2,3" << std::endl
+            << "\"\"\"quoted\"\"\",\"line 1\nline 2\",tail" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+
+    SECTION("Row-like records exposing to_sv_range()") {
+        auto rows =
+            "id,name,quote\n"
+            "1,Alice,\"Hello, world\"\n"
+            "2,Bob,\"Line 1\nLine 2\""_csv;
+
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+        writer.write_rows(rows);
+
+        correct << "1,Alice,\"Hello, world\"" << std::endl
+            << "2,Bob,\"Line 1\nLine 2\"" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+}
 #endif
 //! [CSV Ranges Reordering Example]
 
@@ -334,9 +371,9 @@ TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overl
     csv::DataFrame<std::string> df(reader, options);
     
     // Make sparse edits to specific cells using the overlay
-    df.set("1", "age", "29");  // Chad Hooks has a birthday
-    df.set("3", "react_experience_years", "8");  // Dan got one more year
-    df.set("6", "quote", "Everything is fine in production");  // Updated quote
+    df["1"]["age"] = "29";  // Chad Hooks has a birthday
+    df["3"]["react_experience_years"] = "8";  // Dan got one more year
+    df["6"]["quote"] = "Everything is fine in production";  // Updated quote
     
     // Write the modified DataFrame back
     std::stringstream output;
