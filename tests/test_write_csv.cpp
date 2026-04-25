@@ -221,6 +221,15 @@ TEST_CASE("CSV Writer - write_row() with variadic fields", "[test_csv_write_row_
 }
 //! [CSV write_row Variadic Example]
 
+TEST_CASE("CSV Writer - auto flush control", "[test_csv_writer_auto_flush]") {
+    std::stringstream output;
+    auto writer = make_csv_writer(output);
+
+    REQUIRE(writer.get_auto_flush());
+    REQUIRE(&writer.set_auto_flush(false) == &writer);
+    REQUIRE_FALSE(writer.get_auto_flush());
+}
+
 //! [CSV Writer Tuple Example]
 struct Time {
     std::string hour;

@@ -660,6 +660,7 @@ auto writer = make_csv_writer(ss);
 // auto writer = make_tsv_writer(ss);               // For tab-separated files
 // DelimWriter<stringstream, '|', '"'> writer(ss);  // Your own custom format
 // set_decimal_places(2);                           // How many places after the decimal will be written for floats
+// writer.set_auto_flush(false);                    // Buffer writes until flush()/destructor
 
 writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })

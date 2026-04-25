@@ -8,7 +8,7 @@
 #include <iostream>
 #include <memory>
 #ifdef CSV_HAS_CXX20
-    #include <ranges>
+#include <ranges>
 #endif
 #include <stdexcept>
 #include <string>
@@ -21,8 +21,8 @@
 #include "data_type.hpp"
 
 namespace csv {
-    namespace internals {
-        static int DECIMAL_PLACES = 5;
+namespace internals {
+    static int DECIMAL_PLACES = 5;
 
         /**
          * Calculate the absolute value of a number
@@ -84,13 +84,10 @@ namespace csv {
             csv::enable_if_t<std::is_unsigned<T>::value, int> = 0>
         inline std::string to_string(T value) {
             std::string digits_reverse = "";
-
             if (value == 0) return "0";
 
-            while (value > 0) {
+            for (; value > 0; value /= 10)
                 digits_reverse += (char)('0' + (value % 10));
-                value /= 10;
-            }
 
             return std::string(digits_reverse.rbegin(), digits_reverse.rend());
         }
@@ -101,19 +98,17 @@ namespace csv {
             csv::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0
         >
         inline std::string to_string(T value) {
-            if (value >= 0)
-                return to_string((size_t)value);
-
-            return "-" + to_string((size_t)(value * -1));
+            return (value >= 0) ? to_string((size_t)value)
+                : "-" + to_string((size_t)(value * -1));
         }
 
-        /** to_string() for floating point numbers */
-        template<
-            typename T,
-            csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
-        >
-            inline std::string to_string(T value) {
-            std::string result = "";
+    /** to_string() for floating point numbers */
+    template<
+        typename T,
+        csv::enable_if_t<std::is_floating_point<T>::value, int> = 0
+    >
+    inline std::string to_string(T value) {
+        std::string result = "";
 
             long double integral_part;
             long double fractional_part = csv_abs(std::modf((long double)value, &integral_part));
@@ -157,19 +152,19 @@ namespace csv {
                 result += "0";
             }
 
-            return result;
-        }
+        return result;
     }
+}
 
-    /** Sets how many places after the decimal will be written for floating point numbers. */
-    inline static void set_decimal_places(int precision) {
-        internals::DECIMAL_PLACES = precision;
-    }
+/** Sets how many places after the decimal will be written for floating point numbers. */
+inline static void set_decimal_places(int precision) {
+    internals::DECIMAL_PLACES = precision;
+}
 
-    namespace internals {
-        /** SFINAE trait: detects if a type is iterable (has std::begin/end). */
-        template<typename T, typename = void>
-        struct is_iterable : std::false_type {};
+namespace internals {
+    /** SFINAE trait: detects if a type is iterable (has std::begin/end). */
+    template<typename T, typename = void>
+    struct is_iterable : std::false_type {};
 
         template<typename T>
         struct is_iterable<T, typename std::enable_if<true>::type> {
@@ -186,9 +181,9 @@ namespace csv {
             static constexpr bool value = decltype(test<T>(0))::value;
         };
 
-        /** SFINAE trait: detects if a type is a std::tuple. */
-        template<typename T, typename = void>
-        struct is_tuple : std::false_type {};
+    /** SFINAE trait: detects if a type is a std::tuple. */
+    template<typename T, typename = void>
+    struct is_tuple : std::false_type {};
 
         template<typename T>
         struct is_tuple<T, typename std::enable_if<true>::type> {
@@ -201,10 +196,10 @@ namespace csv {
             static constexpr bool value = decltype(test<T>(0))::value;
         };
 
-    }
+}
 
-    /** @name CSV Writing */
-    ///@{
+/** @name CSV Writing */
+///@{
     /** 
      *  Class for writing delimiter separated values files
      *
@@ -215,10 +210,6 @@ namespace csv {
      *  @tparam OutputStream The output stream, e.g. `std::ofstream`, `std::stringstream`
      *  @tparam Delim        The delimiter character
      *  @tparam Quote        The quote character
-     *  @tparam Flush        True: flush after every writing function,
-     *                       false: you need to flush explicitly if needed.
-     *                       In both cases the destructor will flush.
-     *
      *  @par Hint
      *  Use the aliases csv::CSVWriter<OutputStream> to write CSV
      *  formatted strings and csv::TSVWriter<OutputStream>
@@ -230,7 +221,7 @@ namespace csv {
      *  @par Example w/ std::tuple
      *  @snippet test_write_csv.cpp CSV Writer Tuple Example
      */
-    template<class OutputStream, char Delim, char Quote, bool Flush>
+    template<class OutputStream, char Delim, char Quote>
     class DelimWriter {
     public:
         /** Construct a DelimWriter over the specified output stream. */
@@ -256,6 +247,7 @@ namespace csv {
             : owned_out(std::move(other.owned_out)),
             out(other.out),
             quote_minimal(other.quote_minimal),
+            auto_flush_(other.auto_flush_),
             batch_buffer_(std::move(other.batch_buffer_)) {
             if (owned_out) {
                 out = owned_out.get();
@@ -270,6 +262,7 @@ namespace csv {
             owned_out = std::move(other.owned_out);
             out = other.out;
             quote_minimal = other.quote_minimal;
+            auto_flush_ = other.auto_flush_;
             batch_buffer_ = std::move(other.batch_buffer_);
 
             if (owned_out) {
@@ -279,6 +272,17 @@ namespace csv {
             other.out = nullptr;
             other.quote_minimal = true;
             return *this;
+        }
+
+        /** Configure whether each write operation flushes the underlying stream. */
+        DelimWriter& set_auto_flush(bool value) noexcept {
+            this->auto_flush_ = value;
+            return *this;
+        }
+
+        /** Return whether each write operation flushes the underlying stream. */
+        bool get_auto_flush() const noexcept {
+            return this->auto_flush_;
         }
 
         /** Destructor will flush remaining data. */
@@ -335,7 +339,7 @@ namespace csv {
             return *this;
         }
 
-        #ifdef CSV_HAS_CXX20
+#ifdef CSV_HAS_CXX20
         /** Write many rows using a shared batch buffer.
          *
          *  Accepts any input_range whose elements are either:
@@ -376,12 +380,12 @@ namespace csv {
         template<typename RowLike>
         DelimWriter& operator<<(const RowLike& row)
             requires internals::has_to_sv_range<RowLike>
-                && !internals::csv_string_field_range<RowLike> {
+                && (!internals::csv_string_field_range<RowLike>) {
             append_row_like(row);
             finish_write_call();
             return *this;
         }
-        #else
+#else
         /** Write a range of string-like fields as one delimited row.
          *
          *  Accepts any input_range whose elements are convertible to csv::string_view.
@@ -407,27 +411,6 @@ namespace csv {
         template<typename... T>
         DelimWriter& operator<<(const std::tuple<T...>& record) {
             this->write_tuple<0, T...>(record);
-            return *this;
-        }
-
-        /** Write a row by index using a field getter callback.
-         *
-         *  This keeps bulk writer integrations on the same escaping path without
-         *  materializing an intermediate container of strings.
-         */
-        template<typename FieldGetter>
-        DelimWriter& write_indexed_row(size_t field_count, FieldGetter&& get_field) {
-            if (field_count != 0) {
-                write_field(get_field(0));
-
-                for (size_t i = 1; i < field_count; ++i) {
-                    batch_buffer_.push_back(Delim);
-                    write_field(get_field(i));
-                }
-            }
-
-            end_record();
-            finish_write_call();
             return *this;
         }
 
@@ -459,6 +442,19 @@ namespace csv {
             }
         }
 
+        /** SIMD fast-forward for quote escape logic */
+        size_t find_first_special_for_writer(csv::string_view in) const {
+            size_t pos = internals::find_next_non_special(in, 0, simd_sentinels_);
+
+            for (; pos < in.size(); ++pos) {
+                char ch = in[pos];
+                if (ch == Quote || ch == Delim || ch == '\r' || ch == '\n')
+                    return pos;
+            }
+
+            return in.size();
+        }
+
         /** Helper to write a complete range-backed row and apply the normal
          *  end-of-record and flush policy for operator<< entry points.
          */
@@ -470,7 +466,7 @@ namespace csv {
             finish_write_call();
         }
 
-        #ifdef CSV_HAS_CXX20
+#ifdef CSV_HAS_CXX20
         template<typename Row>
         void append_row_like(Row&& row) {
             IF_CONSTEXPR(internals::csv_string_field_range<Row>) {
@@ -482,7 +478,7 @@ namespace csv {
 
             end_record();
         }
-        #endif
+#endif
 
         template<
             typename T,
@@ -514,22 +510,25 @@ namespace csv {
         }
 
         void write_raw(csv::string_view in) {
-            if (!in.empty()) {
+            if (!in.empty())
                 batch_buffer_.append(in.data(), in.size());
-            }
         }
 
-        size_t find_first_special_for_writer(csv::string_view in) const {
-            size_t pos = internals::find_next_non_special(in, 0, simd_sentinels_);
+        void write_escaped_field(csv::string_view in) {
+            const size_t first_special = find_first_special_for_writer(in);
 
-            for (; pos < in.size(); ++pos) {
-                char ch = in[pos];
-                if (ch == Quote || ch == Delim || ch == '\r' || ch == '\n') {
-                    return pos;
+            if (first_special == in.size()) {
+                if (!quote_minimal) {
+                    batch_buffer_.push_back(Quote);
+                    write_raw(in);
+                    batch_buffer_.push_back(Quote);
+                } else {
+                    write_raw(in);
                 }
+                return;
             }
 
-            return in.size();
+            write_quoted_field(in, first_special);
         }
 
         void write_quoted_field(csv::string_view in, size_t first_special) {
@@ -550,23 +549,6 @@ namespace csv {
 
             write_raw(in.substr(chunk_start));
             batch_buffer_.push_back(Quote);
-        }
-
-        void write_escaped_field(csv::string_view in) {
-            const size_t first_special = find_first_special_for_writer(in);
-
-            if (first_special == in.size()) {
-                if (!quote_minimal) {
-                    batch_buffer_.push_back(Quote);
-                    write_raw(in);
-                    batch_buffer_.push_back(Quote);
-                } else {
-                    write_raw(in);
-                }
-                return;
-            }
-
-            write_quoted_field(in, first_special);
         }
 
         /** Recursive template for writing std::tuples */
@@ -595,25 +577,18 @@ namespace csv {
         }
 
         void finish_write_call() {
-            IF_CONSTEXPR(Flush) {
+            if (this->auto_flush_) {
                 flush_batch();
                 out->flush();
                 return;
             }
 
-            flush_batch_if_needed();
-        }
-
-        void flush_batch_if_needed() {
-            if (batch_buffer_.size() >= batch_flush_threshold_) {
+            if (batch_buffer_.size() >= batch_flush_threshold_)
                 flush_batch();
-            }
         }
 
         void flush_batch() {
-            if (batch_buffer_.empty()) {
-                return;
-            }
+            if (batch_buffer_.empty()) return;
 
             out->write(batch_buffer_.data(), static_cast<std::streamsize>(batch_buffer_.size()));
             batch_buffer_.clear();
@@ -630,6 +605,7 @@ namespace csv {
         OutputStream* out;
 
         bool quote_minimal;
+        bool auto_flush_ = true;
         static constexpr size_t batch_flush_threshold_ = 64 * 1024;
         std::string batch_buffer_;
         internals::SentinelVecs simd_sentinels_{Delim, Quote};
@@ -642,8 +618,8 @@ namespace csv {
      *  @note Use `csv::make_csv_writer()` to in instatiate this class over
      *        an actual output stream.
      */
-    template<class OutputStream, bool Flush = true>
-    using CSVWriter = DelimWriter<OutputStream, ',', '"', Flush>;
+    template<class OutputStream>
+    using CSVWriter = DelimWriter<OutputStream, ',', '"'>;
 
     /** Class for writing tab-separated values files
     *
@@ -653,8 +629,8 @@ namespace csv {
      *  @note Use `csv::make_tsv_writer()` to in instatiate this class over
      *        an actual output stream.
      */
-    template<class OutputStream, bool Flush = true>
-    using TSVWriter = DelimWriter<OutputStream, '\t', '"', Flush>;
+    template<class OutputStream>
+    using TSVWriter = DelimWriter<OutputStream, '\t', '"'>;
 
     /** Return a csv::CSVWriter over the output stream */
     template<class OutputStream>
@@ -662,22 +638,10 @@ namespace csv {
         return CSVWriter<OutputStream>(out, quote_minimal);
     }
 
-    /** Return a buffered csv::CSVWriter over the output stream (does not auto flush) */
-    template<class OutputStream>
-    inline CSVWriter<OutputStream, false> make_csv_writer_buffered(OutputStream& out, bool quote_minimal=true) {
-        return CSVWriter<OutputStream, false>(out, quote_minimal);
-    }
-
     /** Return a csv::TSVWriter over the output stream */
     template<class OutputStream>
     inline TSVWriter<OutputStream> make_tsv_writer(OutputStream& out, bool quote_minimal=true) {
         return TSVWriter<OutputStream>(out, quote_minimal);
-    }
-
-    /** Return a buffered csv::TSVWriter over the output stream (does not auto flush) */
-    template<class OutputStream>
-    inline TSVWriter<OutputStream, false> make_tsv_writer_buffered(OutputStream& out, bool quote_minimal=true) {
-        return TSVWriter<OutputStream, false>(out, quote_minimal);
     }
     ///@}
 }

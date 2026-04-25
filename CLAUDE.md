@@ -39,6 +39,7 @@
 - **`CSVReader` is non-copyable and move-enabled** — prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when handing off parser ownership
 - **Prefer trailing underscore for private members** — when touching mixed-style code, normalize the edited region toward names like `source_` and `leftover_`
 - **Prefer LF (`\n`) line endings** for tracked source, test, CMake, and Markdown files — when touching a file with mixed endings, normalize it to LF unless a file-specific reason says otherwise
+- **Keep preprocessor directives flush left** — `#define`, `#if`, `#ifdef`, `#else`, and `#endif` start at column 0; indent code inside multi-line macros exactly as equivalent non-macro code would be
 - **Prefer user-friendly API constraints** — do not narrow template constraints unless required for correctness, safety, or a measured performance win; if common containers/ranges already work, keep them accepted
 - **Respect compile-time compatibility macros** — keep constructs like `IF_CONSTEXPR` and `CONSTEXPR_VALUE` unless there is a correctness bug
 - **Do not rewrite compile-time logic to silence warnings** — prefer tightly scoped suppression at the exact site when needed

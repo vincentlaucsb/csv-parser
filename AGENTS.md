@@ -70,6 +70,7 @@ See `tests/AGENTS.md` for test strategy, checklist, and conventions.
    - **Trivial one-liner accessors** may be unconditionally `inline` in the header when the call overhead is measurable and the body will never change.
    - **Consolidation:** If a `.cpp` would be under ~100 lines *and* the split causes excessive comment duplication between the two files, prefer a single `.hpp` with definitions marked `inline` (free functions and methods alike). Do not use `CSV_INLINE` for consolidated definitions — `CSV_INLINE` expands to empty in multi-header mode, which would produce ODR violations across TUs. Do not consolidate just for brevity — only when duplication is the dominant cost.
 7. **Prefer LF (`\n`) line endings for tracked source, test, CMake, and Markdown files.** When you touch a file with mixed line endings, normalize the edited file to LF unless there is a file-specific reason not to. Avoid introducing mixed CRLF/LF endings in the same file.
+8. **Keep preprocessor directives flush left.** `#define`, `#if`, `#ifdef`, `#else`, and `#endif` should start at column 0. Code inside multi-line macros should be indented exactly as the equivalent non-macro code would be; do not add extra indentation just because it lives inside a macro body.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**

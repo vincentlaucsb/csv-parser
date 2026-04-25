@@ -22,6 +22,7 @@ Notes:
 - When editing a function, remove `@param` and `@return` descriptions that merely restate the function name or signature.
 - Private member naming should prefer trailing underscores; when editing mixed-style code, normalize the touched region toward that convention.
 - Prefer LF (`\n`) line endings for tracked source, test, CMake, and Markdown files; when touching a file with mixed endings, normalize it to LF unless there is a file-specific reason not to.
+- Keep preprocessor directives flush left; `#define`, `#if`, `#ifdef`, `#else`, and `#endif` should start at column 0, and code inside multi-line macros should be indented as if the macro wrapper were not present.
 - Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md and CLAUDE.md for details.
 - API constraints should be user-friendly: do not over-constrain templates unless needed for correctness, safety, or a measured performance win.
 - `CSVReader` is intentionally non-copyable and move-enabled; use explicit ownership transfer patterns (`std::move`, `std::unique_ptr`) at API boundaries.
