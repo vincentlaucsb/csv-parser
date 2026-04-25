@@ -375,6 +375,16 @@ namespace csv {
             write_range_impl(container);
             return *this;
         }
+
+        /** Write a row-like object that exposes to_sv_range(). */
+        template<typename RowLike>
+        DelimWriter& operator<<(const RowLike& row)
+            requires internals::has_to_sv_range<RowLike>
+                && !internals::csv_string_field_range<RowLike> {
+            append_row_like(row);
+            finish_write_call();
+            return *this;
+        }
         #else
         /** Write a range of string-like fields as one delimited row.
          *
@@ -432,12 +442,13 @@ namespace csv {
         }
 
     private:
-        /** Helper to write a range of values, handling first element undelimited,
-         *  rest prefixed with delimiter. Inlines aggressively across both C++20 and
-         *  C++11 operator<< entry points.
+        /** Append delimited fields from a range without terminating the record.
+         *
+         *  Shared by single-row writes and bulk row appends so escaping and
+         *  delimiter handling stay on one code path.
          */
         template<typename Range>
-        inline void write_range_impl(const Range& record) {
+        inline void append_range_fields(Range&& record) {
             auto it = std::begin(record);
             auto end = std::end(record);
 
@@ -450,6 +461,14 @@ namespace csv {
                 batch_buffer_.push_back(Delim);
                 write_field(*it);
             }
+        }
+
+        /** Helper to write a complete range-backed row and apply the normal
+         *  end-of-record and flush policy for operator<< entry points.
+         */
+        template<typename Range>
+        inline void write_range_impl(const Range& record) {
+            append_range_fields(record);
 
             end_record();
             finish_write_call();
@@ -466,23 +485,6 @@ namespace csv {
             }
 
             end_record();
-        }
-
-        template<std::ranges::input_range Range>
-            requires std::convertible_to<std::ranges::range_reference_t<Range>, csv::string_view>
-        void append_range_fields(Range&& record) {
-            auto it = std::begin(record);
-            auto end = std::end(record);
-
-            if (it != end) {
-                write_field(*it);
-                ++it;
-            }
-
-            for (; it != end; ++it) {
-                batch_buffer_.push_back(Delim);
-                write_field(*it);
-            }
         }
         #endif
 

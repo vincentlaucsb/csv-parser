@@ -87,7 +87,7 @@ column extraction, editing, and grouping.
    * `set_throw_on_missing_key()`: Control exception behavior for missing keys
 
 ### ETL Utilities
- * csv::csv_data_types(): Infer SQL-friendly column data types
+ * csv::csv_data_types(): Infer SQL-friendly column data types from a CSVReader or any supported CSVReader constructor input
 
 ### CSV Writing
 The [CSV Writing Guide](@ref csv_writing_guide) contains a 

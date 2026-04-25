@@ -11,6 +11,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 
 namespace csv {
     /** Returned by get_file_info() */
@@ -87,7 +88,37 @@ namespace csv {
 
     /** @name Utility Functions */
     ///@{
-    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
+    /** Infer SQL-friendly column data types from an existing CSVReader.
+     *
+     *  This consumes rows from `reader` using the chunked ETL path and returns
+     *  one inferred `DataType` per column name.
+     */
+    std::unordered_map<std::string, DataType> csv_data_types(CSVReader& reader);
+
+    /** Infer SQL-friendly column data types from any CSVReader constructor input.
+     *
+     *  This convenience overload forwards its arguments directly to
+     *  `CSVReader`, so it supports filenames, `std::istream` sources, owned
+     *  streams, and custom `CSVFormat` combinations without additional wrapper
+     *  code.
+     *
+     *  @par Example
+     *  @code
+     *  std::istringstream input("name,age\nAlice,30\nBob,41\n");
+     *  CSVFormat format;
+     *  format.delimiter(',').header_row(0);
+     *
+     *  auto dtypes = csv::csv_data_types(input, format);
+     *  @endcode
+     */
+    template<
+        typename... ReaderArgs,
+        csv::enable_if_t<std::is_constructible<CSVReader, ReaderArgs...>::value, int> = 0
+    >
+    inline std::unordered_map<std::string, DataType> csv_data_types(ReaderArgs&&... reader_args) {
+        CSVReader reader(std::forward<ReaderArgs>(reader_args)...);
+        return csv_data_types(reader);
+    }
 
     /** Apply a per-column batch function over a CSVReader using a reusable executor.
      *

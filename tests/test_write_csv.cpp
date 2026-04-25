@@ -356,6 +356,49 @@ TEST_CASE("CSV Writer - write_rows()", "[test_csv_write_rows]") {
 #endif
 //! [CSV Ranges Reordering Example]
 
+#ifdef CSV_HAS_CXX20
+TEST_CASE("CSV Writer - row-like operator<< and write_row()", "[test_csv_row_like_writer]") {
+    SECTION("CSVRow uses the same row-like path as write_rows()") {
+        auto rows =
+            "id,name,quote\n"
+            "1,Alice,\"Hello, world\"\n"
+            "2,Bob,\"Line 1\nLine 2\""_csv;
+
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+
+        for (const auto& row : rows) {
+            writer << row;
+        }
+
+        correct << "1,Alice,\"Hello, world\"" << std::endl
+            << "2,Bob,\"Line 1\nLine 2\"" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+
+    SECTION("DataFrameRow write_row() uses to_sv_range() without adapter overloads") {
+        auto reader =
+            "id,name,age\n"
+            "1,Alice,30\n"
+            "2,Bob,41"_csv;
+
+        csv::DataFrame<std::string> df(reader, "id");
+
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+
+        writer.write_row(df["1"]);
+        writer.write_row(df["2"]);
+
+        correct << "1,Alice,30" << std::endl
+            << "2,Bob,41" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+}
+#endif
+
 //! [DataFrame Sparse Overlay Write Example]
 TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overlay_write]") {
     auto reader = 
@@ -382,8 +425,7 @@ TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overl
     writer << df.columns();
     for (auto& row : df) {
 #ifdef CSV_HAS_CXX20
-        // More efficient version with C++20 ranges
-        writer << row.to_sv_range();
+        writer << row;
 #else
         writer << std::vector<std::string>(row);
 #endif

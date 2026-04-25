@@ -2,9 +2,8 @@
 #include "data_frame.hpp"
 
 namespace csv {
-    CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(const std::string& filename) {
+    CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(CSVReader& reader) {
         std::unordered_map<std::string, DataType> csv_dtypes;
-        CSVReader reader(filename);
         const auto col_names = reader.get_col_names();
         std::vector<std::unordered_map<DataType, size_t>> type_counts(col_names.size());
         constexpr size_t TYPE_CHUNK_SIZE = 5000;

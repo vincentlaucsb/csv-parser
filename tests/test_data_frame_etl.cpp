@@ -240,6 +240,23 @@ TEST_CASE("DataFrame ETL: csv_data_types uses chunked executor path", "[data_fra
 }
 #endif
 
+TEST_CASE("DataFrame ETL: csv_data_types forwards CSVReader constructor arguments", "[data_frame][etl][csv_data_types]") {
+    std::istringstream input(
+        "name,age,score\n"
+        "Alice,30,1.5\n"
+        "Bob,41,2.0\n"
+    );
+
+    CSVFormat format;
+    format.delimiter(',').header_row(0);
+
+    auto dtypes = csv_data_types(input, format);
+
+    REQUIRE(dtypes["name"] == DataType::CSV_STRING);
+    REQUIRE(dtypes["age"] == DataType::CSV_INT8);
+    REQUIRE(dtypes["score"] == DataType::CSV_DOUBLE);
+}
+
 #ifndef __EMSCRIPTEN__
 TEST_CASE("ETL stats helper: missing file surfaces reader error", "[data_frame][etl][stats]") {
     bool error_caught = false;

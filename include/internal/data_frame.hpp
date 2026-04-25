@@ -218,9 +218,8 @@ namespace csv {
 
             task_ready_.notify_all();
             for (auto& worker : workers_) {
-                if (worker.joinable()) {
+                if (worker.joinable())
                     worker.join();
-                }
             }
         }
 
@@ -233,9 +232,7 @@ namespace csv {
                     return stop_ || generation_ != seen_generation;
                 });
 
-                if (stop_) {
-                    return;
-                }
+                if (stop_) return;
 
                 const size_t local_generation = generation_;
                 seen_generation = local_generation;
@@ -243,9 +240,8 @@ namespace csv {
 
                 while (true) {
                     const size_t task_index = next_task_.fetch_add(1);
-                    if (task_index >= task_count_) {
+                    if (task_index >= task_count_)
                         break;
-                    }
 
                     current_task_(task_index);
                 }
@@ -354,9 +350,8 @@ namespace csv {
         ) {
             if (row_edits) {
                 auto it = row_edits->find(col_index);
-                if (it != row_edits->end()) {
+                if (it != row_edits->end())
                     return csv::string_view(it->second);
-                }
             }
 
             return (*row)[col_index].template get<csv::string_view>();
@@ -1002,9 +997,9 @@ namespace csv {
 
         /** Initialize an unkeyed DataFrame from a CSV reader. */
         void init_unkeyed_from_reader(CSVReader& reader) {
-            this->reset_unkeyed_state();
+            this->assert_fresh_storage(false);
+            this->is_keyed = false;
             this->col_names_ = reader.get_col_names();
-            this->rows.clear();
             for (auto& row : reader) {
                 rows.push_back(row);
             }
@@ -1012,29 +1007,24 @@ namespace csv {
 
         /** Initialize an unkeyed DataFrame from an existing row batch. */
         void init_unkeyed_from_rows(std::vector<CSVRow>& source_rows) {
-            this->reset_unkeyed_state();
+            this->assert_fresh_storage(false);
+            this->is_keyed = false;
             this->col_names_ = source_rows.empty() ? std::vector<std::string>() : source_rows.front().get_col_names();
             this->rows = std::move(source_rows);
         }
 
         /** Initialize a keyed DataFrame from a CSV reader using column-based key extraction. */
         void init_from_reader(CSVReader& reader, const DataFrameOptions& options) {
-            this->rows.clear();
-            this->keys_.clear();
-            this->edits.clear();
-            this->invalidate_key_index();
-            this->json_converter_ = internals::lazy_shared_ptr<internals::JsonConverter>();
+            this->assert_fresh_storage(false);
             this->is_keyed = true;
             this->col_names_ = reader.get_col_names();
             const std::string key_column = options.get_key_column();
 
-            if (key_column.empty()) {
+            if (key_column.empty())
                 throw std::runtime_error("Key column cannot be empty.");
-            }
 
-            if (std::find(col_names_.begin(), col_names_.end(), key_column) == col_names_.end()) {
+            if (std::find(col_names_.begin(), col_names_.end(), key_column) == col_names_.end())
                 throw std::runtime_error("Key column not found: " + key_column);
-            }
 
             const bool throw_on_missing_key = options.get_throw_on_missing_key();
 
@@ -1064,21 +1054,18 @@ namespace csv {
             DuplicateKeyPolicy policy
         ) {
             std::unordered_map<KeyType, size_t> key_to_pos;
-            this->rows.clear();
-            this->keys_.clear();
+            this->assert_fresh_storage(true);
 
             for (auto& row : reader) {
                 KeyType key = key_func(row);
 
                 auto existing = key_to_pos.find(key);
                 if (existing != key_to_pos.end()) {
-                    if (policy == DuplicateKeyPolicy::THROW) {
+                    if (policy == DuplicateKeyPolicy::THROW)
                         throw std::runtime_error("Duplicate key encountered.");
-                    }
 
-                    if (policy == DuplicateKeyPolicy::OVERWRITE) {
+                    if (policy == DuplicateKeyPolicy::OVERWRITE)
                         rows[existing->second] = row;
-                    }
 
                     continue;
                 }
@@ -1115,26 +1102,21 @@ namespace csv {
             const auto* row_edits = this->find_row_edits(row_index);
             if (row_edits) {
                 auto edited_value = row_edits->find(col_index);
-                if (edited_value != row_edits->end()) {
+                if (edited_value != row_edits->end())
                     return csv::string_view(edited_value->second);
-                }
             }
 
             return rows[row_index][col_index].template get<csv::string_view>();
         }
 
         void erase_row_edits(size_t row_index) {
-            if (edits.empty()) {
-                return;
-            }
+            if (edits.empty()) return;
 
             std::unordered_map<size_t, std::unordered_map<size_t, std::string>> shifted_edits;
             shifted_edits.reserve(edits.size());
 
             for (auto& entry : edits) {
-                if (entry.first == row_index) {
-                    continue;
-                }
+                if (entry.first == row_index) continue;
 
                 const size_t target_index = entry.first > row_index ? entry.first - 1 : entry.first;
                 shifted_edits.emplace(target_index, std::move(entry.second));
@@ -1159,19 +1141,8 @@ namespace csv {
 
         /** Validate that this DataFrame was created with a key column. */
         void require_keyed_frame() const {
-            if (!is_keyed) {
+            if (!is_keyed)
                 throw std::runtime_error("This DataFrame was created without a key column.");
-            }
-        }
-
-        /** Reset state that should not survive replacing the current batch. */
-        void reset_unkeyed_state() {
-            this->is_keyed = false;
-            this->rows.clear();
-            this->keys_.clear();
-            this->edits.clear();
-            this->invalidate_key_index();
-            this->json_converter_ = internals::lazy_shared_ptr<internals::JsonConverter>();
         }
 
         /** Invalidate the lazy key index after structural changes. */
@@ -1179,11 +1150,19 @@ namespace csv {
             key_index.reset();
         }
 
+        /** Debug-only check that constructor helpers are starting from a pristine batch state. */
+        void assert_fresh_storage(bool expected_is_keyed) const {
+            CSV_DEBUG_ASSERT(this->rows.empty());
+            CSV_DEBUG_ASSERT(this->keys_.empty());
+            CSV_DEBUG_ASSERT(this->edits.empty());
+            CSV_DEBUG_ASSERT(this->key_index.get() == nullptr);
+            CSV_DEBUG_ASSERT(this->json_converter_.get() == nullptr);
+            CSV_DEBUG_ASSERT(this->is_keyed == expected_is_keyed);
+        }
+
         /** Build the key index if it doesn't exist (lazy initialization). */
         void ensure_key_index() const {
-            if (key_index) {
-                return;
-            }
+            if (key_index) return;
 
             key_index = std::unique_ptr<std::unordered_map<KeyType, size_t>>(
                 new std::unordered_map<KeyType, size_t>()
@@ -1198,11 +1177,8 @@ namespace csv {
         size_t position_of(const KeyType& key) const {
             this->ensure_key_index();
             auto it = key_index->find(key);
-            if (it == key_index->end()) {
-                throw std::out_of_range("Key not found.");
-            }
-
-            return it->second;
+            return it == key_index->end() ? throw std::out_of_range("Key not found.")
+                : it->second;
         }
 
         const KeyType* key_ptr_at(size_t row_index) const {

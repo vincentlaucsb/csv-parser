@@ -5,6 +5,7 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <deque>
@@ -133,6 +134,12 @@ namespace csv {
 
 // Allows static assertions without specifying a message
 #define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
+
+#ifdef NDEBUG
+    #define CSV_DEBUG_ASSERT(x) ((void)sizeof(x), (void)0)
+#else
+    #define CSV_DEBUG_ASSERT(x) assert(x)
+#endif
 
 #ifdef CSV_HAS_CXX17
      /** @typedef string_view
