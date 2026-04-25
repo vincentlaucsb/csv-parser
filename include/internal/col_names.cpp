@@ -32,16 +32,11 @@ namespace csv {
                 std::transform(lower.begin(), lower.end(), lower.begin(),
                     [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                 auto pos = this->col_pos.find(lower);
-                if (pos != this->col_pos.end())
-                    return (int)pos->second;
-                return CSV_NOT_FOUND;
+                return (pos != this->col_pos.end()) ? (int)pos->second : CSV_NOT_FOUND;
             }
 
             auto pos = this->col_pos.find(col_name.data());
-            if (pos != this->col_pos.end())
-                return (int)pos->second;
-
-            return CSV_NOT_FOUND;
+            return (pos != this->col_pos.end()) ? (int)pos->second : CSV_NOT_FOUND;
         }
 
         CSV_INLINE void ColNames::set_policy(csv::ColumnNamePolicy policy) {

@@ -47,6 +47,18 @@ TEST_CASE("DataFrame: basic helpers", "[data_frame]") {
     REQUIRE(frame.at(2)["name"].get<std::string>() == "Carol");
 }
 
+TEST_CASE("DataFrame: preserves CSVReader column name policy", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVFormat format;
+    format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
+    CSVReader reader(input, format);
+    DataFrame<> frame(reader);
+
+    REQUIRE(frame.has_column("NAME"));
+    REQUIRE(frame.index_of("VALUE") == 2);
+    REQUIRE(frame.at(0)["NAME"].get<std::string>() == "Alice");
+}
+
 TEST_CASE("DataFrame: construct from row batch", "[data_frame]") {
     auto input = make_people_stream();
     CSVReader reader(input);
@@ -59,6 +71,20 @@ TEST_CASE("DataFrame: construct from row batch", "[data_frame]") {
     REQUIRE(frame.at(0)["id"].get<std::string>() == "1");
     REQUIRE(frame.at(1)["name"].get<std::string>() == "Bob");
     REQUIRE(frame.at(2)["value"].get<std::string>() == "30");
+}
+
+TEST_CASE("DataFrame: row batch preserves column name policy", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVFormat format;
+    format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
+    CSVReader reader(input, format);
+    std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+    DataFrame<> frame(std::move(rows));
+
+    REQUIRE(frame.has_column("NAME"));
+    REQUIRE(frame.index_of("VALUE") == 2);
+    REQUIRE(frame.at(1)["NAME"].get<std::string>() == "Bob");
 }
 
 TEST_CASE("DataFrame: row-wise iteration", "[data_frame]") {

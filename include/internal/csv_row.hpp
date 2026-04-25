@@ -299,6 +299,11 @@ namespace csv {
             return this->data->col_names->get_col_names();
         }
 
+        /** Internal accessor for preserving resolved column-name lookup policy across helper types. */
+        const internals::ColNamesPtr& col_names_ptr() const noexcept {
+            return this->data->col_names;
+        }
+
         /** Convert this CSVRow into an unordered map.
          *  The keys are the column names and the values are the corresponding field values.
          */

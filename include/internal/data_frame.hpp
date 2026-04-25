@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <exception>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -158,14 +159,16 @@ namespace csv {
             }
 
 #if CSV_ENABLE_THREADS
-            if (workers_.empty() || task_count == 1) {
+            if (workers_.empty() || task_count <= workers_.size()) {
                 this->run_serial(task_count, std::forward<Fn>(fn));
                 return;
             }
 
+            std::exception_ptr captured_exception;
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 current_task_ = std::forward<Fn>(fn);
+                task_exception_ = nullptr;
                 next_task_.store(0);
                 task_count_ = task_count;
                 active_workers_ = workers_.size();
@@ -179,7 +182,13 @@ namespace csv {
                 return completed_generation_ == generation_;
             });
 
+            captured_exception = task_exception_;
             current_task_ = std::function<void(size_t)>();
+            task_exception_ = nullptr;
+
+            if (captured_exception) {
+                std::rethrow_exception(captured_exception);
+            }
 #else
             this->run_serial(task_count, std::forward<Fn>(fn));
 #endif
@@ -243,7 +252,18 @@ namespace csv {
                     if (task_index >= task_count_)
                         break;
 
-                    current_task_(task_index);
+                    try {
+                        current_task_(task_index);
+                    }
+                    catch (...) {
+                        lock.lock();
+                        if (!task_exception_) {
+                            task_exception_ = std::current_exception();
+                            next_task_.store(task_count_);
+                        }
+                        lock.unlock();
+                        break;
+                    }
                 }
 
                 lock.lock();
@@ -259,6 +279,7 @@ namespace csv {
         std::condition_variable task_ready_;
         std::condition_variable task_done_;
         std::function<void(size_t)> current_task_;
+        std::exception_ptr task_exception_ = nullptr;
         std::atomic<size_t> next_task_{0};
         size_t task_count_ = 0;
         size_t active_workers_ = 0;
@@ -466,7 +487,7 @@ namespace csv {
             }
 
             return frame->json_converter_.get_or_create([this]() {
-                return std::make_shared<internals::JsonConverter>(frame->col_names_);
+                return std::make_shared<internals::JsonConverter>(frame->columns());
             }).row_to_json(
                 this->size(),
                 [this](size_t i) { return this->make_cell(i).get_sv(); },
@@ -480,7 +501,7 @@ namespace csv {
             }
 
             return frame->json_converter_.get_or_create([this]() {
-                return std::make_shared<internals::JsonConverter>(frame->col_names_);
+                return std::make_shared<internals::JsonConverter>(frame->columns());
             }).row_to_json_array(
                 this->size(),
                 [this](size_t i) { return this->make_cell(i).get_sv(); },
@@ -561,7 +582,7 @@ namespace csv {
 
         /** Column name. */
         const std::string& name() const {
-            return frame_->col_names_.at(col_index_);
+            return (*frame_->col_names_)[col_index_];
         }
 
         /** Zero-based column position. */
@@ -730,7 +751,7 @@ namespace csv {
             CSVReader& reader,
             KeyFunc key_func,
             DuplicateKeyPolicy policy = DuplicateKeyPolicy::OVERWRITE
-        ) : col_names_(reader.get_col_names()) {
+        ) : col_names_(reader.col_names_ptr()) {
             this->is_keyed = true;
             this->build_from_key_function(reader, key_func, policy);
         }
@@ -760,24 +781,21 @@ namespace csv {
         size_t n_rows() const noexcept { return rows.size(); }
         
         /** Get the number of columns in the DataFrame. */
-        size_t n_cols() const noexcept { return col_names_.size(); }
+        size_t n_cols() const noexcept { return col_names_->size(); }
 
         /** Check if a column exists in the DataFrame. */
         bool has_column(const std::string& name) const {
-            return std::find(col_names_.begin(), col_names_.end(), name) != col_names_.end();
+            return this->index_of(name) != CSV_NOT_FOUND;
         }
 
         /** Get the index of a column by name. */
         int index_of(const std::string& name) const {
-            auto it = std::find(col_names_.begin(), col_names_.end(), name);
-            if (it == col_names_.end())
-                return CSV_NOT_FOUND;
-            return static_cast<int>(std::distance(col_names_.begin(), it));
+            return this->col_names_->index_of(name);
         }
 
         /** Get the column names in order. */
         const std::vector<std::string>& columns() const noexcept {
-            return col_names_;
+            return this->col_names_->view_col_names();
         }
 
         /** Access a column view by position. */
@@ -977,7 +995,7 @@ namespace csv {
         bool is_keyed = false;
         
         /** Column names in order. */
-        std::vector<std::string> col_names_;
+        internals::ColNamesPtr col_names_ = std::make_shared<internals::ColNames>();
         
         /** Internal storage for row data. */
         std::vector<CSVRow> rows;
@@ -999,7 +1017,7 @@ namespace csv {
         void init_unkeyed_from_reader(CSVReader& reader) {
             this->assert_fresh_storage(false);
             this->is_keyed = false;
-            this->col_names_ = reader.get_col_names();
+            this->col_names_ = reader.col_names_ptr();
             for (auto& row : reader) {
                 rows.push_back(row);
             }
@@ -1009,7 +1027,9 @@ namespace csv {
         void init_unkeyed_from_rows(std::vector<CSVRow>& source_rows) {
             this->assert_fresh_storage(false);
             this->is_keyed = false;
-            this->col_names_ = source_rows.empty() ? std::vector<std::string>() : source_rows.front().get_col_names();
+            this->col_names_ = source_rows.empty()
+                ? std::make_shared<internals::ColNames>()
+                : source_rows.front().col_names_ptr();
             this->rows = std::move(source_rows);
         }
 
@@ -1017,13 +1037,13 @@ namespace csv {
         void init_from_reader(CSVReader& reader, const DataFrameOptions& options) {
             this->assert_fresh_storage(false);
             this->is_keyed = true;
-            this->col_names_ = reader.get_col_names();
+            this->col_names_ = reader.col_names_ptr();
             const std::string key_column = options.get_key_column();
 
             if (key_column.empty())
                 throw std::runtime_error("Key column cannot be empty.");
 
-            if (std::find(col_names_.begin(), col_names_.end(), key_column) == col_names_.end())
+            if (this->col_names_->index_of(key_column) == CSV_NOT_FOUND)
                 throw std::runtime_error("Key column not found: " + key_column);
 
             const bool throw_on_missing_key = options.get_throw_on_missing_key();

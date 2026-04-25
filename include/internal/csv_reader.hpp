@@ -317,6 +317,11 @@ namespace csv {
                 std::vector<std::string>();
         }
 
+        /** Internal accessor for preserving resolved column-name lookup policy across helper types. */
+        const internals::ColNamesPtr& col_names_ptr() const noexcept {
+            return this->col_names;
+        }
+
         /** Return the index of `col_name`, or `csv::CSV_NOT_FOUND` if absent. */
         int index_of(csv::string_view col_name) const {
             return this->col_names->index_of(col_name);

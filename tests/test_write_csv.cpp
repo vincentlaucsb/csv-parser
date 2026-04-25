@@ -13,6 +13,8 @@ using std::string;
 
 TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
     SECTION("num_digits") {
+        REQUIRE(csv::internals::num_digits(0) == 1);
+        REQUIRE(csv::internals::num_digits(0.0) == 1);
         REQUIRE(csv::internals::num_digits(99.0) == 2);
         REQUIRE(csv::internals::num_digits(100.0) == 3);
     }

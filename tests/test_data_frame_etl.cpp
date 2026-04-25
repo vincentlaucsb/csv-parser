@@ -227,6 +227,39 @@ TEST_CASE("DataFrame ETL: chunk_parallel_apply validates state count", "[data_fr
     );
 }
 
+TEST_CASE("DataFrame ETL: column_parallel_apply propagates worker exceptions", "[data_frame][etl]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+    DataFrameExecutor executor(2);
+    std::vector<int> states(frame.n_cols(), 0);
+
+    REQUIRE_THROWS_AS(
+        frame.column_parallel_apply(executor, states,
+            [](DataFrame<>::column_type column, int&) {
+                if (column.name() == "name") {
+                    throw std::runtime_error("column failure");
+                }
+            }
+        ),
+        std::runtime_error
+    );
+
+    std::vector<size_t> row_counts(frame.n_cols(), 0);
+    REQUIRE_NOTHROW(
+        frame.column_parallel_apply(executor, row_counts,
+            [](DataFrame<>::column_type column, size_t& count) {
+                count = column.size();
+            }
+        )
+    );
+
+    REQUIRE(row_counts.size() == frame.n_cols());
+    REQUIRE(row_counts[0] == frame.n_rows());
+    REQUIRE(row_counts[1] == frame.n_rows());
+    REQUIRE(row_counts[2] == frame.n_rows());
+}
+
 #ifndef __EMSCRIPTEN__
 TEST_CASE("DataFrame ETL: csv_data_types uses chunked executor path", "[data_frame][etl][csv_data_types]") {
     auto dtypes = csv_data_types(PERSONS_CSV);

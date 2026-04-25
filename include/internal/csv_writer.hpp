@@ -72,15 +72,11 @@ namespace csv {
         int num_digits(T x)
         {
             x = csv_abs(x);
-
             int digits = 0;
-
-            while (x >= 1) {
+            for (; x >= 1; digits++)
                 x /= 10;
-                digits++;
-            }
 
-            return digits;
+            return (x == 0) ? 1 : digits;
         }
 
         /** to_string() for unsigned integers */
