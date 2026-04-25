@@ -68,14 +68,13 @@ namespace csv {
 
     class DataFrameCell : public CSVField {
     public:
-        DataFrameCell() : CSVField(csv::string_view()), row(nullptr), row_edits(nullptr), col_index(0), can_mutate(false) {}
+        DataFrameCell() : CSVField(csv::string_view()), row_edits(nullptr), col_index(0), can_mutate(false) {}
 
         DataFrameCell(
             const CSVRow* _row,
             std::unordered_map<size_t, std::string>* _row_edits,
             size_t _col_index
         ) : CSVField(current_value(_row, _row_edits, _col_index)),
-            row(_row),
             row_edits(_row_edits),
             col_index(_col_index),
             can_mutate(true) {}
@@ -85,7 +84,6 @@ namespace csv {
             const std::unordered_map<size_t, std::string>* _row_edits,
             size_t _col_index
         ) : CSVField(current_value(_row, _row_edits, _col_index)),
-            row(_row),
             row_edits(_row_edits),
             col_index(_col_index),
             can_mutate(false) {}
@@ -121,7 +119,6 @@ namespace csv {
             return *this;
         }
 
-        const CSVRow* row;
         const std::unordered_map<size_t, std::string>* row_edits;
         size_t col_index;
         bool can_mutate;

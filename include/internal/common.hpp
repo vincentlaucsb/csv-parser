@@ -259,6 +259,18 @@ namespace csv {
         class lazy_shared_ptr {
         public:
             lazy_shared_ptr() = default;
+            lazy_shared_ptr(const lazy_shared_ptr&) = delete;
+            lazy_shared_ptr& operator=(const lazy_shared_ptr&) = delete;
+
+            lazy_shared_ptr(lazy_shared_ptr&& other) noexcept : value_(std::move(other.value_)) {}
+
+            lazy_shared_ptr& operator=(lazy_shared_ptr&& other) noexcept {
+                if (this != &other) {
+                    value_ = std::move(other.value_);
+                }
+
+                return *this;
+            }
 
             template<typename Factory>
             T& get_or_create(Factory&& factory) const {
