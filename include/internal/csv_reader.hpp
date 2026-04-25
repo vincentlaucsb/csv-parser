@@ -253,19 +253,46 @@ namespace csv {
 
         /** @name Retrieving CSV Rows */
         ///@{
+        /** Retrieve the next CSV row, returning `true` while more rows are available.
+         *
+         * This is the lowest-level row-consumption API on `CSVReader`. Each successful
+         * call overwrites `row` with the next parsed record in stream order.
+         *
+         * @returns `true` if a row was produced, `false` after end-of-stream is reached.
+         *
+         * @note This permanently consumes rows from the stream.
+         *
+         * @par Performance Notes
+         * - Reads chunks of data that are `csv::internals::CSV_CHUNK_SIZE_DEFAULT`
+         *   bytes large at a time by default.
+         * - For field-access performance details, read the documentation for
+         *   `CSVRow` and `CSVField`.
+         *
+         * **Example:**
+         * \snippet tests/test_read_csv.cpp CSVField Example
+         */
         bool read_row(CSVRow &row);
 
         /** Read up to `max_rows` rows into a caller-owned batch buffer.
          *
-         * Clears `out` before appending newly-read rows.
+         * This is the easiest way to process a CSV in bounded batches without
+         * materializing the entire file. Each call clears `out`, then appends up
+         * to `max_rows` newly parsed rows in stream order.
          *
-         * @returns `true` if any rows were produced, `false` only when end-of-stream
-         *          is reached and no rows were produced.
+         * @returns `true` if this call produced any rows. Returns `false` only
+         *          after end-of-stream is reached and no rows were produced.
+         *          A final partial chunk still returns `true`.
+         *
+         * @param[out] out Destination batch buffer. Existing contents are discarded.
+         * @param[in] max_rows Maximum number of rows to place into `out`.
          *
          * @note Like read_row(), this permanently consumes rows from the stream.
          * @note `std::vector<CSVRow>` is intentionally the only supported container:
          *       it matches the public batch-consumption pattern better than the
          *       internal deque-based producer/consumer queue.
+         *
+         * **Example:**
+         * \snippet tests/test_read_csv_file.cpp CSVReader read_chunk Example
          */
         bool read_chunk(std::vector<CSVRow>& out, size_t max_rows);
         iterator begin();
@@ -277,9 +304,23 @@ namespace csv {
 
         /** @name CSV Metadata */
         ///@{
+        /** Return the resolved parsing format for this CSV source.
+         *
+         * The returned format reflects delimiter/header inference and the active
+         * column names after construction.
+         */
         CSVFormat get_format() const;
-        std::vector<std::string> get_col_names() const;
-        int index_of(csv::string_view col_name) const;
+
+        /** Return the active column names in CSV order. */
+        std::vector<std::string> get_col_names() const{
+            return (this->col_names) ? this->col_names->get_col_names() : 
+                std::vector<std::string>();
+        }
+
+        /** Return the index of `col_name`, or `csv::CSV_NOT_FOUND` if absent. */
+        int index_of(csv::string_view col_name) const {
+            return this->col_names->index_of(col_name);
+        }
         ///@}
 
         /** @name CSV Metadata: Attributes */
@@ -336,7 +377,10 @@ namespace csv {
         size_t n_cols = 0;  /**< The number of columns in this CSV */
         size_t _n_rows = 0; /**< How many rows (minus header) have been read so far */
 
-        /** @name Multi-Threaded File Reading Functions */
+        /** @name Worker Reading Functions
+         *
+         *  Functions that actively drive parser execution and produce rows.
+         */
         ///@{
         bool read_csv(size_t bytes = internals::CSV_CHUNK_SIZE_DEFAULT);
         ///@}
@@ -346,6 +390,7 @@ namespace csv {
     private:
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
+        
         /** @name Multi-Threaded File Reading: Flags and State */
         ///@{
     #if CSV_ENABLE_THREADS
@@ -355,6 +400,11 @@ namespace csv {
         bool _read_requested = false; /**< Flag to detect infinite read loops (Issue #218) */
         ///@}
 
+        /** @name Worker Exception Handling
+         *
+         *  Bridges exceptions from the parsing worker back to the consumer thread.
+         */
+        ///@{
         /** If the worker thread throws, store it here and rethrow on the consumer thread. */
         std::exception_ptr read_csv_exception = nullptr;
 #if CSV_ENABLE_THREADS
@@ -382,7 +432,13 @@ namespace csv {
                 std::rethrow_exception(eptr);
             }
         }
+        ///@}
 
+        /** @name Format and Header Helpers
+         *
+         *  Parser bootstrap and metadata/header handling shared across mmap and stream paths.
+         */
+        ///@{
         /** Shared parser installation after source-specific bootstrap has completed
          *  in concrete parser implementations.
          */
@@ -410,6 +466,31 @@ namespace csv {
         }
 
         void trim_header();
+        ///@}
+
+        /** @name Reading Helpers
+         *
+         *  Shared consumer-side logic used by both single-row and batch reads.
+         */
+        ///@{
+        /** Apply variable-column policy to a parsed row and emit it if accepted. */
+        bool accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows);
+
+        /**
+         * Try to pull more rows from the queue, returning false if we're done.
+         * 
+         * Returns true if parsing is still parsing, or the queue has hot and fresh
+         * rows ready.
+         */
+        bool check_for_rows();
+
+        /** Drain as many already-queued rows as possible into a caller-owned chunk buffer.
+         *
+         *  Applies the same variable-column filtering policy as read_row(), but amortizes
+         *  queue synchronization across many rows.
+         */
+        void drain_rows_into_chunk(std::vector<CSVRow>& out, size_t max_rows);
+        ///@}
     };
 
     #ifdef CSV_HAS_CXX20

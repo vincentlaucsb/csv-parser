@@ -276,6 +276,7 @@ TEST_CASE("CSVReader::read_chunk consumes rows in bounded batches", "[read_chunk
     }
 
     auto validate_reader = [&](CSVReader& reader) {
+        //! [CSVReader read_chunk Example]
         std::vector<CSVRow> chunk;
 
         REQUIRE(reader.read_chunk(chunk, 2));
@@ -306,6 +307,7 @@ TEST_CASE("CSVReader::read_chunk consumes rows in bounded batches", "[read_chunk
         REQUIRE(chunk.empty());
         REQUIRE_FALSE(reader.read_chunk(chunk, 2));
         REQUIRE(chunk.empty());
+        //! [CSVReader read_chunk Example]
     };
 
     SECTION("Memory-mapped file path") {

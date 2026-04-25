@@ -6,6 +6,7 @@
 
 #include <deque>
 #include <utility>
+#include <vector>
 
 namespace csv {
     namespace internals {
@@ -52,6 +53,23 @@ namespace csv {
                 }
 
                 return item;
+            }
+
+            /** Move up to @p max_items rows into a caller-owned batch buffer. */
+            size_t drain_front(std::vector<T>& out, size_t max_items) {
+                const size_t available = this->data.size();
+                const size_t drain_count = available < max_items ? available : max_items;
+
+                for (size_t i = 0; i < drain_count; ++i) {
+                    out.push_back(std::move(this->data.front()));
+                    this->data.pop_front();
+                }
+
+                if (this->data.empty()) {
+                    this->_is_empty = true;
+                }
+
+                return drain_count;
             }
 
             bool is_waitable() const noexcept {

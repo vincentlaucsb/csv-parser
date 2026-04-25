@@ -5,6 +5,51 @@
 #include "csv_reader.hpp"
 
 namespace csv {
+#ifdef _MSC_VER
+#pragma region Reading helpers
+#endif
+    CSV_INLINE bool CSVReader::check_for_rows() {
+        if (!this->records->empty()) return true;
+
+#if CSV_ENABLE_THREADS
+        if (this->records->is_waitable()) {
+            this->records->wait();
+            return true;
+        }
+#endif
+
+        JOIN_WORKER(this->read_csv_worker);
+        this->rethrow_read_csv_exception_if_any();
+
+        if (this->parser->eof()) return false;
+
+        if (this->_read_requested && this->records->empty()) {
+            throw std::runtime_error(
+                "End of file not reached and no more records parsed. "
+                "This likely indicates a CSV row larger than the chunk size of " +
+                std::to_string(this->_chunk_size) + " bytes. "
+                "Use CSVFormat::chunk_size() to increase the chunk size."
+            );
+        }
+
+#if CSV_ENABLE_THREADS
+        this->records->notify_all();
+        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
+#else
+        this->read_csv(this->_chunk_size);
+        this->rethrow_read_csv_exception_if_any();
+#endif
+        this->_read_requested = true;
+        return true;
+    }
+
+#ifdef _MSC_VER
+#pragma endregion Reading helpers
+#endif
+
+#ifdef _MSC_VER
+#pragma region Format and header helpers
+#endif
     CSV_INLINE void CSVReader::init_parser(
         std::unique_ptr<internals::IBasicCSVParser> parser_impl
     ) {
@@ -21,7 +66,6 @@ namespace csv {
         this->initial_read();
     }
 
-    /** Return the format of the original raw CSV */
     CSV_INLINE CSVFormat CSVReader::get_format() const {
         CSVFormat new_format = this->_format;
 
@@ -32,19 +76,6 @@ namespace csv {
         new_format.header = this->_format.header;
 
         return new_format;
-    }
-
-    /** Return the CSV's column names as a vector of strings. */
-    CSV_INLINE std::vector<std::string> CSVReader::get_col_names() const {
-        return (this->col_names) ? this->col_names->get_col_names() : 
-            std::vector<std::string>();
-    }
-
-    /** Return the index of the column name if found or
-     *         csv::CSV_NOT_FOUND otherwise.
-     */
-    CSV_INLINE int CSVReader::index_of(csv::string_view col_name) const {
-        return this->col_names->index_of(col_name);
     }
 
     CSV_INLINE void CSVReader::trim_header() {
@@ -69,6 +100,61 @@ namespace csv {
         this->col_names->set_col_names(names);
         this->n_cols = names.size();
     }
+#ifdef _MSC_VER
+#pragma endregion Format and header helpers
+#endif
+
+#ifdef _MSC_VER
+#pragma region Reading helpers
+#endif
+    CSV_INLINE bool CSVReader::accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows) {
+        const auto policy = this->_format.variable_column_policy;
+        const size_t next_row_size = candidate.size();
+
+        if (policy == VariableColumnPolicy::KEEP_NON_EMPTY && next_row_size == 0) {
+            return false;
+        }
+
+        if (next_row_size != this->n_cols &&
+            (policy == VariableColumnPolicy::THROW || policy == VariableColumnPolicy::IGNORE_ROW)) {
+            if (policy == VariableColumnPolicy::THROW) {
+                if (candidate.size() < this->n_cols) {
+                    throw std::runtime_error("Line too short " + std::string(candidate.raw_str()));
+                }
+
+                throw std::runtime_error("Line too long " + std::string(candidate.raw_str()));
+            }
+
+            return false;
+        }
+
+        if (single_row != nullptr) {
+            *single_row = std::move(candidate);
+        } else {
+            batch_rows->push_back(std::move(candidate));
+        }
+
+        this->_n_rows++;
+        this->_read_requested = false;
+        return true;
+    }
+
+    CSV_INLINE void CSVReader::drain_rows_into_chunk(std::vector<CSVRow>& out, size_t max_rows) {
+        std::vector<CSVRow> drained;
+        drained.reserve(max_rows - out.size());
+        this->records->drain_front(drained, max_rows - out.size());
+
+        for (size_t i = 0; i < drained.size(); ++i) {
+            this->accept_row(std::move(drained[i]), nullptr, &out);
+        }
+    }
+#ifdef _MSC_VER
+#pragma endregion Reading helpers
+#endif
+
+#ifdef _MSC_VER
+#pragma region Worker reading methods
+#endif
 
     /**
      * Read a chunk of CSV data.
@@ -114,97 +200,13 @@ namespace csv {
         return true;
     }
 
-    /**
-     * Retrieve rows as CSVRow objects, returning true if more rows are available.
-     *
-     * @par Performance Notes
-    *  - Reads chunks of data that are csv::internals::CSV_CHUNK_SIZE_DEFAULT bytes large at a time
-     *  - For performance details, read the documentation for CSVRow and CSVField.
-     *
-     * @see CSVRow, CSVField
-     *
-     * **Example:**
-     * \snippet tests/test_read_csv.cpp CSVField Example
-     *
-     */
     CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
-        while (true) {
-            if (this->records->empty()) {
-#if CSV_ENABLE_THREADS
-                if (this->records->is_waitable()) {
-                    // Reading thread is currently active => wait for it to populate records
-                    this->records->wait();
-                    continue;
-                }
-#endif
-
-                // Reading thread is not active
-                JOIN_WORKER(this->read_csv_worker);
-
-                // If the worker thread failed, rethrow the error here
-                this->rethrow_read_csv_exception_if_any();
-
-                if (this->parser->eof())
-                    // End of file and no more records
-                    return false;
-
-                // Detect infinite loop: a previous read was requested but records are still empty.
-                // This fires when a single row spans more than 2 × _chunk_size bytes:
-                //   - chunk N   fills without finding '\n'  → _read_requested set to true
-                //   - chunk N+1 also fills without '\n'     → guard fires here
-                // Default _chunk_size is CSV_CHUNK_SIZE_DEFAULT (10 MB), so the threshold is
-                // rows > 20 MB.  Use CSVFormat::chunk_size() to raise the limit.
-                if (this->_read_requested && this->records->empty()) {
-                    throw std::runtime_error(
-                        "End of file not reached and no more records parsed. "
-                        "This likely indicates a CSV row larger than the chunk size of " +
-                        std::to_string(this->_chunk_size) + " bytes. "
-                        "Use CSVFormat::chunk_size() to increase the chunk size."
-                    );
-                }
-
-#if CSV_ENABLE_THREADS
-                // Start another reading thread.
-                // Mark as waitable before starting the thread to avoid a race where
-                // read_row() observes is_waitable()==false immediately after thread creation.
-                this->records->notify_all();
-                this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
-#else
-                // Single-threaded mode parses synchronously on the caller thread.
-                this->read_csv(this->_chunk_size);
-                this->rethrow_read_csv_exception_if_any();
-#endif
-                this->_read_requested = true;
+        while (this->check_for_rows()) {
+            if (this->records->empty())
                 continue;
-            }
-            else {
-                const auto policy = this->_format.variable_column_policy;
-                const size_t next_row_size = this->records->front().size();
-
-                if (policy == VariableColumnPolicy::KEEP_NON_EMPTY && next_row_size == 0) {
-                    this->records->pop_front();
-                    continue;
-                }
-
-                if (next_row_size != this->n_cols &&
-                    (policy == VariableColumnPolicy::THROW || policy == VariableColumnPolicy::IGNORE_ROW)) {
-                    auto errored_row = this->records->pop_front();
-
-                    if (policy == VariableColumnPolicy::THROW) {
-                        if (errored_row.size() < this->n_cols)
-                            throw std::runtime_error("Line too short " + std::string(errored_row.raw_str()));
-
-                        throw std::runtime_error("Line too long " + std::string(errored_row.raw_str()));
-                    }
-
-                    continue;
-                }
-
-                row = this->records->pop_front();
-                this->_n_rows++;
-                this->_read_requested = false;  // Reset flag on successful read
+                
+            if (this->accept_row(this->records->pop_front(), &row, nullptr))
                 return true;
-            }
         }
 
         return false;
@@ -217,11 +219,25 @@ namespace csv {
             return false;
         }
 
-        CSVRow row;
-        while (out.size() < max_rows && this->read_row(row)) {
-            out.push_back(std::move(row));
+        while (out.size() < max_rows) {
+            if (check_for_rows()) {
+                if (this->records->empty()) {
+                    continue;
+                }
+
+                const size_t before_size = out.size();
+                this->drain_rows_into_chunk(out, max_rows);
+
+                if (out.size() == before_size) {
+                    continue;
+                }
+            }
+            else return !out.empty();
         }
 
-        return !out.empty();
+        return true;
     }
+#ifdef _MSC_VER
+#pragma endregion Worker reading methods
+#endif
 }

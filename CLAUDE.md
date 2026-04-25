@@ -34,9 +34,11 @@
 - **Do not delete or simplify comments** unless trivially obvious or factually wrong — comments encode concurrency invariants and bug history
 - **Compatibility macros defined in `common.hpp` MUST be referenced only after including `common.hpp`.** Any macro (such as `CSV_HAS_CXX20`) that is defined in `common.hpp` must not be used or checked before `#include "common.hpp"` appears in the file. This ensures feature detection and conditional compilation work as intended across all supported compilers and build modes.
 - **Do not reference internal functions in public API comments** — public API docs should remain user-facing; internal details belong in internal docs
+- **Public API docs belong on declarations in `.hpp` files** — keep user-facing/Doxygen docs on the header declaration; reserve `.cpp` comments for implementation notes, concurrency invariants, performance rationale, and bug history
 - **Remove meaningless `@param` and `@return` docs when editing a function** — if they merely restate the name or signature, delete them instead of preserving noise
 - **`CSVReader` is non-copyable and move-enabled** — prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when handing off parser ownership
 - **Prefer trailing underscore for private members** — when touching mixed-style code, normalize the edited region toward names like `source_` and `leftover_`
+- **Prefer LF (`\n`) line endings** for tracked source, test, CMake, and Markdown files — when touching a file with mixed endings, normalize it to LF unless a file-specific reason says otherwise
 - **Prefer user-friendly API constraints** — do not narrow template constraints unless required for correctness, safety, or a measured performance win; if common containers/ranges already work, keep them accepted
 - **Respect compile-time compatibility macros** — keep constructs like `IF_CONSTEXPR` and `CONSTEXPR_VALUE` unless there is a correctness bug
 - **Do not rewrite compile-time logic to silence warnings** — prefer tightly scoped suppression at the exact site when needed

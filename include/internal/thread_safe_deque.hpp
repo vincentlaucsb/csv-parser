@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <vector>
 
 namespace csv {
     namespace internals {
@@ -79,6 +80,28 @@ namespace csv {
                 }
 
                 return item;
+            }
+
+            /** Move up to @p max_items rows into a caller-owned batch buffer under one lock.
+             *
+             *  This is the preferred consumer path for chunked reads: it preserves queue
+             *  semantics while amortizing mutex traffic across many rows.
+             */
+            size_t drain_front(std::vector<T>& out, size_t max_items) {
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                const size_t available = this->data.size();
+                const size_t drain_count = available < max_items ? available : max_items;
+
+                for (size_t i = 0; i < drain_count; ++i) {
+                    out.push_back(std::move(this->data.front()));
+                    this->data.pop_front();
+                }
+
+                if (this->data.empty()) {
+                    this->_is_empty.store(true, std::memory_order_release);
+                }
+
+                return drain_count;
             }
 
             /** Returns true if a thread is actively pushing items to this deque */
