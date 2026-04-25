@@ -20,6 +20,7 @@
 #include <ranges>
 #endif
 #include "data_type.hpp"
+#include "json_converter.hpp"
 #include "parse_hex.hpp"
 #include "raw_csv_data.hpp"
 
@@ -53,8 +54,6 @@ namespace csv {
             "Attempted to convert a floating point value to an integral type.";
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
-        std::string json_escape_string(csv::string_view s) noexcept;
-
         // Inside CSVField::get() or wherever you materialize the value
         csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept;
     }
@@ -284,8 +283,16 @@ namespace csv {
         ///@{
         CSVField operator[](size_t n) const;
         CSVField operator[](csv::string_view) const;
-        std::string to_json(const std::vector<std::string>& subset = {}) const;
-        std::string to_json_array(const std::vector<std::string>& subset = {}) const;
+        inline std::string to_json(const std::vector<std::string>& subset = {}) const {
+            const auto* converter = this->get_json_converter();
+            return converter == nullptr ? "{}"
+                : converter->row_to_json(this->size(), [this](size_t i) { return this->get_field(i); }, subset);
+        }
+        inline std::string to_json_array(const std::vector<std::string>& subset = {}) const {
+            const auto* converter = this->get_json_converter();
+            return converter == nullptr ? "[]"
+                : converter->row_to_json_array(this->size(), [this](size_t i) { return this->get_field(i); }, subset);
+        }
 
         /** Retrieve this row's associated column names */
         std::vector<std::string> get_col_names() const {
@@ -434,6 +441,19 @@ namespace csv {
          *  (prevents accessing freed data when CSVRow is reassigned)
          */
         csv::string_view get_field_safe(size_t index, internals::RawCSVDataPtr _data) const;
+
+        const internals::JsonConverter* get_json_converter() const {
+            if (this->data.get() == nullptr) {
+                return nullptr;
+            }
+
+            return &this->data->json_converter.get_or_create([this]() {
+                const std::vector<std::string> columns = this->data->col_names
+                    ? this->data->col_names->get_col_names()
+                    : std::vector<std::string>();
+                return std::make_shared<internals::JsonConverter>(columns);
+            });
+        }
 
         internals::RawCSVDataPtr data;
 

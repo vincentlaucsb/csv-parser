@@ -563,7 +563,13 @@ for (auto& [dept, row_indices] : groups) {
 }
 
 // Group using a custom function
-auto by_salary_range = df.group_by([](const CSVRow& row) {
+auto by_salary_range = df.group_by([](auto row) {
+    double salary = row["salary"].get<double>();
+    return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
+});
+
+// C++11 fallback if generic lambdas are unavailable:
+auto by_salary_range_cpp11 = df.group_by([](DataFrame<>::row_type row) {
     double salary = row["salary"].get<double>();
     return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
 });

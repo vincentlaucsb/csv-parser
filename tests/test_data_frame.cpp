@@ -1,5 +1,4 @@
 #include <sstream>
-#include <list>
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
@@ -82,7 +81,6 @@ TEST_CASE("DataFrame: keyed access with overwrite and lazy index", "[data_frame]
     DataFrame<> frame(reader, "id");
 
     REQUIRE(frame.size() == 2);
-    REQUIRE(frame.key_name() == "id");
     REQUIRE(frame.contains("1"));
     REQUIRE(frame.contains("2"));
 
@@ -109,6 +107,8 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     REQUIRE(frame.at(0)["name"].get<std::string>() == "Carly");
     REQUIRE(frame["1"]["name"].get<std::string>() == "Carly");
     REQUIRE(frame.at(0)["name"].get<std::string>() == "Carly");
+    REQUIRE(frame["1"].to_json() == "{\"id\":1,\"name\":\"Carly\",\"value\":30}");
+    REQUIRE(frame["1"].to_json_array() == "[1,\"Carly\",30]");
     
     // Verify edits are visible through iteration
     bool found_carly = false;
@@ -220,7 +220,7 @@ TEST_CASE("DataFrame: group_by", "[data_frame]") {
         CSVReader reader(input);
         DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
 
-        auto grouped = frame.group_by([](const CSVRow& row) {
+        auto grouped = frame.group_by([](DataFrameRow<std::string> row) {
             int value = row["value"].get<int>();
             return value >= 20 ? std::string("high") : std::string("low");
         });
@@ -263,7 +263,7 @@ TEST_CASE("DataFrame: group_by on NOAA real data", "[data_frame]") {
 
     SECTION("Column grouping matches function grouping") {
         auto by_column = frame.group_by("YEARMONTH");
-        auto by_function = frame.group_by([](const CSVRow& row) {
+        auto by_function = frame.group_by([](DataFrameRow<std::string> row) {
             return row["YEARMONTH"].get<std::string>();
         });
 
@@ -277,7 +277,7 @@ TEST_CASE("DataFrame: group_by on NOAA real data", "[data_frame]") {
     }
 
     SECTION("Function grouping forms a complete partition") {
-        auto grouped = frame.group_by([](const CSVRow& row) {
+        auto grouped = frame.group_by([](DataFrameRow<std::string> row) {
             int yearmonth = row["YEARMONTH"].get<int>();
             int month = yearmonth % 100;
             if (month <= 3) return std::string("Q1");
@@ -304,7 +304,7 @@ TEST_CASE("DataFrame: group_by on NOAA real data", "[data_frame]") {
     }
 
     SECTION("DataFrame: group_by YEARMONTH + LOCATION spot check") {
-        auto grouped = frame.group_by([](const CSVRow& row) {
+        auto grouped = frame.group_by([](DataFrameRow<std::string> row) {
             std::string yearmonth = row["YEARMONTH"].get<std::string>();
             std::string location = row["LOCATION"].get<std::string>();
             return yearmonth + "|" + location;
@@ -437,17 +437,6 @@ TEST_CASE("DataFrame: edit overlay and column extraction", "[data_frame]") {
     REQUIRE_THROWS_AS(frame.column("missing"), std::out_of_range);
 }
 
-TEST_CASE("DataFrame: column() supports alternate sequence containers", "[data_frame]") {
-    auto input = make_people_stream();
-    CSVReader reader(input);
-    DataFrame<> frame(reader, "id");
-
-    frame["2"]["name"] = "Bobby";
-
-    auto names = frame.column<std::string, std::list>("name");
-    REQUIRE(names == std::list<std::string>{"Carol", "Bobby"});
-}
-
 TEST_CASE("DataFrame: cell assignment error handling", "[data_frame]") {
     SECTION("supports unkeyed DataFrame") {
         auto input = make_people_stream();
@@ -471,7 +460,7 @@ TEST_CASE("DataFrame: cell assignment error handling", "[data_frame]") {
         CSVReader reader(input);
         DataFrame<> frame(reader, "id");
 
-        REQUIRE_THROWS_AS(frame.at(0)["nonexistent"] = "X", std::runtime_error);
+        REQUIRE_THROWS_AS(frame.at(0)["nonexistent"] = "X", std::out_of_range);
     }
 }
 

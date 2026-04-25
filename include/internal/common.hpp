@@ -8,6 +8,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <deque>
+#include <memory>
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
+#include <mutex>
+#endif
 
 #if defined(_WIN32)
 # ifndef WIN32_LEAN_AND_MEAN
@@ -176,6 +180,26 @@ namespace csv {
     using invoke_result_t = typename std::result_of<F(Args...)>::type;
 #endif
 
+    template<typename... Ts>
+    using void_t = void;
+
+    template<typename F, typename ReturnType, typename Enable, typename... Args>
+    struct is_invocable_returning_impl : std::false_type {};
+
+    template<typename F, typename ReturnType, typename... Args>
+    struct is_invocable_returning_impl<
+        F,
+        ReturnType,
+        void_t<invoke_result_t<F, Args...>>,
+        Args...
+    > : std::integral_constant<
+        bool,
+        std::is_convertible<invoke_result_t<F, Args...>, ReturnType>::value
+    > {};
+
+    template<typename F, typename ReturnType, typename... Args>
+    struct is_invocable_returning : is_invocable_returning_impl<F, ReturnType, void, Args...> {};
+
     // Resolves g++ bug with regard to constexpr methods.
     // Keep this gated to C++17+, since C++11/14 pedantic mode rejects constexpr
     // non-static members when the enclosing class is non-literal.
@@ -199,6 +223,68 @@ namespace csv {
 #endif
 
     namespace internals {
+        template<typename T>
+        class is_hashable {
+        private:
+            template<typename U>
+            static auto test(int) -> decltype(
+                std::hash<U>{}(std::declval<const U&>()),
+                std::true_type{}
+            );
+
+            template<typename>
+            static std::false_type test(...);
+
+        public:
+            static constexpr bool value = decltype(test<T>(0))::value;
+        };
+
+        template<typename T>
+        class is_equality_comparable {
+        private:
+            template<typename U>
+            static auto test(int) -> decltype(
+                std::declval<const U&>() == std::declval<const U&>(),
+                std::true_type{}
+            );
+
+            template<typename>
+            static std::false_type test(...);
+
+        public:
+            static constexpr bool value = decltype(test<T>(0))::value;
+        };
+
+        template<typename T>
+        class lazy_shared_ptr {
+        public:
+            lazy_shared_ptr() = default;
+
+            template<typename Factory>
+            T& get_or_create(Factory&& factory) const {
+#if CSV_ENABLE_THREADS
+                std::call_once(init_once_, [this, &factory]() {
+                    value_ = factory();
+                });
+#else
+                if (!value_) {
+                    value_ = factory();
+                }
+#endif
+                return *value_;
+            }
+
+            T* get() const noexcept {
+                return value_.get();
+            }
+
+        private:
+            mutable std::shared_ptr<T> value_ = nullptr;
+#if CSV_ENABLE_THREADS
+            mutable std::once_flag init_once_;
+#endif
+        };
+
         #ifdef CSV_HAS_CXX20
         #ifdef _MSC_VER
         #pragma region CXX20 Concepts

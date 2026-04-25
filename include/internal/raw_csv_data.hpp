@@ -9,10 +9,6 @@
 
 #pragma once
 #include <cassert>
-#include <memory>
-#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
-#include <mutex>
-#endif
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -22,6 +18,8 @@
 
 namespace csv {
     namespace internals {
+        class JsonConverter;
+
         /** A barebones class used for describing CSV fields */
         struct RawCSVField {
             RawCSVField() = default;
@@ -167,6 +165,9 @@ namespace csv {
 #if CSV_ENABLE_THREADS
             mutable std::mutex double_quote_init_lock;  ///< Protects lazy initialization only
 #endif
+
+            /** Cached JSON converter for rows sharing this parsed backing storage. */
+            mutable internals::lazy_shared_ptr<JsonConverter> json_converter;
 
             internals::ColNamesPtr col_names = nullptr;
             internals::ParseFlagMap parse_flags;
