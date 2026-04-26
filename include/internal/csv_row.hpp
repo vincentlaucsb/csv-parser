@@ -295,12 +295,12 @@ namespace csv {
         }
 
         /** Retrieve this row's associated column names */
-        std::vector<std::string> get_col_names() const {
+        const std::vector<std::string>& get_col_names() const {
             return this->data->col_names->get_col_names();
         }
 
         /** Internal accessor for preserving resolved column-name lookup policy across helper types. */
-        const internals::ColNamesPtr& col_names_ptr() const noexcept {
+        internals::ConstColNamesPtr col_names_ptr() const noexcept {
             return this->data->col_names;
         }
 

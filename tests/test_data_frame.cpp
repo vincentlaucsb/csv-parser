@@ -203,6 +203,27 @@ TEST_CASE("DataFrame: keyed helpers", "[data_frame]") {
     REQUIRE(frame.size() == 1);
 }
 
+TEST_CASE("DataFrame: detached row JSON respects sparse overlay edits", "[data_frame]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    std::vector<CSVRow> rows(reader.begin(), reader.end());
+
+    RowOverlay overlay;
+    overlay.set(1, "DetachedCarol");
+    overlay.set(2, "42");
+
+    DataFrameRow<std::string> detached_row(&rows[2], static_cast<const DataFrame<std::string>*>(nullptr), 2, &overlay, nullptr);
+
+    REQUIRE(detached_row["name"].get<std::string>() == "DetachedCarol");
+    REQUIRE(detached_row["value"].get<std::string>() == "42");
+    REQUIRE(detached_row["id"].get<std::string>() == "1");
+    REQUIRE(detached_row.to_json() == "{\"id\":1,\"name\":\"DetachedCarol\",\"value\":42}");
+    REQUIRE(detached_row.to_json_array() == "[1,\"DetachedCarol\",42]");
+    REQUIRE(detached_row.to_json(std::vector<std::string>{"name", "value"}) == "{\"name\":\"DetachedCarol\",\"value\":42}");
+    REQUIRE(detached_row.to_json_array(std::vector<std::string>{"name", "value"}) == "[\"DetachedCarol\",42]");
+    REQUIRE_THROWS_AS(detached_row["missing"], std::out_of_range);
+}
+
 TEST_CASE("DataFrame: arbitrary key function", "[data_frame]") {
     SECTION("Scalar Value") {
         auto input = make_people_stream();

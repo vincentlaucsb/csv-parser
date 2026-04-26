@@ -560,7 +560,7 @@ namespace csv {
         bool empty() const { return row->empty(); }
 
         /** Get column names. */
-        std::vector<std::string> get_col_names() const { return row->get_col_names(); }
+        const std::vector<std::string>& get_col_names() const { return row->get_col_names(); }
 
         /** Get the underlying CSVRow for compatibility. */
         const CSVRow& get_underlying_row() const { return *row; }
@@ -593,30 +593,22 @@ namespace csv {
 
         /** Convert to JSON. */
         std::string to_json(const std::vector<std::string>& subset = {}) const {
-            if (!frame) {
-                return row->to_json(subset);
+            const field_string_accessor field_at(this);
+            if (frame) {
+                return this->get_frame_json_converter().row_to_json(this->size(), field_at, subset);
             }
 
-            return frame->json_converter_.get_or_create([this]() {
-                return std::make_shared<internals::JsonConverter>(frame->columns());
-            }).row_to_json(
-                this->size(),
-                [this](size_t i) { return this->make_cell(i).template get<std::string>(); },
-                subset);
+            return this->make_detached_json_converter().row_to_json(this->size(), field_at, subset);
         }
 
         /** Convert to JSON array. */
         std::string to_json_array(const std::vector<std::string>& subset = {}) const {
-            if (!frame) {
-                return row->to_json_array(subset);
+            const field_string_accessor field_at(this);
+            if (frame) {
+                return this->get_frame_json_converter().row_to_json_array(this->size(), field_at, subset);
             }
 
-            return frame->json_converter_.get_or_create([this]() {
-                return std::make_shared<internals::JsonConverter>(frame->columns());
-            }).row_to_json_array(
-                this->size(),
-                [this](size_t i) { return this->make_cell(i).template get<std::string>(); },
-                subset);
+            return this->make_detached_json_converter().row_to_json_array(this->size(), field_at, subset);
         }
 
         #ifdef CSV_HAS_CXX20
@@ -630,6 +622,26 @@ namespace csv {
         #endif
 
     private:
+        struct field_string_accessor {
+            explicit field_string_accessor(const DataFrameRow* owner) : owner(owner) {}
+
+            std::string operator()(size_t i) const {
+                return owner->make_cell(i).template get<std::string>();
+            }
+
+            const DataFrameRow* owner;
+        };
+
+        const internals::JsonConverter& get_frame_json_converter() const {
+            return frame->json_converter_.get_or_create([this]() {
+                return std::make_shared<internals::JsonConverter>(frame->columns());
+            });
+        }
+
+        internals::JsonConverter make_detached_json_converter() const {
+            return internals::JsonConverter(this->get_col_names());
+        }
+
         DataFrameCell make_cell(size_t col_index) {
             return can_mutate
                 ? DataFrameCell(row, const_cast<RowOverlay*>(row_overlay), col_index)
@@ -645,13 +657,13 @@ namespace csv {
                 return frame->find_column(col);
             }
 
-            const std::vector<std::string> col_names = row->get_col_names();
-            const auto it = std::find(col_names.begin(), col_names.end(), col);
-            if (it == col_names.end()) {
+            const internals::ConstColNamesPtr col_names = row->col_names_ptr();
+            const int position = col_names->index_of(col);
+            if (position == CSV_NOT_FOUND) {
                 throw std::out_of_range("Column not found: " + col);
             }
 
-            return static_cast<size_t>(std::distance(col_names.begin(), it));
+            return static_cast<size_t>(position);
         }
 
         const CSVRow* row;
@@ -898,9 +910,7 @@ namespace csv {
         }
 
         /** Get the column names in order. */
-        const std::vector<std::string>& columns() const noexcept {
-            return this->col_names_->view_col_names();
-        }
+        const std::vector<std::string>& columns() const noexcept { return this->col_names_->get_col_names(); }
 
         /** Access a column view by position. */
         DataFrameColumn<KeyType> column_view(size_t col_index) const {
@@ -1167,7 +1177,7 @@ namespace csv {
         bool is_keyed = false;
         
         /** Column names in order. */
-        internals::ColNamesPtr col_names_ = std::make_shared<internals::ColNames>();
+        internals::ConstColNamesPtr col_names_ = std::make_shared<internals::ColNames>();
         
         /** Internal storage for row data. */
         std::vector<CSVRow> rows;
@@ -1201,7 +1211,7 @@ namespace csv {
             this->assert_fresh_storage(false);
             this->is_keyed = false;
             this->col_names_ = source_rows.empty()
-                ? std::make_shared<internals::ColNames>()
+                ? internals::ConstColNamesPtr(std::make_shared<internals::ColNames>())
                 : source_rows.front().col_names_ptr();
             this->rows = std::move(source_rows);
             this->edits.resize(this->rows.size());

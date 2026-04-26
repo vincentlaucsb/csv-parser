@@ -312,13 +312,13 @@ namespace csv {
         CSVFormat get_format() const;
 
         /** Return the active column names in CSV order. */
-        std::vector<std::string> get_col_names() const{
-            return (this->col_names) ? this->col_names->get_col_names() : 
-                std::vector<std::string>();
+        const std::vector<std::string>& get_col_names() const{
+            static const std::vector<std::string> empty_col_names;
+            return (this->col_names) ? this->col_names->get_col_names() : empty_col_names;
         }
 
         /** Internal accessor for preserving resolved column-name lookup policy across helper types. */
-        const internals::ColNamesPtr& col_names_ptr() const noexcept {
+        internals::ConstColNamesPtr col_names_ptr() const noexcept {
             return this->col_names;
         }
 

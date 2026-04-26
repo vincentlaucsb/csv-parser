@@ -12,6 +12,7 @@ namespace csv {
     namespace internals {
         struct ColNames;
         using ColNamesPtr = std::shared_ptr<ColNames>;
+        using ConstColNamesPtr = std::shared_ptr<const ColNames>;
 
         /** @struct ColNames
              *  A data structure for handling column name information.
@@ -27,8 +28,7 @@ namespace csv {
                 set_col_names(names);
             }
 
-            std::vector<std::string> get_col_names() const;
-            const std::vector<std::string>& view_col_names() const noexcept { return this->col_names; }
+            const std::vector<std::string>& get_col_names() const noexcept;
             void set_col_names(const std::vector<std::string>&);
             int index_of(csv::string_view) const;
 
