@@ -125,6 +125,11 @@ namespace csv {
      *  Reads the source in chunks, promotes each chunk into a temporary DataFrame,
      *  and applies `fn(column, states[column.index()])`.
      *
+     *  Callbacks may treat each batch DataFrame as read-mostly, and sparse
+     *  overlay cell edits are synchronized at row granularity. If you need more
+     *  involved batch orchestration, use `CSVReader::read_chunk()` and construct
+     *  a batch-scoped `DataFrame` yourself.
+     *
      *  @throws std::invalid_argument if `chunk_size == 0`
      */
     template<typename State, typename Fn>

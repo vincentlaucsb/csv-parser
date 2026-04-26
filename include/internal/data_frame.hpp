@@ -25,6 +25,62 @@ namespace csv {
     template<typename KeyType>
     class DataFrameRow;
 
+    struct RowOverlay {
+        RowOverlay() = default;
+        RowOverlay(const RowOverlay&) = delete;
+        RowOverlay& operator=(const RowOverlay&) = delete;
+
+        RowOverlay(RowOverlay&& other) noexcept : values(std::move(other.values)) {
+            busy.clear(std::memory_order_release);
+        }
+
+        RowOverlay& operator=(RowOverlay&& other) noexcept {
+            if (this != &other) {
+                values = std::move(other.values);
+                busy.clear(std::memory_order_release);
+            }
+            return *this;
+        }
+
+        bool try_get_copy(size_t col_index, std::string& out) const {
+            row_overlay_lock_guard lock(this);
+            auto it = values.find(col_index);
+            if (it == values.end()) {
+                return false;
+            }
+
+            out = it->second;
+            return true;
+        }
+
+        void set(size_t col_index, std::string value) {
+            row_overlay_lock_guard lock(this);
+            values[col_index] = std::move(value);
+        }
+
+        bool empty() const {
+            row_overlay_lock_guard lock(this);
+            return values.empty();
+        }
+
+    private:
+        struct row_overlay_lock_guard {
+            explicit row_overlay_lock_guard(const RowOverlay* overlay)
+                : busy(const_cast<std::atomic_flag&>(overlay->busy)) {
+                while (busy.test_and_set(std::memory_order_acquire)) {}
+            }
+
+            ~row_overlay_lock_guard() {
+                busy.clear(std::memory_order_release);
+            }
+
+            std::atomic_flag& busy;
+        };
+
+        mutable std::atomic_flag busy = ATOMIC_FLAG_INIT;
+        std::unordered_map<size_t, std::string> values;
+    };
+
     namespace internals {
         template<typename Owner, typename Proxy, typename Accessor>
         class indexed_proxy_iterator {
@@ -304,25 +360,77 @@ namespace csv {
         using CSVField::try_get;
         using CSVField::type;
 
-        DataFrameCell() : CSVField(csv::string_view()), row_edits(nullptr), col_index(0), can_mutate(false) {}
+        DataFrameCell() : CSVField(csv::string_view()), row(nullptr), row_overlay(nullptr), col_index(0), can_mutate(false) {}
+
+        DataFrameCell(const DataFrameCell& other)
+            : CSVField(csv::string_view()),
+            row(other.row),
+            row_overlay(other.row_overlay),
+            col_index(other.col_index),
+            can_mutate(other.can_mutate),
+            owned_value_(other.owned_value_) {
+            this->refresh_value();
+        }
+
+        DataFrameCell(DataFrameCell&& other) noexcept
+            : CSVField(csv::string_view()),
+            row(other.row),
+            row_overlay(other.row_overlay),
+            col_index(other.col_index),
+            can_mutate(other.can_mutate),
+            owned_value_(std::move(other.owned_value_)) {
+            this->refresh_value();
+        }
 
         DataFrameCell(
             const CSVRow* _row,
-            std::unordered_map<size_t, std::string>* _row_edits,
+            RowOverlay* _row_overlay,
             size_t _col_index
-        ) : CSVField(current_value(_row, _row_edits, _col_index)),
-            row_edits(_row_edits),
+        ) : CSVField(csv::string_view()),
+            row(_row),
+            row_overlay(_row_overlay),
             col_index(_col_index),
-            can_mutate(true) {}
+            can_mutate(true) {
+            this->refresh_value();
+        }
 
         DataFrameCell(
             const CSVRow* _row,
-            const std::unordered_map<size_t, std::string>* _row_edits,
+            const RowOverlay* _row_overlay,
             size_t _col_index
-        ) : CSVField(current_value(_row, _row_edits, _col_index)),
-            row_edits(_row_edits),
+        ) : CSVField(csv::string_view()),
+            row(_row),
+            row_overlay(_row_overlay),
             col_index(_col_index),
-            can_mutate(false) {}
+            can_mutate(false) {
+            this->refresh_value();
+        }
+
+        DataFrameCell& operator=(const DataFrameCell& other) {
+            if (this != &other) {
+                row = other.row;
+                row_overlay = other.row_overlay;
+                col_index = other.col_index;
+                can_mutate = other.can_mutate;
+                owned_value_ = other.owned_value_;
+                this->refresh_value();
+            }
+
+            return *this;
+        }
+
+        DataFrameCell& operator=(DataFrameCell&& other) noexcept {
+            if (this != &other) {
+                row = other.row;
+                row_overlay = other.row_overlay;
+                col_index = other.col_index;
+                can_mutate = other.can_mutate;
+                owned_value_ = std::move(other.owned_value_);
+                this->refresh_value();
+            }
+
+            return *this;
+        }
 
         DataFrameCell& operator=(csv::string_view value) {
             return this->assign(std::string(value));
@@ -364,34 +472,37 @@ namespace csv {
         }
 
     private:
-        static csv::string_view current_value(
-            const CSVRow* row,
-            const std::unordered_map<size_t, std::string>* row_edits,
-            size_t col_index
-        ) {
-            if (row_edits) {
-                auto it = row_edits->find(col_index);
-                if (it != row_edits->end())
-                    return csv::string_view(it->second);
+        void refresh_value() {
+            if (!row) {
+                CSVField::operator=(CSVField(csv::string_view()));
+                return;
             }
 
-            return (*row)[col_index].template get<csv::string_view>();
+            if (row_overlay && row_overlay->try_get_copy(col_index, owned_value_)) {
+                CSVField::operator=(CSVField(csv::string_view(owned_value_)));
+                return;
+            }
+
+            owned_value_.clear();
+            CSVField::operator=(CSVField((*row)[col_index].template get<csv::string_view>()));
         }
 
         DataFrameCell& assign(std::string stored) {
-            if (!can_mutate || !row_edits) {
+            if (!can_mutate || !row_overlay) {
                 throw std::runtime_error("Cannot edit a const DataFrame cell.");
             }
 
-            auto& edit_slot = const_cast<std::unordered_map<size_t, std::string>&>(*row_edits)[col_index];
-            edit_slot = std::move(stored);
-            CSVField::operator=(CSVField(csv::string_view(edit_slot)));
+            owned_value_ = stored;
+            const_cast<RowOverlay*>(row_overlay)->set(col_index, std::move(stored));
+            CSVField::operator=(CSVField(csv::string_view(owned_value_)));
             return *this;
         }
 
-        const std::unordered_map<size_t, std::string>* row_edits;
+        const CSVRow* row;
+        const RowOverlay* row_overlay;
         size_t col_index;
         bool can_mutate;
+        std::string owned_value_;
     };
 
     /**
@@ -402,25 +513,25 @@ namespace csv {
     class DataFrameRow {
     public:
         /** Default constructor (creates an unbound proxy). */
-        DataFrameRow() : row(nullptr), frame(nullptr), row_index(0), row_edits(nullptr), key_ptr(nullptr), can_mutate(false) {}
+        DataFrameRow() : row(nullptr), frame(nullptr), row_index(0), row_overlay(nullptr), key_ptr(nullptr), can_mutate(false) {}
 
         /** Construct a mutable DataFrameRow wrapper. */
         DataFrameRow(
             const CSVRow* _row,
             DataFrame<KeyType>* _frame,
             size_t _row_index,
-            std::unordered_map<size_t, std::string>* _edits,
+            RowOverlay* _edits,
             const KeyType* _key
-        ) : row(_row), frame(_frame), row_index(_row_index), row_edits(_edits), key_ptr(_key), can_mutate(true) {}
+        ) : row(_row), frame(_frame), row_index(_row_index), row_overlay(_edits), key_ptr(_key), can_mutate(true) {}
 
         /** Construct a read-only DataFrameRow wrapper. */
         DataFrameRow(
             const CSVRow* _row,
             const DataFrame<KeyType>* _frame,
             size_t _row_index,
-            const std::unordered_map<size_t, std::string>* _edits,
+            const RowOverlay* _edits,
             const KeyType* _key
-        ) : row(_row), frame(_frame), row_index(_row_index), row_edits(_edits), key_ptr(_key), can_mutate(false) {}
+        ) : row(_row), frame(_frame), row_index(_row_index), row_overlay(_edits), key_ptr(_key), can_mutate(false) {}
 
         /** Access a field by column name, preserving edit support. */
         DataFrameCell operator[](const std::string& col) {
@@ -475,7 +586,7 @@ namespace csv {
             result.reserve(row->size());
             
             for (size_t i = 0; i < row->size(); i++) {
-                result.push_back(static_cast<std::string>(this->visible_value_at(i)));
+                result.push_back(this->make_cell(i).template get<std::string>());
             }
             return result;
         }
@@ -490,7 +601,7 @@ namespace csv {
                 return std::make_shared<internals::JsonConverter>(frame->columns());
             }).row_to_json(
                 this->size(),
-                [this](size_t i) { return this->make_cell(i).get_sv(); },
+                [this](size_t i) { return this->make_cell(i).template get<std::string>(); },
                 subset);
         }
 
@@ -504,40 +615,29 @@ namespace csv {
                 return std::make_shared<internals::JsonConverter>(frame->columns());
             }).row_to_json_array(
                 this->size(),
-                [this](size_t i) { return this->make_cell(i).get_sv(); },
+                [this](size_t i) { return this->make_cell(i).template get<std::string>(); },
                 subset);
         }
 
         #ifdef CSV_HAS_CXX20
-        /** Convert this DataFrameRow into a std::ranges::input_range of string_views,
+        /** Convert this DataFrameRow into a std::ranges::input_range of strings,
          *  respecting the sparse overlay (edited values take precedence).
          */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
-                | std::views::transform([this](size_t i) { return this->visible_value_at(i); });
+                | std::views::transform([this](size_t i) { return this->make_cell(i).template get<std::string>(); });
         }
         #endif
 
     private:
         DataFrameCell make_cell(size_t col_index) {
             return can_mutate
-                ? DataFrameCell(row, const_cast<std::unordered_map<size_t, std::string>*>(row_edits), col_index)
-                : DataFrameCell(row, row_edits, col_index);
+                ? DataFrameCell(row, const_cast<RowOverlay*>(row_overlay), col_index)
+                : DataFrameCell(row, row_overlay, col_index);
         }
 
         DataFrameCell make_cell(size_t col_index) const {
-            return DataFrameCell(row, row_edits, col_index);
-        }
-
-        csv::string_view visible_value_at(size_t col_index) const {
-            if (row_edits) {
-                auto it = row_edits->find(col_index);
-                if (it != row_edits->end()) {
-                    return csv::string_view(it->second);
-                }
-            }
-
-            return (*row)[col_index].template get<csv::string_view>();
+            return DataFrameCell(row, row_overlay, col_index);
         }
 
         size_t find_column(const std::string& col) const {
@@ -557,7 +657,7 @@ namespace csv {
         const CSVRow* row;
         const DataFrame<KeyType>* frame;
         size_t row_index;
-        const std::unordered_map<size_t, std::string>* row_edits;
+        const RowOverlay* row_overlay;
         const KeyType* key_ptr;
         bool can_mutate;
     };
@@ -595,6 +695,11 @@ namespace csv {
             return frame_->size();
         }
 
+        /** Whether the parent batch contains no rows. */
+        bool empty() const noexcept {
+            return this->size() == 0;
+        }
+
         /** Access a visible cell value by row index. */
         DataFrameCell operator[](size_t row_index) const {
             const auto& row = frame_->rows.at(row_index);
@@ -609,8 +714,7 @@ namespace csv {
             values.reserve(this->size());
 
             for (size_t row_index = 0; row_index < this->size(); ++row_index) {
-                CSVField field(frame_->visible_value_at(row_index, col_index_));
-                values.push_back(field.template get<T>());
+                values.push_back((*this)[row_index].template get<T>());
             }
 
             return values;
@@ -622,11 +726,11 @@ namespace csv {
         }
 
         #ifdef CSV_HAS_CXX20
-        /** Convert this DataFrameColumn into a std::ranges::input_range of string_views. */
+        /** Convert this DataFrameColumn into a std::ranges::input_range of strings. */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
                 | std::views::transform([this](size_t row_index) {
-                    return frame_->visible_value_at(row_index, col_index_);
+                    return (*this)[row_index].template get<std::string>();
                 });
         }
         #endif
@@ -846,14 +950,14 @@ namespace csv {
          */
         DataFrameRow<KeyType> at(size_t i) {
             const auto& row = rows.at(i);
-            auto* row_edits = &edits[i];
+            auto* row_edits = &edits.at(i);
             return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
         }
         
         /** Access a row by position with bounds checking (const version). */
         DataFrameRow<KeyType> at(size_t i) const {
             const auto& row = rows.at(i);
-            const std::unordered_map<size_t, std::string>* row_edits = this->find_row_edits(i);
+            const RowOverlay* row_edits = this->find_row_edits(i);
             return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
         }
 
@@ -866,14 +970,14 @@ namespace csv {
         DataFrameRow<KeyType> operator[](const KeyType& key) {
             this->require_keyed_frame();
             auto position = this->position_of(key);
-            return DataFrameRow<KeyType>(&rows.at(position), this, position, &edits[position], this->key_ptr_at(position));
+            return DataFrameRow<KeyType>(&rows.at(position), this, position, &edits.at(position), this->key_ptr_at(position));
         }
 
         /** Access a row by its key (const version). */
         DataFrameRow<KeyType> operator[](const KeyType& key) const {
             this->require_keyed_frame();
             auto position = this->position_of(key);
-            const std::unordered_map<size_t, std::string>* row_edits = this->find_row_edits(position);
+            const RowOverlay* row_edits = this->find_row_edits(position);
             return DataFrameRow<KeyType>(&rows.at(position), this, position, row_edits, this->key_ptr_at(position));
         }
 
@@ -902,8 +1006,7 @@ namespace csv {
 
             values.reserve(rows.size());
             for (size_t row_index = 0; row_index < rows.size(); ++row_index) {
-                CSVField field(this->visible_value_at(row_index, col_idx));
-                values.push_back(field.template get<T>());
+                values.push_back(this->at(row_index)[col_idx].template get<T>());
             }
 
             return values;
@@ -913,6 +1016,12 @@ namespace csv {
          *
          * The callback receives a lightweight column view plus a mutable per-column
          * state object from `states`.
+         *
+         * Callbacks may safely perform read-only access through the provided
+         * column view and any explicit read-only references they already hold to
+         * this batch-scoped DataFrame. Sparse-overlay cell edits through
+         * `DataFrameRow` or `DataFrameCell` are synchronized at row granularity,
+         * but structural mutations such as `erase()` are not thread-safe.
          *
          * @throws std::invalid_argument if `states.size() != n_cols()`
          */
@@ -928,6 +1037,69 @@ namespace csv {
 
             executor.parallel_for(this->n_cols(), [this, &states, &fn](size_t column_index) {
                 fn(this->column_view(column_index), states[column_index]);
+            });
+        }
+
+        /** Apply a batch-oriented function to a selected subset of columns, potentially in parallel.
+         *
+         * The callback receives a lightweight column view plus a mutable
+         * per-selected-column state object from `states`.
+         *
+         * @throws std::invalid_argument if `states.size() != column_indices.size()`
+         * @throws std::out_of_range if any column index is invalid
+         */
+        template<typename State, typename Fn>
+        void column_parallel_apply(
+            DataFrameExecutor& executor,
+            const std::vector<size_t>& column_indices,
+            std::vector<State>& states,
+            Fn&& fn
+        ) const {
+            if (states.size() != column_indices.size()) {
+                throw std::invalid_argument("column_parallel_apply() subset overload requires one state object per selected column.");
+            }
+
+            this->validate_selected_columns(column_indices);
+
+            executor.parallel_for(column_indices.size(), [this, &column_indices, &states, &fn](size_t selected_index) {
+                const size_t column_index = column_indices[selected_index];
+                fn(this->column_view(column_index), states[selected_index]);
+            });
+        }
+
+        /** Apply a read-only batch function to each column, potentially in parallel.
+         *
+         * This overload is for callers who do not need one explicit mutable
+         * state object per column and prefer to manage any output storage
+         * externally.
+         */
+        template<typename Fn>
+        void column_parallel_apply(
+            DataFrameExecutor& executor,
+            Fn&& fn
+        ) const {
+            executor.parallel_for(this->n_cols(), [this, &fn](size_t column_index) {
+                fn(this->column_view(column_index));
+            });
+        }
+
+        /** Apply a read-only batch function to a selected subset of columns, potentially in parallel.
+         *
+         * This overload is for callers who want to process only specific
+         * columns and prefer to manage any output storage externally.
+         *
+         * @throws std::out_of_range if any column index is invalid
+         */
+        template<typename Fn>
+        void column_parallel_apply(
+            DataFrameExecutor& executor,
+            const std::vector<size_t>& column_indices,
+            Fn&& fn
+        ) const {
+            this->validate_selected_columns(column_indices);
+
+            executor.parallel_for(column_indices.size(), [this, &column_indices, &fn](size_t selected_index) {
+                fn(this->column_view(column_indices[selected_index]));
             });
         }
 
@@ -966,7 +1138,7 @@ namespace csv {
             std::unordered_map<std::string, std::vector<size_t>> grouped;
 
             for (size_t i = 0; i < rows.size(); i++) {
-                grouped[std::string(this->visible_value_at(i, col_idx))].push_back(i);
+                grouped[this->at(i)[col_idx].template get<std::string>()].push_back(i);
             }
 
             return grouped;
@@ -1008,10 +1180,10 @@ namespace csv {
         mutable internals::lazy_shared_ptr<internals::JsonConverter> json_converter_;
 
         /**
-         * Edit overlay: row index -> column -> value.
-         * Sparse storage for cell modifications without mutating original row data.
+         * One sparse overlay per row. Each overlay is independently synchronized
+         * so unrelated row edits do not contend with each other.
          */
-        std::unordered_map<size_t, std::unordered_map<size_t, std::string>> edits;
+        std::vector<RowOverlay> edits;
 
         /** Initialize an unkeyed DataFrame from a CSV reader. */
         void init_unkeyed_from_reader(CSVReader& reader) {
@@ -1020,6 +1192,7 @@ namespace csv {
             this->col_names_ = reader.col_names_ptr();
             for (auto& row : reader) {
                 rows.push_back(row);
+                edits.emplace_back();
             }
         }
 
@@ -1031,6 +1204,7 @@ namespace csv {
                 ? std::make_shared<internals::ColNames>()
                 : source_rows.front().col_names_ptr();
             this->rows = std::move(source_rows);
+            this->edits.resize(this->rows.size());
         }
 
         /** Initialize a keyed DataFrame from a CSV reader using column-based key extraction. */
@@ -1092,6 +1266,7 @@ namespace csv {
 
                 rows.push_back(row);
                 keys_.push_back(key);
+                edits.emplace_back();
                 key_to_pos[key] = rows.size() - 1;
             }
         }
@@ -1102,15 +1277,14 @@ namespace csv {
                 throw std::out_of_range("Column not found: " + name);
         }
 
-        /** Find the edits for a specific row index. Returns nullptr if no edits exist for the row. */
-        const std::unordered_map<size_t, std::string>* find_row_edits(size_t row_index) const {
-            auto it = edits.find(row_index);
-            return it != edits.end() ? &it->second : nullptr;
+        /** Return the overlay for a specific row index. */
+        const RowOverlay* find_row_edits(size_t row_index) const {
+            return &edits.at(row_index);
         }
 
         DataFrameRow<KeyType> make_row_proxy(size_t row_index) {
             const auto& row = rows.at(row_index);
-            return DataFrameRow<KeyType>(&row, this, row_index, &edits[row_index], this->key_ptr_at(row_index));
+            return DataFrameRow<KeyType>(&row, this, row_index, &edits.at(row_index), this->key_ptr_at(row_index));
         }
 
         DataFrameRow<KeyType> make_const_row_proxy(size_t row_index) const {
@@ -1118,31 +1292,10 @@ namespace csv {
             return DataFrameRow<KeyType>(&row, this, row_index, this->find_row_edits(row_index), this->key_ptr_at(row_index));
         }
 
-        csv::string_view visible_value_at(size_t row_index, size_t col_index) const {
-            const auto* row_edits = this->find_row_edits(row_index);
-            if (row_edits) {
-                auto edited_value = row_edits->find(col_index);
-                if (edited_value != row_edits->end())
-                    return csv::string_view(edited_value->second);
-            }
-
-            return rows[row_index][col_index].template get<csv::string_view>();
-        }
-
         void erase_row_edits(size_t row_index) {
-            if (edits.empty()) return;
-
-            std::unordered_map<size_t, std::unordered_map<size_t, std::string>> shifted_edits;
-            shifted_edits.reserve(edits.size());
-
-            for (auto& entry : edits) {
-                if (entry.first == row_index) continue;
-
-                const size_t target_index = entry.first > row_index ? entry.first - 1 : entry.first;
-                shifted_edits.emplace(target_index, std::move(entry.second));
+            if (row_index < edits.size()) {
+                edits.erase(edits.begin() + row_index);
             }
-
-            edits = std::move(shifted_edits);
         }
 
         bool erase_at_index(size_t row_index) {
@@ -1157,6 +1310,14 @@ namespace csv {
             }
             this->invalidate_key_index();
             return true;
+        }
+
+        void validate_selected_columns(const std::vector<size_t>& column_indices) const {
+            for (size_t column_index : column_indices) {
+                if (column_index >= this->n_cols()) {
+                    throw std::out_of_range("column_parallel_apply() subset overload received an invalid column index.");
+                }
+            }
         }
 
         /** Validate that this DataFrame was created with a key column. */

@@ -18,6 +18,7 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
        * csv::CSVReader::begin()
        * csv::CSVReader::end()
      * csv::CSVReader::read_row()
+     * csv::CSVReader::read_chunk()
  * Convenience Functions
    * csv::parse()
    * csv::operator ""_csv()
@@ -88,6 +89,10 @@ column extraction, editing, and grouping.
 
 ### ETL Utilities
  * csv::csv_data_types(): Infer SQL-friendly column data types from a CSVReader or any supported CSVReader constructor input
+ * csv::chunk_parallel_apply(): Chunked parallel column processing over a CSVReader
+
+ #### See also
+ [High Performance ETL](@ref high_performance_etl)
 
 ### CSV Writing
 The [CSV Writing Guide](@ref csv_writing_guide) contains a 

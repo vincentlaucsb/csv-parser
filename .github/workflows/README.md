@@ -12,14 +12,18 @@ This directory contains GitHub Actions workflows for comprehensive memory and th
 - **UndefinedBehaviorSanitizer (UBSan)** - Catches undefined behavior: signed overflow, type mismatches
 
 **Config:**
-- Runs on Ubuntu with GCC
-- Tests C++17 and C++20 standards
+- Runs Linux sanitizer coverage on Ubuntu with GCC
+- Adds a dedicated Windows/MSVC AddressSanitizer leg on C++20
 - Debug builds for better diagnostics
 - Timeout: 20 minutes per configuration
 - Artifacts: Upload logs on failure
 
 **Key Features:**
-- Matrix testing: 3 sanitizers × 2 C++ standards = 6 parallel jobs
+- Linux matrix testing:
+  - ASan on C++20
+  - TSan on C++20
+  - UBSan on C++17
+- Dedicated Windows/MSVC ASan coverage for AVX2- and codegen-sensitive issues
 - Fail-fast disabled to see all results
 - Environment variables configured for halt-on-error behavior
 
@@ -54,6 +58,16 @@ cmake -B build/asan -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g"
 cmake --build build/asan
 cd build/asan && ctest --output-on-failure && cd ../..
+
+# Windows / MSVC AddressSanitizer
+cmake -S . -B build/msvc-asan ^
+  -DCSV_CXX_STANDARD=20 ^
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
+  -DCMAKE_CXX_FLAGS="/fsanitize=address /Zi" ^
+  -DCMAKE_C_FLAGS="/fsanitize=address /Zi" ^
+  -DCMAKE_EXE_LINKER_FLAGS="/INCREMENTAL:NO"
+cmake --build build/msvc-asan --config RelWithDebInfo
+ctest --test-dir build/msvc-asan --build-config RelWithDebInfo --output-on-failure
 ```
 
 ### CI/CD Pipeline Order
@@ -75,6 +89,7 @@ cd build/asan && ctest --output-on-failure && cd ../..
 - **Why Important:** Catches CSVFieldList memory issues like issue #278
 - Cannot run simultaneously with TSan (different memory models)
 - Better performance than TSan for memory safety
+- The MSVC C++20 ASan leg is especially useful for AVX2- and codegen-sensitive regressions
 
 ### Valgrind
 - Slower than sanitizers but more mature tool

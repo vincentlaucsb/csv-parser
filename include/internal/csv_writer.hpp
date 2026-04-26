@@ -625,7 +625,7 @@ namespace internals {
      *
      *  @sa csv::DelimWriter::operator<<()
      *
-     *  @note Use `csv::make_csv_writer()` to in instatiate this class over
+     *  @note Use `csv::make_csv_writer()` to instantiate this class over
      *        an actual output stream.
      */
     template<class OutputStream>
@@ -636,7 +636,7 @@ namespace internals {
      *  @sa csv::DelimWriter::write_row()
      *  @sa csv::DelimWriter::operator<<()
      *
-     *  @note Use `csv::make_tsv_writer()` to in instatiate this class over
+     *  @note Use `csv::make_tsv_writer()` to instantiate this class over
      *        an actual output stream.
      */
     template<class OutputStream>

@@ -45,9 +45,33 @@ namespace {
         return document;
     }
 
+    template<typename Frame>
+    void apply_two_column_edits(Frame& frame) {
+        if (frame.n_rows() == 0 || frame.n_cols() < 2) {
+            return;
+        }
+
+        frame.at(0)[0] = "edited-left";
+        frame.at(0)[1] = "edited-right";
+    }
+
+    void apply_two_column_edits(rapidcsv::Document& document) {
+        if (document.GetRowCount() == 0) {
+            return;
+        }
+
+        const auto column_names = document.GetColumnNames();
+        if (column_names.size() < 2) {
+            return;
+        }
+
+        document.SetCell<std::string>(column_names[0], 0, "edited-left");
+        document.SetCell<std::string>(column_names[1], 0, "edited-right");
+    }
+
     void save_csv_parser_frame(const csv::DataFrame<>& frame, const std::filesystem::path& out_path) {
         std::ofstream output(out_path, std::ios::binary | std::ios::trunc);
-        auto writer = csv::make_csv_writer_buffered(output);
+        auto writer = csv::make_csv_writer(output).set_auto_flush(false);
         writer << frame.columns();
         for (const auto& row : frame) {
             writer << row;
@@ -80,6 +104,7 @@ namespace {
         std::size_t rows = 0;
         const auto out_path = output_path("csv_parser_dataframe_save_bench.csv");
         auto frame = load_csv_parser_frame(path, rows);
+        apply_two_column_edits(frame);
 
         for (auto _ : state) {
             save_csv_parser_frame(frame, out_path);
@@ -100,6 +125,7 @@ namespace {
 
         for (auto _ : state) {
             auto frame = load_csv_parser_frame(path, rows);
+            apply_two_column_edits(frame);
             save_csv_parser_frame(frame, out_path);
 
             benchmark::DoNotOptimize(rows);
@@ -132,6 +158,7 @@ namespace {
         std::size_t rows = 0;
         const auto out_path = output_path("rapidcsv_document_save_bench.csv");
         auto document = load_rapidcsv_document(path, rows);
+        apply_two_column_edits(document);
 
         for (auto _ : state) {
             save_rapidcsv_document(document, out_path);
@@ -152,6 +179,7 @@ namespace {
 
         for (auto _ : state) {
             auto document = load_rapidcsv_document(path, rows);
+            apply_two_column_edits(document);
             save_rapidcsv_document(document, out_path);
 
             benchmark::DoNotOptimize(rows);
