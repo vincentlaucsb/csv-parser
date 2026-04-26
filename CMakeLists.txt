@@ -104,6 +104,9 @@ if (CSV_BUILD_PROGRAMS)
     add_subdirectory("programs")
 endif()
 
+## Tests
+option(CSV_BUILD_TESTS "Allow to disable building of tests" ON)
+
 ## Developer settings
 if (CSV_DEVELOPER)
     # Allow for performance profiling
@@ -180,6 +183,8 @@ if (CSV_DEVELOPER)
     endif()
 
     ## Tests
-    enable_testing()
-    add_subdirectory("tests")
+    if (CSV_BUILD_TESTS)
+      enable_testing()
+      add_subdirectory("tests")
+    endif()
 endif()

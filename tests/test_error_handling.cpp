@@ -117,6 +117,53 @@ TEST_CASE("Worker thread exceptions propagate to main thread", "[error_handling]
     }
 }
 
+/* Ensure reading empty CSVs does not cause errors.
+ *
+ * Reported in:
+ *  - https://github.com/vincentlaucsb/csv-parser/issues/116
+ *  - https://github.com/vincentlaucsb/csv-parser/issues/121
+ *  - empty mmap EOF guard in issue #267
+ */
+TEST_CASE("Empty CSV does not crash parser entry points", "[error_handling][empty_csv]") {
+    SECTION("Stream path handles empty inputs and header-only inputs") {
+        auto csv_string = GENERATE(as<std::string>{},
+            "A,B,C,D\r\n", // Header row only
+            ""             // No content
+        );
+
+        std::stringstream source(csv_string);
+        CSVReader reader(source);
+        REQUIRE(reader.empty());
+
+        for (auto& row : reader) {
+            (void)row;
+        }
+
+        REQUIRE(reader.n_rows() == 0);
+    }
+
+#ifndef __EMSCRIPTEN__
+    SECTION("Filename path reports a zero-byte file as an open failure") {
+        bool caught = false;
+        std::string error_message;
+
+        try {
+            CSVReader reader("./tests/data/fake_data/empty.csv");
+            for (auto& row : reader) {
+                (void)row;
+            }
+        }
+        catch (const std::exception& e) {
+            caught = true;
+            error_message = e.what();
+        }
+
+        REQUIRE(caught);
+        REQUIRE(error_message == "Cannot open file ./tests/data/fake_data/empty.csv");
+    }
+#endif
+}
+
 #ifndef __EMSCRIPTEN__
 TEST_CASE("Fields at chunk boundaries are not corrupted", "[chunking][data_integrity]") {
     SECTION("Large file with known values around chunk boundary") {

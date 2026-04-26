@@ -11,6 +11,7 @@
 
 namespace csv {
     namespace internals {
+#if defined(__EMSCRIPTEN__)
         // Opens the file and delegates to the template overload to avoid duplicating the read/resize logic.
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
             std::ifstream infile(std::string(filename), std::ios::binary);
@@ -19,6 +20,7 @@ namespace csv {
             }
             return get_csv_head_stream(infile);
         }
+#endif
 
 #if !defined(__EMSCRIPTEN__)
         CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename) {

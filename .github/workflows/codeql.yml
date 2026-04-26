@@ -47,6 +47,9 @@ jobs:
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DCSV_CXX_STANDARD=20 \
+          -DCSV_BUILD_PROGRAMS=OFF \
+          -DCSV_BUILD_TESTS=OFF \
+          -DBUILD_PYTHON=OFF \
           -DCMAKE_CXX_COMPILER=g++ \
           -DCMAKE_C_COMPILER=gcc
     
