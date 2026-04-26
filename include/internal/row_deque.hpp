@@ -6,6 +6,8 @@
 
 #include "common.hpp"
 
+#include <vector>
+
 #if CSV_ENABLE_THREADS
 #include "thread_safe_deque.hpp"
 #else
@@ -29,10 +31,11 @@ namespace csv {
 
 #ifdef CSV_HAS_CXX20
         template<typename Q, typename T>
-        concept RowDequeLike = requires(Q q, const Q cq, T item, size_t n) {
+        concept RowDequeLike = requires(Q q, const Q cq, T item, size_t n, std::vector<T> batch) {
             { Q(100) };
             { q.push_back(std::move(item)) } -> std::same_as<void>;
             { q.pop_front() } -> std::same_as<T>;
+            { q.drain_front(batch, n) } -> std::same_as<size_t>;
             { cq.empty() } -> std::same_as<bool>;
             { cq.is_waitable() } -> std::same_as<bool>;
             { q.wait() } -> std::same_as<void>;

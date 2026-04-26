@@ -69,9 +69,12 @@ See `tests/AGENTS.md` for test strategy, checklist, and conventions.
    - **Templates must stay in `.hpp`** — the compiler needs the definition at instantiation time. `init_from_stream` is the standing example.
    - **Trivial one-liner accessors** may be unconditionally `inline` in the header when the call overhead is measurable and the body will never change.
    - **Consolidation:** If a `.cpp` would be under ~100 lines *and* the split causes excessive comment duplication between the two files, prefer a single `.hpp` with definitions marked `inline` (free functions and methods alike). Do not use `CSV_INLINE` for consolidated definitions — `CSV_INLINE` expands to empty in multi-header mode, which would produce ODR violations across TUs. Do not consolidate just for brevity — only when duplication is the dominant cost.
+7. **Prefer LF (`\n`) line endings for tracked source, test, CMake, and Markdown files.** When you touch a file with mixed line endings, normalize the edited file to LF unless there is a file-specific reason not to. Avoid introducing mixed CRLF/LF endings in the same file.
+8. **Keep preprocessor directives flush left.** `#define`, `#if`, `#ifdef`, `#else`, and `#endif` should start at column 0. Code inside multi-line macros should be indented exactly as the equivalent non-macro code would be; do not add extra indentation just because it lives inside a macro body.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**
 2. **Don't reference internal functions in public API comments.** Public API docs should describe user-visible behavior and contracts; internal helper/function details belong in internal docs.
 3. **Avoid meaningless @param and @return descriptions.** Do not add comments that could trivially be inferred by the function's name or other existing comments. When editing a function, remove any @param/@return descriptions that merely restate the function name or signature.
 4. **Don't delete or simplify comments** unless allowed by other rules in this section. Comments in this codebase frequently encode concurrency invariants, non-obvious design decisions, and hard-won bug context that cannot be recovered from the code alone.
+5. **Public API docs belong on declarations in `.hpp` files.** When a class has both a header and implementation file, put user-facing/Doxygen documentation on the declaration in the header. Keep the `.cpp` focused on implementation notes, concurrency invariants, performance rationale, and bug-history comments.

@@ -5,9 +5,14 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <deque>
+#include <memory>
+#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
+#include <mutex>
+#endif
 
 #if defined(_WIN32)
 # ifndef WIN32_LEAN_AND_MEAN
@@ -37,6 +42,7 @@
 #if defined(__clang__) || defined(__GNUC__)
     #define CSV_CONST __attribute__((__const__))
     #define CSV_PURE __attribute__((__pure__))
+    #define CSV_FORCE_INLINE inline __attribute__((__always_inline__))
     #if defined(_WIN32)
         #define CSV_PRIVATE
     #else
@@ -46,11 +52,13 @@
 #elif defined(_MSC_VER)
     #define CSV_CONST
     #define CSV_PURE
+    #define CSV_FORCE_INLINE __forceinline
     #define CSV_PRIVATE
     #define CSV_NON_NULL(...)
 #else
     #define CSV_CONST
     #define CSV_PURE
+    #define CSV_FORCE_INLINE inline
     #define CSV_PRIVATE
     #define CSV_NON_NULL(...)
 #endif
@@ -103,6 +111,10 @@
 #include "../external/string_view.hpp"
 #endif
 
+#ifdef CSV_HAS_CXX20
+#include <ranges>
+#endif
+
 namespace csv {
 #ifdef _MSC_VER
 #pragma region Compatibility Macros
@@ -122,6 +134,12 @@ namespace csv {
 
 // Allows static assertions without specifying a message
 #define STATIC_ASSERT(x) static_assert(x, "Assertion failed")
+
+#ifdef NDEBUG
+    #define CSV_DEBUG_ASSERT(x) ((void)sizeof(x), (void)0)
+#else
+    #define CSV_DEBUG_ASSERT(x) assert(x)
+#endif
 
 #ifdef CSV_HAS_CXX17
      /** @typedef string_view
@@ -169,6 +187,26 @@ namespace csv {
     using invoke_result_t = typename std::result_of<F(Args...)>::type;
 #endif
 
+    template<typename... Ts>
+    using void_t = void;
+
+    template<typename F, typename ReturnType, typename Enable, typename... Args>
+    struct is_invocable_returning_impl : std::false_type {};
+
+    template<typename F, typename ReturnType, typename... Args>
+    struct is_invocable_returning_impl<
+        F,
+        ReturnType,
+        void_t<invoke_result_t<F, Args...>>,
+        Args...
+    > : std::integral_constant<
+        bool,
+        std::is_convertible<invoke_result_t<F, Args...>, ReturnType>::value
+    > {};
+
+    template<typename F, typename ReturnType, typename... Args>
+    struct is_invocable_returning : is_invocable_returning_impl<F, ReturnType, void, Args...> {};
+
     // Resolves g++ bug with regard to constexpr methods.
     // Keep this gated to C++17+, since C++11/14 pedantic mode rejects constexpr
     // non-static members when the enclosing class is non-literal.
@@ -192,6 +230,117 @@ namespace csv {
 #endif
 
     namespace internals {
+        template<typename T>
+        class is_hashable {
+        private:
+            template<typename U>
+            static auto test(int) -> decltype(
+                std::hash<U>{}(std::declval<const U&>()),
+                std::true_type{}
+            );
+
+            template<typename>
+            static std::false_type test(...);
+
+        public:
+            static constexpr bool value = decltype(test<T>(0))::value;
+        };
+
+        template<typename T>
+        class is_equality_comparable {
+        private:
+            template<typename U>
+            static auto test(int) -> decltype(
+                std::declval<const U&>() == std::declval<const U&>(),
+                std::true_type{}
+            );
+
+            template<typename>
+            static std::false_type test(...);
+
+        public:
+            static constexpr bool value = decltype(test<T>(0))::value;
+        };
+
+        template<typename T>
+        class lazy_shared_ptr {
+        public:
+            lazy_shared_ptr() = default;
+            lazy_shared_ptr(const lazy_shared_ptr&) = delete;
+            lazy_shared_ptr& operator=(const lazy_shared_ptr&) = delete;
+
+            lazy_shared_ptr(lazy_shared_ptr&& other) noexcept : value_(std::move(other.value_)) {}
+
+            lazy_shared_ptr& operator=(lazy_shared_ptr&& other) noexcept {
+                if (this != &other) {
+                    value_ = std::move(other.value_);
+                }
+
+                return *this;
+            }
+
+            template<typename Factory>
+            T& get_or_create(Factory&& factory) const {
+#if CSV_ENABLE_THREADS
+                std::call_once(init_once_, [this, &factory]() {
+                    value_ = factory();
+                });
+#else
+                if (!value_) {
+                    value_ = factory();
+                }
+#endif
+                return *value_;
+            }
+
+            T* get() const noexcept {
+                return value_.get();
+            }
+
+        private:
+            mutable std::shared_ptr<T> value_ = nullptr;
+#if CSV_ENABLE_THREADS
+            mutable std::once_flag init_once_;
+#endif
+        };
+
+        #ifdef CSV_HAS_CXX20
+        #ifdef _MSC_VER
+        #pragma region CXX20 Concepts
+        #endif
+
+        template<typename T>
+        concept csv_string_field_range =
+            std::ranges::input_range<std::remove_reference_t<T>>
+            && std::convertible_to<
+                std::ranges::range_reference_t<std::remove_reference_t<T>>,
+                csv::string_view
+            >;
+
+        template<typename T>
+        concept has_to_sv_range = requires(const std::remove_reference_t<T>& value) {
+            { value.to_sv_range() } -> std::ranges::input_range;
+            requires std::convertible_to<
+                std::ranges::range_reference_t<decltype(value.to_sv_range())>,
+                csv::string_view
+            >;
+        };
+
+        template<typename T>
+        concept csv_row_like = csv_string_field_range<T> || has_to_sv_range<T>;
+
+        template<typename T>
+        concept csv_write_rows_input_range =
+            std::ranges::input_range<std::remove_reference_t<T>>
+            && csv_row_like<
+                std::ranges::range_reference_t<std::remove_reference_t<T>>
+            >;
+
+        #ifdef _MSC_VER
+        #pragma endregion
+        #endif
+        #endif
+
         // PAGE_SIZE macro could be already defined by the host system.
 #if defined(PAGE_SIZE)
 #undef PAGE_SIZE

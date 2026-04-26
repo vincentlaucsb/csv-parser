@@ -14,6 +14,14 @@ CSV/TSV data.
 Use `csv::make_csv_writer()` for comma-delimited output and
 `csv::make_tsv_writer()` for tab-delimited output.
 
+If you want buffered behavior, call `set_auto_flush(false)` on the writer
+instead of using a separate factory:
+
+@code
+std::stringstream output;
+auto writer = csv::make_csv_writer(output).set_auto_flush(false);
+@endcode
+
 ## Writing Containers with `operator<<`
 
 Any row-like container of string-convertible values can be streamed directly.

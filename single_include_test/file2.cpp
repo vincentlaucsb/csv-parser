@@ -9,18 +9,10 @@ int main(int argc, char** argv) {
     }
 
     std::string filename = argv[1];
-    CSVStat stats(filename);
+    auto dtypes = csv_data_types(filename);
 
-    auto col_names = stats.get_col_names();
-    auto min = stats.get_mins(), max = stats.get_maxes(),
-        means = stats.get_mean(), vars = stats.get_variance();
-
-    for (size_t i = 0; i < col_names.size(); i++) {
-        std::cout << col_names[i] << std::endl
-            << "Min: " << min[i] << std::endl
-            << "Max: " << max[i] << std::endl
-            << "Mean: " << means[i] << std::endl
-            << "Var: " << vars[i] << std::endl;
+    for (const auto& entry : dtypes) {
+        std::cout << entry.first << ": " << static_cast<int>(entry.second) << std::endl;
     }
 
     return 0;

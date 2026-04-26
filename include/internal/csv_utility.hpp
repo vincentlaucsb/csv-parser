@@ -2,6 +2,7 @@
 #include "common.hpp"
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
+#include "data_frame.hpp"
 #include "data_type.hpp"
 #include "string_view_stream.hpp"
 
@@ -10,6 +11,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 
 namespace csv {
     /** Returned by get_file_info() */
@@ -86,7 +88,84 @@ namespace csv {
 
     /** @name Utility Functions */
     ///@{
-    std::unordered_map<std::string, DataType> csv_data_types(const std::string&);
+    /** Infer SQL-friendly column data types from an existing CSVReader.
+     *
+     *  This consumes rows from `reader` using the chunked ETL path and returns
+     *  one inferred `DataType` per column name.
+     */
+    std::unordered_map<std::string, DataType> csv_data_types(CSVReader& reader);
+
+    /** Infer SQL-friendly column data types from any CSVReader constructor input.
+     *
+     *  This convenience overload forwards its arguments directly to
+     *  `CSVReader`, so it supports filenames, `std::istream` sources, owned
+     *  streams, and custom `CSVFormat` combinations without additional wrapper
+     *  code.
+     *
+     *  @par Example
+     *  @code
+     *  std::istringstream input("name,age\nAlice,30\nBob,41\n");
+     *  CSVFormat format;
+     *  format.delimiter(',').header_row(0);
+     *
+     *  auto dtypes = csv::csv_data_types(input, format);
+     *  @endcode
+     */
+    template<
+        typename... ReaderArgs,
+        csv::enable_if_t<std::is_constructible<CSVReader, ReaderArgs...>::value, int> = 0
+    >
+    inline std::unordered_map<std::string, DataType> csv_data_types(ReaderArgs&&... reader_args) {
+        CSVReader reader(std::forward<ReaderArgs>(reader_args)...);
+        return csv_data_types(reader);
+    }
+
+    /** Apply a per-column batch function over a CSVReader using a reusable executor.
+     *
+     *  Reads the source in chunks, promotes each chunk into a temporary DataFrame,
+     *  and applies `fn(column, states[column.index()])`.
+     *
+     *  Callbacks may treat each batch DataFrame as read-mostly, and sparse
+     *  overlay cell edits are synchronized at row granularity. If you need more
+     *  involved batch orchestration, use `CSVReader::read_chunk()` and construct
+     *  a batch-scoped `DataFrame` yourself.
+     *
+     *  @throws std::invalid_argument if `chunk_size == 0`
+     */
+    template<typename State, typename Fn>
+    inline void chunk_parallel_apply(
+        CSVReader& reader,
+        DataFrameExecutor& executor,
+        std::vector<State>& states,
+        Fn&& fn,
+        size_t chunk_size = 50000
+    ) {
+        if (chunk_size == 0) {
+            throw std::invalid_argument("chunk_parallel_apply() requires a non-zero chunk size.");
+        }
+
+        std::vector<CSVRow> rows;
+        while (reader.read_chunk(rows, chunk_size)) {
+            DataFrame<> batch(std::move(rows));
+            batch.column_parallel_apply(executor, states, std::forward<Fn>(fn));
+        }
+    }
+
+    /** Apply a per-column batch function over a CSVReader with a temporary executor.
+     *
+     *  This is the convenience overload for the common case where callers do not
+     *  need to reuse worker threads across multiple reader pipelines.
+     */
+    template<typename State, typename Fn>
+    inline void chunk_parallel_apply(
+        CSVReader& reader,
+        std::vector<State>& states,
+        Fn&& fn,
+        size_t chunk_size = 50000
+    ) {
+        DataFrameExecutor executor;
+        chunk_parallel_apply(reader, executor, states, std::forward<Fn>(fn), chunk_size);
+    }
 
     /** Get basic information about a CSV file
      *  @include programs/csv_info.cpp

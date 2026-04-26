@@ -34,7 +34,7 @@ TEST_CASE("Simple Buffered Integer Round Trip Test", "[test_roundtrip_int]") {
     FileGuard cleanup(filename);
     
     std::ofstream outfile(filename, std::ios::binary);
-    auto writer = make_csv_writer_buffered(outfile);
+    auto writer = make_csv_writer(outfile).set_auto_flush(false);
 
     writer << std::vector<std::string>({"A", "B", "C", "D", "E"});
 

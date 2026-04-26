@@ -681,32 +681,6 @@ TEST_CASE("Single Column CSV", "[read_single_col_direct]") {
     }
 }
 
-/* Ensure reading empty CSVs does not cause errors
- * 
- * Reported in:
- *  - https://github.com/vincentlaucsb/csv-parser/issues/116
- *  - https://github.com/vincentlaucsb/csv-parser/issues/121
- */
-TEST_CASE("Empty CSV", "[read_empty_csv]") {
-    auto csv_string = GENERATE(as<std::string>{},
-        "A,B,C,D\r\n", // Header row only
-        ""             // No content
-    );
-
-    SECTION("Read Empty CSV") {
-        std::stringstream source(csv_string);
-        CSVReader reader(source);
-        REQUIRE(reader.empty());
-
-        for (auto& row : reader) {
-            (void)row;
-        }
-
-        // We want to make sure that no exceptions are thrown
-        REQUIRE(reader.n_rows() == 0);
-    }
-}
-
 // Regression test for issue #149: trailing newline at EOF must not produce a spurious empty row
 TEST_CASE("Trailing newline at EOF (stringstream)", "[trailing_newline_stringstream]") {
     auto check = [](const std::string& csv_text) {

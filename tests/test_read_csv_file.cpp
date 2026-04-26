@@ -263,6 +263,65 @@ TEST_CASE("Trim regression: quoted unescape and bounded field slice", "[read_csv
     }
 }
 
+TEST_CASE("CSVReader::read_chunk consumes rows in bounded batches", "[read_chunk]") {
+    FileGuard cleanup("./tests/data/tmp_read_chunk.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "id,name,value\n"
+            << "1,Alice,10\n"
+            << "2,Bob,20\n"
+            << "3,Carol,30\n"
+            << "4,Dave,40\n"
+            << "5,Eve,50\n";
+    }
+
+    auto validate_reader = [&](CSVReader& reader) {
+        //! [CSVReader read_chunk Example]
+        std::vector<CSVRow> chunk;
+
+        REQUIRE(reader.read_chunk(chunk, 2));
+        REQUIRE(chunk.size() == 2);
+        REQUIRE(chunk[0]["id"].get<std::string>() == "1");
+        REQUIRE(chunk[0]["name"].get<std::string>() == "Alice");
+        REQUIRE(chunk[0]["value"].get<std::string>() == "10");
+        REQUIRE(chunk[1]["id"].get<std::string>() == "2");
+        REQUIRE(chunk[1]["name"].get<std::string>() == "Bob");
+        REQUIRE(chunk[1]["value"].get<std::string>() == "20");
+
+        REQUIRE(reader.read_chunk(chunk, 2));
+        REQUIRE(chunk.size() == 2);
+        REQUIRE(chunk[0]["id"].get<std::string>() == "3");
+        REQUIRE(chunk[0]["name"].get<std::string>() == "Carol");
+        REQUIRE(chunk[0]["value"].get<std::string>() == "30");
+        REQUIRE(chunk[1]["id"].get<std::string>() == "4");
+        REQUIRE(chunk[1]["name"].get<std::string>() == "Dave");
+        REQUIRE(chunk[1]["value"].get<std::string>() == "40");
+
+        REQUIRE(reader.read_chunk(chunk, 2));
+        REQUIRE(chunk.size() == 1);
+        REQUIRE(chunk[0]["id"].get<std::string>() == "5");
+        REQUIRE(chunk[0]["name"].get<std::string>() == "Eve");
+        REQUIRE(chunk[0]["value"].get<std::string>() == "50");
+
+        REQUIRE_FALSE(reader.read_chunk(chunk, 2));
+        REQUIRE(chunk.empty());
+        REQUIRE_FALSE(reader.read_chunk(chunk, 2));
+        REQUIRE(chunk.empty());
+        //! [CSVReader read_chunk Example]
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(cleanup.filename);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, CSVFormat());
+        validate_reader(reader);
+    }
+}
+
 TEST_CASE("Issue #195 - header_row() preserved when delimiter guessing", "[issue_195][skip_rows_file]") {
     // When the user explicitly sets header_row(N) alongside guess_csv(),
     // the guesser must not override the user's chosen header row.

@@ -11,6 +11,7 @@
 
 namespace csv {
     namespace internals {
+#if defined(__EMSCRIPTEN__)
         // Opens the file and delegates to the template overload to avoid duplicating the read/resize logic.
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
             std::ifstream infile(std::string(filename), std::ios::binary);
@@ -19,6 +20,7 @@ namespace csv {
             }
             return get_csv_head_stream(infile);
         }
+#endif
 
 #if !defined(__EMSCRIPTEN__)
         CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename) {
@@ -123,7 +125,7 @@ namespace csv {
                 this->push_row();
         }
 
-        CSV_INLINE void IBasicCSVParser::parse_field() noexcept {
+        CSV_FORCE_INLINE void IBasicCSVParser::parse_field() noexcept {
             using internals::ParseFlags;
             auto& in = this->data_ptr_->data;
 
@@ -150,7 +152,7 @@ namespace csv {
             // read field values (e.g. row counting) pay no trimming cost.
         }
 
-        CSV_INLINE void IBasicCSVParser::push_field()
+        CSV_FORCE_INLINE void IBasicCSVParser::push_field()
         {
             // Update
             fields_->emplace_back(

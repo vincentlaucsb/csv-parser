@@ -15,12 +15,9 @@ target_sources(csv
 		csv_reader_iterator.cpp
 		csv_row.hpp
 		csv_row.cpp
-		csv_row_json.cpp
-		csv_stat.cpp
-		csv_stat.hpp
+		csv_utility.cpp
 		csv_utility.hpp
 		csv_writer.hpp
-		csv_writer_extensions.hpp
 		data_type.hpp
 		raw_csv_data.hpp
 		raw_csv_data.hpp
@@ -41,6 +38,10 @@ if(CSV_ENABLE_THREADS)
 	target_link_libraries(csv PRIVATE Threads::Threads)
 else()
 	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=0)
+endif()
+
+if(MSVC AND NOT CSV_NO_SIMD)
+	target_compile_options(csv PUBLIC /arch:AVX2)
 endif()
 
 target_include_directories(csv INTERFACE ../)

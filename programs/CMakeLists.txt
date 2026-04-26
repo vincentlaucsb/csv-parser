@@ -1,8 +1,7 @@
 add_executable(csv_info ${CMAKE_CURRENT_LIST_DIR}/csv_info.cpp)
 target_link_libraries(csv_info csv)
-
-add_executable(csv_stats ${CMAKE_CURRENT_LIST_DIR}/csv_stats.cpp)
-target_link_libraries(csv_stats csv)
+add_executable(csv_schema_info ${CMAKE_CURRENT_LIST_DIR}/csv_schema_info.cpp)
+target_link_libraries(csv_schema_info csv)
 
 # Provide rudimentary benchmarks
 if(CSV_DEVELOPER)

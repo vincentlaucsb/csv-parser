@@ -5,16 +5,14 @@
   - [Motivation](#motivation)
     - [Performance and Memory Requirements](#performance-and-memory-requirements)
       - [Show me the numbers](#show-me-the-numbers)
+      - [Compared to other libraries](#compared-to-other-libraries)
       - [Chunk Size Tuning](#chunk-size-tuning)
-    - [Robust Yet Flexible](#robust-yet-flexible)
-      - [RFC 4180 and Beyond](#rfc-4180-and-beyond)
+    - [Fully RFC 4180-Compliant (and Beyond) Parser](#fully-rfc-4180-compliant-and-beyond-parser)
       - [Encoding](#encoding)
-    - [Well Tested](#well-tested)
-      - [Bug Reports](#bug-reports)
+    - [Bug Reports](#bug-reports)
   - [Documentation](#documentation)
   - [Sponsors](#sponsors)
   - [Integration](#integration)
-    - [C++ Version](#c-version)
     - [Threading Modes](#threading-modes)
     - [Emscripten / WebAssembly](#emscripten--webassembly)
     - [Single Header](#single-header)
@@ -32,6 +30,10 @@
       - [Setting Column Names](#setting-column-names)
     - [Parsing an In-Memory String](#parsing-an-in-memory-string)
     - [DataFrames for Random Access and Updates](#dataframes-for-random-access-and-updates)
+    - [High Performance Extract-Transform-Load with the DataFrame](#high-performance-extract-transform-load-with-the-dataframe)
+      - [`chunk_parallel_apply()`](#chunk_parallel_apply)
+      - [Building a batch-scoped `DataFrame` yourself](#building-a-batch-scoped-dataframe-yourself)
+      - [Writing Back to CSV](#writing-back-to-csv)
     - [Writing CSV Files](#writing-csv-files)
       - [C++20 Ranges: Efficient writing for `CSVRow`, `DataFrameRow`, and STL containers](#c20-ranges-efficient-writing-for-csvrow-dataframerow-and-stl-containers)
 
@@ -55,6 +57,13 @@ On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz; Samsung 990 EVO)
 
 All benchmarks shown are warm cache runs to focus on parser/CPU performance rather than disk I/O variability.
 
+#### Compared to other libraries
+
+For broader comparison data, including ETL and round-trip workloads against
+`fast-cpp-csv-parser` and `rapidcsv`, see the
+[benchmark results](benchmarks/README.md). On those workloads, this is
+probably the fastest general-purpose C++ CSV ETL library available today.
+
 #### Chunk Size Tuning
 
 By default, the parser reads CSV data in 10MB chunks. 10MB was chosen after empirical testing to optimize throughput while minimizing memory and thread synchronization costs, but feel free to experiment with different numbers yourself.
@@ -69,31 +78,27 @@ fmt.chunk_size(100 * 1024 * 1024);  // 100MB chunks
 CSVReader reader("massive_rows.csv", fmt);
 ```
 
-### Robust Yet Flexible
-#### RFC 4180 and Beyond
-This CSV parser is much more than a fancy string splitter, and parses all files following [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt).
+### Fully RFC 4180-Compliant (and Beyond) Parser
+This CSV parser is a fully [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt)-compliant parser out of the box. We do not disable embedded newline detection by default just so we can look better on benchmarks.
 
-However, in reality we know that RFC 4180 is just a suggestion, so this library has:
- * Automatic delimiter guessing
- * Ability to ignore comments in leading rows and elsewhere
- * Ability to handle rows of different lengths
- * Ability to handle Windows, Unix, and old Mac newlines seamlessly
+Furthermore, this parser can:
+ * Infer dialect (column names and delimiter)
+ * Ignore comments in leading rows and elsewhere
+ * Handle rows of different lengths
+ * Handle Windows `\r\n`, Unix `\n`, and old Mac `\r` newlines seamlessly
 
 By default, rows of variable length are silently ignored, although you may elect to keep them or throw an error.
 
 #### Encoding
-This CSV parser is encoding-agnostic and will handle ANSI and UTF-8 encoded files.
-It does not try to decode UTF-8, except for detecting and stripping UTF-8 byte order marks (BOM).
+This CSV parser assumes ANSI/UTF-8 encoding and automatically strips UTF-8 byte-order marks (BOM).
 
-### Well Tested
+### Bug Reports
 This CSV parser has:
  * An extensive Catch2 test suite
  * Tests of various CMake and non-CMake builds across g++, clang, MSVC, and MinGW
  * Address, thread safety, and undefined behavior checks with ASan, TSan, and Valgrind (see [GitHub Actions](https://github.com/vincentlaucsb/csv-parser/actions))
-  
-#### Bug Reports
 
-I welcome genuine bug reports brought in good faith. This includes:
+With that being said, I welcome genuine bug reports brought in good faith. This includes:
 
 - Crashes, memory leaks, data corruption, or race conditions
 - Incorrect parsing of valid CSV files
@@ -120,11 +125,6 @@ Shameless plug: If you like this library, check out my side project
 [experiencer](https://github.com/vincentlaucsb/experiencer) — a WYSIWYG resume editor with clean HTML/CSS output.
 
 ## Integration
-
-This library was developed with Microsoft Visual Studio and is compatible with >g++ 7.5 and clang.
-All of the code required to build this library, aside from the C++ standard library, is contained under `include/`.
-
-### C++ Version
 While C++20 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
@@ -164,7 +164,8 @@ Or copy the URL:
 https://vincentlaucsb.github.io/csv-parser/csv.hpp
 ```
 
-The file is automatically generated and deployed on every commit to `master`, ensuring you always have the latest version.
+ * The file is automatically generated and deployed on every commit to `master`, ensuring you always have the latest version
+ * If you need a pinned version, check the **Releases** page
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -249,8 +250,8 @@ CSVFormat format;
 
 CSVReader mmap("some_file.csv", format);
 
-std::ifstream infile("some_file.csv", std::ios::binary);
-CSVReader ifstream_reader(infile, format);
+auto infile_ptr = std::unique_ptr(std::ifstream("some_file.csv", std::ios::binary));
+CSVReader ifstream_reader(std::move(infile_ptr), format);
 
 std::stringstream my_csv;
 CSVReader sstream_reader(my_csv, format);
@@ -338,10 +339,9 @@ for (auto& row: reader) {
 ```
 
 ### Converting to JSON
-You can serialize individual rows as JSON objects, where the keys are column names, or as 
-JSON arrays (which don't contain column names). The outputted JSON contains properly escaped
-strings with minimal whitespace and no quoting for numeric values. How these JSON fragments are 
-assembled into a larger JSON document is an exercise left for the user.
+You can serialize individual rows as JSON objects keyed by column name, or as plain JSON arrays.
+
+All items are properly escaped, although it is up to you to construct larger JSON documents properly.
 
 ```cpp
 # include <sstream>
@@ -400,11 +400,8 @@ for (auto& row: reader) {
 ```
 
 #### Trimming Whitespace
-This parser can efficiently trim off leading and trailing whitespace. Of course,
-make sure you don't include your intended delimiter or newlines in the list of characters
-to trim.
-
 ```cpp
+// Make sure you don't include your intended delimiter or newlines when calling trim()
 CSVFormat format;
 format.trim({ ' ', '\t'  });
 ```
@@ -442,6 +439,9 @@ format.column_names(col_names);
 ```
 
 ### Parsing an In-Memory String
+`parse()` and `parse_unsafe()` are the canonical shorthands for parsing large in-memory `std::string` or `std::string_view`.
+`parse_unsafe()` does **not** copy the string internally (unlike `parse()`), so make sure you materialize all the rows you need before your 
+source goes out of scope.
 
 ```cpp
 # include "csv.hpp"
@@ -456,9 +456,9 @@ std::string csv_string = "Actor,Character\r\n"
     "John C. Reilly,Cal Naughton Jr.\r\n"
     "Sacha Baron Cohen,Jean Giard\r\n";
 
-auto rows = parse(csv_string);
+auto rows = parse_unsafe(csv_string);
 for (auto& r: rows) {
-    // Do stuff with row here
+    // Do stuff with row here (should be safe as long as csv_string does not go out of scope)
 }
     
 // Method 2: Using _csv operator
@@ -497,8 +497,8 @@ DataFrame<int> df2(reader, "employee_id");
 auto salary = df[12345]["salary"].get<double>();
 
 // Positional access: operator[](size_t) is disabled when KeyType is an integer
-// type to prevent ambiguity with operator[](const KeyType&). Use iloc() instead.
-auto first_row = df.iloc(0);
+// type to prevent ambiguity with operator[](const KeyType&). Use at(size_t) instead.
+auto first_row = df.at(0);
 auto name = first_row["name"].get<std::string>();
 
 // Check if a key exists
@@ -538,8 +538,8 @@ auto employee = by_name["Ada_Lovelace"]["department"].get<std::string>();
 **Updating Values**
 ```cpp
 // Updates are stored in an efficient overlay without copying the entire dataset
-df.set(12345, "salary", "95000");
-df.set(67890, "department", "Engineering");
+df[12345]["salary"] = "95000";
+df[67890]["department"] = "Engineering";
 
 // Access methods return updated values transparently
 std::cout << df[12345]["salary"].get<std::string>(); // "95000"
@@ -563,23 +563,111 @@ for (auto& [dept, row_indices] : groups) {
 }
 
 // Group using a custom function
-auto by_salary_range = df.group_by([](const CSVRow& row) {
+auto by_salary_range = df.group_by([](auto row) {
+    double salary = row["salary"].get<double>();
+    return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
+});
+
+// C++11 fallback if generic lambdas are unavailable:
+auto by_salary_range_cpp11 = df.group_by([](DataFrame<>::row_type row) {
     double salary = row["salary"].get<double>();
     return salary < 50000 ? "junior" : salary < 100000 ? "mid" : "senior";
 });
 ```
 
-**Writing Back to CSV**
+### High Performance Extract-Transform-Load with the DataFrame
 
-Each `DataFrameRow` has an implicit conversion to `std::vector<std::string>`,
-which is convenient when using `CSVWriter`.
+`DataFrame` is intentionally useful as a short-lived batch object, not just as a
+fully materialized table that lives for the rest of the program. That makes it
+a convenient bridge for ETL workflows, filtered row subsets, chunked analysis,
+and executor-driven column processing.
+
+*See also: the [High Performance ETL Doxygen page](https://vincentlaucsb.github.io/csv-parser/high_performance_etl.html).*
+
+#### `chunk_parallel_apply()`
+
+For large-file ETL work, `chunk_parallel_apply()` is the most concise way to
+combine `CSVReader`, `DataFrame`, and `DataFrameExecutor`. It reads the source in
+chunks, wraps each chunk in a batch-scoped `DataFrame`, and runs your per-column
+callback with parallel execution support.
 
 ```cpp
-// DataFrameRow has implicit conversion for CSVWriter compatibility
-auto writer = make_csv_writer(std::cout);
-for (auto& row : df) {
-    writer << row;  // Outputs edited values
+struct ColumnSummary {
+    size_t non_empty = 0;
+};
+
+CSVReader big_reader("employees.csv");
+std::vector<ColumnSummary> direct_summaries(big_reader.get_col_names().size());
+
+chunk_parallel_apply(big_reader, direct_summaries,
+    [](DataFrame<>::column_type column, ColumnSummary& summary) {
+        summary.non_empty = 0;
+        for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+            if (!column[row_index].get<std::string>().empty()) {
+                summary.non_empty++;
+            }
+        }
+    }
+);
+```
+
+#### Building a batch-scoped `DataFrame` yourself
+
+```cpp
+// DataFrame can wrap a custom subset of rows that you collected yourself.
+// This makes it a convenient bridge object for ETL workflows, filtered
+// batches, and executor-driven column analysis.
+std::vector<CSVRow> promoted_rows;
+
+for (auto& row : reader) {
+    if (row["department"] == "Engineering") {
+        promoted_rows.push_back(row);
+    }
 }
+
+DataFrame<> engineering(std::move(promoted_rows));
+
+// Run grouping, edits, vectorization, or executor-driven analysis on just that subset.
+auto salaries = engineering.column<double>("salary");
+
+struct ColumnSummary {
+    size_t non_empty = 0;
+};
+
+std::vector<ColumnSummary> column_summaries(engineering.n_cols());
+DataFrameExecutor exec;
+
+engineering.column_parallel_apply(exec, column_summaries,
+    [](DataFrame<>::column_type column, ColumnSummary& summary) {
+        summary.non_empty = 0;
+        for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+            if (!column[row_index].get<std::string>().empty()) {
+                summary.non_empty++;
+            }
+        }
+    }
+);
+```
+
+#### Writing Back to CSV
+
+Each `DataFrameRow` can be written directly with `CSVWriter`. Sparse overlay
+edits are reflected automatically, so you do not need to rebuild each row by
+hand before writing.
+
+```cpp
+std::ofstream out("edited_employees.csv");
+auto writer = make_csv_writer(out).set_auto_flush(false);
+
+// Emit the header row first.
+writer << df.columns();
+
+// Then stream the edited rows back out.
+for (const auto& row : df) {
+    writer << row;
+}
+
+writer.flush();
 ```
 
 ### Writing CSV Files
@@ -588,8 +676,8 @@ for (auto& row : df) {
 Writing CSVs is powered by the generic `DelimWriter`, with helpful factory functions like `make_csv_writer()` and `make_tsv_writer()` that cut down on boilerplate.
 
 ```cpp
-# include "csv.hpp"
-# include ...
+#include "csv.hpp"
+#include ...
 
 using namespace csv;
 using namespace std;
@@ -602,12 +690,13 @@ auto writer = make_csv_writer(ss);
 // auto writer = make_tsv_writer(ss);               // For tab-separated files
 // DelimWriter<stringstream, '|', '"'> writer(ss);  // Your own custom format
 // set_decimal_places(2);                           // How many places after the decimal will be written for floats
+// writer.set_auto_flush(false);                    // Buffer writes until flush()/destructor
 
 writer << vector<string>({ "A", "B", "C" })
     << deque<string>({ "I'm", "too", "tired" })
     << list<string>({ "to", "write", "documentation." });
 
-// Uses compile time templates
+// Uses compile-time templates
 writer << array<string, 3>({ "The quick brown", "fox", "jumps over the lazy dog" });
 writer << make_tuple(1, 2.0, "Three", "Quatro");
 

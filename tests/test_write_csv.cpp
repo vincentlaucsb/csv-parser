@@ -13,6 +13,8 @@ using std::string;
 
 TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
     SECTION("num_digits") {
+        REQUIRE(csv::internals::num_digits(0) == 1);
+        REQUIRE(csv::internals::num_digits(0.0) == 1);
         REQUIRE(csv::internals::num_digits(99.0) == 2);
         REQUIRE(csv::internals::num_digits(100.0) == 3);
     }
@@ -219,6 +221,15 @@ TEST_CASE("CSV Writer - write_row() with variadic fields", "[test_csv_write_row_
 }
 //! [CSV write_row Variadic Example]
 
+TEST_CASE("CSV Writer - auto flush control", "[test_csv_writer_auto_flush]") {
+    std::stringstream output;
+    auto writer = make_csv_writer(output);
+
+    REQUIRE(writer.get_auto_flush());
+    REQUIRE(&writer.set_auto_flush(false) == &writer);
+    REQUIRE_FALSE(writer.get_auto_flush());
+}
+
 //! [CSV Writer Tuple Example]
 struct Time {
     std::string hour;
@@ -316,8 +327,88 @@ TEST_CASE("CSV Writer - Reorder with Ranges", "[test_csv_reorder_ranges]") {
 
     REQUIRE(output.str() == correct.str());
 }
+
+TEST_CASE("CSV Writer - write_rows()", "[test_csv_write_rows]") {
+    SECTION("Nested string-like ranges") {
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+
+        std::vector<std::vector<std::string>> rows = {
+            { "A", "B", "C" },
+            { "1,1", "2", "3" },
+            { "\"quoted\"", "line 1\nline 2", "tail" }
+        };
+
+        writer.write_rows(rows);
+
+        correct << "A,B,C" << std::endl
+            << "\"1,1\",2,3" << std::endl
+            << "\"\"\"quoted\"\"\",\"line 1\nline 2\",tail" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+
+    SECTION("Row-like records exposing to_sv_range()") {
+        auto rows =
+            "id,name,quote\n"
+            "1,Alice,\"Hello, world\"\n"
+            "2,Bob,\"Line 1\nLine 2\""_csv;
+
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+        writer.write_rows(rows);
+
+        correct << "1,Alice,\"Hello, world\"" << std::endl
+            << "2,Bob,\"Line 1\nLine 2\"" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+}
 #endif
 //! [CSV Ranges Reordering Example]
+
+#ifdef CSV_HAS_CXX20
+TEST_CASE("CSV Writer - row-like operator<< and write_row()", "[test_csv_row_like_writer]") {
+    SECTION("CSVRow uses the same row-like path as write_rows()") {
+        auto rows =
+            "id,name,quote\n"
+            "1,Alice,\"Hello, world\"\n"
+            "2,Bob,\"Line 1\nLine 2\""_csv;
+
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+
+        for (const auto& row : rows) {
+            writer << row;
+        }
+
+        correct << "1,Alice,\"Hello, world\"" << std::endl
+            << "2,Bob,\"Line 1\nLine 2\"" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+
+    SECTION("DataFrameRow write_row() uses to_sv_range() without adapter overloads") {
+        auto reader =
+            "id,name,age\n"
+            "1,Alice,30\n"
+            "2,Bob,41"_csv;
+
+        csv::DataFrame<std::string> df(reader, "id");
+
+        std::stringstream output, correct;
+        auto writer = make_csv_writer(output);
+
+        writer.write_row(df["1"]);
+        writer.write_row(df["2"]);
+
+        correct << "1,Alice,30" << std::endl
+            << "2,Bob,41" << std::endl;
+
+        REQUIRE(output.str() == correct.str());
+    }
+}
+#endif
 
 //! [DataFrame Sparse Overlay Write Example]
 TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overlay_write]") {
@@ -334,9 +425,9 @@ TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overl
     csv::DataFrame<std::string> df(reader, options);
     
     // Make sparse edits to specific cells using the overlay
-    df.set("1", "age", "29");  // Chad Hooks has a birthday
-    df.set("3", "react_experience_years", "8");  // Dan got one more year
-    df.set("6", "quote", "Everything is fine in production");  // Updated quote
+    df["1"]["age"] = "29";  // Chad Hooks has a birthday
+    df["3"]["react_experience_years"] = "8";  // Dan got one more year
+    df["6"]["quote"] = "Everything is fine in production";  // Updated quote
     
     // Write the modified DataFrame back
     std::stringstream output;
@@ -345,8 +436,7 @@ TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overl
     writer << df.columns();
     for (auto& row : df) {
 #ifdef CSV_HAS_CXX20
-        // More efficient version with C++20 ranges
-        writer << row.to_sv_range();
+        writer << row;
 #else
         writer << std::vector<std::string>(row);
 #endif
