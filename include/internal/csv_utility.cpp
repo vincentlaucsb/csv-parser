@@ -31,6 +31,12 @@ namespace csv {
                 csv_dtypes[col_name] = DataType::CSV_INT16;
             else if (col[DataType::CSV_INT8])
                 csv_dtypes[col_name] = DataType::CSV_INT8;
+            else if (col[DataType::CSV_BOOL])
+                csv_dtypes[col_name] = DataType::CSV_BOOL;
+            else if (col[DataType::CSV_TIMESTAMP])
+                csv_dtypes[col_name] = DataType::CSV_TIMESTAMP;
+            else if (col[DataType::CSV_NULL])
+                csv_dtypes[col_name] = DataType::CSV_NULL;
             else
                 csv_dtypes[col_name] = DataType::CSV_DOUBLE;
         }

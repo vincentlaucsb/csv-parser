@@ -1,5 +1,6 @@
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include <limits>
 #include <string>
 
 #include "./shared/float_test_cases.hpp"
@@ -29,7 +30,9 @@ TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
 }
 
 TEST_CASE( "Recognize Strings Properly", "[dtype_str]" ) {
-    auto str = GENERATE(as<std::string> {}, "test", "999.999.9999", "510-123-4567", "510 123", "510 123 4567");
+    auto str = GENERATE(as<std::string> {},
+        "test", "true", "2024-01-31T23:59:58Z",
+        "999.999.9999", "510-123-4567", "510 123", "510 123 4567");
 
     SECTION("String Recognition") {
         REQUIRE(data_type(str) == DataType::CSV_STRING);
@@ -70,34 +73,39 @@ TEST_CASE("Integer Size Recognition", "[int_sizes]") {
     long double out = 0;
 
     SECTION("Boundary Values") {
-        s = std::to_string((long long)csv::internals::CSV_INT8_MAX);
+        s = std::to_string((long long)std::numeric_limits<std::int8_t>::max());
         REQUIRE(data_type(s, &out) == DataType::CSV_INT8);
-        REQUIRE(out == (long long)CSV_INT8_MAX);
+        REQUIRE(out == (long long)std::numeric_limits<std::int8_t>::max());
 
-        s = std::to_string((long long)csv::internals::CSV_INT16_MAX);
+        s = std::to_string((long long)std::numeric_limits<std::int16_t>::max());
         REQUIRE(data_type(s, &out) == DataType::CSV_INT16);
-        REQUIRE(out == (long long)CSV_INT16_MAX);
+        REQUIRE(out == (long long)std::numeric_limits<std::int16_t>::max());
 
-        s = std::to_string((long long)csv::internals::CSV_INT32_MAX);
+        s = std::to_string((long long)std::numeric_limits<std::int32_t>::max());
         REQUIRE(data_type(s, &out) == DataType::CSV_INT32);
-        REQUIRE(out == (long long)CSV_INT32_MAX);
+        REQUIRE(out == (long long)std::numeric_limits<std::int32_t>::max());
 
         // Note: data_type() doesn't have enough precision for CSV_INT64
     }
 
     SECTION("Integer Overflow") {
-        s = std::to_string((long long)csv::internals::CSV_INT16_MAX + 1);
+        s = std::to_string((long long)std::numeric_limits<std::int16_t>::max() + 1);
         REQUIRE(data_type(s, &out) == DataType::CSV_INT32);
-        REQUIRE(out == (long long)CSV_INT16_MAX + 1);
+        REQUIRE(out == (long long)std::numeric_limits<std::int16_t>::max() + 1);
 
-        s = std::to_string((long long)csv::internals::CSV_INT32_MAX + 1);
+        s = std::to_string((long long)std::numeric_limits<std::int32_t>::max() + 1);
         REQUIRE(data_type(s, &out) == DataType::CSV_INT64);
-        REQUIRE(out == (long long)CSV_INT32_MAX + 1);
+        REQUIRE(out == (long long)std::numeric_limits<std::int32_t>::max() + 1);
 
-        // Case: Integer too large to fit in int64 --> store in long double
-        s = std::to_string((long long)csv::internals::CSV_INT64_MAX);
+        // Case: Integer too large to fit in int64
+        s = std::to_string((long long)std::numeric_limits<std::int64_t>::max());
         s.append("1");
         REQUIRE(data_type(s, &out) == DataType::CSV_BIGINT);
+    }
+
+    SECTION("Prefixed Hexadecimal") {
+        REQUIRE(data_type("0x10", &out) == DataType::CSV_INT8);
+        REQUIRE(out == 16);
     }
 }
 

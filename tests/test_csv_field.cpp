@@ -189,6 +189,18 @@ TEST_CASE("CSVField try_get<long double>()", "[test_csv_field_try_get_long_doubl
     }
 }
 
+TEST_CASE("CSVField bool conversion requires boolean classification", "[test_csv_field_bool]") {
+    SECTION("Numeric fields are not implicitly booleans") {
+        bool out = false;
+        REQUIRE_FALSE(CSVField("1").try_get(out));
+    }
+
+    SECTION("String fields are not implicitly booleans") {
+        bool out = false;
+        REQUIRE_FALSE(CSVField("true").try_get(out));
+    }
+}
+
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
     long long value = 0;
 
@@ -201,6 +213,7 @@ TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
             {"0D", 13},
             {"0E", 14},
             {"0F", 15},
+            {"0x10", 16},
             {"FF", 255},
             {"B00B5", 721077},
             {"D3ADB33F", 3551376191},

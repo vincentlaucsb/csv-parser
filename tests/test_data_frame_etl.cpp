@@ -488,6 +488,23 @@ TEST_CASE("DataFrame ETL: csv_data_types forwards CSVReader constructor argument
     REQUIRE(dtypes["score"] == DataType::CSV_DOUBLE);
 }
 
+TEST_CASE("DataFrame ETL: csv_data_types recognizes bool timestamp and null-only columns", "[data_frame][etl][csv_data_types]") {
+    std::istringstream input(
+        "active,created_at,empty\n"
+        "true,2024-01-02,\n"
+        "false,2024-01-03,\n"
+    );
+
+    CSVFormat format;
+    format.delimiter(',').header_row(0);
+
+    auto dtypes = csv_data_types(input, format);
+
+    REQUIRE(dtypes["active"] == DataType::CSV_BOOL);
+    REQUIRE(dtypes["created_at"] == DataType::CSV_TIMESTAMP);
+    REQUIRE(dtypes["empty"] == DataType::CSV_NULL);
+}
+
 #ifndef __EMSCRIPTEN__
 TEST_CASE("ETL stats helper: missing file surfaces reader error", "[data_frame][etl][stats]") {
     bool error_caught = false;
