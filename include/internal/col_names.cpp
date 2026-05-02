@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cctype>
 #include "col_names.hpp"
+#include "csv_exceptions.hpp"
 
 namespace csv {
     namespace internals {
@@ -49,7 +50,7 @@ namespace csv {
 
         CSV_INLINE const std::string& ColNames::operator[](size_t i) const {
             if (i >= this->col_names.size())
-                throw std::out_of_range("Column index out of bounds.");
+                throw_column_index_out_of_bounds();
 
             return this->col_names[i];
         }

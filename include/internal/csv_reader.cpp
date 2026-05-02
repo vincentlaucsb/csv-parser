@@ -24,12 +24,7 @@ namespace csv {
         if (this->parser->eof()) return false;
 
         if (this->_read_requested && this->records->empty()) {
-            throw std::runtime_error(
-                "End of file not reached and no more records parsed. "
-                "This likely indicates a CSV row larger than the chunk size of " +
-                std::to_string(this->_chunk_size) + " bytes. "
-                "Use CSVFormat::chunk_size() to increase the chunk size."
-            );
+            internals::throw_row_too_large_for_chunk(this->_chunk_size);
         }
 
 #if CSV_ENABLE_THREADS
@@ -119,10 +114,10 @@ namespace csv {
             (policy == VariableColumnPolicy::THROW || policy == VariableColumnPolicy::IGNORE_ROW)) {
             if (policy == VariableColumnPolicy::THROW) {
                 if (candidate.size() < this->n_cols) {
-                    throw std::runtime_error("Line too short " + std::string(candidate.raw_str()));
+                    internals::throw_line_too_short(candidate.raw_str());
                 }
 
-                throw std::runtime_error("Line too long " + std::string(candidate.raw_str()));
+                internals::throw_line_too_long(candidate.raw_str());
             }
 
             return false;

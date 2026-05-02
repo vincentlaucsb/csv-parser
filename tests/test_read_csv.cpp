@@ -3,9 +3,11 @@
  */
 
 #include <stdio.h> // remove()
+#include <fstream>
 #include <sstream>
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
 
 using namespace csv;
 using std::vector;
@@ -66,6 +68,51 @@ TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
     rows.read_row(row);
     vector<string> first_row = { "123", "234", "345" };
     REQUIRE(vector<string>(row) == first_row);
+}
+
+TEST_CASE("Unicode BOM handling", "[read_unicode_bom]") {
+    SECTION("Free utility strips UTF-8 BOM") {
+        bool utf8_bom = false;
+        REQUIRE(internals::get_bom_skip_or_throw(csv::string_view("\xEF\xBB\xBF" "A,B\n", 7), utf8_bom) == 3);
+        REQUIRE(utf8_bom);
+    }
+
+    SECTION("Free utility rejects UTF-16 and UTF-32 BOMs") {
+        bool utf8_bom = false;
+        REQUIRE_THROWS_WITH(
+            internals::get_bom_skip_or_throw(csv::string_view("\xFF\xFE" "A\0", 4), utf8_bom),
+            Catch::Matchers::ContainsSubstring("UTF-16")
+        );
+        REQUIRE_THROWS_WITH(
+            internals::get_bom_skip_or_throw(csv::string_view("\x00\x00\xFE\xFF", 4), utf8_bom),
+            Catch::Matchers::ContainsSubstring("UTF-32")
+        );
+    }
+
+    SECTION("Direct input rejects UTF-16 before parsing corrupted rows") {
+        REQUIRE_THROWS_WITH([] {
+            return csv::parse_unsafe(csv::string_view("\xFF\xFE" "A\0,\0B\0\n\0", 10));
+        }(), Catch::Matchers::ContainsSubstring("UTF-16"));
+    }
+
+    SECTION("Stream input rejects UTF-16 before parsing corrupted rows") {
+        std::string data("\xFE\xFF\0A\0,\0B\0\n", 10);
+        std::istringstream input(data);
+
+        REQUIRE_THROWS_WITH(CSVReader(input), Catch::Matchers::ContainsSubstring("UTF-16"));
+    }
+
+    SECTION("File input rejects UTF-16 before parsing corrupted rows") {
+        const std::string filename = "./tests/data/tmp_utf16_bom.csv";
+        FileGuard cleanup(filename);
+        {
+            std::ofstream out(filename, std::ios::binary);
+            const std::string data("\xFF\xFE" "A\0,\0B\0\n\0", 10);
+            out.write(data.data(), static_cast<std::streamsize>(data.size()));
+        }
+
+        REQUIRE_THROWS_WITH(CSVReader(filename), Catch::Matchers::ContainsSubstring("UTF-16"));
+    }
 }
 
 //! [Escaped Comma]
@@ -488,7 +535,7 @@ TEST_CASE("Test Variable Row Length Handling", "[read_csv_var_len]") {
 
         REQUIRE(error_caught);
         REQUIRE(i == 2);
-        REQUIRE(error_message.substr(0, 14) == "Line too short");
+        REQUIRE(error_message.find(internals::ERROR_ROW_TOO_SHORT) == 0);
     }
 
     SECTION("Ignore Row") {

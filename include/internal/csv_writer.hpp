@@ -18,6 +18,7 @@
 
 #include "basic_csv_parser_simd.hpp"
 #include "common.hpp"
+#include "csv_exceptions.hpp"
 
 namespace csv {
 namespace internals {
@@ -266,7 +267,7 @@ namespace internals {
             out(owned_out.get()),
             quote_minimal(_quote_minimal) {
             if (!owned_out->is_open())
-                throw std::runtime_error("Failed to open file for writing: " + filename);
+                internals::throw_failed_open_for_writing(filename);
         }
 
         DelimWriter(const DelimWriter&) = delete;

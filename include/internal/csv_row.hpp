@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "csv_exceptions.hpp"
 #ifdef CSV_HAS_CXX20
 #include <ranges>
 #endif
@@ -185,20 +186,12 @@ namespace csv {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
 
-            if (this->type_ != DataType::UNKNOWN) {
-                if (this->type_ < DataType::CSV_INT8 || this->type_ > DataType::CSV_DOUBLE) {
-                    return false;
-                }
-
-                return internals::is_equal(this->numeric_value_as_long_double(), static_cast<long double>(other), 0.000001L);
-            }
-
-            long double out = 0;
-            if (internals::data_type(this->sv, &out) == DataType::CSV_STRING) {
+            const_cast<CSVField*>(this)->get_value();
+            if (this->type_ < DataType::CSV_INT8 || this->type_ > DataType::CSV_DOUBLE || this->type_ == DataType::CSV_BIGINT) {
                 return false;
             }
 
-            return internals::is_equal(out, static_cast<long double>(other), 0.000001L);
+            return internals::is_equal(this->numeric_value_as_long_double(), static_cast<long double>(other), 0.000001L);
         }
 
         /** Return a string view over the field's contents */
@@ -247,12 +240,15 @@ namespace csv {
 
         struct FieldValueOutput {
             FieldValue& value;
-            classify_scalar::IntegerKind& integer_kind;
 
             template<classify_scalar::ScalarKind Kind>
-            typename std::enable_if<Kind == classify_scalar::scalar_int, void>::type set(std::int64_t parsed) const noexcept {
+            typename std::enable_if<
+                Kind == classify_scalar::scalar_int8
+                || Kind == classify_scalar::scalar_int16
+                || Kind == classify_scalar::scalar_int32
+                || Kind == classify_scalar::scalar_int64,
+                void>::type set(std::int64_t parsed) const noexcept {
                 value.integer = parsed;
-                integer_kind = classify_scalar::classify_integer_kind(parsed);
             }
 
             template<classify_scalar::ScalarKind Kind>
@@ -313,6 +309,8 @@ namespace csv {
             IF_CONSTEXPR(std::is_arithmetic<T>::value) {
                 if (!this->is_num())
                     return internals::ERROR_NAN.c_str();
+                if (this->type_ == DataType::CSV_BIGINT)
+                    return internals::ERROR_OVERFLOW.c_str();
             }
 
             IF_CONSTEXPR(std::is_integral<T>::value) {
@@ -339,12 +337,9 @@ namespace csv {
             return nullptr;
         }
 
+        /** Check to see if value has been cached previously before evaluating. */
         inline void get_value() noexcept {
-            /* Check to see if value has been cached previously, if not
-             * evaluate it
-             */
             if ((int)type_ < 0) {
-                classify_scalar::IntegerKind integer_kind = classify_scalar::integer_none;
                 const char* first = this->sv.data();
                 const char* last = first + this->sv.size();
                 typedef classify_scalar::policy_pack<
@@ -354,12 +349,10 @@ namespace csv {
                 > csv_field_policy_pack;
 
                 CSV_MSVC_PUSH_DISABLE(4127)
-                const classify_scalar::ScalarKind kind = classify_scalar::classify_scalar<
-                    classify_scalar::ScalarKind,
-                    true>(first, last, FieldValueOutput{ this->value_, integer_kind }, csv_field_policy_pack());
+                type_ = classify_scalar::classify_scalar<
+                    DataType,
+                    true>(first, last, FieldValueOutput{ this->value_ }, csv_field_policy_pack());
                 CSV_MSVC_POP
-
-                type_ = internals::data_type_from_scalar_kind(kind, integer_kind);
             }
         }
     };
@@ -508,7 +501,7 @@ namespace csv {
             using internals::ParseFlags;
 
             if (index >= this->size())
-                throw std::runtime_error("Index out of bounds.");
+                throw std::runtime_error(internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
 
             const size_t field_index = this->fields_start + index;
             auto field = _data->fields[field_index];

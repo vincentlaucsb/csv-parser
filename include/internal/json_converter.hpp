@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "csv_exceptions.hpp"
 #include "data_type.hpp"
 
 namespace csv {
@@ -210,7 +211,8 @@ namespace csv {
             }
 
             void append_json_value(std::string& out, csv::string_view value) const {
-                if (internals::data_type(value) >= DataType::CSV_INT8) {
+                const DataType type = internals::data_type(value);
+                if (type >= DataType::CSV_INT8 && type <= DataType::CSV_DOUBLE) {
                     out.append(value.data(), value.size());
                 } else {
                     out += '"';
@@ -222,7 +224,7 @@ namespace csv {
             size_t index_of(const std::string& column) const {
                 const auto it = column_positions_.find(column);
                 if (it == column_positions_.end()) {
-                    throw std::runtime_error("Can't find a column named " + column);
+                    throw_column_not_found(column);
                 }
 
                 return it->second;

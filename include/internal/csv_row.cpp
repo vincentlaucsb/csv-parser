@@ -5,6 +5,7 @@
 #include <cassert>
 #include <functional>
 #include "csv_row.hpp"
+#include "csv_exceptions.hpp"
 
 namespace csv {
     namespace internals {
@@ -52,7 +53,7 @@ namespace csv {
             return this->operator[](col_pos);
         }
 
-        throw std::runtime_error("Can't find a column named " + std::string(col_name));
+        internals::throw_column_not_found(col_name);
     }
 
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {

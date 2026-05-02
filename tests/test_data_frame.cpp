@@ -132,6 +132,8 @@ TEST_CASE("DataFrame: column iteration respects visible values", "[data_frame]")
     REQUIRE(name_col.index() == 1);
     REQUIRE(name_col.size() == 2);
     REQUIRE(values == std::vector<std::string>{"Alicia", "Bob"});
+    REQUIRE(name_col.get_sv(0) == "Alicia");
+    REQUIRE(name_col.get_sv(1) == "Bob");
 }
 
 TEST_CASE("DataFrame: keyed access with overwrite and lazy index", "[data_frame]") {

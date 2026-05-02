@@ -195,9 +195,19 @@ TEST_CASE("CSVField bool conversion requires boolean classification", "[test_csv
         REQUIRE_FALSE(CSVField("1").try_get(out));
     }
 
-    SECTION("String fields are not implicitly booleans") {
+    SECTION("Boolean literals parse as booleans") {
         bool out = false;
-        REQUIRE_FALSE(CSVField("true").try_get(out));
+        REQUIRE(CSVField("true").try_get(out));
+        REQUIRE(out);
+
+        out = true;
+        REQUIRE(CSVField("false").try_get(out));
+        REQUIRE_FALSE(out);
+    }
+
+    SECTION("Other string fields are not implicitly booleans") {
+        bool out = false;
+        REQUIRE_FALSE(CSVField("truthy").try_get(out));
     }
 }
 

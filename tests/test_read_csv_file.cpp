@@ -77,7 +77,10 @@ TEST_CASE("Non-Existent CSV", "[read_ghost_csv]") {
     }
     catch (std::runtime_error& err) {
         error_caught = true;
-        REQUIRE(err.what() == std::string("Cannot open file ./lochness.csv"));
+        REQUIRE(err.what() == internals::make_prefixed_message(
+            internals::ERROR_CANNOT_OPEN_FILE,
+            "./lochness.csv"
+        ));
     }
 
     REQUIRE(error_caught);

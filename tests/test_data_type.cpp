@@ -1,207 +1,53 @@
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+
+#include <cstdint>
 #include <limits>
 #include <string>
-
-#include "./shared/float_test_cases.hpp"
 
 using namespace csv;
 using namespace csv::internals;
 
-TEST_CASE( "Recognize Integers Properly", "[dtype_int]" ) {
-    std::string a("1"), b(" 2018   "), c(" -69 ");
-    long double out = 0;
+TEST_CASE("data_type() exposes csv-parser scalar classification policy", "[data_type]") {
+    REQUIRE(data_type("") == DataType::CSV_NULL);
+    REQUIRE(data_type("not-a-number") == DataType::CSV_STRING);
+    REQUIRE(data_type("510-123-4567") == DataType::CSV_STRING);
 
-    REQUIRE(data_type(a, &out) == DataType::CSV_INT8);
-    REQUIRE(out == 1);
+    REQUIRE(data_type("127") == DataType::CSV_INT8);
+    REQUIRE(data_type("128") == DataType::CSV_INT16);
+    REQUIRE(data_type("32768") == DataType::CSV_INT32);
+    REQUIRE(data_type("2147483648") == DataType::CSV_INT64);
 
-    REQUIRE(data_type(b, &out) == DataType::CSV_INT16);
-    REQUIRE(out == 2018);
+    std::string too_big = std::to_string((std::numeric_limits<std::int64_t>::max)());
+    too_big.push_back('1');
+    REQUIRE(data_type(too_big) == DataType::CSV_BIGINT);
 
-    REQUIRE(data_type(c, &out) == DataType::CSV_INT8);
-    REQUIRE(out == -69);
-
-    SECTION("Type detection without output pointer") {
-        // Verify the if (out) nullptr branch: correct DataType returned, no crash
-        REQUIRE(data_type(a) == DataType::CSV_INT8);
-        REQUIRE(data_type(b) == DataType::CSV_INT16);
-        REQUIRE(data_type(c) == DataType::CSV_INT8);
-    }
+    REQUIRE(data_type("0x10") == DataType::CSV_INT8);
+    REQUIRE(data_type("3.14") == DataType::CSV_DOUBLE);
+    REQUIRE(data_type("1E-06") == DataType::CSV_DOUBLE);
 }
 
-TEST_CASE( "Recognize Strings Properly", "[dtype_str]" ) {
-    auto str = GENERATE(as<std::string> {},
-        "test", "true", "2024-01-31T23:59:58Z",
-        "999.999.9999", "510-123-4567", "510 123", "510 123 4567");
+TEST_CASE("data_type() recognizes scalar types without materializing values", "[data_type][test_csv_field_bool]") {
+    REQUIRE(data_type("true") == DataType::CSV_BOOL);
+    REQUIRE(data_type("false") == DataType::CSV_BOOL);
+    REQUIRE(data_type("2024-01-31T23:59:58Z") == DataType::CSV_TIMESTAMP);
 
-    SECTION("String Recognition") {
-        REQUIRE(data_type(str) == DataType::CSV_STRING);
-    }
+    CSVField true_field("true");
+    CSVField false_field("false");
+    CSVField timestamp_field("2024-01-31T23:59:58Z");
+
+    REQUIRE(true_field.type() == DataType::CSV_BOOL);
+    REQUIRE(false_field.type() == DataType::CSV_BOOL);
+    REQUIRE(timestamp_field.type() == DataType::CSV_TIMESTAMP);
+
+    REQUIRE(true_field.get<bool>());
+    REQUIRE_FALSE(false_field.get<bool>());
 }
 
-TEST_CASE( "Recognize Null Properly", "[dtype_null]" ) {
-    std::string null_str("");
-    REQUIRE( data_type(null_str) == DataType::CSV_NULL );
-}
-
-TEST_CASE( "Recognize Floats Properly", "[dtype_float]" ) {
-    using std::make_tuple;
-
-    SECTION("Parse One Float") {
-        std::string input;
-        long double out = 0;
-        long double expected = 0;
-
-        std::tie(input, expected) =
-            GENERATE(table<std::string, long double>(
-                csv_test::FLOAT_TEST_CASES));
-
-        REQUIRE(data_type(input, &out) == DataType::CSV_DOUBLE);
-        REQUIRE(is_equal(out, expected));
-    }
-
-    SECTION("Type detection without output pointer") {
-        // Verify the if (out) nullptr branch: correct DataType returned, no crash
-        REQUIRE(data_type("3.14")  == DataType::CSV_DOUBLE);
-        REQUIRE(data_type("0.0")   == DataType::CSV_DOUBLE);
-        REQUIRE(data_type("-1.5")  == DataType::CSV_DOUBLE);
-    }
-}
-
-TEST_CASE("Integer Size Recognition", "[int_sizes]") {
-    std::string s;
-    long double out = 0;
-
-    SECTION("Boundary Values") {
-        s = std::to_string((long long)std::numeric_limits<std::int8_t>::max());
-        REQUIRE(data_type(s, &out) == DataType::CSV_INT8);
-        REQUIRE(out == (long long)std::numeric_limits<std::int8_t>::max());
-
-        s = std::to_string((long long)std::numeric_limits<std::int16_t>::max());
-        REQUIRE(data_type(s, &out) == DataType::CSV_INT16);
-        REQUIRE(out == (long long)std::numeric_limits<std::int16_t>::max());
-
-        s = std::to_string((long long)std::numeric_limits<std::int32_t>::max());
-        REQUIRE(data_type(s, &out) == DataType::CSV_INT32);
-        REQUIRE(out == (long long)std::numeric_limits<std::int32_t>::max());
-
-        // Note: data_type() doesn't have enough precision for CSV_INT64
-    }
-
-    SECTION("Integer Overflow") {
-        s = std::to_string((long long)std::numeric_limits<std::int16_t>::max() + 1);
-        REQUIRE(data_type(s, &out) == DataType::CSV_INT32);
-        REQUIRE(out == (long long)std::numeric_limits<std::int16_t>::max() + 1);
-
-        s = std::to_string((long long)std::numeric_limits<std::int32_t>::max() + 1);
-        REQUIRE(data_type(s, &out) == DataType::CSV_INT64);
-        REQUIRE(out == (long long)std::numeric_limits<std::int32_t>::max() + 1);
-
-        // Case: Integer too large to fit in int64
-        s = std::to_string((long long)std::numeric_limits<std::int64_t>::max());
-        s.append("1");
-        REQUIRE(data_type(s, &out) == DataType::CSV_BIGINT);
-    }
-
-    SECTION("Prefixed Hexadecimal") {
-        REQUIRE(data_type("0x10", &out) == DataType::CSV_INT8);
-        REQUIRE(out == 16);
-    }
-}
-
-TEST_CASE( "Recognize Sub-Unit Double Values", "[regression_double]" ) {
-    std::string s("0.15");
-    long double out = 0;
-    REQUIRE(data_type(s, &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.15L));
-}
-
-TEST_CASE( "Recognize Double Values", "[regression_double2]" ) {
-    // Test converting double values back and forth
-    long double out = -1.0;
-    std::string s;
-
-    for (long double i = 0; i <= 2.0; i += 0.01) {
-        s = std::to_string(i);
-        REQUIRE(data_type(s, &out) == DataType::CSV_DOUBLE);
-        REQUIRE(is_equal(out, i));
-    }
-}
-
-//! [Parse Scientific Notation]
-TEST_CASE("Parse Scientific Notation", "[e_notation]") {
-    // Test parsing e notation
-    long double out = 0;
-
-    REQUIRE(data_type("1E-06", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.000001L));
-
-    REQUIRE(data_type("1e-06", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.000001L));
-
-    REQUIRE(data_type("2.17222E+02", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 217.222L));
-
-    REQUIRE(data_type("4.55E+10", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 45500000000.0L));
-
-    REQUIRE(data_type("4.55E+11", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 455000000000.0L));
-
-    REQUIRE(data_type("4.55E-1", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.455L));
-
-    REQUIRE(data_type("4.55E-5", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.0000455L));
-
-    REQUIRE(data_type("4.55E-000000000005", &out) == DataType::CSV_DOUBLE);
-    REQUIRE(is_equal(out, 0.0000455L));
-
-    SECTION("Negative coefficients") {
-        REQUIRE(data_type("-1.5E3", &out) == DataType::CSV_DOUBLE);
-        REQUIRE(is_equal(out, -1500.0L));
-
-        REQUIRE(data_type("-4.55e-2", &out) == DataType::CSV_DOUBLE);
-        REQUIRE(is_equal(out, -0.0455L));
-
-        REQUIRE(data_type("-1E+6", &out) == DataType::CSV_DOUBLE);
-        REQUIRE(is_equal(out, -1000000.0L));
-    }
-}
-//! [Parse Scientific Notation]
-
-//! [Scientific Notation Flavors]
-TEST_CASE("Parse Different Flavors of Scientific Notation", "[sci_notation_diversity]") {
-    auto number = GENERATE(as<std::string> {},
-        "4.55e5", "4.55E5",
-        "4.55E+5", "4.55e+5",
-        "4.55E+05",
-        "4.55e0000005", "4.55E0000005",
-        "4.55e+0000005", "4.55E+0000005");
-
-    SECTION("Recognize 455 thousand") {
-        long double out = 0;
-        REQUIRE(data_type(number, &out) == DataType::CSV_DOUBLE);
-        REQUIRE(is_equal(out, 455000.0L));
-    }
-}
-//! [Scientific Notation Flavors]
-
-TEST_CASE("Parse Scientific Notation Malformed", "[sci_notation]") {
-    // Assert parsing butchered scientific notation won't cause a 
-    // crash or any other weird side effects
-    auto butchered = GENERATE(as<std::string>{},
-        "4.55E000a",
-        "4.55000x40",
-        "4.55000E40E40");
-
-    SECTION("Butchered Parsing Attempt") {
-        REQUIRE(data_type(butchered) == DataType::CSV_STRING);
-    }
-}
-
-TEST_CASE( "Parse numbers with dash as string", "[regression_double]" ) {
-  std::string s("510-123-4567");
-  long double out = 0;
-  REQUIRE(data_type(s, &out) == DataType::CSV_STRING);
+TEST_CASE("CSVField materializes classified numeric values", "[data_type][test_csv_field]") {
+    REQUIRE(CSVField("0x10").get<long long>() == 16);
+    REQUIRE(CSVField("-69").get<long long>() == -69);
+    REQUIRE(CSVField("2018").get<long long>() == 2018);
+    REQUIRE(internals::is_equal(CSVField("0.15").get<long double>(), 0.15L));
+    REQUIRE(internals::is_equal(CSVField("-1.5E3").get<long double>(), -1500.0L));
 }

@@ -166,8 +166,8 @@ int main(int argc, char** argv) {
 
         chunk_parallel_apply(reader, schema,
             [](DataFrame<>::column_type column, ColumnSchemaInfo& info) {
-                for (const auto& cell : column) {
-                    const DataType type = cell.type();
+                for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+                    const DataType type = internals::data_type(column.get_sv(row_index));
                     info.type_counts[type]++;
                     info.nullable = info.nullable || (type == DataType::CSV_NULL);
                 }

@@ -17,6 +17,7 @@
 #include "basic_csv_parser_simd.hpp"
 #include "col_names.hpp"
 #include "common.hpp"
+#include "csv_exceptions.hpp"
 #include "csv_format.hpp"
 #include "csv_row.hpp"
 #include "row_deque.hpp"
@@ -111,6 +112,9 @@ namespace csv {
         inline WhitespaceMap make_ws_flags(const std::vector<char>& flags) {
             return make_ws_flags(flags.data(), flags.size());
         }
+
+        /** Return the number of leading BOM bytes to skip, or throw for unsupported Unicode encodings. */
+        CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom);
 
         /** Read the first 500KB from a seekless stream source. */
         template<typename TStream,
@@ -297,7 +301,7 @@ namespace csv {
             void push_row();
 
             /** Handle possible Unicode byte order mark */
-            void trim_utf8_bom();
+            void strip_unicode_bom();
         };
 
         /** A class for parsing CSV data from any std::istream, including
@@ -372,7 +376,7 @@ namespace csv {
                 // failbit alone is not fatal - it's set on EOF or when requesting bytes
                 // beyond available data, which is normal behavior for stringstreams.
                 if (source_.bad()) {
-                    throw std::runtime_error("StreamParser read failure");
+                    throw_stream_read_failure();
                 }
 
                 // Create string_view

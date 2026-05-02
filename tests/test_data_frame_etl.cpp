@@ -515,7 +515,10 @@ TEST_CASE("ETL stats helper: missing file surfaces reader error", "[data_frame][
     }
     catch (std::runtime_error& err) {
         error_caught = true;
-        REQUIRE(strcmp(err.what(), "Cannot open file ./tests/data/fake_data/empty.csv") == 0);
+        REQUIRE(err.what() == internals::make_prefixed_message(
+            internals::ERROR_CANNOT_OPEN_FILE,
+            "./tests/data/fake_data/empty.csv"
+        ));
     }
 
     REQUIRE(error_caught);
