@@ -42,6 +42,11 @@ SOFTWARE.
 
 #ifndef CLASSIFY_SCALAR_SKIP_HEADER
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4127)
+#endif
+
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -1339,6 +1344,9 @@ struct builtin_numeric_policy {
         parse_state& state,
         const char* value_first,
         Output& output) const noexcept {
+		// Use overflow checks for numbers with 19 or more digits, which can exceed 64-bit limits.
+        // Shorter numbers are common enough that it's worth skipping the checks for them.
+        // Testing note: yes this was a significant optimization.
         return state.last - value_first < 19
             ? scan_short_number(state, value_first, output)
             : scan_checked_number(state, value_first, output);
@@ -1566,11 +1574,14 @@ CLASSIFY_SCALAR_FORCE_INLINE Kind classify_scalar(
 #endif
 
 /// Parse an explicit hexadecimal integer, accepting either bare hex or 0x-prefixed hex.
-template<bool TrimAsciiWhitespace = true>
-CLASSIFY_SCALAR_FORCE_INLINE bool parse_hex(
+template<bool TrimAsciiWhitespace = true, typename IntegerType>
+CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
+    std::is_integral<IntegerType>::value
+        && !std::is_same<IntegerType, bool>::value,
+    bool>::type parse_hex(
     const char* first,
     const char* last,
-    std::int64_t& out) noexcept {
+    IntegerType& out) noexcept {
     const scalar_span span = detail::parsing::trim_span<TrimAsciiWhitespace>(first, last);
     if (span.first == span.last)
         return false;
@@ -1580,12 +1591,23 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_hex(
     if (current == state.last)
         return false;
 
+    std::int64_t parsed = 0;
     if (current + 2 <= state.last && current[0] == '0' && (current[1] == 'x' || current[1] == 'X')) {
         state.current = current + 1;
-        return detail::parsing::parse_hex_integer(state, &out);
-    }
+        if (!detail::parsing::parse_hex_integer(state, &parsed))
+            return false;
+    } else if (!detail::parsing::parse_bare_hex_integer(state, &parsed))
+        return false;
 
-    return detail::parsing::parse_bare_hex_integer(state, &out);
+    if (parsed < static_cast<std::int64_t>(std::numeric_limits<IntegerType>::min()))
+        return false;
+
+    if (parsed >= 0
+            && static_cast<std::uint64_t>(parsed) > static_cast<std::uint64_t>(std::numeric_limits<IntegerType>::max()))
+        return false;
+
+    out = static_cast<IntegerType>(parsed);
+    return true;
 }
 
 /// Parse an explicit floating-point value with runtime '.' or ',' decimal selection.
@@ -1662,10 +1684,13 @@ CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
 
 #ifdef CLASSIFY_SCALAR_HAS_CXX17
 /// string_view overload for parse_hex().
-template<bool TrimAsciiWhitespace = true>
-CLASSIFY_SCALAR_FORCE_INLINE bool parse_hex(
+template<bool TrimAsciiWhitespace = true, typename IntegerType>
+CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
+    std::is_integral<IntegerType>::value
+        && !std::is_same<IntegerType, bool>::value,
+    bool>::type parse_hex(
     std::string_view value,
-    std::int64_t& out) noexcept {
+    IntegerType& out) noexcept {
     return parse_hex<TrimAsciiWhitespace>(value.data(), value.data() + value.size(), out);
 }
 
@@ -1700,5 +1725,9 @@ CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
 #endif
 
 } // namespace classify_scalar
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 #endif // CLASSIFY_SCALAR_SKIP_HEADER

@@ -7,9 +7,7 @@
 #include <cstdint>
 
 #include "common.hpp"
-CSV_MSVC_PUSH_DISABLE(4127)
 #include "../external/classify_scalar.hpp"
-CSV_MSVC_POP
 
 namespace csv {
     /** Enumerates the different CSV field types recognized by this library. */
@@ -47,11 +45,9 @@ namespace csv {
                 classify_scalar::builtin_bool_policy
             > csv_field_policy_pack;
 
-            CSV_MSVC_PUSH_DISABLE(4127)
             return classify_scalar::classify_scalar<
                 DataType,
                 true>(first, last, classify_scalar::classify_only_output(), csv_field_policy_pack());
-            CSV_MSVC_POP
         }
     }
 }

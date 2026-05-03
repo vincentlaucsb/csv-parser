@@ -753,7 +753,7 @@ namespace csv {
                 return edited_value;
             }
 
-            return row[col_index_].get<csv::string_view>();
+            return row[col_index_].template get<csv::string_view>();
         }
 
         /** Materialize this column as a vector of converted values. */

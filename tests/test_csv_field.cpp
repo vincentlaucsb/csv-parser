@@ -1,5 +1,9 @@
 #include "csv.hpp"
+#include <chrono>
 #include <catch2/catch_all.hpp>
+#ifdef CSV_HAS_CXX17
+#include <optional>
+#endif
 #include <cmath>
 #include <iostream>
 #include <sstream>
@@ -55,6 +59,31 @@ TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
     REQUIRE(ex_caught);
 }
 
+#ifdef CSV_HAS_STD_EXPECTED
+TEST_CASE("CSVField as<T>() returns expected", "[test_csv_field_expected]") {
+    auto number = CSVField("2019").as<std::uint32_t>();
+    REQUIRE(number);
+    REQUIRE(*number == 2019);
+
+    auto not_number = CSVField("applesauce").as<std::uint32_t>();
+    REQUIRE_FALSE(not_number);
+    REQUIRE(not_number.error() == CSVConversionError::NotANumber);
+
+    auto overflow = CSVField("2019").as<signed char>();
+    REQUIRE_FALSE(overflow);
+    REQUIRE(overflow.error() == CSVConversionError::Overflow);
+
+    auto float_to_int = CSVField("2.718").as<int>();
+    REQUIRE_FALSE(float_to_int);
+    REQUIRE(float_to_int.error() == CSVConversionError::FloatToInt);
+
+    auto negative_to_unsigned = CSVField("-1").as<std::uint32_t>();
+    REQUIRE_FALSE(negative_to_unsigned);
+    REQUIRE(negative_to_unsigned.error() == CSVConversionError::NegativeToUnsigned);
+    REQUIRE(std::string(csv_conversion_error_message(negative_to_unsigned.error())) == csv::internals::ERROR_NEG_TO_UNSIGNED);
+}
+#endif
+
 TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
     CSVField this_year("2019");
     REQUIRE(this_year.get<>() == "2019");
@@ -99,6 +128,27 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
 
     REQUIRE(ex_caught);
 }
+
+#ifdef CSV_HAS_CXX17
+TEST_CASE("CSVField converts to std::optional", "[test_csv_field_optional]") {
+    std::optional<std::uint32_t> number = CSVField("2019");
+    REQUIRE(number);
+    REQUIRE(*number == 2019);
+
+    std::optional<std::uint32_t> not_number = CSVField("applesauce");
+    REQUIRE_FALSE(not_number);
+
+    std::optional<std::uint32_t> negative_unsigned = CSVField("-1");
+    REQUIRE_FALSE(negative_unsigned);
+
+    std::optional<bool> truth = CSVField("true");
+    REQUIRE(truth);
+    REQUIRE(*truth);
+
+    std::optional<bool> numeric_bool = CSVField("1");
+    REQUIRE_FALSE(numeric_bool);
+}
+#endif
 
 TEST_CASE("CSVField get<>() - Integer Boundary Value", "[test_csv_field_get_boundary]") {
     // Note: Tests may fail if compiler defines typenames differently than
@@ -211,6 +261,45 @@ TEST_CASE("CSVField bool conversion requires boolean classification", "[test_csv
     }
 }
 
+TEST_CASE("CSVField timestamp parsing", "[test_csv_field_timestamp]") {
+    CSVField field("1970-01-02T00:00:00.123Z");
+
+    REQUIRE(field.type() == DataType::CSV_TIMESTAMP);
+
+    std::uint64_t milliseconds = 0;
+    REQUIRE(field.try_parse_timestamp(milliseconds));
+    REQUIRE(milliseconds == 86400123);
+
+    unsigned long long milliseconds_ull = 0;
+    REQUIRE(field.try_parse_timestamp(milliseconds_ull));
+    REQUIRE(milliseconds_ull == 86400123ULL);
+
+    std::chrono::milliseconds duration_ms(0);
+    REQUIRE(field.try_get(duration_ms));
+    REQUIRE(duration_ms == std::chrono::milliseconds(86400123));
+
+    std::chrono::seconds duration_s(0);
+    REQUIRE(field.try_get(duration_s));
+    REQUIRE(duration_s == std::chrono::seconds(86400));
+
+    std::chrono::system_clock::time_point time_point;
+    REQUIRE(field.try_get(time_point));
+    REQUIRE(time_point.time_since_epoch() == std::chrono::milliseconds(86400123));
+
+    CSVField integer_timestamp("86400123");
+    std::chrono::seconds coerced_seconds(0);
+    REQUIRE(integer_timestamp.try_parse_timestamp(coerced_seconds));
+    REQUIRE(coerced_seconds == std::chrono::seconds(86400));
+
+    std::uint64_t unchanged = 123;
+    REQUIRE_FALSE(CSVField("not-a-timestamp").try_parse_timestamp(unchanged));
+    REQUIRE(unchanged == 123);
+
+    unchanged = 123;
+    REQUIRE_FALSE(CSVField("-1").try_parse_timestamp(unchanged));
+    REQUIRE(unchanged == 123);
+}
+
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
     long long value = 0;
 
@@ -244,6 +333,21 @@ TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
         for (auto& _case : invalid_test_cases) {
             REQUIRE(CSVField(_case).try_parse_hex(value) == false);
         }
+    }
+
+    SECTION("Reject Values Outside Target Type Range") {
+        unsigned char byte_value = 0;
+        REQUIRE(CSVField("FF").try_parse_hex(byte_value));
+        REQUIRE(byte_value == 255);
+        REQUIRE_FALSE(CSVField("100").try_parse_hex(byte_value));
+
+        signed char signed_byte_value = 0;
+        REQUIRE(CSVField("7F").try_parse_hex(signed_byte_value));
+        REQUIRE(signed_byte_value == 127);
+        REQUIRE_FALSE(CSVField("80").try_parse_hex(signed_byte_value));
+
+        unsigned int unsigned_value = 0;
+        REQUIRE_FALSE(CSVField("-1").try_parse_hex(unsigned_value));
     }
 }
 

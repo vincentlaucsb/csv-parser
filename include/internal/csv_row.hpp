@@ -3,6 +3,7 @@
  */
 
 #pragma once
+#include <chrono>
 #include <cstdint>
 #include <cmath>
 #include <iterator>
@@ -17,6 +18,19 @@
 #include <vector>
 
 #include "common.hpp"
+#ifdef CSV_HAS_CXX17
+#include <optional>
+#endif
+#ifdef CSV_HAS_CXX23
+#if defined(__has_include)
+#if __has_include(<expected>)
+#include <expected>
+#ifdef __cpp_lib_expected
+#define CSV_HAS_STD_EXPECTED
+#endif
+#endif
+#endif
+#endif
 #include "csv_exceptions.hpp"
 #ifdef CSV_HAS_CXX20
 #include <ranges>
@@ -61,6 +75,36 @@ namespace csv {
     }
 
     /**
+    * @enum CSVConversionError
+    * @brief Non-throwing CSVField conversion failure reason.
+    */
+    enum class CSVConversionError {
+        None = 0,
+        NotANumber,
+        Overflow,
+        FloatToInt,
+        NegativeToUnsigned
+    };
+
+    namespace internals {
+        static CONSTEXPR_VALUE_14 const char* CSV_CONVERSION_ERROR_MESSAGES[] = {
+            "",
+            "Not a number.",
+            "Overflow error.",
+            "Attempted to convert a floating point value to an integral type.",
+            "Negative numbers cannot be converted to unsigned types."
+        };
+    }
+
+    /** Return a stable human-readable description for a CSVConversionError. */
+    inline const char* csv_conversion_error_message(CSVConversionError error) noexcept {
+        const size_t index = static_cast<size_t>(error);
+        return index < (sizeof(internals::CSV_CONVERSION_ERROR_MESSAGES) / sizeof(internals::CSV_CONVERSION_ERROR_MESSAGES[0]))
+            ? internals::CSV_CONVERSION_ERROR_MESSAGES[index]
+            : internals::CSV_CONVERSION_ERROR_MESSAGES[static_cast<size_t>(CSVConversionError::NotANumber)];
+    }
+
+    /**
     * @class CSVField
     * @brief Data type representing individual CSV values.
     *        CSVFields can be obtained by using CSVRow::operator[]
@@ -83,8 +127,8 @@ namespace csv {
         *  \par Valid options for T
         *   - std::string or csv::string_view
         *   - signed integral types (signed char, short, int, long int, long long int)
+        *   - unsigned integral types (unsigned char, unsigned short, unsigned int, unsigned long long)
         *   - floating point types (float, double, long double)
-        *   - unsigned integers are not supported at this time, but may be in a later release
         *
         *  \par Invalid conversions
         *   - Converting non-numeric values to any numeric type
@@ -108,9 +152,20 @@ namespace csv {
         */
         template<typename T = std::string> T get() {
             T out{};
-            if (const auto* err = check_convert(out)) throw std::runtime_error(err);
+            const CSVConversionError err = check_convert(out);
+            if (err != CSVConversionError::None) throw std::runtime_error(csv_conversion_error_message(err));
             return out;
         }
+
+#ifdef CSV_HAS_STD_EXPECTED
+        /** Return this field as T, preserving conversion failure as CSVConversionError. */
+        template<typename T = std::string>
+        std::expected<T, CSVConversionError> as() {
+            T out{};
+            const CSVConversionError err = check_convert(out);
+            return (err != CSVConversionError::None) ? std::unexpected(err) : out;
+        }
+#endif
 
         /** Non-throwing equivalent of get(). Applies the same type checks and conversions;
          *  returns true and writes to @p out on success, or returns false without throwing.
@@ -129,8 +184,21 @@ namespace csv {
          */
         template<typename T = std::string>
         bool try_get(T& out) noexcept {
-            return check_convert(out) == nullptr;
+            return check_convert(out) == CSVConversionError::None;
         }
+
+#ifdef CSV_HAS_CXX17
+        /** Convert this field to std::optional<T>, returning std::nullopt when conversion fails.
+         *
+         *  This is a value-returning wrapper around try_get(), useful for C++17
+         *  callers that want non-throwing conversion without an output parameter.
+         */
+        template<typename T>
+        operator std::optional<T>() {
+            T out{};
+            return try_get(out) ? out : std::nullopt;
+        }
+#endif
 
         /** Parse a hexadecimal value, returning false if the value is not hex.
          *  @tparam T An integral type (int, long, long long, etc.)
@@ -140,23 +208,7 @@ namespace csv {
             static_assert(std::is_integral<T>::value,
                 "try_parse_hex only works with integral types (int, long, long long, etc.)");
 
-            std::int64_t parsed = 0;
-            if (!classify_scalar::parse_hex(this->sv.data(), this->sv.data() + this->sv.size(), parsed))
-                return false;
-
-            IF_CONSTEXPR(std::is_unsigned<T>::value) {
-                if (parsed < 0)
-                    return false;
-            }
-
-            const long double parsed_value = static_cast<long double>(parsed);
-            if (parsed_value < static_cast<long double>(std::numeric_limits<T>::min())
-                || parsed_value > static_cast<long double>(std::numeric_limits<T>::max())) {
-                return false;
-            }
-
-            parsedValue = static_cast<T>(parsed);
-            return true;
+            return classify_scalar::parse_hex(this->sv.data(), this->sv.data() + this->sv.size(), parsedValue);
         }
 
         /** Attempts to parse a decimal (or integer) value using the given symbol,
@@ -166,6 +218,53 @@ namespace csv {
          *
          */
         bool try_parse_decimal(long double& dVal, const char decimalSymbol = '.');
+
+        /** Parse this field as Unix milliseconds.
+         *
+         *  Timestamp-classified values return their parsed epoch value. Integral
+         *  values are treated as already being Unix milliseconds.
+         */
+        bool try_parse_timestamp(std::uint64_t& out) noexcept;
+
+        /** Parse this field as Unix milliseconds in a 64-bit unsigned integer. */
+        template<typename T>
+        internals::enable_if_t<
+            std::is_integral<T>::value && std::is_unsigned<T>::value && !std::is_same<T, bool>::value
+            && (sizeof(T) >= sizeof(std::uint64_t)),
+            bool
+        >
+        try_parse_timestamp(T& out) noexcept {
+            std::uint64_t milliseconds = 0;
+            if (!this->try_parse_timestamp(milliseconds))
+                return false;
+
+            out = static_cast<T>(milliseconds);
+            return true;
+        }
+
+        /** Parse this field as a timestamp duration since the Unix epoch. */
+        template<typename Rep, typename Period>
+        bool try_parse_timestamp(std::chrono::duration<Rep, Period>& out) noexcept {
+            std::uint64_t milliseconds = 0;
+            if (!this->try_parse_timestamp(milliseconds))
+                return false;
+
+            out = std::chrono::duration_cast<std::chrono::duration<Rep, Period>>(
+                std::chrono::milliseconds(milliseconds));
+            return true;
+        }
+
+        /** Parse this field as a std::chrono::system_clock time point. */
+        template<typename Duration>
+        bool try_parse_timestamp(std::chrono::time_point<std::chrono::system_clock, Duration>& out) noexcept {
+            std::uint64_t milliseconds = 0;
+            if (!this->try_parse_timestamp(milliseconds))
+                return false;
+
+            out = std::chrono::time_point<std::chrono::system_clock, Duration>(
+                std::chrono::duration_cast<Duration>(std::chrono::milliseconds(milliseconds)));
+            return true;
+        }
 
         /** Compares the contents of this field to a numeric value. If this
          *  field does not contain a numeric value, then all comparisons return
@@ -292,34 +391,53 @@ namespace csv {
             }
         }
 
-        /** Shared validation + conversion kernel used by get() and try_get().
-         *  Assigns to @p out and returns nullptr on success;
-         *  returns a pointer to a static error message on failure, without throwing.
+        /** Shared validation + conversion kernel used by get(), try_get(), and as().
+         *  Assigns to @p out and returns CSVConversionError::None on success.
          */
-        const char* check_convert(bool& out) noexcept {
+        CSVConversionError check_convert(bool& out) noexcept {
             if (this->type() != DataType::CSV_BOOL)
-                return internals::ERROR_NAN.c_str();
+                return CSVConversionError::NotANumber;
 
             out = this->value_.boolean;
-            return nullptr;
+            return CSVConversionError::None;
+        }
+
+        template<typename Rep, typename Period>
+        CSVConversionError check_convert(std::chrono::duration<Rep, Period>& out) noexcept {
+            if (this->type() != DataType::CSV_TIMESTAMP)
+                return CSVConversionError::NotANumber;
+
+            out = std::chrono::duration_cast<std::chrono::duration<Rep, Period>>(
+                std::chrono::milliseconds(this->value_.timestamp));
+            return CSVConversionError::None;
+        }
+
+        template<typename Duration>
+        CSVConversionError check_convert(std::chrono::time_point<std::chrono::system_clock, Duration>& out) noexcept {
+            if (this->type() != DataType::CSV_TIMESTAMP)
+                return CSVConversionError::NotANumber;
+
+            out = std::chrono::time_point<std::chrono::system_clock, Duration>(
+                std::chrono::duration_cast<Duration>(std::chrono::milliseconds(this->value_.timestamp)));
+            return CSVConversionError::None;
         }
 
         template<typename T>
-        const char* check_convert(T& out) noexcept {
+        CSVConversionError check_convert(T& out) noexcept {
             IF_CONSTEXPR(std::is_arithmetic<T>::value) {
                 if (!this->is_num())
-                    return internals::ERROR_NAN.c_str();
+                    return CSVConversionError::NotANumber;
                 if (this->type_ == DataType::CSV_BIGINT)
-                    return internals::ERROR_OVERFLOW.c_str();
+                    return CSVConversionError::Overflow;
             }
 
             IF_CONSTEXPR(std::is_integral<T>::value) {
                 if (this->is_float())
-                    return internals::ERROR_FLOAT_TO_INT.c_str();
+                    return CSVConversionError::FloatToInt;
 
                 IF_CONSTEXPR(std::is_unsigned<T>::value) {
                     if (this->numeric_value_as_long_double() < 0)
-                        return internals::ERROR_NEG_TO_UNSIGNED.c_str();
+                        return CSVConversionError::NegativeToUnsigned;
                 }
             }
 
@@ -327,14 +445,14 @@ namespace csv {
                 const long double value = this->numeric_value_as_long_double();
                 if (value < static_cast<long double>(std::numeric_limits<T>::min())
                     || value > static_cast<long double>(std::numeric_limits<T>::max())) {
-                    return internals::ERROR_OVERFLOW.c_str();
+                    return CSVConversionError::Overflow;
                 }
             }
 
             out = this->stores_integral()
                 ? static_cast<T>(this->value_.integer)
                 : static_cast<T>(this->value_.floating);
-            return nullptr;
+            return CSVConversionError::None;
         }
 
         /** Check to see if value has been cached previously before evaluating. */
@@ -348,11 +466,9 @@ namespace csv {
                     classify_scalar::builtin_bool_policy
                 > csv_field_policy_pack;
 
-                CSV_MSVC_PUSH_DISABLE(4127)
                 type_ = classify_scalar::classify_scalar<
                     DataType,
                     true>(first, last, FieldValueOutput{ this->value_ }, csv_field_policy_pack());
-                CSV_MSVC_POP
             }
         }
     };

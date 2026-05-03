@@ -13,45 +13,45 @@
 
 namespace csv {
     namespace internals {
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CANNOT_OPEN_FILE[] = "Cannot open file ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_FAILED_OPEN_WRITE[] = "Failed to open file for writing: ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_STREAM_READ_FAILURE[] = "StreamParser read failure";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_UNSUPPORTED_ENCODING_SUFFIX[] =
+        CONSTEXPR_VALUE_14 char ERROR_CANNOT_OPEN_FILE[] = "Cannot open file ";
+        CONSTEXPR_VALUE_14 char ERROR_FAILED_OPEN_WRITE[] = "Failed to open file for writing: ";
+        CONSTEXPR_VALUE_14 char ERROR_STREAM_READ_FAILURE[] = "StreamParser read failure";
+        CONSTEXPR_VALUE_14 char ERROR_UNSUPPORTED_ENCODING_SUFFIX[] =
             " encoded CSV input is not supported directly. Please transcode to UTF-8 before parsing.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_ROW_TOO_SHORT[] = "Line too short ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_ROW_TOO_LONG[] = "Line too long ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_ROW_LARGER_THAN_CHUNK_PREFIX[] =
+        CONSTEXPR_VALUE_14 char ERROR_ROW_TOO_SHORT[] = "Line too short ";
+        CONSTEXPR_VALUE_14 char ERROR_ROW_TOO_LONG[] = "Line too long ";
+        CONSTEXPR_VALUE_14 char ERROR_ROW_LARGER_THAN_CHUNK_PREFIX[] =
             "End of file not reached and no more records parsed. "
             "This likely indicates a CSV row larger than the chunk size of ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_ROW_LARGER_THAN_CHUNK_SUFFIX[] =
+        CONSTEXPR_VALUE_14 char ERROR_ROW_LARGER_THAN_CHUNK_SUFFIX[] =
             " bytes. Use CSVFormat::chunk_size() to increase the chunk size.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_COLUMN_NOT_FOUND[] = "Column not found: ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_COLUMN_INDEX_OUT_OF_BOUNDS[] = "Column index out of bounds.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_COLUMN_INDEX_OUT_OF_RANGE[] = "Column index out of range.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char CSV_ERROR_INDEX_OUT_OF_BOUNDS[] = "Index out of bounds.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CANNOT_EDIT_CONST_DF_CELL[] = "Cannot edit a const DataFrame cell.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CANNOT_ERASE_CONST_DF_ROW[] = "Cannot erase a const DataFrame row.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_COLUMN_APPLY_STATE_COUNT[] =
+        CONSTEXPR_VALUE_14 char ERROR_COLUMN_NOT_FOUND[] = "Column not found: ";
+        CONSTEXPR_VALUE_14 char ERROR_COLUMN_INDEX_OUT_OF_BOUNDS[] = "Column index out of bounds.";
+        CONSTEXPR_VALUE_14 char ERROR_COLUMN_INDEX_OUT_OF_RANGE[] = "Column index out of range.";
+        CONSTEXPR_VALUE_14 char CSV_ERROR_INDEX_OUT_OF_BOUNDS[] = "Index out of bounds.";
+        CONSTEXPR_VALUE_14 char ERROR_CANNOT_EDIT_CONST_DF_CELL[] = "Cannot edit a const DataFrame cell.";
+        CONSTEXPR_VALUE_14 char ERROR_CANNOT_ERASE_CONST_DF_ROW[] = "Cannot erase a const DataFrame row.";
+        CONSTEXPR_VALUE_14 char ERROR_COLUMN_APPLY_STATE_COUNT[] =
             "column_parallel_apply() requires one state object per column.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_COLUMN_APPLY_SUBSET_STATE_COUNT[] =
+        CONSTEXPR_VALUE_14 char ERROR_COLUMN_APPLY_SUBSET_STATE_COUNT[] =
             "column_parallel_apply() subset overload requires one state object per selected column.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_COLUMN_APPLY_INVALID_INDEX[] =
+        CONSTEXPR_VALUE_14 char ERROR_COLUMN_APPLY_INVALID_INDEX[] =
             "column_parallel_apply() subset overload received an invalid column index.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_KEY_COLUMN_EMPTY[] = "Key column cannot be empty.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_KEY_COLUMN_NOT_FOUND[] = "Key column not found: ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_KEY_COLUMN_VALUE[] = "Error retrieving key column value: ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_DUPLICATE_KEY[] = "Duplicate key encountered.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_UNKEYED_DATA_FRAME[] =
+        CONSTEXPR_VALUE_14 char ERROR_KEY_COLUMN_EMPTY[] = "Key column cannot be empty.";
+        CONSTEXPR_VALUE_14 char ERROR_KEY_COLUMN_NOT_FOUND[] = "Key column not found: ";
+        CONSTEXPR_VALUE_14 char ERROR_KEY_COLUMN_VALUE[] = "Error retrieving key column value: ";
+        CONSTEXPR_VALUE_14 char ERROR_DUPLICATE_KEY[] = "Duplicate key encountered.";
+        CONSTEXPR_VALUE_14 char ERROR_UNKEYED_DATA_FRAME[] =
             "This DataFrame was created without a key column.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_KEY_NOT_FOUND[] = "Key not found.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CHUNK_PARALLEL_APPLY_ZERO[] =
+        CONSTEXPR_VALUE_14 char ERROR_KEY_NOT_FOUND[] = "Key not found.";
+        CONSTEXPR_VALUE_14 char ERROR_CHUNK_PARALLEL_APPLY_ZERO[] =
             "chunk_parallel_apply() requires a non-zero chunk size.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_READER_NULL_STREAM[] = "CSVReader requires a non-null stream";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_MULTIPLE_DELIMITERS[] =
+        CONSTEXPR_VALUE_14 char ERROR_READER_NULL_STREAM[] = "CSVReader requires a non-null stream";
+        CONSTEXPR_VALUE_14 char ERROR_MULTIPLE_DELIMITERS[] =
             "There is more than one possible delimiter.";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_FLOOR_PREFIX[] = "Chunk size must be at least ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_FLOOR_MIDDLE[] = " bytes (500KB). Provided: ";
-        CSV_PRIVATE CONSTEXPR_VALUE_14 char ERROR_CHAR_OVERLAP_PREFIX[] =
+        CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_FLOOR_PREFIX[] = "Chunk size must be at least ";
+        CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_FLOOR_MIDDLE[] = " bytes (500KB). Provided: ";
+        CONSTEXPR_VALUE_14 char ERROR_CHAR_OVERLAP_PREFIX[] =
             "There should be no overlap between the quote character, "
             "the set of possible delimiters "
             "and the set of whitespace characters. Offending characters: ";

@@ -145,6 +145,23 @@ namespace csv {
         return false;
     }
 
+    CSV_INLINE bool CSVField::try_parse_timestamp(std::uint64_t& out) noexcept {
+        if (this->type_ == DataType::UNKNOWN)
+            this->get_value();
+
+        if (this->type_ == DataType::CSV_TIMESTAMP) {
+            out = this->value_.timestamp;
+            return true;
+        }
+
+        if (this->stores_integral() && this->value_.integer >= 0) {
+            out = static_cast<std::uint64_t>(this->value_.integer);
+            return true;
+        }
+
+        return false;
+    }
+
 #ifdef _MSC_VER
 #pragma region CSVRow Iterator
 #endif

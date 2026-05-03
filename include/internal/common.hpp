@@ -96,6 +96,10 @@
 #define CSV_HAS_CXX20
 #endif
 
+#if CSV_CPLUSPLUS >= 202302L
+#define CSV_HAS_CXX23
+#endif
+
 #if CSV_CPLUSPLUS >= 201703L
 #define CSV_HAS_CXX17
 #endif
