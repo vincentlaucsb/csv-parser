@@ -163,7 +163,9 @@ namespace csv {
         std::expected<T, CSVConversionError> as() {
             T out{};
             const CSVConversionError err = check_convert(out);
-            return (err != CSVConversionError::None) ? std::unexpected(err) : out;
+            return (err != CSVConversionError::None)
+                ? std::expected<T, CSVConversionError>(std::unexpected(err))
+                : std::expected<T, CSVConversionError>(out);
         }
 #endif
 
@@ -196,7 +198,7 @@ namespace csv {
         template<typename T>
         operator std::optional<T>() {
             T out{};
-            return try_get(out) ? out : std::nullopt;
+            return try_get(out) ? std::optional<T>(out) : std::nullopt;
         }
 #endif
 
