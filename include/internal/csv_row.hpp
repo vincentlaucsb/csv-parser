@@ -87,7 +87,9 @@ namespace csv {
     };
 
     namespace internals {
-        static CONSTEXPR_VALUE_14 char const* CSV_CONVERSION_ERROR_MESSAGES[] = {
+        typedef const char* csv_error_message;
+
+        static CONSTEXPR_VALUE_14 csv_error_message CSV_CONVERSION_ERROR_MESSAGES[] = {
             "",
             "Not a number.",
             "Overflow error.",
