@@ -41,6 +41,14 @@ TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]
     REQUIRE(ex_caught);
 }
 
+TEST_CASE("CSVField handles default string_view as empty", "[test_csv_field_get_string]") {
+    CSVField field((csv::string_view()));
+
+    REQUIRE(field.type() == DataType::CSV_NULL);
+    REQUIRE(field.get<csv::string_view>().empty());
+    REQUIRE(field.get<std::string>().empty());
+}
+
 TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
     CSVField field("applesauce");
     

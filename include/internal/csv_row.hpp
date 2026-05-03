@@ -114,7 +114,8 @@ namespace csv {
     class CSVField {
     public:
         /** Constructs a CSVField from a string_view */
-        constexpr explicit CSVField(csv::string_view _sv) noexcept : sv(_sv) {}
+        constexpr explicit CSVField(csv::string_view _sv) noexcept
+            : sv(_sv.data() ? _sv : csv::string_view("")) {}
 
         operator csv::string_view() const noexcept {
             return this->sv;

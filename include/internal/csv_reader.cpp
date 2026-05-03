@@ -125,8 +125,10 @@ namespace csv {
 
         if (single_row != nullptr) {
             *single_row = std::move(candidate);
-        } else {
+        } else if (batch_rows != nullptr) {
             batch_rows->push_back(std::move(candidate));
+        } else {
+            return false;
         }
 
         this->_n_rows++;
