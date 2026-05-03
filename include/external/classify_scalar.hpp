@@ -499,14 +499,6 @@ struct parse_state {
     Sign sign;
 };
 
-struct sign_table_type {
-    parse_state::Sign values[256];
-
-    CLASSIFY_SCALAR_CONSTEXPR_14 parse_state::Sign operator[](unsigned char value) const noexcept {
-        return values[value];
-    }
-};
-
 #ifdef CLASSIFY_SCALAR_HAS_CXX20
 template<typename Policy>
 concept scalar_policy = requires(
@@ -627,21 +619,6 @@ CLASSIFY_SCALAR_FORCE_INLINE const dispatch_table_type& dispatch_table() noexcep
     return table;
 }
 
-template<std::size_t... Indexes>
-CLASSIFY_SCALAR_CONSTEXPR_14 sign_table_type build_sign_table(index_sequence<Indexes...>) noexcept {
-    return sign_table_type{{
-        (static_cast<unsigned char>(Indexes) == static_cast<unsigned char>('+') ? parse_state::positive_sign :
-        static_cast<unsigned char>(Indexes) == static_cast<unsigned char>('-') ? parse_state::negative_sign :
-        parse_state::no_sign)...
-    }};
-}
-
-CLASSIFY_SCALAR_FORCE_INLINE const sign_table_type& sign_table() noexcept {
-    static CLASSIFY_SCALAR_LOCAL_TABLE_VALUE_14 sign_table_type table =
-        build_sign_table(typename make_index_sequence<256>::type());
-    return table;
-}
-
 CLASSIFY_SCALAR_CONSTEXPR_17 std::array<char, 256> create_ascii_lower_table() noexcept {
     std::array<char, 256> table = {};
     for (std::size_t i = 0; i < table.size(); ++i) {
@@ -698,9 +675,15 @@ CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 long double int64_max_long_double = static_ca
 
 namespace parsing {
 
+CLASSIFY_SCALAR_CONST CLASSIFY_SCALAR_CONSTEXPR_14 parse_state::Sign parse_sign(unsigned char c) noexcept {
+    return c == static_cast<unsigned char>('+') ? parse_state::positive_sign :
+        c == static_cast<unsigned char>('-') ? parse_state::negative_sign :
+        parse_state::no_sign;
+}
+
 CLASSIFY_SCALAR_FORCE_INLINE const char* apply_leading_sign(parse_state& state) noexcept {
     const unsigned char first_char = static_cast<unsigned char>(*state.first);
-    const parse_state::Sign sign = sign_table()[first_char];
+    const parse_state::Sign sign = parse_sign(first_char);
     if (sign != parse_state::no_sign) {
         state.sign = sign;
         state.numeric_first = state.sign == parse_state::negative_sign
@@ -1071,7 +1054,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_floating_ascii(
             return false;
 
         bool exponent_negative = false;
-        const parse_state::Sign exponent_sign = sign_table()[static_cast<unsigned char>(*current)];
+        const parse_state::Sign exponent_sign = parse_sign(static_cast<unsigned char>(*current));
         if (exponent_sign != parse_state::no_sign) {
             exponent_negative = exponent_sign == parse_state::negative_sign;
             ++current;
@@ -1188,6 +1171,8 @@ CLASSIFY_SCALAR_FORCE_INLINE bool floating_is_integral(const double value, std::
         return false;
 
     const std::int64_t integer = static_cast<std::int64_t>(value);
+    // Exact round-trip test: we need to know whether the parsed double is
+    // precisely representable as int64, not whether two measured floats are close.
     if (static_cast<double>(integer) != value)
         return false;
 
@@ -1635,6 +1620,17 @@ CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
 
     out = static_cast<IntegerType>(parsed);
     return true;
+}
+
+/// String-literal overload for parse_hex().
+template<bool TrimAsciiWhitespace = true, std::size_t Size, typename IntegerType>
+CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
+    std::is_integral<IntegerType>::value
+        && !std::is_same<IntegerType, bool>::value,
+    bool>::type parse_hex(
+    const char (&value)[Size],
+    IntegerType& out) noexcept {
+    return parse_hex<TrimAsciiWhitespace>(value, value + Size - 1, out);
 }
 
 /// Parse an explicit floating-point value with runtime '.' or ',' decimal selection.
