@@ -332,6 +332,19 @@ namespace csv {
         }
 
     private:
+        // GCC emits a psABI note for by-value APIs involving unions with long double
+        // in pre-C++20 modes. Use the compact union everywhere else.
+#if defined(__GNUC__) && !defined(__clang__) && !defined(CSV_HAS_CXX20)
+        struct FieldValue {
+            constexpr FieldValue() noexcept
+                : integer(0), floating(0), timestamp(0), boolean(false) {}
+
+            std::int64_t integer;
+            long double floating;
+            std::uint64_t timestamp;
+            bool boolean;
+        };
+#else
         union FieldValue {
             constexpr FieldValue() noexcept : floating(0) {}
 
@@ -340,6 +353,7 @@ namespace csv {
             std::uint64_t timestamp;
             bool boolean;
         };
+#endif
 
         struct FieldValueOutput {
             FieldValue& value;
@@ -370,7 +384,7 @@ namespace csv {
             }
         };
 
-        FieldValue value_;        /**< Cached typed value. Active member is selected by type_. */
+        FieldValue value_;        /**< Cached typed values. */
         csv::string_view sv = ""; /**< A pointer to this field's text */
         DataType type_ = DataType::UNKNOWN; /**< Cached data type value */
 
@@ -499,10 +513,8 @@ namespace csv {
 
         /** @name Value Retrieval */
         ///@{
-        CSV_GCC_PUSH_DISABLE_PSABI
         CSVField operator[](size_t n) const;
         CSVField operator[](csv::string_view) const;
-        CSV_GCC_POP
         inline std::string to_json(const std::vector<std::string>& subset = {}) const {
             const auto* converter = this->get_json_converter();
             return converter == nullptr ? "{}"
@@ -763,3 +775,4 @@ namespace csv {
 }
 
 #undef CSV_INIT_WITH_OPTIONAL_DCL
+

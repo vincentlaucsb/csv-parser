@@ -73,19 +73,6 @@
 #  define CSV_MSVC_POP
 #endif
 
-// GCC emits psABI notes for by-value APIs involving unions with long double.
-// These are compiler changelog diagnostics rather than actionable library
-// warnings, and this project treats warnings as errors in CI.
-#if defined(__GNUC__) && !defined(__clang__)
-#  define CSV_GCC_PUSH_DISABLE_PSABI \
-    _Pragma("GCC diagnostic push") \
-    _Pragma("GCC diagnostic ignored \"-Wpsabi\"")
-#  define CSV_GCC_POP _Pragma("GCC diagnostic pop")
-#else
-#  define CSV_GCC_PUSH_DISABLE_PSABI
-#  define CSV_GCC_POP
-#endif
-
 // This library uses C++ exceptions for error reporting in public APIs.
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND) || defined(__EXCEPTIONS)
     #define CSV_EXCEPTIONS_ENABLED 1

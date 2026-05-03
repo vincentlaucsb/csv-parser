@@ -10,6 +10,9 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  CSV_FETCHCONTENT_BASE_DIR: ${{ github.workspace }}/.cache/fetchcontent
+
 jobs:
   coverage:
     runs-on: ubuntu-latest
@@ -19,6 +22,12 @@ jobs:
       uses: actions/checkout@v5
       with:
         submodules: recursive
+
+    - name: Cache CMake FetchContent dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
+        key: fetchcontent-${{ runner.os }}-coverage-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
 
     - name: Install dependencies
       run: |

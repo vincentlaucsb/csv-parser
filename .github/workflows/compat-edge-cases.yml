@@ -3,6 +3,9 @@ name: Compatibility Edge Cases
 permissions:
   contents: read
 
+env:
+  CSV_FETCHCONTENT_BASE_DIR: ${{ github.workspace }}/.cache/fetchcontent
+
 on:
   push:
     branches: [ "master" ]
@@ -38,6 +41,12 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: '3.x'
+
+    - name: Cache CMake FetchContent dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
+        key: fetchcontent-${{ runner.os }}-msvc-no-zc-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
 
     - name: Configure CMake (for single-header generation)
       run: >
@@ -84,6 +93,12 @@ jobs:
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-cmake
           mingw-w64-x86_64-ninja
+
+    - name: Cache CMake FetchContent dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
+        key: fetchcontent-${{ runner.os }}-mingw-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
 
     - name: Configure CMake (MinGW, C++17)
       shell: msys2 {0}
