@@ -499,8 +499,10 @@ namespace csv {
 
         /** @name Value Retrieval */
         ///@{
+        CSV_GCC_PUSH_DISABLE_PSABI
         CSVField operator[](size_t n) const;
         CSVField operator[](csv::string_view) const;
+        CSV_GCC_POP
         inline std::string to_json(const std::vector<std::string>& subset = {}) const {
             const auto* converter = this->get_json_converter();
             return converter == nullptr ? "{}"

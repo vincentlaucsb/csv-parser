@@ -1555,6 +1555,24 @@ CLASSIFY_SCALAR_FORCE_INLINE Kind classify_scalar(
         output);
 }
 
+/// Classify a string literal using the selected policy pack and output adapter.
+template<
+    typename Kind = ScalarKind,
+    bool TrimAsciiWhitespace = true,
+    typename Output = classify_only_output,
+    typename Policy = default_policy_pack,
+    std::size_t N>
+CLASSIFY_SCALAR_FORCE_INLINE Kind classify_scalar(
+    const char (&value)[N],
+    Output output = Output(),
+    Policy policy = Policy()) noexcept {
+    return classify_scalar<Kind, TrimAsciiWhitespace>(
+        value,
+        value + (N ? N - 1 : 0),
+        output,
+        policy);
+}
+
 #ifdef CLASSIFY_SCALAR_HAS_CXX17
 /// Classify a string_view using the selected policy pack and output adapter.
 template<

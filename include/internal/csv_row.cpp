@@ -35,10 +35,7 @@ namespace csv {
      *  Constant, by calling csv::CSVRow::get_csv::string_view()
      *
      */
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpsabi"
-#endif
+    CSV_GCC_PUSH_DISABLE_PSABI
     CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
         return CSVField(this->get_field(n));
     }
@@ -59,9 +56,7 @@ namespace csv {
 
         internals::throw_column_not_found(col_name);
     }
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+    CSV_GCC_POP
 
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {
         std::vector<std::string> ret;
