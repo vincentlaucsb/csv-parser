@@ -22,6 +22,7 @@
 
 #include "basic_csv_parser.hpp"
 #include "common.hpp"
+#include "csv_exceptions.hpp"
 #include "data_type.hpp"
 #include "csv_format.hpp"
 
@@ -138,7 +139,7 @@ namespace csv {
             );
 
             if (!(*this->owned_stream)) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
+                internals::throw_cannot_open_file(filename);
             }
 
             this->init_from_stream(*this->owned_stream, format);
@@ -175,7 +176,7 @@ namespace csv {
         CSVReader(std::unique_ptr<std::istream> source,
             const CSVFormat& format = CSVFormat::guess_csv()) : _format(format), owned_stream(std::move(source)) {
             if (!this->owned_stream) {
-                throw std::invalid_argument("CSVReader requires a non-null stream");
+                throw std::invalid_argument(internals::ERROR_READER_NULL_STREAM);
             }
 
             this->init_from_stream(*this->owned_stream, format);

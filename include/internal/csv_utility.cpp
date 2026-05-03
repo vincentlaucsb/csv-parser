@@ -11,7 +11,7 @@ namespace csv {
         chunk_parallel_apply(reader, type_counts,
             [](DataFrame<>::column_type column, std::unordered_map<DataType, size_t>& counts) {
                 for (size_t row_index = 0; row_index < column.size(); ++row_index) {
-                    counts[column[row_index].type()]++;
+                    counts[internals::data_type(column.get_sv(row_index))]++;
                 }
             },
             TYPE_CHUNK_SIZE
@@ -31,6 +31,12 @@ namespace csv {
                 csv_dtypes[col_name] = DataType::CSV_INT16;
             else if (col[DataType::CSV_INT8])
                 csv_dtypes[col_name] = DataType::CSV_INT8;
+            else if (col[DataType::CSV_BOOL])
+                csv_dtypes[col_name] = DataType::CSV_BOOL;
+            else if (col[DataType::CSV_TIMESTAMP])
+                csv_dtypes[col_name] = DataType::CSV_TIMESTAMP;
+            else if (col[DataType::CSV_NULL])
+                csv_dtypes[col_name] = DataType::CSV_NULL;
             else
                 csv_dtypes[col_name] = DataType::CSV_DOUBLE;
         }

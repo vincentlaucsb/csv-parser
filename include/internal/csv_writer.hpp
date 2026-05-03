@@ -18,11 +18,41 @@
 
 #include "basic_csv_parser_simd.hpp"
 #include "common.hpp"
-#include "data_type.hpp"
+#include "csv_exceptions.hpp"
 
 namespace csv {
 namespace internals {
     static int DECIMAL_PLACES = 5;
+
+        /** Compute 10 to the power of an integral exponent. */
+        template<typename T>
+        CSV_CONST CONSTEXPR_14
+        long double pow10(const T& n) noexcept {
+            static_assert(std::is_integral<T>::value, "pow10 only supports integral exponents");
+
+            long double multiplicand = n > 0 ? 10 : 0.1,
+                ret = 1;
+            T iterations = n > 0 ? n : -n;
+
+            for (T i = 0; i < iterations; i++) {
+                ret *= multiplicand;
+            }
+
+            return ret;
+        }
+
+        template<>
+        CSV_CONST CONSTEXPR_14
+        long double pow10(const unsigned& n) noexcept {
+            long double multiplicand = n > 0 ? 10 : 0.1,
+                ret = 1;
+
+            for (unsigned i = 0; i < n; i++) {
+                ret *= multiplicand;
+            }
+
+            return ret;
+        }
 
         /**
          * Calculate the absolute value of a number
@@ -237,7 +267,7 @@ namespace internals {
             out(owned_out.get()),
             quote_minimal(_quote_minimal) {
             if (!owned_out->is_open())
-                throw std::runtime_error("Failed to open file for writing: " + filename);
+                internals::throw_failed_open_for_writing(filename);
         }
 
         DelimWriter(const DelimWriter&) = delete;
@@ -355,6 +385,8 @@ namespace internals {
          *  Buffered writers flush the batch when it grows large or when this call ends.
          *  Auto-flushing writers additionally flush the underlying stream once at the
          *  end of the bulk call.
+         *
+         *  @note Requires C++20 or later.
          */
         template<std::ranges::input_range Rows>
             requires internals::csv_write_rows_input_range<Rows>

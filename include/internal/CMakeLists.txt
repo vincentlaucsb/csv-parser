@@ -10,6 +10,7 @@ target_sources(csv
 		common.hpp
 		csv_format.hpp
 		csv_format.cpp
+		csv_exceptions.hpp
 		csv_reader.hpp
 		csv_reader.cpp
 		csv_reader_iterator.cpp

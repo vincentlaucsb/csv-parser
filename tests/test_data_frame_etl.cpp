@@ -199,6 +199,28 @@ TEST_CASE("DataFrame ETL: column_parallel_apply sees edited values", "[data_fram
     REQUIRE(summaries[2].non_empty == 2);
 }
 
+TEST_CASE("DataFrame ETL: column_parallel_apply selected columns use matching states", "[data_frame][etl]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+    DataFrameExecutor executor(1);
+
+    const std::vector<size_t> selected_columns{
+        static_cast<size_t>(frame.index_of("name")),
+        static_cast<size_t>(frame.index_of("value"))
+    };
+    std::vector<std::string> summaries(selected_columns.size());
+
+    frame.column_parallel_apply(executor, selected_columns, summaries,
+        [](DataFrame<>::column_type column, std::string& summary) {
+            summary = column.name() + ":" + std::to_string(column.size());
+        }
+    );
+
+    REQUIRE(summaries[0] == "name:3");
+    REQUIRE(summaries[1] == "value:3");
+}
+
 TEST_CASE("DataFrame ETL: read_chunk batch bridge can coerce null-ish values on selected columns", "[data_frame][etl]") {
     //! [High Performance ETL Batch Bridge Example]
     std::istringstream input(
@@ -488,6 +510,23 @@ TEST_CASE("DataFrame ETL: csv_data_types forwards CSVReader constructor argument
     REQUIRE(dtypes["score"] == DataType::CSV_DOUBLE);
 }
 
+TEST_CASE("DataFrame ETL: csv_data_types recognizes bool timestamp and null-only columns", "[data_frame][etl][csv_data_types]") {
+    std::istringstream input(
+        "active,created_at,empty\n"
+        "true,2024-01-02,\n"
+        "false,2024-01-03,\n"
+    );
+
+    CSVFormat format;
+    format.delimiter(',').header_row(0);
+
+    auto dtypes = csv_data_types(input, format);
+
+    REQUIRE(dtypes["active"] == DataType::CSV_BOOL);
+    REQUIRE(dtypes["created_at"] == DataType::CSV_TIMESTAMP);
+    REQUIRE(dtypes["empty"] == DataType::CSV_NULL);
+}
+
 #ifndef __EMSCRIPTEN__
 TEST_CASE("ETL stats helper: missing file surfaces reader error", "[data_frame][etl][stats]") {
     bool error_caught = false;
@@ -498,7 +537,10 @@ TEST_CASE("ETL stats helper: missing file surfaces reader error", "[data_frame][
     }
     catch (std::runtime_error& err) {
         error_caught = true;
-        REQUIRE(strcmp(err.what(), "Cannot open file ./tests/data/fake_data/empty.csv") == 0);
+        REQUIRE(err.what() == internals::make_prefixed_message(
+            internals::ERROR_CANNOT_OPEN_FILE,
+            "./tests/data/fake_data/empty.csv"
+        ));
     }
 
     REQUIRE(error_caught);

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "csv_reader.hpp"
+#include "csv_exceptions.hpp"
 #include "json_converter.hpp"
 
 namespace csv {
@@ -50,6 +51,25 @@ namespace csv {
             }
 
             out = it->second;
+            return true;
+        }
+
+        /** Return a view into an edited cell without copying.
+         *
+         *  This exists for read-only batch scans such as schema/type inference,
+         *  where the caller immediately consumes the value and no concurrent
+         *  sparse-overlay edits are expected. General cell access should keep
+         *  using try_get_copy() or DataFrameCell so callers do not accidentally
+         *  retain a view across later mutation.
+         */
+        bool try_get_view(size_t col_index, csv::string_view& out) const {
+            row_overlay_lock_guard lock(this);
+            auto it = values.find(col_index);
+            if (it == values.end()) {
+                return false;
+            }
+
+            out = csv::string_view(it->second);
             return true;
         }
 
@@ -489,7 +509,7 @@ namespace csv {
 
         DataFrameCell& assign(std::string stored) {
             if (!can_mutate || !row_overlay) {
-                throw std::runtime_error("Cannot edit a const DataFrame cell.");
+                throw std::runtime_error(internals::ERROR_CANNOT_EDIT_CONST_DF_CELL);
             }
 
             owned_value_ = stored;
@@ -574,7 +594,7 @@ namespace csv {
          */
         bool erase() {
             if (!can_mutate || !frame) {
-                throw std::runtime_error("Cannot erase a const DataFrame row.");
+                throw std::runtime_error(internals::ERROR_CANNOT_ERASE_CONST_DF_ROW);
             }
 
             return const_cast<DataFrame<KeyType>*>(frame)->erase_at_index(row_index);
@@ -614,6 +634,8 @@ namespace csv {
         #ifdef CSV_HAS_CXX20
         /** Convert this DataFrameRow into a std::ranges::input_range of strings,
          *  respecting the sparse overlay (edited values take precedence).
+         *
+         *  @note Requires C++20 or later.
          */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
@@ -660,7 +682,7 @@ namespace csv {
             const internals::ConstColNamesPtr col_names = row->col_names_ptr();
             const int position = col_names->index_of(col);
             if (position == CSV_NOT_FOUND) {
-                throw std::out_of_range("Column not found: " + col);
+                internals::throw_column_not_found_out_of_range(col);
             }
 
             return static_cast<size_t>(position);
@@ -719,6 +741,23 @@ namespace csv {
             return DataFrameCell(&row, row_edits, col_index_);
         }
 
+        /** Access a visible cell value as a string_view without materializing a DataFrameCell.
+         *
+         *  Intended for immediate read-only scans. If the value comes from the
+         *  sparse edit overlay, the returned view points into overlay-owned
+         *  storage and must not be retained across DataFrame mutation.
+         */
+        csv::string_view get_sv(size_t row_index) const {
+            const auto& row = frame_->rows.at(row_index);
+            const auto* row_edits = frame_->find_row_edits(row_index);
+            csv::string_view edited_value;
+            if (row_edits && row_edits->try_get_view(col_index_, edited_value)) {
+                return edited_value;
+            }
+
+            return row[col_index_].template get<csv::string_view>();
+        }
+
         /** Materialize this column as a vector of converted values. */
         template<typename T = std::string>
         std::vector<T> to_vector() const {
@@ -738,7 +777,10 @@ namespace csv {
         }
 
         #ifdef CSV_HAS_CXX20
-        /** Convert this DataFrameColumn into a std::ranges::input_range of strings. */
+        /** Convert this DataFrameColumn into a std::ranges::input_range of strings.
+         *
+         *  @note Requires C++20 or later.
+         */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
                 | std::views::transform([this](size_t row_index) {
@@ -915,7 +957,7 @@ namespace csv {
         /** Access a column view by position. */
         DataFrameColumn<KeyType> column_view(size_t col_index) const {
             if (col_index >= this->n_cols()) {
-                throw std::out_of_range("Column index out of range.");
+                internals::throw_column_index_out_of_range();
             }
 
             return DataFrameColumn<KeyType>(this, col_index);
@@ -1042,7 +1084,7 @@ namespace csv {
             Fn&& fn
         ) const {
             if (states.size() != this->n_cols()) {
-                throw std::invalid_argument("column_parallel_apply() requires one state object per column.");
+                throw std::invalid_argument(internals::ERROR_COLUMN_APPLY_STATE_COUNT);
             }
 
             executor.parallel_for(this->n_cols(), [this, &states, &fn](size_t column_index) {
@@ -1066,7 +1108,7 @@ namespace csv {
             Fn&& fn
         ) const {
             if (states.size() != column_indices.size()) {
-                throw std::invalid_argument("column_parallel_apply() subset overload requires one state object per selected column.");
+                throw std::invalid_argument(internals::ERROR_COLUMN_APPLY_SUBSET_STATE_COUNT);
             }
 
             this->validate_selected_columns(column_indices);
@@ -1225,10 +1267,10 @@ namespace csv {
             const std::string key_column = options.get_key_column();
 
             if (key_column.empty())
-                throw std::runtime_error("Key column cannot be empty.");
+                throw std::runtime_error(internals::ERROR_KEY_COLUMN_EMPTY);
 
             if (this->col_names_->index_of(key_column) == CSV_NOT_FOUND)
-                throw std::runtime_error("Key column not found: " + key_column);
+                throw std::runtime_error(std::string(internals::ERROR_KEY_COLUMN_NOT_FOUND) + key_column);
 
             const bool throw_on_missing_key = options.get_throw_on_missing_key();
 
@@ -1240,7 +1282,7 @@ namespace csv {
                     }
                     catch (const std::exception& e) {
                         if (throw_on_missing_key) {
-                            throw std::runtime_error("Error retrieving key column value: " + std::string(e.what()));
+                            throw std::runtime_error(internals::ERROR_KEY_COLUMN_VALUE + std::string(e.what()));
                         }
 
                         return KeyType();
@@ -1266,7 +1308,7 @@ namespace csv {
                 auto existing = key_to_pos.find(key);
                 if (existing != key_to_pos.end()) {
                     if (policy == DuplicateKeyPolicy::THROW)
-                        throw std::runtime_error("Duplicate key encountered.");
+                        throw std::runtime_error(internals::ERROR_DUPLICATE_KEY);
 
                     if (policy == DuplicateKeyPolicy::OVERWRITE)
                         rows[existing->second] = row;
@@ -1284,7 +1326,7 @@ namespace csv {
         /** Find the index of a column by name. Throws if the column is not found. */
         size_t find_column(const std::string& name) const {
             return index_of(name) != CSV_NOT_FOUND ? static_cast<size_t>(index_of(name)) :
-                throw std::out_of_range("Column not found: " + name);
+                throw std::out_of_range(std::string(internals::ERROR_COLUMN_NOT_FOUND) + name);
         }
 
         /** Return the overlay for a specific row index. */
@@ -1325,7 +1367,7 @@ namespace csv {
         void validate_selected_columns(const std::vector<size_t>& column_indices) const {
             for (size_t column_index : column_indices) {
                 if (column_index >= this->n_cols()) {
-                    throw std::out_of_range("column_parallel_apply() subset overload received an invalid column index.");
+                    throw std::out_of_range(internals::ERROR_COLUMN_APPLY_INVALID_INDEX);
                 }
             }
         }
@@ -1333,7 +1375,7 @@ namespace csv {
         /** Validate that this DataFrame was created with a key column. */
         void require_keyed_frame() const {
             if (!is_keyed)
-                throw std::runtime_error("This DataFrame was created without a key column.");
+                throw std::runtime_error(internals::ERROR_UNKEYED_DATA_FRAME);
         }
 
         /** Invalidate the lazy key index after structural changes. */
@@ -1368,7 +1410,7 @@ namespace csv {
         size_t position_of(const KeyType& key) const {
             this->ensure_key_index();
             auto it = key_index->find(key);
-            return it == key_index->end() ? throw std::out_of_range("Key not found.")
+            return it == key_index->end() ? throw std::out_of_range(internals::ERROR_KEY_NOT_FOUND)
                 : it->second;
         }
 

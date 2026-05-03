@@ -159,7 +159,10 @@ TEST_CASE("Empty CSV does not crash parser entry points", "[error_handling][empt
         }
 
         REQUIRE(caught);
-        REQUIRE(error_message == "Cannot open file ./tests/data/fake_data/empty.csv");
+        REQUIRE(error_message == internals::make_prefixed_message(
+            internals::ERROR_CANNOT_OPEN_FILE,
+            "./tests/data/fake_data/empty.csv"
+        ));
     }
 #endif
 }

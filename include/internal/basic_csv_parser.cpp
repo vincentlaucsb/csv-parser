@@ -16,7 +16,7 @@ namespace csv {
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
             std::ifstream infile(std::string(filename), std::ios::binary);
             if (!infile.is_open()) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
+                throw_cannot_open_file(filename);
             }
             return get_csv_head_stream(infile);
         }
@@ -28,7 +28,7 @@ namespace csv {
             std::error_code error;
             auto mmap = mio::make_mmap_source(std::string(filename), 0, mio::map_entire_file, error);
             if (error) {
-                throw std::runtime_error("Cannot open file " + std::string(filename));
+                throw_cannot_open_file(filename);
             }
             const size_t file_size = mmap.size();
             const size_t length = std::min(file_size, bytes);
@@ -42,6 +42,44 @@ namespace csv {
 #else
             return get_csv_head_mmap(filename).first;
 #endif
+        }
+
+        CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom) {
+            utf8_bom = false;
+
+            if (data.size() >= 4) {
+                const unsigned char b0 = static_cast<unsigned char>(data[0]);
+                const unsigned char b1 = static_cast<unsigned char>(data[1]);
+                const unsigned char b2 = static_cast<unsigned char>(data[2]);
+                const unsigned char b3 = static_cast<unsigned char>(data[3]);
+
+                if ((b0 == 0xFF && b1 == 0xFE && b2 == 0x00 && b3 == 0x00)
+                    || (b0 == 0x00 && b1 == 0x00 && b2 == 0xFE && b3 == 0xFF)) {
+                    throw_unsupported_encoding("UTF-32");
+                }
+            }
+
+            if (data.size() >= 3) {
+                const unsigned char b0 = static_cast<unsigned char>(data[0]);
+                const unsigned char b1 = static_cast<unsigned char>(data[1]);
+                const unsigned char b2 = static_cast<unsigned char>(data[2]);
+
+                if (b0 == 0xEF && b1 == 0xBB && b2 == 0xBF) {
+                    utf8_bom = true;
+                    return 3;
+                }
+            }
+
+            if (data.size() >= 2) {
+                const unsigned char b0 = static_cast<unsigned char>(data[0]);
+                const unsigned char b1 = static_cast<unsigned char>(data[1]);
+
+                if ((b0 == 0xFF && b1 == 0xFE) || (b0 == 0xFE && b1 == 0xFF)) {
+                    throw_unsupported_encoding("UTF-16");
+                }
+            }
+
+            return 0;
         }
 
 
@@ -177,7 +215,7 @@ namespace csv {
             this->quote_escape_ = false;
             this->data_pos_ = 0;
             this->current_row_start() = 0;
-            this->trim_utf8_bom();
+            this->strip_unicode_bom();
 
             auto& in = this->data_ptr_->data;
             while (this->data_pos_ < in.size()) {
@@ -277,15 +315,11 @@ namespace csv {
             this->fields_ = &(this->data_ptr_->fields);
         }
 
-        CSV_INLINE void IBasicCSVParser::trim_utf8_bom() {
+        CSV_INLINE void IBasicCSVParser::strip_unicode_bom() {
             auto& data = this->data_ptr_->data;
 
-            if (!this->unicode_bom_scan_ && data.size() >= 3) {
-                if (data[0] == '\xEF' && data[1] == '\xBB' && data[2] == '\xBF') {
-                    this->data_pos_ += 3; // Remove BOM from input string
-                    this->utf8_bom_ = true;
-                }
-
+            if (!this->unicode_bom_scan_) {
+                this->data_pos_ += get_bom_skip_or_throw(data, this->utf8_bom_);
                 this->unicode_bom_scan_ = true;
             }
         }
@@ -356,10 +390,7 @@ namespace csv {
             std::error_code error;
             auto mmap = mio::make_mmap_source(this->_filename, offset, length, error);
             if (error) {
-                std::string msg = "Memory mapping failed during CSV parsing: file='" + this->_filename
-                    + "' offset=" + std::to_string(offset)
-                    + " length=" + std::to_string(length);
-                throw std::system_error(error, msg);
+                throw_mmap_failure(error, this->_filename, offset, length);
             }
             this->data_ptr_->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(mmap));
             this->mmap_pos += length;

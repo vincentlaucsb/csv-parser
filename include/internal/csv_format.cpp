@@ -52,11 +52,7 @@ namespace csv {
 
     CSV_INLINE CSVFormat& CSVFormat::chunk_size(size_t size) {
         if (size < internals::CSV_CHUNK_SIZE_FLOOR) {
-            throw std::invalid_argument(
-                "Chunk size must be at least " +
-                std::to_string(internals::CSV_CHUNK_SIZE_FLOOR) +
-                " bytes (500KB). Provided: " + std::to_string(size)
-            );
+            throw std::invalid_argument(internals::make_chunk_size_error(internals::CSV_CHUNK_SIZE_FLOOR, size));
         }
         this->_chunk_size = size;
         return *this;
@@ -82,23 +78,7 @@ namespace csv {
         }
 
         if (!offenders.empty()) {
-            std::string err_msg = "There should be no overlap between the quote character, "
-                "the set of possible delimiters "
-                "and the set of whitespace characters. Offending characters: ";
-
-            // Create a pretty error message with the list of overlapping
-            // characters
-            size_t i = 0;
-            for (std::set<char>::const_iterator it = offenders.begin(); it != offenders.end(); ++it, ++i) {
-                err_msg += "'";
-                err_msg += *it;
-                err_msg += "'";
-
-                if (i + 1 < offenders.size())
-                    err_msg += ", ";
-            }
-
-            throw std::runtime_error(err_msg + '.');
+            throw std::runtime_error(internals::make_char_overlap_error(offenders));
         }
     }
 }

@@ -96,6 +96,10 @@
 #define CSV_HAS_CXX20
 #endif
 
+#if CSV_CPLUSPLUS >= 202302L
+#define CSV_HAS_CXX23
+#endif
+
 #if CSV_CPLUSPLUS >= 201703L
 #define CSV_HAS_CXX17
 #endif
@@ -178,6 +182,11 @@ namespace csv {
     #define CONSTEXPR_14 inline
     #define CONSTEXPR_VALUE_14 const
 #endif
+
+    namespace internals {
+        template<bool B, class T = void>
+        using enable_if_t = csv::enable_if_t<B, T>;
+    }
 
 #ifdef CSV_HAS_CXX17
     template<typename F, typename... Args>

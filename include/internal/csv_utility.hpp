@@ -1,5 +1,6 @@
 #pragma once
 #include "common.hpp"
+#include "csv_exceptions.hpp"
 #include "csv_format.hpp"
 #include "csv_reader.hpp"
 #include "data_frame.hpp"
@@ -141,7 +142,7 @@ namespace csv {
         size_t chunk_size = 50000
     ) {
         if (chunk_size == 0) {
-            throw std::invalid_argument("chunk_parallel_apply() requires a non-zero chunk size.");
+            throw std::invalid_argument(internals::ERROR_CHUNK_PARALLEL_APPLY_ZERO);
         }
 
         std::vector<CSVRow> rows;

@@ -1,5 +1,9 @@
 #include "csv.hpp"
+#include <chrono>
 #include <catch2/catch_all.hpp>
+#ifdef CSV_HAS_CXX17
+#include <optional>
+#endif
 #include <cmath>
 #include <iostream>
 #include <sstream>
@@ -37,6 +41,14 @@ TEMPLATE_TEST_CASE("CSVField get<> - String Value", "[test_csv_field_get_string]
     REQUIRE(ex_caught);
 }
 
+TEST_CASE("CSVField handles default string_view as empty", "[test_csv_field_get_string]") {
+    CSVField field((csv::string_view()));
+
+    REQUIRE(field.type() == DataType::CSV_NULL);
+    REQUIRE(field.get<csv::string_view>().empty());
+    REQUIRE(field.get<std::string>().empty());
+}
+
 TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
     CSVField field("applesauce");
     
@@ -54,6 +66,33 @@ TEST_CASE("CSVField get<> - Error Messages", "[test_csv_field_get_error]") {
 
     REQUIRE(ex_caught);
 }
+
+#ifdef CSV_HAS_STD_EXPECTED
+TEST_CASE("CSVField as<T>() returns expected", "[test_csv_field_expected]") {
+    //! [CSVField Expected Conversion]
+    auto number = CSVField("2019").as<std::uint32_t>();
+    REQUIRE(number);
+    REQUIRE(*number == 2019);
+
+    auto not_number = CSVField("applesauce").as<std::uint32_t>();
+    REQUIRE_FALSE(not_number);
+    REQUIRE(not_number.error() == CSVConversionError::NotANumber);
+
+    auto overflow = CSVField("2019").as<signed char>();
+    REQUIRE_FALSE(overflow);
+    REQUIRE(overflow.error() == CSVConversionError::Overflow);
+
+    auto float_to_int = CSVField("2.718").as<int>();
+    REQUIRE_FALSE(float_to_int);
+    REQUIRE(float_to_int.error() == CSVConversionError::FloatToInt);
+
+    auto negative_to_unsigned = CSVField("-1").as<std::uint32_t>();
+    REQUIRE_FALSE(negative_to_unsigned);
+    REQUIRE(negative_to_unsigned.error() == CSVConversionError::NegativeToUnsigned);
+    REQUIRE(std::string(csv_conversion_error_message(negative_to_unsigned.error())) == csv::internals::ERROR_NEG_TO_UNSIGNED);
+    //! [CSVField Expected Conversion]
+}
+#endif
 
 TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
     CSVField this_year("2019");
@@ -100,6 +139,29 @@ TEST_CASE("CSVField get<>() - Integral Value", "[test_csv_field_get_int]") {
     REQUIRE(ex_caught);
 }
 
+#ifdef CSV_HAS_CXX17
+TEST_CASE("CSVField converts to std::optional", "[test_csv_field_optional]") {
+    //! [CSVField Optional Conversion]
+    std::optional<std::uint32_t> number = CSVField("2019");
+    REQUIRE(number);
+    REQUIRE(*number == 2019);
+
+    std::optional<std::uint32_t> not_number = CSVField("applesauce");
+    REQUIRE_FALSE(not_number);
+
+    std::optional<std::uint32_t> negative_unsigned = CSVField("-1");
+    REQUIRE_FALSE(negative_unsigned);
+
+    std::optional<bool> truth = CSVField("true");
+    REQUIRE(truth);
+    REQUIRE(*truth);
+
+    std::optional<bool> numeric_bool = CSVField("1");
+    REQUIRE_FALSE(numeric_bool);
+    //! [CSVField Optional Conversion]
+}
+#endif
+
 TEST_CASE("CSVField get<>() - Integer Boundary Value", "[test_csv_field_get_boundary]") {
     // Note: Tests may fail if compiler defines typenames differently than
     // Microsoft/GCC/clang
@@ -134,12 +196,13 @@ TEMPLATE_TEST_CASE("CSVField get<>() - Integral Value to Int", "[test_csv_field_
 
 TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]") {
     SECTION("Test get() with various float types") {
+        //! [CSVField Floating Point Conversion]
         CSVField euler("2.718");
         REQUIRE(euler.get<>() == "2.718");
         REQUIRE(euler.get<csv::string_view>() == "2.718");
         REQUIRE(euler.get<float>() == 2.718f);
         REQUIRE(euler.get<double>() == 2.718);
-        REQUIRE(euler.get<long double>() == 2.718l);
+        REQUIRE(internals::is_equal(euler.get<long double>(), 2.718L));
 
         float float_out = 0;
         REQUIRE(euler.try_get(float_out));
@@ -155,6 +218,7 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
 
         int int_out = 0;
         REQUIRE_FALSE(euler.try_get(int_out));
+        //! [CSVField Floating Point Conversion]
     }
 
     SECTION("Test get() with various values") {
@@ -189,7 +253,73 @@ TEST_CASE("CSVField try_get<long double>()", "[test_csv_field_try_get_long_doubl
     }
 }
 
+TEST_CASE("CSVField bool conversion requires boolean classification", "[test_csv_field_bool]") {
+    //! [CSVField Bool Conversion]
+    SECTION("Numeric fields are not implicitly booleans") {
+        bool out = false;
+        REQUIRE_FALSE(CSVField("1").try_get(out));
+    }
+
+    SECTION("Boolean literals parse as booleans") {
+        bool out = false;
+        REQUIRE(CSVField("true").try_get(out));
+        REQUIRE(out);
+
+        out = true;
+        REQUIRE(CSVField("false").try_get(out));
+        REQUIRE_FALSE(out);
+    }
+
+    SECTION("Other string fields are not implicitly booleans") {
+        bool out = false;
+        REQUIRE_FALSE(CSVField("truthy").try_get(out));
+    }
+    //! [CSVField Bool Conversion]
+}
+
+TEST_CASE("CSVField timestamp parsing", "[test_csv_field_timestamp]") {
+    //! [CSVField Timestamp Conversion]
+    CSVField field("1970-01-02T00:00:00.123Z");
+
+    REQUIRE(field.type() == DataType::CSV_TIMESTAMP);
+
+    std::uint64_t milliseconds = 0;
+    REQUIRE(field.try_parse_timestamp(milliseconds));
+    REQUIRE(milliseconds == 86400123);
+
+    unsigned long long milliseconds_ull = 0;
+    REQUIRE(field.try_parse_timestamp(milliseconds_ull));
+    REQUIRE(milliseconds_ull == 86400123ULL);
+
+    std::chrono::milliseconds duration_ms(0);
+    REQUIRE(field.try_get(duration_ms));
+    REQUIRE(duration_ms == std::chrono::milliseconds(86400123));
+
+    std::chrono::seconds duration_s(0);
+    REQUIRE(field.try_get(duration_s));
+    REQUIRE(duration_s == std::chrono::seconds(86400));
+
+    std::chrono::system_clock::time_point time_point;
+    REQUIRE(field.try_get(time_point));
+    REQUIRE(time_point.time_since_epoch() == std::chrono::milliseconds(86400123));
+
+    CSVField integer_timestamp("86400123");
+    std::chrono::seconds coerced_seconds(0);
+    REQUIRE(integer_timestamp.try_parse_timestamp(coerced_seconds));
+    REQUIRE(coerced_seconds == std::chrono::seconds(86400));
+
+    std::uint64_t unchanged = 123;
+    REQUIRE_FALSE(CSVField("not-a-timestamp").try_parse_timestamp(unchanged));
+    REQUIRE(unchanged == 123);
+
+    unchanged = 123;
+    REQUIRE_FALSE(CSVField("-1").try_parse_timestamp(unchanged));
+    REQUIRE(unchanged == 123);
+    //! [CSVField Timestamp Conversion]
+}
+
 TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
+    //! [CSVField Hex Conversion]
     long long value = 0;
 
     SECTION("Valid Hex Values") {
@@ -201,6 +331,7 @@ TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
             {"0D", 13},
             {"0E", 14},
             {"0F", 15},
+            {"0x10", 16},
             {"FF", 255},
             {"B00B5", 721077},
             {"D3ADB33F", 3551376191},
@@ -222,10 +353,27 @@ TEST_CASE("CSVField try_parse_hex()", "[test_csv_field_parse_hex]") {
             REQUIRE(CSVField(_case).try_parse_hex(value) == false);
         }
     }
+
+    SECTION("Reject Values Outside Target Type Range") {
+        unsigned char byte_value = 0;
+        REQUIRE(CSVField("FF").try_parse_hex(byte_value));
+        REQUIRE(byte_value == 255);
+        REQUIRE_FALSE(CSVField("100").try_parse_hex(byte_value));
+
+        signed char signed_byte_value = 0;
+        REQUIRE(CSVField("7F").try_parse_hex(signed_byte_value));
+        REQUIRE(signed_byte_value == 127);
+        REQUIRE_FALSE(CSVField("80").try_parse_hex(signed_byte_value));
+
+        unsigned int unsigned_value = 0;
+        REQUIRE_FALSE(CSVField("-1").try_parse_hex(unsigned_value));
+    }
+    //! [CSVField Hex Conversion]
 }
 
 
 TEST_CASE("CSVField try_parse_decimal()", "[test_csv_field_parse_hex]") {
+    //! [CSVField Decimal Separator Conversion]
     SECTION("Test try_parse_decimal() with non-numeric value") {
         long double output = 0;
         std::string input = "stroustrup";
@@ -263,6 +411,7 @@ TEST_CASE("CSVField try_parse_decimal()", "[test_csv_field_parse_hex]") {
         REQUIRE(testField.type() == DataType::CSV_DOUBLE);
         REQUIRE(internals::is_equal(output, expected));
     }
+    //! [CSVField Decimal Separator Conversion]
 }
 
 TEMPLATE_TEST_CASE("CSVField get<>() - Disallow Float to Int", "[test_csv_field_get_float_as_int]",

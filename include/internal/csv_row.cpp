@@ -5,6 +5,7 @@
 #include <cassert>
 #include <functional>
 #include "csv_row.hpp"
+#include "csv_exceptions.hpp"
 
 namespace csv {
     namespace internals {
@@ -52,9 +53,8 @@ namespace csv {
             return this->operator[](col_pos);
         }
 
-        throw std::runtime_error("Can't find a column named " + std::string(col_name));
+        internals::throw_column_not_found(col_name);
     }
-
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
@@ -115,19 +115,49 @@ namespace csv {
         if (this->type_ == DataType::CSV_NULL)
                     return false;
 
-        // Not yet parsed or possibly parsed with other decimalSymbol
-        if (this->type_ == DataType::UNKNOWN || this->type_ == DataType::CSV_STRING || this->type_ == DataType::CSV_DOUBLE)
-            this->type_ = internals::data_type(this->sv, &this->value_, decimalSymbol); // parse again
+        if (this->type_ == DataType::UNKNOWN)
+            this->get_value();
+
+        if (this->type_ == DataType::CSV_NULL)
+            return false;
+
+        if (this->type_ == DataType::CSV_STRING || this->type_ == DataType::CSV_DOUBLE) {
+            double parsed_value = 0;
+            if (!classify_scalar::parse_float(this->sv.data(), this->sv.data() + this->sv.size(), parsed_value, decimalSymbol)) {
+                if (this->type_ == DataType::CSV_DOUBLE)
+                    this->type_ = DataType::CSV_STRING;
+                return false;
+            }
+
+            this->cache_parsed_value(DataType::CSV_DOUBLE, parsed_value);
+        }
 
         // Integral types are not affected by decimalSymbol and need not be parsed again
 
         // Either we already had an integral type before, or we we just got any numeric type now.
         if (this->type_ >= DataType::CSV_INT8 && this->type_ <= DataType::CSV_DOUBLE) {
-            dVal = this->value_;
+            dVal = this->numeric_value_as_long_double();
             return true;
         }
 
         // CSV_NULL or CSV_STRING, not numeric
+        return false;
+    }
+
+    CSV_INLINE bool CSVField::try_parse_timestamp(std::uint64_t& out) noexcept {
+        if (this->type_ == DataType::UNKNOWN)
+            this->get_value();
+
+        if (this->type_ == DataType::CSV_TIMESTAMP) {
+            out = this->value_.timestamp;
+            return true;
+        }
+
+        if (this->stores_integral() && this->value_.integer >= 0) {
+            out = static_cast<std::uint64_t>(this->value_.integer);
+            return true;
+        }
+
         return false;
     }
 

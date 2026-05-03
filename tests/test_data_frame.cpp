@@ -132,6 +132,9 @@ TEST_CASE("DataFrame: column iteration respects visible values", "[data_frame]")
     REQUIRE(name_col.index() == 1);
     REQUIRE(name_col.size() == 2);
     REQUIRE(values == std::vector<std::string>{"Alicia", "Bob"});
+    REQUIRE(name_col.get_sv(0) == "Alicia");
+    REQUIRE(name_col.get_sv(1) == "Bob");
+    REQUIRE_THROWS_AS(frame.column_view(frame.n_cols()), std::out_of_range);
 }
 
 TEST_CASE("DataFrame: keyed access with overwrite and lazy index", "[data_frame]") {
@@ -468,6 +471,19 @@ TEST_CASE("DataFrame: options validation", "[data_frame]") {
         REQUIRE(frame.contains(0));
         REQUIRE(frame.contains(1));
     }
+
+    SECTION("Allow malformed key value") {
+        std::istringstream input("id,name\nbad,Blank\n1,Alice\n");
+        CSVReader reader(input);
+        DataFrameOptions options;
+        options.set_key_column("id").set_throw_on_missing_key(false);
+
+        DataFrame<int> frame(reader, options);
+        REQUIRE(frame.size() == 2);
+        REQUIRE(frame.contains(0));
+        REQUIRE(frame[0]["name"].get<std::string>() == "Blank");
+        REQUIRE(frame.contains(1));
+    }
 }
 
 TEST_CASE("DataFrame: duplicate key policies", "[data_frame]") {
@@ -621,4 +637,5 @@ TEST_CASE("DataFrame: const row erase is rejected", "[data_frame]") {
 
     auto row = cframe["1"];
     REQUIRE_THROWS_AS(row.erase(), std::runtime_error);
+    REQUIRE_THROWS_AS(row["name"] = "Blocked", std::runtime_error);
 }
