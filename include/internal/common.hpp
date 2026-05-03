@@ -183,6 +183,11 @@ namespace csv {
     #define CONSTEXPR_VALUE_14 const
 #endif
 
+    namespace internals {
+        template<bool B, class T = void>
+        using enable_if_t = csv::enable_if_t<B, T>;
+    }
+
 #ifdef CSV_HAS_CXX17
     template<typename F, typename... Args>
     using invoke_result_t = typename std::invoke_result<F, Args...>::type;

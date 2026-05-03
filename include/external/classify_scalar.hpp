@@ -126,6 +126,10 @@ SOFTWARE.
 #include <system_error>
 #endif
 
+#if defined(CLASSIFY_SCALAR_HAS_CXX17) && !defined(_LIBCPP_VERSION)
+#define CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
+#endif
+
 namespace classify_scalar {
 
 /// Built-in scalar classification ids returned by classify_scalar().
@@ -288,7 +292,8 @@ struct builtin_output_refs {
           timestamp(&timestamp_) {}
 
     template<ScalarKind Kind>
-    typename std::enable_if<detail::integer::is_signed_integer_kind(Kind), void>::type set(std::int64_t value) const noexcept {
+    typename std::enable_if<Kind >= scalar_int8 && Kind <= scalar_int64 && ((Kind - scalar_int8) % 2 == 0), void>::type
+    set(std::int64_t value) const noexcept {
         integer = value;
     }
 
@@ -1111,7 +1116,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_floating_dot(
     if (size > 4096)
         return false;
 
-#ifdef CLASSIFY_SCALAR_HAS_CXX17
+#ifdef CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
     double parsed = 0;
     const std::from_chars_result result = std::from_chars(first, last, parsed);
     if (result.ec != std::errc() || result.ptr != last || !std::isfinite(parsed))
@@ -1137,7 +1142,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_floating_with_decimal(
     if (size > 4096)
         return false;
 
-#ifdef CLASSIFY_SCALAR_HAS_CXX17
+#ifdef CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
     char buffer[4097];
     std::size_t i = 0;
     for (const char* current = first; current != last; ++current, ++i) {
