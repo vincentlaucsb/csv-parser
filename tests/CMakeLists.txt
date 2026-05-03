@@ -80,6 +80,6 @@ endif()
 
 add_test(
     NAME test
-    COMMAND csv_test
+    COMMAND csv_test --reporter console::out=-::verbosity=high --durations yes
     WORKING_DIRECTORY ${CSV_ROOT_DIR}
 )

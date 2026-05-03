@@ -102,7 +102,19 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest --build-config ${{ matrix.build_type }}
+      run: ctest --build-config ${{ matrix.build_type }} --output-on-failure -V
+
+    - name: Dump CTest logs on failure
+      if: failure()
+      shell: bash
+      run: |
+        log="${{ steps.strings.outputs.build-output-dir }}/Testing/Temporary/LastTest.log"
+        if [ -f "$log" ]; then
+          echo "===== $log ====="
+          cat "$log"
+        else
+          echo "CTest log not found at $log"
+        fi
 
   single-threaded:
     name: Single-threaded build (CSV_ENABLE_THREADS=OFF)
