@@ -199,6 +199,28 @@ TEST_CASE("DataFrame ETL: column_parallel_apply sees edited values", "[data_fram
     REQUIRE(summaries[2].non_empty == 2);
 }
 
+TEST_CASE("DataFrame ETL: column_parallel_apply selected columns use matching states", "[data_frame][etl]") {
+    auto input = make_people_stream();
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+    DataFrameExecutor executor(1);
+
+    const std::vector<size_t> selected_columns{
+        static_cast<size_t>(frame.index_of("name")),
+        static_cast<size_t>(frame.index_of("value"))
+    };
+    std::vector<std::string> summaries(selected_columns.size());
+
+    frame.column_parallel_apply(executor, selected_columns, summaries,
+        [](DataFrame<>::column_type column, std::string& summary) {
+            summary = column.name() + ":" + std::to_string(column.size());
+        }
+    );
+
+    REQUIRE(summaries[0] == "name:3");
+    REQUIRE(summaries[1] == "value:3");
+}
+
 TEST_CASE("DataFrame ETL: read_chunk batch bridge can coerce null-ish values on selected columns", "[data_frame][etl]") {
     //! [High Performance ETL Batch Bridge Example]
     std::istringstream input(

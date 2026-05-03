@@ -43,6 +43,9 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
    * csv::CSVField::get(): \copybrief csv::CSVField::get()
    * csv::CSVField::operator==()
 
+ #### See also
+ [Scalar Conversion Reference](@ref scalar_conversions)
+
 ### DataFrame
 
 An in-memory keyed table built from a csv::CSVReader. Supports O(1) key lookup,

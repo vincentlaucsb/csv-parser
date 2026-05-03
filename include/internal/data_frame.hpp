@@ -634,6 +634,8 @@ namespace csv {
         #ifdef CSV_HAS_CXX20
         /** Convert this DataFrameRow into a std::ranges::input_range of strings,
          *  respecting the sparse overlay (edited values take precedence).
+         *
+         *  @note Requires C++20 or later.
          */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
@@ -775,7 +777,10 @@ namespace csv {
         }
 
         #ifdef CSV_HAS_CXX20
-        /** Convert this DataFrameColumn into a std::ranges::input_range of strings. */
+        /** Convert this DataFrameColumn into a std::ranges::input_range of strings.
+         *
+         *  @note Requires C++20 or later.
+         */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
                 | std::views::transform([this](size_t row_index) {

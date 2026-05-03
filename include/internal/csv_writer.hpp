@@ -385,6 +385,8 @@ namespace internals {
          *  Buffered writers flush the batch when it grows large or when this call ends.
          *  Auto-flushing writers additionally flush the underlying stream once at the
          *  end of the bulk call.
+         *
+         *  @note Requires C++20 or later.
          */
         template<std::ranges::input_range Rows>
             requires internals::csv_write_rows_input_range<Rows>

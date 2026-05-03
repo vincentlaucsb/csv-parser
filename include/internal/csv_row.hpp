@@ -76,13 +76,28 @@ namespace csv {
 
     /**
     * @enum CSVConversionError
-    * @brief Non-throwing CSVField conversion failure reason.
+    * @brief Non-throwing CSVField conversion result.
+    *
+    * Returned by CSVField::as() inside std::expected, and used internally by
+    * CSVField::get() and CSVField::try_get() to keep throwing and non-throwing
+    * conversions on the same rules.
+    *
+    * @sa csv_conversion_error_message()
     */
     enum class CSVConversionError {
+        /** Conversion succeeded. */
         None = 0,
+
+        /** The field is not compatible with the requested target type. */
         NotANumber,
+
+        /** The parsed value does not fit in the requested target type. */
         Overflow,
+
+        /** A floating point field was requested as an integral type. */
         FloatToInt,
+
+        /** A negative value was requested as an unsigned type. */
         NegativeToUnsigned
     };
 
@@ -139,8 +154,7 @@ namespace csv {
         *   - Converting a large integer to a smaller type that will not hold it
         *
         *  @note    This method is capable of parsing scientific E-notation.
-        *           See [this page](md_docs_source_scientific_notation.html)
-        *           for more details.
+        *           See @ref scalar_conversions for more details.
         *
         *  @throws  std::runtime_error Thrown if an invalid conversion is performed.
         *
@@ -161,7 +175,17 @@ namespace csv {
         }
 
 #ifdef CSV_HAS_STD_EXPECTED
-        /** Return this field as T, preserving conversion failure as CSVConversionError. */
+        /**
+         * Return this field as T, preserving conversion failure as CSVConversionError.
+         *
+         * @return std::expected containing T on success, or CSVConversionError
+         *         describing why conversion failed.
+         *
+         * @note Requires C++23 and a standard library that provides std::expected.
+         *
+         * @sa CSVConversionError
+         * @sa csv_conversion_error_message()
+         */
         template<typename T = std::string>
         std::expected<T, CSVConversionError> as() {
             T out{};
@@ -193,10 +217,13 @@ namespace csv {
         }
 
 #ifdef CSV_HAS_CXX17
-        /** Convert this field to std::optional<T>, returning std::nullopt when conversion fails.
+        /** @anchor CSVField_optional_conversion
+         *  Convert this field to std::optional<T>, returning std::nullopt when conversion fails.
          *
          *  This is a value-returning wrapper around try_get(), useful for C++17
          *  callers that want non-throwing conversion without an output parameter.
+         *
+         *  @note Requires C++17 or later.
          */
         template<typename T>
         operator std::optional<T>() {
@@ -232,6 +259,10 @@ namespace csv {
         bool try_parse_timestamp(std::uint64_t& out) noexcept;
 
         /** Parse this field as Unix milliseconds in a 64-bit unsigned integer. */
+#ifdef DOXYGEN_SHOULD_SKIP_THIS
+        template<typename T>
+        bool try_parse_timestamp(T& out) noexcept;
+#else
         template<typename T>
         internals::enable_if_t<
             std::is_integral<T>::value && std::is_unsigned<T>::value && !std::is_same<T, bool>::value
@@ -246,6 +277,7 @@ namespace csv {
             out = static_cast<T>(milliseconds);
             return true;
         }
+#endif
 
         /** Parse this field as a timestamp duration since the Unix epoch. */
         template<typename Rep, typename Period>
@@ -334,6 +366,7 @@ namespace csv {
 
     private:
         // GCC emits a psABI note for by-value APIs involving unions with long double.
+        // This is a workaround to keep the logs clean without sacrificing the benefits of a union on other compilers.
         // Give only GCC users the struct tax so normal builds and strict CI logs stay quiet.
 #if defined(__GNUC__) && !defined(__clang__)
         struct FieldValue {
@@ -553,7 +586,10 @@ namespace csv {
         ) const;
 
         #ifdef CSV_HAS_CXX20
-        /** Convert this CSVRow into a std::ranges::input_range of string_views. */
+        /** Convert this CSVRow into a std::ranges::input_range of string_views.
+         *
+         *  @note Requires C++20 or later.
+         */
         auto to_sv_range() const {
             return std::views::iota(size_t{0}, this->size())
                 | std::views::transform([this](size_t i) { return this->get_field(i); });

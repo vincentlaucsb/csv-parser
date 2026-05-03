@@ -22,7 +22,7 @@
     - [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
     - [Memory-Mapped I/O and Streams](#memory-mapped-io-and-streams)
     - [Indexing by Column Names](#indexing-by-column-names)
-    - [Numeric Conversions](#numeric-conversions)
+    - [Numeric, Boolean, and Timestamp Conversions](#numeric-boolean-and-timestamp-conversions)
     - [Converting to JSON](#converting-to-json)
     - [Specifying the CSV Format](#specifying-the-csv-format)
       - [Trimming Whitespace](#trimming-whitespace)
@@ -283,15 +283,33 @@ for (auto& row: reader) {
 ...
 ```
 
-### Numeric Conversions
-If your CSV has lots of numeric values, you can also have this parser (lazily)
-convert them to the proper data type.
+### Numeric, Boolean, and Timestamp Conversions
+CSV fields are heterogeneous, and this library provides several conversion APIs besides treating everything as a string.
 
- * `try_get<T>()` is a non-throwing version of `get<T>` which returns `bool` if the conversion was successful
- * Type checking is performed on conversions to prevent undefined behavior and integer overflow
-   * Negative numbers cannot be blindly converted to unsigned integer types
- * `get<float>()`, `get<double>()`, and `get<long double>()` are capable of parsing numbers written in scientific notation.
- * **Note:** Conversions to floating point types are not currently checked for loss of precision.
+These conversions are powered by [classify_scalar](https://github.com/vincentlaucsb/classify_scalar), a separately maintained scalar classification library with its own test suite, configurable scalar grammars, and benchmarking notes. Use it directly if you want csv-parser's scalar behavior outside CSV parsing, or if you want to define a related classification policy for another data format.
+
+For the full conversion contract, see the [Scalar Conversion Reference](https://vincentlaucsb.github.io/csv-parser/scalar_conversions.html).
+
+Type checking is performed on conversions to prevent undefined behavior and integer overflow. Negative numbers cannot be blindly converted to unsigned integer types.
+
+| API | Success behavior | Failure behavior | Notes |
+| --- | --- | --- | --- |
+| `get<T>()` | Returns `T` | Throws `std::runtime_error` | Supports integral, floating point, `bool`, and `std::chrono` targets. |
+| `try_get<T>(out)` | Writes `out`, returns `true` | Returns `false` | Non-throwing equivalent to `get<T>()`. |
+| `std::optional<T> value = field` | Returns populated optional | Returns `std::nullopt` | C++17 and later; uses the same conversion rules as `try_get<T>()`. |
+| `field.as<T>()` | Returns `std::expected<T, CSVConversionError>` | Returns `std::unexpected(CSVConversionError)` | C++23 and later when `std::expected` is available; use when callers need a structured conversion error such as not-a-number, overflow, float-to-int, or negative-to-unsigned. |
+| `try_parse_hex<T>(out)` | Writes an integral `T`, returns `true` | Returns `false` | Allows hex with or without the `0x` prefix. |
+| `try_parse_decimal(out, decimal_symbol)` | Writes `long double`, returns `true` | Returns `false` | Parses decimal numbers that use a non-`.` decimal separator. |
+| `try_parse_timestamp<T>(out)` | Writes timestamp/duration target, returns `true` | Returns `false` | `uint64_t` Unix timestamps and `std::chrono` targets work in all supported C++ versions. |
+
+Additional conversion details:
+
+| Target | Supported input |
+| --- | --- |
+| Integral types | Decimal numbers, plus hex notation with `0x` when using `get<T>()`; unsigned targets reject negative values. |
+| Floating point types | Decimal and scientific notation; precision loss is not currently checked. |
+| `bool` | `true` or `false`, case-insensitive. |
+| `std::chrono::system_clock::time_point` / `std::chrono::duration` | ISO 8601 timestamps such as `2024-01-01T12:00:00Z`, plus compact forms such as `2024-01-01 12:00:00`. |
 
 ```cpp
 # include "csv.hpp"
