@@ -21,6 +21,10 @@ jobs:
       matrix:
         include:
           - sanitizer: address
+            cxx_standard: 11
+            flag: "-fsanitize=address -fno-omit-frame-pointer"
+            name: "AddressSanitizer"
+          - sanitizer: address
             cxx_standard: 20
             flag: "-fsanitize=address -fno-omit-frame-pointer"
             name: "AddressSanitizer"

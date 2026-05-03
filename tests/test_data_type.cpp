@@ -9,6 +9,7 @@ using namespace csv;
 using namespace csv::internals;
 
 TEST_CASE("data_type() exposes csv-parser scalar classification policy", "[data_type]") {
+    REQUIRE(data_type(csv::string_view()) == DataType::CSV_NULL);
     REQUIRE(data_type("") == DataType::CSV_NULL);
     REQUIRE(data_type("not-a-number") == DataType::CSV_STRING);
     REQUIRE(data_type("510-123-4567") == DataType::CSV_STRING);

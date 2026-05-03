@@ -477,6 +477,11 @@ namespace csv {
         /** Check to see if value has been cached previously before evaluating. */
         inline void get_value() noexcept {
             if ((int)type_ < 0) {
+                if (this->sv.empty()) {
+                    type_ = DataType::CSV_NULL;
+                    return;
+                }
+
                 const char* first = this->sv.data();
                 const char* last = first + this->sv.size();
                 typedef classify_scalar::policy_pack<

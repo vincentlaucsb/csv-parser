@@ -37,6 +37,9 @@ namespace csv {
 
         /** Classify values using the CSVField scalar policy without materializing parsed output. */
         inline DataType data_type(csv::string_view in) {
+            if (in.empty())
+                return DataType::CSV_NULL;
+
             const char* first = in.data();
             const char* last = first + in.size();
             typedef classify_scalar::policy_pack<
