@@ -189,7 +189,7 @@ TEST_CASE("CSVField get<>() - Floating Point Value", "[test_csv_field_get_float]
         REQUIRE(euler.get<csv::string_view>() == "2.718");
         REQUIRE(euler.get<float>() == 2.718f);
         REQUIRE(euler.get<double>() == 2.718);
-        REQUIRE(euler.get<long double>() == 2.718l);
+        REQUIRE(internals::is_equal(euler.get<long double>(), 2.718L));
 
         float float_out = 0;
         REQUIRE(euler.try_get(float_out));
