@@ -638,7 +638,7 @@ CLASSIFY_SCALAR_FORCE_INLINE const sign_table_type& sign_table() noexcept {
     return table;
 }
 
-CLASSIFY_SCALAR_CONSTEXPR_14 std::array<char, 256> create_ascii_lower_table() noexcept {
+CLASSIFY_SCALAR_CONSTEXPR_17 std::array<char, 256> create_ascii_lower_table() noexcept {
     std::array<char, 256> table = {};
     for (std::size_t i = 0; i < table.size(); ++i) {
         table[i] = static_cast<char>(i);
@@ -651,7 +651,7 @@ CLASSIFY_SCALAR_CONSTEXPR_14 std::array<char, 256> create_ascii_lower_table() no
 
 CLASSIFY_SCALAR_CONSTEXPR_VALUE_17 std::array<char, 256> ascii_lower_chars = create_ascii_lower_table();
 
-CLASSIFY_SCALAR_CONSTEXPR_14 std::array<bool, 256> create_ascii_digits_table() noexcept {
+CLASSIFY_SCALAR_CONSTEXPR_17 std::array<bool, 256> create_ascii_digits_table() noexcept {
     std::array<bool, 256> table = {};
     for (unsigned char i = 0; i < 10; ++i) {
         table[static_cast<unsigned char>('0' + i)] = true;
@@ -663,7 +663,7 @@ CLASSIFY_SCALAR_CONSTEXPR_VALUE_17 std::array<bool, 256> ascii_digits = create_a
 
 CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 unsigned char invalid_digit_value = 255U;
 
-CLASSIFY_SCALAR_CONSTEXPR_14 std::array<unsigned char, 256> create_digit_values_table() noexcept {
+CLASSIFY_SCALAR_CONSTEXPR_17 std::array<unsigned char, 256> create_digit_values_table() noexcept {
     std::array<unsigned char, 256> table = {};
     for (std::size_t i = 0; i < table.size(); ++i) {
         table[i] = invalid_digit_value;

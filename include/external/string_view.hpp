@@ -106,7 +106,7 @@ public:
             return npos;
         }
         const void* found = std::memchr(data_ + pos, ch, size_ - pos);
-        return found ? static_cast<const char*>(found) - data_ : npos;
+        return found ? static_cast<size_type>(static_cast<const char*>(found) - data_) : npos;
     }
 
     size_type find(string_view needle, size_type pos = 0) const noexcept {
