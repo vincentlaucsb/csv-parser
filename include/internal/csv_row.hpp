@@ -333,9 +333,9 @@ namespace csv {
         }
 
     private:
-        // GCC emits a psABI note for by-value APIs involving unions with long double
-        // in pre-C++20 modes. Use the compact union everywhere else.
-#if defined(__GNUC__) && !defined(__clang__) && !defined(CSV_HAS_CXX20)
+        // GCC emits a psABI note for by-value APIs involving unions with long double.
+        // Give only GCC users the struct tax so normal builds and strict CI logs stay quiet.
+#if defined(__GNUC__) && !defined(__clang__)
         struct FieldValue {
             constexpr FieldValue() noexcept
                 : integer(0), floating(0), timestamp(0), boolean(false) {}

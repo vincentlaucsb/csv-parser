@@ -101,9 +101,13 @@ SOFTWARE.
 #ifdef CLASSIFY_SCALAR_HAS_CXX14
 #define CLASSIFY_SCALAR_CONSTEXPR_14 constexpr
 #define CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 constexpr
+#define CLASSIFY_SCALAR_LOCAL_TABLE_VALUE_14 constexpr
 #else
 #define CLASSIFY_SCALAR_CONSTEXPR_14 inline
 #define CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 const
+// C++11 cannot constexpr-build the lookup tables below, so local statics must
+// stay mutable while their runtime initializer writes table entries.
+#define CLASSIFY_SCALAR_LOCAL_TABLE_VALUE_14
 #endif
 
 #ifdef CLASSIFY_SCALAR_HAS_CXX17
@@ -606,7 +610,7 @@ CLASSIFY_SCALAR_CONSTEXPR_14 parse_table_type build_parse_table(index_sequence<I
 
 template<char DecimalSymbol>
 CLASSIFY_SCALAR_FORCE_INLINE const parse_table_type& parse_table() noexcept {
-    static CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 parse_table_type table =
+    static CLASSIFY_SCALAR_LOCAL_TABLE_VALUE_14 parse_table_type table =
         build_parse_table<DecimalSymbol>(typename make_index_sequence<256>::type());
     return table;
 }
@@ -618,7 +622,7 @@ CLASSIFY_SCALAR_CONSTEXPR_14 dispatch_table_type build_dispatch_table(index_sequ
 
 template<typename PolicyPack>
 CLASSIFY_SCALAR_FORCE_INLINE const dispatch_table_type& dispatch_table() noexcept {
-    static CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 dispatch_table_type table =
+    static CLASSIFY_SCALAR_LOCAL_TABLE_VALUE_14 dispatch_table_type table =
         build_dispatch_table<PolicyPack>(typename make_index_sequence<256>::type());
     return table;
 }
@@ -633,7 +637,7 @@ CLASSIFY_SCALAR_CONSTEXPR_14 sign_table_type build_sign_table(index_sequence<Ind
 }
 
 CLASSIFY_SCALAR_FORCE_INLINE const sign_table_type& sign_table() noexcept {
-    static CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 sign_table_type table =
+    static CLASSIFY_SCALAR_LOCAL_TABLE_VALUE_14 sign_table_type table =
         build_sign_table(typename make_index_sequence<256>::type());
     return table;
 }
