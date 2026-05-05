@@ -5,10 +5,14 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <exception>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #if !defined(__EMSCRIPTEN__)
@@ -20,6 +24,7 @@
 #include "csv_exceptions.hpp"
 #include "csv_format.hpp"
 #include "csv_row.hpp"
+#include "csv_speculative_diagnostics.hpp"
 #include "row_deque.hpp"
 
 namespace csv {
@@ -127,17 +132,17 @@ namespace csv {
             return buf;
         }
 
-    #if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN__)
         /** Open a file-backed source and read the first 500KB through the stream path. */
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename);
-    #endif
+#endif
 
-    #if !defined(__EMSCRIPTEN__)
+#if !defined(__EMSCRIPTEN__)
         /** Read the first 500KB from a filename using mmap.
          *  Also returns the total file size so callers avoid a second mmap open.
          */
         CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename);
-    #endif
+#endif
 
         /** Compatibility shim selecting stream on Emscripten and mmap otherwise. */
         CSV_INLINE std::string get_csv_head(csv::string_view filename);
@@ -177,6 +182,84 @@ namespace csv {
     using RowCollection = internals::ThreadSafeDeque<CSVRow>;
 
     namespace internals {
+        class CSVRowSink {
+        public:
+            virtual ~CSVRowSink() {}
+            virtual void push_row(CSVRow&& row) = 0;
+        };
+
+        class VectorRowSink : public CSVRowSink {
+        public:
+            VectorRowSink() = default;
+            explicit VectorRowSink(std::vector<CSVRow>& rows) : rows_(&rows) {}
+
+            void reset(std::vector<CSVRow>& rows) noexcept {
+                rows_ = &rows;
+            }
+
+            void push_row(CSVRow&& row) override {
+                rows_->push_back(std::move(row));
+            }
+
+        private:
+            std::vector<CSVRow>* rows_ = nullptr;
+        };
+
+        /** Explicit DFA state at a parse boundary.
+         *
+         *  This is intentionally about parser control flow, not field metadata.
+         *  `pending_quote` represents the ambiguous case where a chunk ended at
+         *  a quote while already inside a quoted field; the next byte determines
+         *  whether that quote closes the field, escapes a quote, or is kept as
+         *  non-strict literal content.
+         */
+        struct ParserDFAState {
+            ParserDFAState() noexcept = default;
+            ParserDFAState(
+                bool quote_escape,
+                bool pending_quote = false,
+                bool pending_linefeed = false
+            ) noexcept
+                : quote_escape(quote_escape),
+                  pending_quote(pending_quote),
+                  pending_linefeed(pending_linefeed) {}
+
+            bool quote_escape = false;
+            bool pending_quote = false;
+            bool pending_linefeed = false;
+        };
+
+        inline bool parser_dfa_state_equal(ParserDFAState lhs, ParserDFAState rhs) noexcept {
+            return lhs.quote_escape == rhs.quote_escape
+                && lhs.pending_quote == rhs.pending_quote
+                && lhs.pending_linefeed == rhs.pending_linefeed;
+        }
+
+        struct ParserChunkOptions {
+            ParserChunkOptions() noexcept = default;
+            explicit ParserChunkOptions(ParserDFAState initial_state, bool scan_bom = true) noexcept
+                : initial_state(initial_state), scan_bom(scan_bom) {}
+
+            ParserDFAState initial_state;
+            bool scan_bom = true;
+        };
+
+        struct ParserChunkResult {
+            ParserChunkResult() noexcept = default;
+            ParserChunkResult(
+                ParserDFAState initial_state,
+                ParserDFAState ending_state,
+                size_t complete_prefix_length
+            ) noexcept
+                : initial_state(initial_state),
+                  ending_state(ending_state),
+                  complete_prefix_length(complete_prefix_length) {}
+
+            ParserDFAState initial_state;
+            ParserDFAState ending_state;
+            size_t complete_prefix_length = 0;
+        };
+
         /** Abstract base class which provides CSV parsing logic.
          *
          *  Concrete implementations may customize this logic across
@@ -220,7 +303,62 @@ namespace csv {
             /** Whether or not this CSV has a UTF-8 byte order mark */
             CONSTEXPR bool utf8_bom() const { return this->utf8_bom_; }
 
-            void set_output(RowCollection& rows) { this->records_ = &rows; }
+            virtual SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
+                return SpeculativeParseDiagnostics();
+            }
+
+            virtual size_t parse_worker_count() const noexcept {
+                return 1;
+            }
+
+            void set_output(RowCollection& rows) {
+                this->records_ = &rows;
+                this->row_sink_ = nullptr;
+            }
+
+            void set_output(CSVRowSink& sink) noexcept {
+                this->records_ = nullptr;
+                this->row_sink_ = &sink;
+            }
+
+            /** Seed the DFA state for the next parse call. */
+            void reset_with_initial_state(ParserDFAState state) noexcept {
+                this->initial_state_ = state;
+            }
+
+            /** Convenience overload for callers that only care about quote state. */
+            void reset_with_initial_state(bool starts_in_quoted, bool in_escape = false) noexcept {
+                this->reset_with_initial_state(ParserDFAState{ starts_in_quoted, in_escape });
+            }
+
+            /** Return the DFA state observed when the most recent parse call stopped. */
+            ParserDFAState ending_state() const noexcept {
+                return this->ending_state_;
+            }
+
+            ParserChunkResult parse_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner
+            );
+
+            ParserChunkResult parse_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                const ParserChunkOptions& options
+            );
+
+            ParserChunkResult parse_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                CSVRowSink& sink
+            );
+
+            ParserChunkResult parse_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                CSVRowSink& sink,
+                const ParserChunkOptions& options
+            );
 
         protected:
             /** @name Current Parser State */
@@ -251,9 +389,6 @@ namespace csv {
 
             virtual std::string& get_csv_head() = 0;
 
-            /** Whether or not source needs to be read in chunks */
-            CONSTEXPR bool no_chunk() const { return this->source_size_ < CSV_CHUNK_SIZE_DEFAULT; }
-
             /** Parse the current chunk of data and return the completed-row prefix length. */
             size_t parse();
 
@@ -261,6 +396,19 @@ namespace csv {
             void reset_data_ptr();
 
             void resolve_format_from_head(const CSVFormat& format);
+
+            const WhitespaceMap& whitespace_flags() const noexcept {
+                return this->ws_flags_;
+            }
+
+            void emit_row(CSVRow&& row) {
+                if (this->records_) {
+                    this->records_->push_back(std::move(row));
+                }
+                else {
+                    this->row_sink_->push_row(std::move(row));
+                }
+            }
         private:
             /** An array where the (i + 128)th slot determines whether ASCII character i should
              *  be trimmed
@@ -272,7 +420,12 @@ namespace csv {
              */
             bool has_ws_trimming_ = false;
             bool quote_escape_ = false;
+            bool pending_quote_ = false;
+            bool pending_linefeed_ = false;
             bool field_has_double_quote_ = false;
+            ParserDFAState initial_state_;
+            ParserDFAState ending_state_;
+            bool scan_bom_for_current_chunk_ = true;
 
             /** Where we are in the current data block */
             size_t data_pos_ = 0;
@@ -281,8 +434,11 @@ namespace csv {
             bool unicode_bom_scan_ = false;
             bool utf8_bom_ = false;
 
-            /** Where complete rows should be pushed to */
+            /** Where serial parser rows should be pushed to. */
             RowCollection* records_ = nullptr;
+
+            /** Alternate sink for speculative/private row collection. */
+            CSVRowSink* row_sink_ = nullptr;
 
             CONSTEXPR_17 bool ws_flag(const char ch) const noexcept {
                 return ws_flags_.data()[ch + CHAR_OFFSET];
@@ -297,12 +453,43 @@ namespace csv {
             /** Finish parsing the current field */
             void push_field();
 
+            /** Finish parsing the current record and reset row-local state. */
+            void finish_row(size_t raw_end);
+
             /** Finish parsing the current row */
-            void push_row();
+            void push_row(size_t raw_end);
 
             /** Handle possible Unicode byte order mark */
             void strip_unicode_bom();
+
+            ParserChunkResult parse_prepared_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                const ParserChunkOptions& options
+            );
+
+            void resolve_pending_quote_at_start(csv::string_view in);
+            void resolve_pending_linefeed_at_start(csv::string_view in);
+
+            ParserDFAState current_dfa_state() const noexcept {
+                return ParserDFAState{ this->quote_escape_, this->pending_quote_, this->pending_linefeed_ };
+            }
+
+            size_t finish_parse(size_t remainder) noexcept {
+                this->ending_state_ = this->current_dfa_state();
+                this->initial_state_ = this->ending_state_.pending_linefeed
+                    ? this->ending_state_
+                    : ParserDFAState{};
+                this->scan_bom_for_current_chunk_ = true;
+                return remainder;
+            }
         };
+    }
+}
+
+namespace csv {
+    namespace internals {
+        class CSVParseOrchestrator;
 
         /** A class for parsing CSV data from any std::istream, including
          *  non-seekable sources such as pipes and decompression filters.
@@ -352,13 +539,8 @@ namespace csv {
             void next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) override {
                 if (this->eof()) return;
 
-                // Reset parser state
-                this->field_start_ = UNINITIALIZED_FIELD;
-                this->field_length_ = 0;
-                this->reset_data_ptr();
-                this->data_ptr_->_data = std::make_shared<std::string>();
-
-                auto& chunk = *static_cast<std::string*>(this->data_ptr_->_data.get());
+                auto chunk_owner = std::make_shared<std::string>();
+                auto& chunk = *chunk_owner;
 
                 // Prepend leftover bytes from the previous chunk's incomplete
                 // trailing row, then read the next block from the stream.
@@ -379,12 +561,7 @@ namespace csv {
                     throw_stream_read_failure();
                 }
 
-                // Create string_view
-                this->data_ptr_->data = chunk;
-
-                // Parse
-                this->current_row_ = CSVRow(this->data_ptr_);
-                size_t remainder = this->parse();
+                const ParserChunkResult result = this->parse_chunk(chunk, chunk_owner);
 
                 if (source_.eof() || chunk.empty()) {
                     this->eof_ = true;
@@ -393,7 +570,7 @@ namespace csv {
                 else {
                     // Save the tail bytes that begin an incomplete row so they
                     // are prepended to the next chunk (see class-level comment).
-                    leftover_ = chunk.substr(remainder);
+                    leftover_ = chunk.substr(result.complete_prefix_length);
                 }
             }
 
@@ -426,15 +603,9 @@ namespace csv {
             MmapParser(csv::string_view filename,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : IBasicCSVParser(format, col_names) {
-                this->_filename = filename.data();
-                auto head_and_size = get_csv_head_mmap(filename);
-                this->head_ = std::move(head_and_size.first);
-                this->source_size_ = head_and_size.second;
-                this->resolve_format_from_head(format);
-            };
+            );
 
-            ~MmapParser() {}
+            ~MmapParser();
 
             std::string& get_csv_head() override {
                 // head_ was already populated in the constructor.
@@ -443,12 +614,24 @@ namespace csv {
 
             void next(size_t bytes) override;
 
+            SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override;
+
+            size_t parse_worker_count() const noexcept override;
+
         private:
-            void finalize_loaded_chunk(size_t length, bool eof_on_no_chunk = false);
+            void finalize_loaded_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                size_t length,
+                size_t chunk_size
+            );
+
+            size_t read_window_size(size_t chunk_size) const noexcept;
 
             std::string _filename;
             size_t mmap_pos = 0;
             std::string head_;
+            std::unique_ptr<CSVParseOrchestrator> parse_orchestrator_;
         };
 #endif
     }

@@ -63,6 +63,7 @@
 namespace csv {
     namespace internals {
         class IBasicCSVParser;
+        struct CSVRowFragment;
 
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -534,6 +535,7 @@ namespace csv {
     class CSVRow {
     public:
         friend internals::IBasicCSVParser;
+        friend struct internals::CSVRowFragment;
 
         CSVRow() = default;
         
@@ -608,7 +610,7 @@ namespace csv {
 
         /** Return a string_view of the raw bytes of this row as they appear in
          *  the underlying parse buffer, up to (but not including) the trailing
-         *  newline character.
+         *  record terminator.
          *
          *  @warning The view is only valid for as long as the CSVRow (and its
          *           associated data chunk) remains alive.
@@ -744,6 +746,9 @@ namespace csv {
 
         /** How many columns this row spans */
         size_t row_length = 0;
+
+        /** Byte offset one past the last byte belonging to this row. */
+        size_t data_end = (std::numeric_limits<size_t>::max)();
     };
 
 #ifdef _MSC_VER

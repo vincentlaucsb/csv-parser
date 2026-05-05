@@ -22,6 +22,17 @@ int main(int argc, char** argv) {
 
     std::cout << "Parsing took (including disk IO): " << diff.count() << std::endl;
     std::cout << "Dimensions: " << info.n_rows << " rows x " << info.n_cols << " columns " << std::endl;
+    std::cout << "Parser worker threads: " << info.parse_worker_count << std::endl;
+    if (info.speculative_diagnostics.chunks > 0) {
+        std::cout << "Speculative chunks: " << info.speculative_diagnostics.chunks
+            << " ambiguous=" << info.speculative_diagnostics.ambiguous_chunks
+            << " probability_model=" << info.speculative_diagnostics.probability_model_chunks
+            << " size_heuristic=" << info.speculative_diagnostics.record_size_heuristic_chunks
+            << " repairs=" << info.speculative_diagnostics.validation_repairs
+            << " assumed_quoted=" << info.speculative_diagnostics.assumed_quoted_chunks
+            << " assumed_unquoted=" << info.speculative_diagnostics.assumed_unquoted_chunks
+            << std::endl;
+    }
     std::cout << "Columns: ";
     for (auto& col : info.col_names) {
         std::cout << " " << col;

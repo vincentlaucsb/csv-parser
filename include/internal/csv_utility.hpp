@@ -22,6 +22,8 @@ namespace csv {
         char delim;                         /**< Delimiting character */
         size_t n_rows;                      /**< Number of rows in a file */
         size_t n_cols;                      /**< Number of columns in a CSV */
+        size_t parse_worker_count;          /**< Number of parser worker threads used */
+        internals::SpeculativeParseDiagnostics speculative_diagnostics;
     };
 
     /** @name Shorthand Parsing Functions
@@ -172,16 +174,25 @@ namespace csv {
      *  @include programs/csv_info.cpp
      */
     inline CSVFileInfo get_file_info(const std::string& filename) {
-        CSVReader reader(filename);
+        CSVFormat reader_format = CSVFormat::guess_csv();
+        // TODO: Move this policy into CSVReader so large filename-backed inputs
+        // automatically use speculative parsing based on source size.
+        reader_format.speculative_parallel();
+
+        CSVReader reader(filename, reader_format);
         CSVFormat format = reader.get_format();
-        for (auto it = reader.begin(); it != reader.end(); ++it);
+
+        std::vector<CSVRow> rows;
+        while (reader.read_chunk(rows, 50000)) {}
 
         return {
             filename,
             reader.get_col_names(),
             format.get_delim(),
             reader.n_rows(),
-            reader.get_col_names().size()
+            reader.get_col_names().size(),
+            reader.parse_worker_count(),
+            reader.speculative_diagnostics()
         };
     }
 

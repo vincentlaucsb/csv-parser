@@ -344,6 +344,17 @@ namespace csv {
 
         /** Whether or not CSV was prefixed with a UTF-8 bom */
         bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
+
+        /** Return speculative-parsing counters for filename-backed readers. */
+        internals::SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
+            return this->parser ? this->parser->speculative_diagnostics()
+                : internals::SpeculativeParseDiagnostics();
+        }
+
+        /** Return the number of parser worker threads used by the active parser. */
+        size_t parse_worker_count() const noexcept {
+            return this->parser ? this->parser->parse_worker_count() : 1;
+        }
         ///@}
 
     protected:
