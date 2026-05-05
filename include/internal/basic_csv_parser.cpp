@@ -457,76 +457,38 @@ namespace csv {
         CSV_INLINE void MmapParser::finalize_loaded_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
-            size_t length
-        ) {
-            // Parse the currently loaded chunk and advance/re-align mmap_pos so
-            // the next read resumes at the start of the incomplete trailing row.
-            const ParserChunkResult result = this->parse_chunk(chunk, std::move(owner));
-
-            if (this->mmap_pos == this->source_size_) {
-                this->eof_ = true;
-                this->end_feed();
-            }
-
-            this->mmap_pos -= (length - result.complete_prefix_length);
-        }
-
-        CSV_INLINE void MmapParser::finalize_speculative_loaded_chunk(
-            csv::string_view chunk,
-            std::shared_ptr<void> owner,
             size_t length,
             size_t chunk_size
         ) {
             const size_t base_offset = this->mmap_pos - length;
             const bool source_exhausted = this->mmap_pos == this->source_size_;
-            SpeculativeScanner scanner(this->parse_flags_);
-            auto chunks = make_speculative_parse_chunks(
+            CSVParseWindowResult result = this->parse_orchestrator_->parse_window(
+                *this,
                 chunk,
-                owner,
-                chunk_size,
-                scanner,
+                std::move(owner),
                 base_offset,
-                0,
-                base_offset == 0
-            );
-
-            std::vector<CSVRow> output_rows;
-            VectorRowSink output_sink(output_rows);
-            ParallelCSVParser parser(
-                this->parse_flags_,
-                this->whitespace_flags(),
-                this->speculative_worker_count_
-            );
-
-            const ParallelCSVParseResult result = parser.parse_chunks(
-                chunks,
-                output_sink,
+                chunk_size,
                 source_exhausted
             );
-            this->speculative_diagnostics_.merge(result.diagnostics);
 
-            for (auto& row : output_rows) {
+            for (auto& row : result.rows) {
                 this->emit_row(std::move(row));
             }
 
             if (source_exhausted) {
                 this->eof_ = true;
+                if (result.finish_serial_feed) {
+                    this->end_feed();
+                }
             }
 
             this->mmap_pos -= (length - result.complete_prefix_length);
         }
 
         CSV_INLINE size_t MmapParser::read_window_size(size_t chunk_size) const noexcept {
-            if (!this->use_speculative_parallel_ || this->speculative_worker_count_ <= 1) {
-                return chunk_size;
-            }
-
-            const size_t max_size = (std::numeric_limits<size_t>::max)();
-            if (chunk_size > max_size / this->speculative_worker_count_) {
-                return max_size;
-            }
-
-            return chunk_size * this->speculative_worker_count_;
+            return this->parse_orchestrator_
+                ? this->parse_orchestrator_->read_window_size(chunk_size)
+                : chunk_size;
         }
 
         CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
@@ -546,7 +508,7 @@ namespace csv {
                 const size_t length = head_owner->size();
                 this->mmap_pos += length;
 
-                this->finalize_loaded_chunk(*head_owner, head_owner, length);
+                this->finalize_loaded_chunk(*head_owner, head_owner, length, bytes);
                 return;
             }
 
@@ -576,12 +538,7 @@ namespace csv {
 
             // Create string view
             csv::string_view chunk(mmap_ptr->data(), mmap_ptr->length());
-            if (this->use_speculative_parallel_ && this->speculative_worker_count_ > 1 && length > bytes) {
-                this->finalize_speculative_loaded_chunk(chunk, mmap_owner, length, bytes);
-            }
-            else {
-                this->finalize_loaded_chunk(chunk, mmap_owner, length);
-            }
+            this->finalize_loaded_chunk(chunk, mmap_owner, length, bytes);
         }
 #endif
 #ifdef _MSC_VER

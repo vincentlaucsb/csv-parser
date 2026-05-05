@@ -350,6 +350,11 @@ namespace csv {
             return this->parser ? this->parser->speculative_diagnostics()
                 : internals::SpeculativeParseDiagnostics();
         }
+
+        /** Return the number of parser worker threads used by the active parser. */
+        size_t parse_worker_count() const noexcept {
+            return this->parser ? this->parser->parse_worker_count() : 1;
+        }
         ///@}
 
     protected:

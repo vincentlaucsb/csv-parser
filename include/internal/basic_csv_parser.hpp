@@ -22,7 +22,7 @@
 #include "col_names.hpp"
 #include "common.hpp"
 #if CSV_ENABLE_THREADS
-#include <atomic>
+#include <condition_variable>
 #include <thread>
 #endif
 #include "csv_exceptions.hpp"
@@ -496,8 +496,7 @@ namespace csv {
                 result.length = chunk.size();
                 result.prefix_length = prefix_length;
                 const long double separator_probability = this->separator_probability(prefix);
-                result.outside_scan = this->scan_prefix(prefix, ParserDFAState(false), separator_probability);
-                result.inside_scan = this->scan_prefix(prefix, ParserDFAState(true), separator_probability);
+                this->scan_prefix(prefix, separator_probability, result.outside_scan, result.inside_scan);
                 result.ambiguous = this->is_ambiguous(result.outside_scan, result.inside_scan);
                 result.assumed_start_state = this->choose_start_state(result);
                 return result;
@@ -508,9 +507,16 @@ namespace csv {
                 return parse_flags_.data()[ch + CHAR_OFFSET];
             }
 
-            CONSTEXPR_17 ParseFlags compound_parse_flag(const char ch, bool quote_escape) const noexcept {
-                return quote_escape_flag(this->parse_flag(ch), quote_escape);
-            }
+            struct PrefixCounterState {
+                PrefixScanResult result;
+                bool quote_escape = false;
+                bool at_field_start = true;
+                size_t current_record_length = 0;
+                size_t quoted_field_length = 0;
+                bool tracking_quoted_field = false;
+                bool quoted_field_partial = false;
+                bool skip_escaped_quote = false;
+            };
 
             long double separator_probability(csv::string_view prefix) const noexcept {
                 if (prefix.empty()) {
@@ -549,6 +555,25 @@ namespace csv {
                 current_record_length = 0;
             }
 
+            void finish_quoted_field(
+                PrefixCounterState& state,
+                long double log_separator_probability
+            ) const noexcept {
+                if (!state.tracking_quoted_field) {
+                    return;
+                }
+
+                this->observe_quoted_field(
+                    state.result,
+                    state.quoted_field_length,
+                    state.quoted_field_partial,
+                    log_separator_probability
+                );
+                state.tracking_quoted_field = false;
+                state.quoted_field_partial = false;
+                state.quoted_field_length = 0;
+            }
+
             void observe_quoted_field(
                 PrefixScanResult& result,
                 size_t field_length,
@@ -569,213 +594,137 @@ namespace csv {
                 }
             }
 
-            PrefixScanResult scan_prefix(
+            bool is_separator_or_record_end(ParseFlags flag) const noexcept {
+                return flag == ParseFlags::DELIMITER
+                    || flag == ParseFlags::CARRIAGE_RETURN
+                    || flag == ParseFlags::NEWLINE;
+            }
+
+            bool quote_can_close(csv::string_view prefix, size_t pos) const noexcept {
+                if (pos + 1 >= prefix.size()) {
+                    return true;
+                }
+
+                const ParseFlags next = this->parse_flag(prefix[pos + 1]);
+                return next != ParseFlags::QUOTE && this->is_separator_or_record_end(next);
+            }
+
+            void count_byte(
+                PrefixCounterState& state,
                 csv::string_view prefix,
-                ParserDFAState state,
-                long double separator_probability
+                size_t pos,
+                size_t width,
+                long double log_separator_probability
+            ) const noexcept {
+                const ParseFlags flag = this->parse_flag(prefix[pos]);
+                this->observe_state(state.result, state.quote_escape);
+                this->observe_record_byte(state.current_record_length, width);
+
+                if (state.quote_escape) {
+                    if (flag == ParseFlags::QUOTE) {
+                        if (state.skip_escaped_quote) {
+                            state.skip_escaped_quote = false;
+                            state.quoted_field_length += width;
+                            return;
+                        }
+
+                        const bool escaped_quote = pos + 1 < prefix.size()
+                            && this->parse_flag(prefix[pos + 1]) == ParseFlags::QUOTE;
+                        if (escaped_quote) {
+                            state.quoted_field_length += width;
+                            state.skip_escaped_quote = true;
+                            return;
+                        }
+
+                        if (this->quote_can_close(prefix, pos)) {
+                            state.quote_escape = false;
+                            if (state.result.first_quote_close == (std::numeric_limits<size_t>::max)()) {
+                                state.result.first_quote_close = pos;
+                            }
+                            this->finish_quoted_field(state, log_separator_probability);
+                            return;
+                        }
+                    }
+
+                    state.quoted_field_length += width;
+                    return;
+                }
+
+                if (flag == ParseFlags::QUOTE && state.at_field_start) {
+                    state.quote_escape = true;
+                    state.at_field_start = false;
+                    state.tracking_quoted_field = true;
+                    state.quoted_field_partial = false;
+                    state.quoted_field_length = 0;
+                    if (state.result.first_quote_open == (std::numeric_limits<size_t>::max)()) {
+                        state.result.first_quote_open = pos;
+                    }
+                    return;
+                }
+
+                if (flag == ParseFlags::DELIMITER) {
+                    state.at_field_start = true;
+                    return;
+                }
+
+                if (flag == ParseFlags::CARRIAGE_RETURN || flag == ParseFlags::NEWLINE) {
+                    this->finish_record(state.result, state.current_record_length);
+                    state.at_field_start = true;
+                    if (state.result.first_record_end == (std::numeric_limits<size_t>::max)()) {
+                        state.result.first_record_end = pos + width;
+                    }
+                    return;
+                }
+
+                state.at_field_start = false;
+            }
+
+            // SIGMOD 2019's speculative pass needs counts and quote-boundary
+            // evidence, not row materialization. Keep this as a single prefix
+            // counter for the two possible starting interpretations.
+            void scan_prefix(
+                csv::string_view prefix,
+                long double separator_probability,
+                PrefixScanResult& outside_scan,
+                PrefixScanResult& inside_scan
             ) const {
                 using internals::ParseFlags;
 
-                PrefixScanResult result;
-                bool quote_escape = state.quote_escape;
-                bool pending_quote = state.pending_quote;
-                bool pending_linefeed = state.pending_linefeed;
-                size_t field_length = 0;
-                size_t current_record_length = 0;
-                size_t quoted_field_length = 0;
-                bool tracking_quoted_field = quote_escape;
-                bool quoted_field_partial = quote_escape;
-                size_t pos = 0;
+                PrefixCounterState outside;
+                PrefixCounterState inside;
+                inside.quote_escape = true;
+                inside.tracking_quoted_field = true;
+                inside.quoted_field_partial = true;
+
                 const long double log_separator_probability = separator_probability > 0
                     ? std::log(separator_probability)
                     : -std::numeric_limits<long double>::infinity();
 
-                if (pending_linefeed && pos < prefix.size()) {
-                    pending_linefeed = false;
-                    if (this->parse_flag(prefix[pos]) == ParseFlags::NEWLINE) {
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        pos++;
-                        this->finish_record(result, current_record_length);
+                for (size_t pos = 0; pos < prefix.size();) {
+                    size_t width = 1;
+                    if (this->parse_flag(prefix[pos]) == ParseFlags::CARRIAGE_RETURN
+                        && pos + 1 < prefix.size()
+                        && this->parse_flag(prefix[pos + 1]) == ParseFlags::NEWLINE) {
+                        width = 2;
                     }
+
+                    this->count_byte(outside, prefix, pos, width, log_separator_probability);
+                    this->count_byte(inside, prefix, pos, width, log_separator_probability);
+                    pos += width;
                 }
 
-                if (pending_quote && pos < prefix.size()) {
-                    const ParseFlags next_ch = this->parse_flag(prefix[pos]);
-                    pending_quote = false;
-
-                    if (next_ch >= ParseFlags::DELIMITER) {
-                        quote_escape = false;
-                        if (result.first_quote_close == (std::numeric_limits<size_t>::max)()) {
-                            result.first_quote_close = pos;
-                        }
-                        if (tracking_quoted_field) {
-                            this->observe_quoted_field(
-                                result,
-                                quoted_field_length,
-                                true,
-                                log_separator_probability
-                            );
-                            tracking_quoted_field = false;
-                            quoted_field_length = 0;
-                        }
-                    }
-                    else if (next_ch == ParseFlags::QUOTE) {
-                        quote_escape = true;
-                        field_length++;
-                        quoted_field_length++;
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        pos++;
-                    }
-                    else {
-                        quote_escape = true;
-                        field_length++;
-                        quoted_field_length++;
-                    }
+                this->finish_quoted_field(outside, log_separator_probability);
+                this->finish_quoted_field(inside, log_separator_probability);
+                if (outside.current_record_length > outside.result.max_record_length) {
+                    outside.result.max_record_length = outside.current_record_length;
                 }
-
-                // This intentionally mirrors only DFA control state, not field
-                // materialization. The real parser remains the source of truth
-                // for rows; this prefix scan only produces cheap speculation.
-                while (pos < prefix.size()) {
-                    switch (this->compound_parse_flag(prefix[pos], quote_escape)) {
-                    case ParseFlags::DELIMITER:
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        field_length = 0;
-                        pos++;
-                        break;
-
-                    case ParseFlags::CARRIAGE_RETURN:
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        if (pos + 1 == prefix.size()) {
-                            pos++;
-                            pending_linefeed = true;
-                        }
-                        else if (this->parse_flag(prefix[pos + 1]) == ParseFlags::NEWLINE) {
-                            this->observe_state(result, quote_escape);
-                            this->observe_record_byte(current_record_length);
-                            pos++;
-                            pos++;
-                        }
-                        else {
-                            pos++;
-                        }
-                        field_length = 0;
-                        this->finish_record(result, current_record_length);
-                        if (result.first_record_end == (std::numeric_limits<size_t>::max)()) {
-                            result.first_record_end = pos;
-                        }
-                        break;
-
-                    case ParseFlags::NEWLINE:
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        pos++;
-                        field_length = 0;
-                        this->finish_record(result, current_record_length);
-                        if (result.first_record_end == (std::numeric_limits<size_t>::max)()) {
-                            result.first_record_end = pos;
-                        }
-                        break;
-
-                    case ParseFlags::NOT_SPECIAL:
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        field_length++;
-                        if (tracking_quoted_field) {
-                            quoted_field_length++;
-                        }
-                        pos++;
-                        break;
-
-                    case ParseFlags::QUOTE_ESCAPE_QUOTE:
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        if (pos + 1 == prefix.size()) {
-                            pending_quote = true;
-                            pos++;
-                            break;
-                        }
-                        else {
-                            const ParseFlags next_ch = this->parse_flag(prefix[pos + 1]);
-                            if (next_ch >= ParseFlags::DELIMITER) {
-                                quote_escape = false;
-                                if (result.first_quote_close == (std::numeric_limits<size_t>::max)()) {
-                                    result.first_quote_close = pos;
-                                }
-                                if (tracking_quoted_field) {
-                                    this->observe_quoted_field(
-                                        result,
-                                        quoted_field_length,
-                                        quoted_field_partial,
-                                        log_separator_probability
-                                    );
-                                    tracking_quoted_field = false;
-                                    quoted_field_partial = false;
-                                    quoted_field_length = 0;
-                                }
-                                pos++;
-                                break;
-                            }
-                            else if (next_ch == ParseFlags::QUOTE) {
-                                this->observe_state(result, quote_escape);
-                                this->observe_record_byte(current_record_length);
-                                field_length += 2;
-                                if (tracking_quoted_field) {
-                                    quoted_field_length += 2;
-                                }
-                                pos += 2;
-                                break;
-                            }
-                        }
-
-                        field_length++;
-                        if (tracking_quoted_field) {
-                            quoted_field_length++;
-                        }
-                        pos++;
-                        break;
-
-                    default:
-                        this->observe_state(result, quote_escape);
-                        this->observe_record_byte(current_record_length);
-                        if (field_length == 0) {
-                            quote_escape = true;
-                            if (result.first_quote_open == (std::numeric_limits<size_t>::max)()) {
-                                result.first_quote_open = pos;
-                            }
-                            tracking_quoted_field = true;
-                            quoted_field_partial = false;
-                            quoted_field_length = 0;
-                            pos++;
-                            break;
-                        }
-
-                        field_length++;
-                        if (tracking_quoted_field) {
-                            quoted_field_length++;
-                        }
-                        pos++;
-                        break;
-                    }
+                if (inside.current_record_length > inside.result.max_record_length) {
+                    inside.result.max_record_length = inside.current_record_length;
                 }
-
-                if (tracking_quoted_field) {
-                    this->observe_quoted_field(
-                        result,
-                        quoted_field_length,
-                        true,
-                        log_separator_probability
-                    );
-                }
-                if (current_record_length > result.max_record_length) {
-                    result.max_record_length = current_record_length;
-                }
-                result.ending_state = ParserDFAState(quote_escape, pending_quote, pending_linefeed);
-                return result;
+                outside.result.ending_state = ParserDFAState(outside.quote_escape);
+                inside.result.ending_state = ParserDFAState(inside.quote_escape);
+                outside_scan = outside.result;
+                inside_scan = inside.result;
             }
 
             long double unquoted_ratio(const PrefixScanResult& scan) const noexcept {
@@ -957,6 +906,10 @@ namespace csv {
 
             virtual SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
                 return SpeculativeParseDiagnostics();
+            }
+
+            virtual size_t parse_worker_count() const noexcept {
+                return 1;
             }
 
             void set_output(RowCollection& rows) {
@@ -1347,7 +1300,7 @@ namespace csv {
                 chunk.scan_bom = first_chunk && scan_bom_for_first_chunk;
 
                 // The first chunk in a speculative window starts at a known row
-                // boundary because mmap windows are re-aligned to incomplete-row
+                // boundary because source windows must be aligned to incomplete-row
                 // starts before the next read.
                 if (first_chunk) {
                     chunk.speculation.assumed_start_state = ParserDFAState();
@@ -1368,7 +1321,20 @@ namespace csv {
                 size_t worker_count = 1
             ) : parse_flags_(parse_flags),
                 ws_flags_(ws_flags),
-                worker_count_(worker_count == 0 ? 1 : worker_count) {}
+                worker_count_(worker_count == 0 ? 1 : worker_count) {
+#if CSV_ENABLE_THREADS
+                this->start_workers();
+#endif
+            }
+
+            ~ParallelCSVParser() {
+#if CSV_ENABLE_THREADS
+                this->stop_workers();
+#endif
+            }
+
+            ParallelCSVParser(const ParallelCSVParser&) = delete;
+            ParallelCSVParser& operator=(const ParallelCSVParser&) = delete;
 
             ParsedChunkRows parse_chunk(const SpeculativeParseChunk& chunk) const {
                 ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
@@ -1379,7 +1345,7 @@ namespace csv {
                 const std::vector<SpeculativeParseChunk>& chunks,
                 CSVRowSink& output,
                 bool finish = true
-            ) const {
+            ) {
                 ParallelCSVParseResult result;
                 result.chunks_processed = chunks.size();
                 for (size_t i = 0; i < chunks.size(); ++i) {
@@ -1442,7 +1408,7 @@ namespace csv {
             void parse_chunks_into(
                 const std::vector<SpeculativeParseChunk>& chunks,
                 std::vector<ParsedChunkRows>& parsed
-            ) const {
+            ) {
 #if CSV_ENABLE_THREADS
                 if (this->worker_count_ > 1 && chunks.size() > 1) {
                     this->parse_chunks_parallel(chunks, parsed);
@@ -1460,48 +1426,122 @@ namespace csv {
             void parse_chunks_parallel(
                 const std::vector<SpeculativeParseChunk>& chunks,
                 std::vector<ParsedChunkRows>& parsed
-            ) const {
-                const size_t n_workers = std::min(this->worker_count_, chunks.size());
-                std::atomic<size_t> next_task(0);
-                std::atomic<bool> failed(false);
-                std::exception_ptr worker_exception;
-                std::mutex exception_lock;
-                std::vector<std::thread> workers;
-                workers.reserve(n_workers);
-
-                for (size_t i = 0; i < n_workers; ++i) {
-                    workers.push_back(std::thread([this, &chunks, &parsed, &next_task, &failed, &worker_exception, &exception_lock]() {
-                        ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
-
-                        while (!failed.load()) {
-                            const size_t task = next_task.fetch_add(1);
-                            if (task >= chunks.size()) {
-                                break;
-                            }
-
-                            try {
-                                parsed[task] = this->parse_chunk_with(parser, chunks[task]);
-                            }
-                            catch (...) {
-                                failed.store(true);
-                                std::lock_guard<std::mutex> lock(exception_lock);
-                                if (!worker_exception) {
-                                    worker_exception = std::current_exception();
-                                }
-                                break;
-                            }
-                        }
-                    }));
+            ) {
+                if (this->workers_.empty()) {
+                    ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
+                    for (size_t i = 0; i < chunks.size(); ++i) {
+                        parsed[i] = this->parse_chunk_with(parser, chunks[i]);
+                    }
+                    return;
                 }
 
-                for (size_t i = 0; i < workers.size(); ++i) {
-                    if (workers[i].joinable()) {
-                        workers[i].join();
-                    }
+                std::exception_ptr worker_exception;
+                {
+                    std::unique_lock<std::mutex> lock(this->work_mutex_);
+                    this->active_chunks_ = &chunks;
+                    this->active_parsed_ = &parsed;
+                    this->next_task_ = 0;
+                    this->completed_workers_ = 0;
+                    this->failed_ = false;
+                    this->worker_exception_ = nullptr;
+                    this->generation_++;
+                }
+
+                this->work_ready_.notify_all();
+
+                {
+                    std::unique_lock<std::mutex> lock(this->work_mutex_);
+                    this->work_done_.wait(lock, [this]() {
+                        return this->completed_workers_ == this->workers_.size();
+                    });
+                    worker_exception = this->worker_exception_;
+                    this->active_chunks_ = nullptr;
+                    this->active_parsed_ = nullptr;
                 }
 
                 if (worker_exception) {
                     std::rethrow_exception(worker_exception);
+                }
+            }
+
+            void start_workers() {
+                if (this->worker_count_ <= 1) {
+                    return;
+                }
+
+                this->workers_.reserve(this->worker_count_);
+                for (size_t i = 0; i < this->worker_count_; ++i) {
+                    this->workers_.push_back(std::thread(&ParallelCSVParser::worker_loop, this));
+                }
+            }
+
+            void stop_workers() {
+                {
+                    std::lock_guard<std::mutex> lock(this->work_mutex_);
+                    this->stop_ = true;
+                    this->generation_++;
+                }
+                this->work_ready_.notify_all();
+
+                for (size_t i = 0; i < this->workers_.size(); ++i) {
+                    if (this->workers_[i].joinable()) {
+                        this->workers_[i].join();
+                    }
+                }
+            }
+
+            void worker_loop() {
+                ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
+                size_t observed_generation = 0;
+
+                for (;;) {
+                    {
+                        std::unique_lock<std::mutex> lock(this->work_mutex_);
+                        this->work_ready_.wait(lock, [this, &observed_generation]() {
+                            return this->stop_ || this->generation_ != observed_generation;
+                        });
+
+                        if (this->stop_) {
+                            return;
+                        }
+                        observed_generation = this->generation_;
+                    }
+
+                    for (;;) {
+                        size_t task = 0;
+                        const std::vector<SpeculativeParseChunk>* chunks = nullptr;
+                        std::vector<ParsedChunkRows>* parsed = nullptr;
+                        {
+                            std::lock_guard<std::mutex> lock(this->work_mutex_);
+                            if (this->failed_ || this->next_task_ >= this->active_chunks_->size()) {
+                                break;
+                            }
+
+                            task = this->next_task_++;
+                            chunks = this->active_chunks_;
+                            parsed = this->active_parsed_;
+                        }
+
+                        try {
+                            (*parsed)[task] = this->parse_chunk_with(parser, (*chunks)[task]);
+                        }
+                        catch (...) {
+                            std::lock_guard<std::mutex> lock(this->work_mutex_);
+                            this->failed_ = true;
+                            if (!this->worker_exception_) {
+                                this->worker_exception_ = std::current_exception();
+                            }
+                            break;
+                        }
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lock(this->work_mutex_);
+                        this->completed_workers_++;
+                        if (this->completed_workers_ == this->workers_.size()) {
+                            this->work_done_.notify_one();
+                        }
+                    }
                 }
             }
 #endif
@@ -1509,6 +1549,165 @@ namespace csv {
             ParseFlagMap parse_flags_;
             WhitespaceMap ws_flags_;
             size_t worker_count_;
+#if CSV_ENABLE_THREADS
+            std::vector<std::thread> workers_;
+            std::mutex work_mutex_;
+            std::condition_variable work_ready_;
+            std::condition_variable work_done_;
+            const std::vector<SpeculativeParseChunk>* active_chunks_ = nullptr;
+            std::vector<ParsedChunkRows>* active_parsed_ = nullptr;
+            size_t next_task_ = 0;
+            size_t completed_workers_ = 0;
+            size_t generation_ = 0;
+            bool stop_ = false;
+            bool failed_ = false;
+            std::exception_ptr worker_exception_;
+#endif
+        };
+
+        struct CSVParseWindowResult {
+            size_t complete_prefix_length = 0;
+            bool finish_serial_feed = false;
+            std::vector<CSVRow> rows;
+        };
+
+        class CSVParseOrchestrator {
+        public:
+            CSVParseOrchestrator(
+                const ParseFlagMap& parse_flags,
+                const WhitespaceMap& ws_flags,
+                const CSVFormat& format,
+                size_t source_size
+            ) : parse_flags_(parse_flags),
+                ws_flags_(ws_flags),
+                scanner_(parse_flags) {
+                size_t n_threads = 1;
+                if (format.is_speculative_parallel_enabled()
+                    && source_size >= format.get_speculative_parallel_min_bytes()) {
+#if CSV_ENABLE_THREADS
+                    n_threads = format.get_speculative_parallel_threads();
+                    if (n_threads == 0) {
+                        const unsigned int hardware_threads = std::thread::hardware_concurrency();
+                        n_threads = hardware_threads == 0 ? 2 : static_cast<size_t>(hardware_threads);
+                    }
+#endif
+                }
+
+                this->worker_count_ = n_threads == 0 ? 1 : n_threads;
+                this->use_speculative_parallel_ = format.should_use_speculative_parallel(
+                    source_size,
+                    this->worker_count_
+                );
+                if (this->use_speculative_parallel_) {
+                    this->speculative_parser_.reset(new ParallelCSVParser(
+                        this->parse_flags_,
+                        this->ws_flags_,
+                        this->worker_count_
+                    ));
+                }
+            }
+
+            size_t worker_count() const noexcept {
+                return this->use_speculative_parallel_ ? this->worker_count_ : 1;
+            }
+
+            SpeculativeParseDiagnostics diagnostics() const noexcept {
+                return this->speculative_diagnostics_;
+            }
+
+            size_t read_window_size(size_t chunk_size) const noexcept {
+                if (!this->use_speculative_parallel_ || this->worker_count_ <= 1) {
+                    return chunk_size;
+                }
+
+                const size_t max_size = (std::numeric_limits<size_t>::max)();
+                if (chunk_size > max_size / this->worker_count_) {
+                    return max_size;
+                }
+
+                return chunk_size * this->worker_count_;
+            }
+
+            CSVParseWindowResult parse_window(
+                IBasicCSVParser& serial_parser,
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                size_t base_offset,
+                size_t serial_chunk_size,
+                bool source_exhausted
+            ) {
+                if (this->use_speculative_parallel_
+                    && this->worker_count_ > 1
+                    && serial_chunk_size > 0
+                    && chunk.size() > serial_chunk_size) {
+                    return this->parse_speculative_window(
+                        chunk,
+                        std::move(owner),
+                        base_offset,
+                        serial_chunk_size,
+                        source_exhausted
+                    );
+                }
+
+                return this->parse_serial_window(
+                    serial_parser,
+                    chunk,
+                    std::move(owner),
+                    source_exhausted
+                );
+            }
+
+        private:
+            CSVParseWindowResult parse_serial_window(
+                IBasicCSVParser& serial_parser,
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                bool source_exhausted
+            ) {
+                CSVParseWindowResult result;
+                const ParserChunkResult parse_result = serial_parser.parse_chunk(chunk, std::move(owner));
+                result.complete_prefix_length = parse_result.complete_prefix_length;
+                result.finish_serial_feed = source_exhausted;
+                return result;
+            }
+
+            CSVParseWindowResult parse_speculative_window(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                size_t base_offset,
+                size_t serial_chunk_size,
+                bool source_exhausted
+            ) {
+                CSVParseWindowResult result;
+                auto chunks = make_speculative_parse_chunks(
+                    chunk,
+                    owner,
+                    serial_chunk_size,
+                    this->scanner_,
+                    base_offset,
+                    0,
+                    base_offset == 0
+                );
+
+                VectorRowSink output_sink(result.rows);
+                const ParallelCSVParseResult parse_result = this->speculative_parser_->parse_chunks(
+                    chunks,
+                    output_sink,
+                    source_exhausted
+                );
+
+                result.complete_prefix_length = parse_result.complete_prefix_length;
+                this->speculative_diagnostics_.merge(parse_result.diagnostics);
+                return result;
+            }
+
+            ParseFlagMap parse_flags_;
+            WhitespaceMap ws_flags_;
+            SpeculativeScanner scanner_;
+            bool use_speculative_parallel_ = false;
+            size_t worker_count_ = 1;
+            SpeculativeParseDiagnostics speculative_diagnostics_;
+            std::unique_ptr<ParallelCSVParser> speculative_parser_;
         };
 
         /** A class for parsing CSV data from any std::istream, including
@@ -1630,22 +1829,12 @@ namespace csv {
                 this->source_size_ = head_and_size.second;
                 this->resolve_format_from_head(format);
 
-                size_t n_threads = 1;
-                if (format.is_speculative_parallel_enabled()
-                    && this->source_size_ >= format.get_speculative_parallel_min_bytes()) {
-#if CSV_ENABLE_THREADS
-                    n_threads = format.get_speculative_parallel_threads();
-                    if (n_threads == 0) {
-                        const unsigned int hardware_threads = std::thread::hardware_concurrency();
-                        n_threads = hardware_threads == 0 ? 2 : static_cast<size_t>(hardware_threads);
-                    }
-#endif
-                }
-                this->speculative_worker_count_ = n_threads == 0 ? 1 : n_threads;
-                this->use_speculative_parallel_ = format.should_use_speculative_parallel(
-                    this->source_size_,
-                    this->speculative_worker_count_
-                );
+                this->parse_orchestrator_.reset(new CSVParseOrchestrator(
+                    this->parse_flags_,
+                    this->whitespace_flags(),
+                    format,
+                    this->source_size_
+                ));
             };
 
             ~MmapParser() {}
@@ -1658,17 +1847,19 @@ namespace csv {
             void next(size_t bytes) override;
 
             SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override {
-                return this->speculative_diagnostics_;
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->diagnostics()
+                    : SpeculativeParseDiagnostics();
+            }
+
+            size_t parse_worker_count() const noexcept override {
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->worker_count()
+                    : 1;
             }
 
         private:
             void finalize_loaded_chunk(
-                csv::string_view chunk,
-                std::shared_ptr<void> owner,
-                size_t length
-            );
-
-            void finalize_speculative_loaded_chunk(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
                 size_t length,
@@ -1680,9 +1871,7 @@ namespace csv {
             std::string _filename;
             size_t mmap_pos = 0;
             std::string head_;
-            bool use_speculative_parallel_ = false;
-            size_t speculative_worker_count_ = 1;
-            SpeculativeParseDiagnostics speculative_diagnostics_;
+            std::unique_ptr<CSVParseOrchestrator> parse_orchestrator_;
         };
 #endif
     }

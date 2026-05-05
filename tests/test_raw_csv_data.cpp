@@ -196,6 +196,18 @@ TEST_CASE("Speculative scanner uses probability model for unresolved quote-bound
     REQUIRE(speculation.assumed_start_state.quote_escape);
 }
 
+TEST_CASE("Speculative scanner preserves escaped quote pairs in quoted interpretation", "[raw_csv_parse][speculative]") {
+    SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
+    const std::string chunk = "continued \"\"quoted\"\" text\",tail\n";
+    const size_t closing_quote = chunk.find("\",tail");
+
+    const auto speculation = scanner.speculate(7, 65536, chunk);
+
+    REQUIRE(speculation.inside_scan.first_quote_close == closing_quote);
+    REQUIRE(speculation.inside_scan.records_seen == 1);
+    REQUIRE_FALSE(speculation.inside_scan.ending_state.quote_escape);
+}
+
 TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv_parse][fragments]") {
     std::stringstream unused_source;
     StreamParser<std::stringstream> parser(
