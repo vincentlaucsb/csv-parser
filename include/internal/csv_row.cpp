@@ -67,6 +67,13 @@ namespace csv {
         if (!data) return csv::string_view();
         const csv::string_view full = data->data;
         if (data_start >= full.size()) return csv::string_view();
+
+        if (data_end != (std::numeric_limits<size_t>::max)()
+            && data_end >= data_start
+            && data_end <= full.size()) {
+            return full.substr(data_start, data_end - data_start);
+        }
+
         const size_t end = full.find('\n', data_start);
         const size_t len = (end == csv::string_view::npos)
             ? (full.size() - data_start)

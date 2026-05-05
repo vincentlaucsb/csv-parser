@@ -172,9 +172,16 @@ namespace csv {
      *  @include programs/csv_info.cpp
      */
     inline CSVFileInfo get_file_info(const std::string& filename) {
-        CSVReader reader(filename);
+        CSVFormat reader_format = CSVFormat::guess_csv();
+        // TODO: Move this policy into CSVReader so large filename-backed inputs
+        // automatically use speculative parsing based on source size.
+        reader_format.speculative_parallel();
+
+        CSVReader reader(filename, reader_format);
         CSVFormat format = reader.get_format();
-        for (auto it = reader.begin(); it != reader.end(); ++it);
+
+        std::vector<CSVRow> rows;
+        while (reader.read_chunk(rows, 50000)) {}
 
         return {
             filename,

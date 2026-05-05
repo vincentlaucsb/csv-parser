@@ -2,13 +2,6 @@
 
 #include <system_error>
 
-// Because g++ wants to be a pedantic little brat about fallthroughs
-#ifdef CXX_CSV_HAS_17
-#define FALLTHROUGH_TO_NEXT_CASE [[fallthrough]];
-#else
-#define FALLTHROUGH_TO_NEXT_CASE goto next_newline_case;
-#endif
-
 namespace csv {
     namespace internals {
 #if defined(__EMSCRIPTEN__)
@@ -160,7 +153,52 @@ namespace csv {
 
             // Push row
             if (this->current_row_.size() > 0)
-                this->push_row();
+                this->push_row(this->data_ptr_ ? this->data_ptr_->data.size() : this->current_row_start());
+        }
+
+        CSV_INLINE void IBasicCSVParser::resolve_pending_quote_at_start(csv::string_view in) {
+            using internals::ParseFlags;
+
+            if (!this->pending_quote_ || this->data_pos_ >= in.size()) {
+                return;
+            }
+
+            const ParseFlags next_ch = this->parse_flag(in[this->data_pos_]);
+            this->pending_quote_ = false;
+
+            if (next_ch >= ParseFlags::DELIMITER) {
+                this->quote_escape_ = false;
+                return;
+            }
+
+            if (next_ch == ParseFlags::QUOTE) {
+                // Previous chunk ended on a quote and this chunk starts with a
+                // quote, so the pair is an escaped quote inside the field.
+                this->quote_escape_ = true;
+                this->field_has_double_quote_ = true;
+                this->field_length_++;
+                this->data_pos_++;
+                return;
+            }
+
+            // Non-strict CSV: a quote inside a quoted field followed by ordinary
+            // content is kept as literal content, matching the existing DFA path.
+            this->quote_escape_ = true;
+            this->field_length_++;
+        }
+
+        CSV_INLINE void IBasicCSVParser::resolve_pending_linefeed_at_start(csv::string_view in) {
+            using internals::ParseFlags;
+
+            if (!this->pending_linefeed_ || this->data_pos_ >= in.size()) {
+                return;
+            }
+
+            this->pending_linefeed_ = false;
+            if (this->parse_flag(in[this->data_pos_]) == ParseFlags::NEWLINE) {
+                this->data_pos_++;
+                this->current_row_start() = this->data_pos_;
+            }
         }
 
         CSV_FORCE_INLINE void IBasicCSVParser::parse_field() noexcept {
@@ -207,17 +245,87 @@ namespace csv {
             field_length_ = 0;
         }
 
+        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner
+        ) {
+            return this->parse_prepared_chunk(
+                chunk,
+                std::move(owner),
+                ParserChunkOptions(this->initial_state_)
+            );
+        }
+
+        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner,
+            const ParserChunkOptions& options
+        ) {
+            return this->parse_prepared_chunk(chunk, std::move(owner), options);
+        }
+
+        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner,
+            CSVRowSink& sink
+        ) {
+            this->records_ = nullptr;
+            this->row_sink_ = &sink;
+            return this->parse_prepared_chunk(
+                chunk,
+                std::move(owner),
+                ParserChunkOptions(this->initial_state_)
+            );
+        }
+
+        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner,
+            CSVRowSink& sink,
+            const ParserChunkOptions& options
+        ) {
+            this->records_ = nullptr;
+            this->row_sink_ = &sink;
+            return this->parse_prepared_chunk(chunk, std::move(owner), options);
+        }
+
+        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_prepared_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner,
+            const ParserChunkOptions& options
+        ) {
+            this->field_start_ = UNINITIALIZED_FIELD;
+            this->field_length_ = 0;
+            this->field_has_double_quote_ = false;
+            this->reset_data_ptr();
+            this->data_ptr_->_data = std::move(owner);
+            this->data_ptr_->data = chunk;
+            this->initial_state_ = options.initial_state;
+            this->scan_bom_for_current_chunk_ = options.scan_bom;
+            this->current_row_ = CSVRow(this->data_ptr_);
+
+            const size_t complete_prefix_length = this->parse();
+            return ParserChunkResult(options.initial_state, this->ending_state_, complete_prefix_length);
+        }
+
         /** Parse the current chunk and return the number of bytes belonging to complete rows. */
         CSV_INLINE size_t IBasicCSVParser::parse()
         {
             using internals::ParseFlags;
 
-            this->quote_escape_ = false;
+            const ParserDFAState start_state = this->initial_state_;
+            this->quote_escape_ = start_state.quote_escape;
+            this->pending_quote_ = start_state.pending_quote;
+            this->pending_linefeed_ = start_state.pending_linefeed;
             this->data_pos_ = 0;
             this->current_row_start() = 0;
-            this->strip_unicode_bom();
+            if (this->scan_bom_for_current_chunk_) {
+                this->strip_unicode_bom();
+            }
 
             auto& in = this->data_ptr_->data;
+            this->resolve_pending_linefeed_at_start(in);
+            this->resolve_pending_quote_at_start(in);
             while (this->data_pos_ < in.size()) {
                 switch (compound_parse_flag(in[this->data_pos_])) {
                 case ParseFlags::DELIMITER:
@@ -226,37 +334,37 @@ namespace csv {
                     break;
 
                 case ParseFlags::CARRIAGE_RETURN:
+                {
+                    const size_t raw_end = this->data_pos_;
                     // Handles CRLF (we do not advance by 2 here, the NEWLINE case will handle it)
-                    if (this->data_pos_ + 1 < in.size() && parse_flag(in[this->data_pos_ + 1]) == ParseFlags::NEWLINE) {
+                    if (this->data_pos_ + 1 == in.size()) {
+                        this->pending_linefeed_ = true;
+                    }
+                    else if (parse_flag(in[this->data_pos_ + 1]) == ParseFlags::NEWLINE) {
                         this->data_pos_++;
                     }
-
-                    FALLTHROUGH_TO_NEXT_CASE
-
-                next_newline_case:
-                case ParseFlags::NEWLINE:
                     this->data_pos_++;
-
-                    // End of record. Preserve intentional empty fields such as
-                    // trailing delimiters and quoted empty strings, but leave a
-                    // truly blank line as an empty row.
-                    if (this->field_length_ > 0
-                        || this->field_start_ != UNINITIALIZED_FIELD
-                        || !this->current_row_.empty()) {
-                        this->push_field();
-                    }
-                    this->push_row();
-
-                    // Reset
-                    this->current_row_ = CSVRow(data_ptr_, this->data_pos_, fields_->size());
+                    this->finish_row(raw_end);
                     break;
+                }
+
+                case ParseFlags::NEWLINE:
+                {
+                    const size_t raw_end = this->data_pos_;
+                    this->data_pos_++;
+                    this->finish_row(raw_end);
+                    break;
+                }
 
                 case ParseFlags::NOT_SPECIAL:
                     this->parse_field();
                     break;
 
                 case ParseFlags::QUOTE_ESCAPE_QUOTE:
-                    if (data_pos_ + 1 == in.size()) return this->current_row_start();
+                    if (data_pos_ + 1 == in.size()) {
+                        this->pending_quote_ = true;
+                        return this->finish_parse(this->current_row_start());
+                    }
                     else if (data_pos_ + 1 < in.size()) {
                         auto next_ch = parse_flag(in[data_pos_ + 1]);
                         if (next_ch >= ParseFlags::DELIMITER) {
@@ -296,14 +404,29 @@ namespace csv {
                 }
             }
 
-            return this->current_row_start();
+            return this->finish_parse(this->current_row_start());
         }
 
-        CSV_INLINE void IBasicCSVParser::push_row() {
+        CSV_INLINE void IBasicCSVParser::finish_row(size_t raw_end) {
+            // End of record. Preserve intentional empty fields such as trailing
+            // delimiters and quoted empty strings, but leave a truly blank line
+            // as an empty row.
+            if (this->field_length_ > 0
+                || this->field_start_ != UNINITIALIZED_FIELD
+                || !this->current_row_.empty()) {
+                this->push_field();
+            }
+
+            this->push_row(raw_end);
+            this->current_row_ = CSVRow(data_ptr_, this->data_pos_, fields_->size());
+        }
+
+        CSV_INLINE void IBasicCSVParser::push_row(size_t raw_end) {
             size_t row_len = fields_->size() - current_row_.fields_start;
             // Set row_length before pushing (immutable once created)
             current_row_.row_length = row_len;
-            this->records_->push_back(std::move(current_row_));
+            current_row_.data_end = raw_end;
+            this->emit_row(std::move(current_row_));
         }
 
         CSV_INLINE void IBasicCSVParser::reset_data_ptr() {
@@ -331,18 +454,78 @@ namespace csv {
 #pragma region Specializations
 #endif
 #if !defined(__EMSCRIPTEN__)
-        CSV_INLINE void MmapParser::finalize_loaded_chunk(size_t length, bool eof_on_no_chunk) {
+        CSV_INLINE void MmapParser::finalize_loaded_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner,
+            size_t length
+        ) {
             // Parse the currently loaded chunk and advance/re-align mmap_pos so
             // the next read resumes at the start of the incomplete trailing row.
-            this->current_row_ = CSVRow(this->data_ptr_);
-            size_t remainder = this->parse();
+            const ParserChunkResult result = this->parse_chunk(chunk, std::move(owner));
 
-            if (this->mmap_pos == this->source_size_ || (eof_on_no_chunk && no_chunk())) {
+            if (this->mmap_pos == this->source_size_) {
                 this->eof_ = true;
                 this->end_feed();
             }
 
-            this->mmap_pos -= (length - remainder);
+            this->mmap_pos -= (length - result.complete_prefix_length);
+        }
+
+        CSV_INLINE void MmapParser::finalize_speculative_loaded_chunk(
+            csv::string_view chunk,
+            std::shared_ptr<void> owner,
+            size_t length,
+            size_t chunk_size
+        ) {
+            const size_t base_offset = this->mmap_pos - length;
+            const bool source_exhausted = this->mmap_pos == this->source_size_;
+            SpeculativeScanner scanner(this->parse_flags_);
+            auto chunks = make_speculative_parse_chunks(
+                chunk,
+                owner,
+                chunk_size,
+                scanner,
+                base_offset,
+                0,
+                base_offset == 0
+            );
+
+            std::vector<CSVRow> output_rows;
+            VectorRowSink output_sink(output_rows);
+            ParallelCSVParser parser(
+                this->parse_flags_,
+                this->whitespace_flags(),
+                this->speculative_worker_count_
+            );
+
+            const ParallelCSVParseResult result = parser.parse_chunks(
+                chunks,
+                output_sink,
+                source_exhausted
+            );
+
+            for (auto& row : output_rows) {
+                this->emit_row(std::move(row));
+            }
+
+            if (source_exhausted) {
+                this->eof_ = true;
+            }
+
+            this->mmap_pos -= (length - result.complete_prefix_length);
+        }
+
+        CSV_INLINE size_t MmapParser::read_window_size(size_t chunk_size) const noexcept {
+            if (!this->use_speculative_parallel_ || this->speculative_worker_count_ <= 1) {
+                return chunk_size;
+            }
+
+            const size_t max_size = (std::numeric_limits<size_t>::max)();
+            if (chunk_size > max_size / this->speculative_worker_count_) {
+                return max_size;
+            }
+
+            return chunk_size * this->speculative_worker_count_;
         }
 
         CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
@@ -354,22 +537,15 @@ namespace csv {
             // Bug #280: Field corruption occurred here when chunk transitions incorrectly
             // split multi-byte characters or field boundaries.
             
-            // Reset parser state
-            this->field_start_ = UNINITIALIZED_FIELD;
-            this->field_length_ = 0;
-            this->reset_data_ptr();
-
             // Reuse the pre-read head buffer (if any) as the first chunk.
             // This avoids re-reading the same bytes that were already consumed
             // for delimiter/header guessing.
             if (!head_.empty()) {
-                this->data_ptr_->_data = std::make_shared<std::string>(std::move(head_));
-                auto* head_ptr = static_cast<std::string*>(this->data_ptr_->_data.get());
-                const size_t length = head_ptr->size();
+                auto head_owner = std::make_shared<std::string>(std::move(head_));
+                const size_t length = head_owner->size();
                 this->mmap_pos += length;
 
-                this->data_ptr_->data = *head_ptr;
-                this->finalize_loaded_chunk(length);
+                this->finalize_loaded_chunk(*head_owner, head_owner, length);
                 return;
             }
 
@@ -378,7 +554,7 @@ namespace csv {
             const size_t remaining = (offset < this->source_size_)
                 ? (this->source_size_ - offset)
                 : 0;
-            const size_t length = std::min(remaining, bytes);
+            const size_t length = std::min(remaining, this->read_window_size(bytes));
             if (length == 0) {
                 // No more data to read; mark EOF and end feed
                 // (Prevent exception on empty mmap as reported by #267)
@@ -392,14 +568,19 @@ namespace csv {
             if (error) {
                 throw_mmap_failure(error, this->_filename, offset, length);
             }
-            this->data_ptr_->_data = std::make_shared<mio::basic_mmap_source<char>>(std::move(mmap));
+            auto mmap_owner = std::make_shared<mio::basic_mmap_source<char>>(std::move(mmap));
             this->mmap_pos += length;
 
-            auto mmap_ptr = (mio::basic_mmap_source<char>*)(this->data_ptr_->_data.get());
+            auto mmap_ptr = mmap_owner.get();
 
             // Create string view
-            this->data_ptr_->data = csv::string_view(mmap_ptr->data(), mmap_ptr->length());
-            this->finalize_loaded_chunk(length, true);
+            csv::string_view chunk(mmap_ptr->data(), mmap_ptr->length());
+            if (this->use_speculative_parallel_ && this->speculative_worker_count_ > 1 && length > bytes) {
+                this->finalize_speculative_loaded_chunk(chunk, mmap_owner, length, bytes);
+            }
+            else {
+                this->finalize_loaded_chunk(chunk, mmap_owner, length);
+            }
         }
 #endif
 #ifdef _MSC_VER

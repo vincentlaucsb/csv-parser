@@ -140,6 +140,32 @@ namespace csv {
          */
         CSVFormat& chunk_size(size_t size);
 
+        /** Enable or disable speculative parallel parsing for large filename-backed inputs.
+         *
+         *  The normal serial parser remains the default. When enabled, CSVReader
+         *  still auto-disables speculative parsing for small inputs and for
+         *  single-threaded configurations.
+         */
+        CONSTEXPR_14 CSVFormat& speculative_parallel(bool enabled = true) {
+            this->_speculative_parallel = enabled;
+            return *this;
+        }
+
+        /** Set the worker count used by speculative parallel parsing.
+         *
+         *  A value of 0 means "choose automatically" when the reader is created.
+         */
+        CONSTEXPR_14 CSVFormat& speculative_parallel_threads(size_t n_threads) {
+            this->_speculative_parallel_threads = n_threads;
+            return *this;
+        }
+
+        /** Set the minimum source size required for speculative parallel parsing. */
+        CONSTEXPR_14 CSVFormat& speculative_parallel_min_bytes(size_t bytes) {
+            this->_speculative_parallel_min_bytes = bytes;
+            return *this;
+        }
+
         #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
@@ -159,6 +185,14 @@ namespace csv {
         CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         CONSTEXPR ColumnNamePolicy get_column_name_policy() const { return this->_column_name_policy; }
         CONSTEXPR size_t get_chunk_size() const { return this->_chunk_size; }
+        CONSTEXPR bool is_speculative_parallel_enabled() const { return this->_speculative_parallel; }
+        CONSTEXPR size_t get_speculative_parallel_threads() const { return this->_speculative_parallel_threads; }
+        CONSTEXPR size_t get_speculative_parallel_min_bytes() const { return this->_speculative_parallel_min_bytes; }
+        CONSTEXPR bool should_use_speculative_parallel(size_t source_size, size_t n_threads) const {
+            return this->_speculative_parallel
+                && n_threads > 1
+                && source_size >= this->_speculative_parallel_min_bytes;
+        }
         #endif
         
         /** CSVFormat preset for delimiter inference with header/n_cols inference enabled. */
@@ -217,5 +251,14 @@ namespace csv {
 
         /**< Chunk size for reading; passed to CSVReader at construction time */
         size_t _chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+
+        /**< Whether filename-backed readers may use speculative parallel parsing */
+        bool _speculative_parallel = false;
+
+        /**< 0 means the reader may choose automatically */
+        size_t _speculative_parallel_threads = 0;
+
+        /**< Minimum source size before speculative parallel parsing is considered */
+        size_t _speculative_parallel_min_bytes = internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES;
     };
 }

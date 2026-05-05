@@ -114,3 +114,29 @@ TEST_CASE("CSVFormat - no_header() with Delimiter Guessing (Issue #285)", "[csv_
         REQUIRE(rows[0][1].get<>() == "1");
     }
 }
+
+TEST_CASE("CSVFormat - speculative parallel parsing options", "[csv_format]") {
+    CSVFormat format;
+
+    REQUIRE_FALSE(format.is_speculative_parallel_enabled());
+    REQUIRE(format.get_speculative_parallel_threads() == 0);
+    REQUIRE(format.get_speculative_parallel_min_bytes() == internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES);
+    REQUIRE_FALSE(format.should_use_speculative_parallel(
+        internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES,
+        4
+    ));
+
+    format.speculative_parallel()
+        .speculative_parallel_threads(4)
+        .speculative_parallel_min_bytes(1024);
+
+    REQUIRE(format.is_speculative_parallel_enabled());
+    REQUIRE(format.get_speculative_parallel_threads() == 4);
+    REQUIRE(format.get_speculative_parallel_min_bytes() == 1024);
+    REQUIRE_FALSE(format.should_use_speculative_parallel(1023, 4));
+    REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 1));
+    REQUIRE(format.should_use_speculative_parallel(1024, 2));
+
+    format.speculative_parallel(false);
+    REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 4));
+}
