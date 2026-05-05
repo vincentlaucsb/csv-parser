@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "internal/data_frame.hpp"
 #include "internal/csv_reader.hpp"
+#include "internal/csv_speculative_parser.hpp"
 #include "internal/csv_utility.hpp"
 #include "internal/csv_writer.hpp"
 

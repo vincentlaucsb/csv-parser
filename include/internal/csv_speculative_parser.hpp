@@ -866,10 +866,10 @@ namespace csv {
                 const CSVFormat& format,
                 size_t source_size
             )
-                : parse_flags_(parse_flags),
-                  ws_flags_(ws_flags)
 #if CSV_ENABLE_THREADS
-                , scanner_(parse_flags)
+                : parse_flags_(parse_flags),
+                  ws_flags_(ws_flags),
+                  scanner_(parse_flags)
 #endif
             {
 #if CSV_ENABLE_THREADS
@@ -896,6 +896,8 @@ namespace csv {
                     ));
                 }
 #else
+                (void)parse_flags;
+                (void)ws_flags;
                 (void)format;
                 (void)source_size;
 #endif
@@ -1010,10 +1012,10 @@ namespace csv {
             }
 #endif
 
-            ParseFlagMap parse_flags_;
-            WhitespaceMap ws_flags_;
             SpeculativeParseDiagnostics speculative_diagnostics_;
 #if CSV_ENABLE_THREADS
+            ParseFlagMap parse_flags_;
+            WhitespaceMap ws_flags_;
             SpeculativeScanner scanner_;
             bool use_speculative_parallel_ = false;
             size_t worker_count_ = 1;
