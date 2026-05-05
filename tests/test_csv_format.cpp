@@ -135,7 +135,11 @@ TEST_CASE("CSVFormat - speculative parallel parsing options", "[csv_format]") {
     REQUIRE(format.get_speculative_parallel_min_bytes() == 1024);
     REQUIRE_FALSE(format.should_use_speculative_parallel(1023, 4));
     REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 1));
+#if CSV_ENABLE_THREADS
     REQUIRE(format.should_use_speculative_parallel(1024, 2));
+#else
+    REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 2));
+#endif
 
     format.speculative_parallel(false);
     REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 4));

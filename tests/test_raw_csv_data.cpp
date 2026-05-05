@@ -1,5 +1,6 @@
 #include <catch2/catch_all.hpp>
 #include "internal/basic_csv_parser.hpp"
+#include "internal/csv_speculative_parser.hpp"
 #include "internal/csv_row.hpp"
 #include "shared/file_guard.hpp"
 
@@ -133,6 +134,7 @@ TEST_CASE("CSVRow raw_str uses record boundaries rather than newline search", "[
     REQUIRE(parsed_rows[2].raw_str() == "2,plain,ok");
 }
 
+#if CSV_ENABLE_THREADS
 TEST_CASE("Speculative scanner classifies obvious outside chunks", "[raw_csv_parse][speculative]") {
     SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
     const std::string chunk =
@@ -207,6 +209,7 @@ TEST_CASE("Speculative scanner preserves escaped quote pairs in quoted interpret
     REQUIRE(speculation.inside_scan.records_seen == 1);
     REQUIRE_FALSE(speculation.inside_scan.ending_state.quote_escape);
 }
+#endif
 
 TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv_parse][fragments]") {
     std::stringstream unused_source;
@@ -308,6 +311,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
     }
 }
 
+#if CSV_ENABLE_THREADS
 TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[raw_csv_parse][speculative][validator]") {
     std::stringstream chunk0_source;
     std::stringstream chunk1_source;
@@ -645,6 +649,7 @@ TEST_CASE("MmapParser speculative path preserves row order and split quoted rows
     REQUIRE(output[generated_rows + 1][1] == "done");
     REQUIRE(output[generated_rows + 1][2] == "ok");
 }
+#endif
 #endif
 
 TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {

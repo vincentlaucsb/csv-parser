@@ -166,7 +166,7 @@ namespace csv {
             return *this;
         }
 
-        #ifndef DOXYGEN_SHOULD_SKIP_THIS
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
             if (this->possible_delimiters.size() > 1) {
@@ -189,11 +189,17 @@ namespace csv {
         CONSTEXPR size_t get_speculative_parallel_threads() const { return this->_speculative_parallel_threads; }
         CONSTEXPR size_t get_speculative_parallel_min_bytes() const { return this->_speculative_parallel_min_bytes; }
         CONSTEXPR bool should_use_speculative_parallel(size_t source_size, size_t n_threads) const {
+#if CSV_ENABLE_THREADS
             return this->_speculative_parallel
                 && n_threads > 1
                 && source_size >= this->_speculative_parallel_min_bytes;
+#else
+            (void)source_size;
+            (void)n_threads;
+            return false;
+#endif
         }
-        #endif
+#endif
         
         /** CSVFormat preset for delimiter inference with header/n_cols inference enabled. */
         CSV_INLINE static CSVFormat guess_csv() {

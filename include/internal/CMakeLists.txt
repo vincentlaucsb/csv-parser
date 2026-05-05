@@ -11,6 +11,9 @@ target_sources(csv
 		csv_format.hpp
 		csv_format.cpp
 		csv_exceptions.hpp
+		csv_chunk_parser.hpp
+		csv_speculative_diagnostics.hpp
+		csv_speculative_parser.hpp
 		csv_reader.hpp
 		csv_reader.cpp
 		csv_reader_iterator.cpp
@@ -20,6 +23,7 @@ target_sources(csv
 		csv_utility.hpp
 		csv_writer.hpp
 		data_type.hpp
+		mmap_parser.cpp
 		raw_csv_data.hpp
 		raw_csv_data.hpp
 		row_deque.hpp

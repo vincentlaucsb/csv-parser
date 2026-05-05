@@ -48,6 +48,14 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 - IBasicCSVParser
   - Shared parse loop and field/row state machine.
 
+- csv_chunk_parser.hpp
+  - Chunk-owned parser helpers for caller-provided byte windows.
+  - Holds row-fragment repair primitives used by speculative parsing.
+
+- csv_speculative_parser.hpp
+  - Optional threaded speculative chunk parser and validator.
+  - Compiled out when `CSV_ENABLE_THREADS=0`.
+
 - MmapParser
   - Reads chunks from memory maps and handles chunk-transition remainder.
 
@@ -181,10 +189,13 @@ This invariant is also documented in `.claude/rules/csv_reader_rules.md`.
 ## 5. Change Impact Map
 
 - Parser state machine changes:
-  - basic_csv_parser.hpp, basic_csv_parser.cpp
+  - basic_csv_parser.hpp, basic_csv_parser.cpp, csv_chunk_parser.hpp
 
 - Chunk transition changes:
-  - basic_csv_parser.cpp (MmapParser/StreamParser next)
+  - mmap_parser.cpp (MmapParser next), basic_csv_parser.hpp (StreamParser next)
+
+- Speculative parallel parsing changes:
+  - csv_speculative_parser.hpp, csv_speculative_diagnostics.hpp, mmap_parser.cpp
 
 - Reader worker/iteration behavior:
   - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp
