@@ -5,6 +5,7 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <exception>
 #include <fstream>
 #include <limits>
@@ -412,6 +413,13 @@ namespace csv {
             ParserDFAState ending_state;
             size_t records_seen = 0;
             size_t first_record_end = (std::numeric_limits<size_t>::max)();
+            size_t total_states = 0;
+            size_t unquoted_states = 0;
+            size_t max_record_length = 0;
+            size_t quoted_fields = 0;
+            size_t first_quote_open = (std::numeric_limits<size_t>::max)();
+            size_t first_quote_close = (std::numeric_limits<size_t>::max)();
+            long double log_other_start_valid_probability = 0;
         };
 
         struct ChunkSpeculation {
@@ -423,6 +431,48 @@ namespace csv {
             PrefixScanResult outside_scan;
             PrefixScanResult inside_scan;
             bool ambiguous = false;
+            bool used_probability_model = false;
+            bool used_record_size_heuristic = false;
+            long double quoted_start_odds = 0;
+        };
+
+        struct SpeculativeParseDiagnostics {
+            size_t chunks = 0;
+            size_t ambiguous_chunks = 0;
+            size_t probability_model_chunks = 0;
+            size_t record_size_heuristic_chunks = 0;
+            size_t assumed_quoted_chunks = 0;
+            size_t assumed_unquoted_chunks = 0;
+            size_t validation_repairs = 0;
+
+            void observe(const ChunkSpeculation& speculation) noexcept {
+                this->chunks++;
+                if (speculation.ambiguous) {
+                    this->ambiguous_chunks++;
+                }
+                if (speculation.used_probability_model) {
+                    this->probability_model_chunks++;
+                }
+                if (speculation.used_record_size_heuristic) {
+                    this->record_size_heuristic_chunks++;
+                }
+                if (speculation.assumed_start_state.quote_escape) {
+                    this->assumed_quoted_chunks++;
+                }
+                else {
+                    this->assumed_unquoted_chunks++;
+                }
+            }
+
+            void merge(const SpeculativeParseDiagnostics& other) noexcept {
+                this->chunks += other.chunks;
+                this->ambiguous_chunks += other.ambiguous_chunks;
+                this->probability_model_chunks += other.probability_model_chunks;
+                this->record_size_heuristic_chunks += other.record_size_heuristic_chunks;
+                this->assumed_quoted_chunks += other.assumed_quoted_chunks;
+                this->assumed_unquoted_chunks += other.assumed_unquoted_chunks;
+                this->validation_repairs += other.validation_repairs;
+            }
         };
 
         class SpeculativeScanner {
@@ -445,10 +495,11 @@ namespace csv {
                 result.offset = offset;
                 result.length = chunk.size();
                 result.prefix_length = prefix_length;
-                result.outside_scan = this->scan_prefix(prefix, ParserDFAState(false));
-                result.inside_scan = this->scan_prefix(prefix, ParserDFAState(true));
-                result.assumed_start_state = this->choose_start_state(result.outside_scan, result.inside_scan);
+                const long double separator_probability = this->separator_probability(prefix);
+                result.outside_scan = this->scan_prefix(prefix, ParserDFAState(false), separator_probability);
+                result.inside_scan = this->scan_prefix(prefix, ParserDFAState(true), separator_probability);
                 result.ambiguous = this->is_ambiguous(result.outside_scan, result.inside_scan);
+                result.assumed_start_state = this->choose_start_state(result);
                 return result;
             }
 
@@ -461,7 +512,68 @@ namespace csv {
                 return quote_escape_flag(this->parse_flag(ch), quote_escape);
             }
 
-            PrefixScanResult scan_prefix(csv::string_view prefix, ParserDFAState state) const {
+            long double separator_probability(csv::string_view prefix) const noexcept {
+                if (prefix.empty()) {
+                    return 0;
+                }
+
+                size_t separators = 0;
+                for (size_t i = 0; i < prefix.size(); ++i) {
+                    const ParseFlags flag = this->parse_flag(prefix[i]);
+                    if (flag == ParseFlags::DELIMITER
+                        || flag == ParseFlags::CARRIAGE_RETURN
+                        || flag == ParseFlags::NEWLINE) {
+                        separators++;
+                    }
+                }
+
+                return static_cast<long double>(separators) / static_cast<long double>(prefix.size());
+            }
+
+            void observe_state(PrefixScanResult& result, bool quote_escape) const noexcept {
+                result.total_states++;
+                if (!quote_escape) {
+                    result.unquoted_states++;
+                }
+            }
+
+            void observe_record_byte(size_t& current_record_length, size_t n = 1) const noexcept {
+                current_record_length += n;
+            }
+
+            void finish_record(PrefixScanResult& result, size_t& current_record_length) const noexcept {
+                result.records_seen++;
+                if (current_record_length > result.max_record_length) {
+                    result.max_record_length = current_record_length;
+                }
+                current_record_length = 0;
+            }
+
+            void observe_quoted_field(
+                PrefixScanResult& result,
+                size_t field_length,
+                bool partial,
+                long double log_separator_probability
+            ) const noexcept {
+                result.quoted_fields++;
+
+                if (field_length == 0) {
+                    return;
+                }
+
+                if (partial || field_length == 1) {
+                    result.log_other_start_valid_probability += log_separator_probability;
+                }
+                else {
+                    result.log_other_start_valid_probability += 2 * log_separator_probability;
+                }
+            }
+
+            PrefixScanResult scan_prefix(
+                csv::string_view prefix,
+                ParserDFAState state,
+                long double separator_probability
+            ) const {
                 using internals::ParseFlags;
 
                 PrefixScanResult result;
@@ -469,12 +581,22 @@ namespace csv {
                 bool pending_quote = state.pending_quote;
                 bool pending_linefeed = state.pending_linefeed;
                 size_t field_length = 0;
+                size_t current_record_length = 0;
+                size_t quoted_field_length = 0;
+                bool tracking_quoted_field = quote_escape;
+                bool quoted_field_partial = quote_escape;
                 size_t pos = 0;
+                const long double log_separator_probability = separator_probability > 0
+                    ? std::log(separator_probability)
+                    : -std::numeric_limits<long double>::infinity();
 
                 if (pending_linefeed && pos < prefix.size()) {
                     pending_linefeed = false;
                     if (this->parse_flag(prefix[pos]) == ParseFlags::NEWLINE) {
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         pos++;
+                        this->finish_record(result, current_record_length);
                     }
                 }
 
@@ -484,15 +606,32 @@ namespace csv {
 
                     if (next_ch >= ParseFlags::DELIMITER) {
                         quote_escape = false;
+                        if (result.first_quote_close == (std::numeric_limits<size_t>::max)()) {
+                            result.first_quote_close = pos;
+                        }
+                        if (tracking_quoted_field) {
+                            this->observe_quoted_field(
+                                result,
+                                quoted_field_length,
+                                true,
+                                log_separator_probability
+                            );
+                            tracking_quoted_field = false;
+                            quoted_field_length = 0;
+                        }
                     }
                     else if (next_ch == ParseFlags::QUOTE) {
                         quote_escape = true;
                         field_length++;
+                        quoted_field_length++;
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         pos++;
                     }
                     else {
                         quote_escape = true;
                         field_length++;
+                        quoted_field_length++;
                     }
                 }
 
@@ -502,16 +641,22 @@ namespace csv {
                 while (pos < prefix.size()) {
                     switch (this->compound_parse_flag(prefix[pos], quote_escape)) {
                     case ParseFlags::DELIMITER:
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         field_length = 0;
                         pos++;
                         break;
 
                     case ParseFlags::CARRIAGE_RETURN:
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         if (pos + 1 == prefix.size()) {
                             pos++;
                             pending_linefeed = true;
                         }
                         else if (this->parse_flag(prefix[pos + 1]) == ParseFlags::NEWLINE) {
+                            this->observe_state(result, quote_escape);
+                            this->observe_record_byte(current_record_length);
                             pos++;
                             pos++;
                         }
@@ -519,27 +664,36 @@ namespace csv {
                             pos++;
                         }
                         field_length = 0;
-                        result.records_seen++;
+                        this->finish_record(result, current_record_length);
                         if (result.first_record_end == (std::numeric_limits<size_t>::max)()) {
                             result.first_record_end = pos;
                         }
                         break;
 
                     case ParseFlags::NEWLINE:
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         pos++;
                         field_length = 0;
-                        result.records_seen++;
+                        this->finish_record(result, current_record_length);
                         if (result.first_record_end == (std::numeric_limits<size_t>::max)()) {
                             result.first_record_end = pos;
                         }
                         break;
 
                     case ParseFlags::NOT_SPECIAL:
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         field_length++;
+                        if (tracking_quoted_field) {
+                            quoted_field_length++;
+                        }
                         pos++;
                         break;
 
                     case ParseFlags::QUOTE_ESCAPE_QUOTE:
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         if (pos + 1 == prefix.size()) {
                             pending_quote = true;
                             pos++;
@@ -549,41 +703,166 @@ namespace csv {
                             const ParseFlags next_ch = this->parse_flag(prefix[pos + 1]);
                             if (next_ch >= ParseFlags::DELIMITER) {
                                 quote_escape = false;
+                                if (result.first_quote_close == (std::numeric_limits<size_t>::max)()) {
+                                    result.first_quote_close = pos;
+                                }
+                                if (tracking_quoted_field) {
+                                    this->observe_quoted_field(
+                                        result,
+                                        quoted_field_length,
+                                        quoted_field_partial,
+                                        log_separator_probability
+                                    );
+                                    tracking_quoted_field = false;
+                                    quoted_field_partial = false;
+                                    quoted_field_length = 0;
+                                }
                                 pos++;
                                 break;
                             }
                             else if (next_ch == ParseFlags::QUOTE) {
+                                this->observe_state(result, quote_escape);
+                                this->observe_record_byte(current_record_length);
                                 field_length += 2;
+                                if (tracking_quoted_field) {
+                                    quoted_field_length += 2;
+                                }
                                 pos += 2;
                                 break;
                             }
                         }
 
                         field_length++;
+                        if (tracking_quoted_field) {
+                            quoted_field_length++;
+                        }
                         pos++;
                         break;
 
                     default:
+                        this->observe_state(result, quote_escape);
+                        this->observe_record_byte(current_record_length);
                         if (field_length == 0) {
                             quote_escape = true;
+                            if (result.first_quote_open == (std::numeric_limits<size_t>::max)()) {
+                                result.first_quote_open = pos;
+                            }
+                            tracking_quoted_field = true;
+                            quoted_field_partial = false;
+                            quoted_field_length = 0;
                             pos++;
                             break;
                         }
 
                         field_length++;
+                        if (tracking_quoted_field) {
+                            quoted_field_length++;
+                        }
                         pos++;
                         break;
                     }
                 }
 
+                if (tracking_quoted_field) {
+                    this->observe_quoted_field(
+                        result,
+                        quoted_field_length,
+                        true,
+                        log_separator_probability
+                    );
+                }
+                if (current_record_length > result.max_record_length) {
+                    result.max_record_length = current_record_length;
+                }
                 result.ending_state = ParserDFAState(quote_escape, pending_quote, pending_linefeed);
                 return result;
             }
 
-            ParserDFAState choose_start_state(
+            long double unquoted_ratio(const PrefixScanResult& scan) const noexcept {
+                if (scan.total_states == 0) {
+                    return scan.ending_state.quote_escape ? 0 : 1;
+                }
+
+                return static_cast<long double>(scan.unquoted_states)
+                    / static_cast<long double>(scan.total_states);
+            }
+
+            long double quoted_odds_from_probability_model(
                 const PrefixScanResult& outside_scan,
                 const PrefixScanResult& inside_scan
             ) const noexcept {
+                const long double log_k = inside_scan.log_other_start_valid_probability
+                    - outside_scan.log_other_start_valid_probability;
+
+                if (log_k > 64) {
+                    return std::numeric_limits<long double>::infinity();
+                }
+                if (log_k < -64) {
+                    return 0;
+                }
+
+                const long double k = std::exp(log_k);
+                const long double u_u = this->unquoted_ratio(outside_scan);
+                const long double u_q = this->unquoted_ratio(inside_scan);
+                const long double a = u_q;
+                const long double b = u_u - k * (1 - u_q);
+                const long double c = -k * (1 - u_u);
+                const long double epsilon = 1e-18L;
+
+                if (std::fabs(a) < epsilon) {
+                    if (std::fabs(b) < epsilon) {
+                        return k > 1 ? std::numeric_limits<long double>::infinity() : 0;
+                    }
+
+                    const long double linear_root = -c / b;
+                    return linear_root > 0 ? linear_root : 0;
+                }
+
+                const long double discriminant = b * b - 4 * a * c;
+                if (discriminant < 0) {
+                    return 1;
+                }
+
+                const long double root = (-b + std::sqrt(discriminant)) / (2 * a);
+                return root > 0 ? root : 0;
+            }
+
+            int pattern_start_state(
+                const PrefixScanResult& outside_scan,
+                const PrefixScanResult& inside_scan
+            ) const noexcept {
+                const size_t outside_open = outside_scan.first_quote_open;
+                const size_t inside_close = inside_scan.first_quote_close;
+                const size_t missing = (std::numeric_limits<size_t>::max)();
+
+                if (outside_open == missing && inside_close == missing) {
+                    return -1;
+                }
+
+                if (outside_open < inside_close) {
+                    return 0;
+                }
+
+                if (inside_close < outside_open) {
+                    return 1;
+                }
+
+                return -1;
+            }
+
+            ParserDFAState choose_start_state(ChunkSpeculation& speculation) const noexcept {
+                const PrefixScanResult& outside_scan = speculation.outside_scan;
+                const PrefixScanResult& inside_scan = speculation.inside_scan;
+                const int pattern_state = this->pattern_start_state(outside_scan, inside_scan);
+
+                if (pattern_state == 0) {
+                    return ParserDFAState(false);
+                }
+
+                if (pattern_state == 1) {
+                    return ParserDFAState(true);
+                }
+
                 if (outside_scan.records_seen > 0 && inside_scan.records_seen == 0) {
                     return ParserDFAState(false);
                 }
@@ -592,8 +871,26 @@ namespace csv {
                     return ParserDFAState(true);
                 }
 
-                if (outside_scan.records_seen > 0 && inside_scan.records_seen > 0) {
-                    return ParserDFAState(true);
+                if (speculation.ambiguous) {
+                    speculation.quoted_start_odds = this->quoted_odds_from_probability_model(
+                        outside_scan,
+                        inside_scan
+                    );
+
+                    if (speculation.quoted_start_odds > 1.000001L) {
+                        speculation.used_probability_model = true;
+                        return ParserDFAState(true);
+                    }
+
+                    if (speculation.quoted_start_odds < 0.999999L) {
+                        speculation.used_probability_model = true;
+                        return ParserDFAState(false);
+                    }
+
+                    speculation.used_record_size_heuristic = true;
+                    return inside_scan.max_record_length < outside_scan.max_record_length
+                        ? ParserDFAState(true)
+                        : ParserDFAState(false);
                 }
 
                 return ParserDFAState(false);
@@ -603,6 +900,10 @@ namespace csv {
                 const PrefixScanResult& outside_scan,
                 const PrefixScanResult& inside_scan
             ) const noexcept {
+                if (this->pattern_start_state(outside_scan, inside_scan) != -1) {
+                    return false;
+                }
+
                 return (outside_scan.records_seen == inside_scan.records_seen)
                     || (outside_scan.records_seen > 0 && inside_scan.records_seen > 0);
             }
@@ -653,6 +954,10 @@ namespace csv {
 
             /** Whether or not this CSV has a UTF-8 byte order mark */
             CONSTEXPR bool utf8_bom() const { return this->utf8_bom_; }
+
+            virtual SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
+                return SpeculativeParseDiagnostics();
+            }
 
             void set_output(RowCollection& rows) {
                 this->records_ = &rows;
@@ -1009,6 +1314,7 @@ namespace csv {
             size_t complete_prefix_length = 0;
             bool has_pending_suffix = false;
             ParserDFAState ending_state;
+            SpeculativeParseDiagnostics diagnostics;
         };
 
         inline std::vector<SpeculativeParseChunk> make_speculative_parse_chunks(
@@ -1076,6 +1382,9 @@ namespace csv {
             ) const {
                 ParallelCSVParseResult result;
                 result.chunks_processed = chunks.size();
+                for (size_t i = 0; i < chunks.size(); ++i) {
+                    result.diagnostics.observe(chunks[i].speculation);
+                }
 
                 std::vector<ParsedChunkRows> parsed(chunks.size());
                 this->parse_chunks_into(chunks, parsed);
@@ -1088,6 +1397,7 @@ namespace csv {
                 validator.finish(finish);
 
                 result.repair_count = validator.repair_count();
+                result.diagnostics.validation_repairs += result.repair_count;
                 result.has_pending_suffix = validator.has_pending_suffix();
                 result.ending_state = validator.expected_start_state();
                 if (!chunks.empty()) {
@@ -1347,6 +1657,10 @@ namespace csv {
 
             void next(size_t bytes) override;
 
+            SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override {
+                return this->speculative_diagnostics_;
+            }
+
         private:
             void finalize_loaded_chunk(
                 csv::string_view chunk,
@@ -1368,6 +1682,7 @@ namespace csv {
             std::string head_;
             bool use_speculative_parallel_ = false;
             size_t speculative_worker_count_ = 1;
+            SpeculativeParseDiagnostics speculative_diagnostics_;
         };
 #endif
     }

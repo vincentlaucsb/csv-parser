@@ -344,6 +344,12 @@ namespace csv {
 
         /** Whether or not CSV was prefixed with a UTF-8 bom */
         bool utf8_bom() const noexcept { return this->parser->utf8_bom(); }
+
+        /** Return speculative-parsing counters for filename-backed readers. */
+        internals::SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
+            return this->parser ? this->parser->speculative_diagnostics()
+                : internals::SpeculativeParseDiagnostics();
+        }
         ///@}
 
     protected:

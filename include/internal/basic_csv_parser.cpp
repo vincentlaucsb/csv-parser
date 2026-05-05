@@ -503,6 +503,7 @@ namespace csv {
                 output_sink,
                 source_exhausted
             );
+            this->speculative_diagnostics_.merge(result.diagnostics);
 
             for (auto& row : output_rows) {
                 this->emit_row(std::move(row));

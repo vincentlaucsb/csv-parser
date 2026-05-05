@@ -22,6 +22,7 @@ namespace csv {
         char delim;                         /**< Delimiting character */
         size_t n_rows;                      /**< Number of rows in a file */
         size_t n_cols;                      /**< Number of columns in a CSV */
+        internals::SpeculativeParseDiagnostics speculative_diagnostics;
     };
 
     /** @name Shorthand Parsing Functions
@@ -188,7 +189,8 @@ namespace csv {
             reader.get_col_names(),
             format.get_delim(),
             reader.n_rows(),
-            reader.get_col_names().size()
+            reader.get_col_names().size(),
+            reader.speculative_diagnostics()
         };
     }
 
