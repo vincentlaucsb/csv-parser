@@ -91,8 +91,7 @@ namespace csv {
                 result.offset = offset;
                 result.length = chunk.size();
                 result.prefix_length = prefix_length;
-                const long double separator_probability = this->separator_probability(prefix);
-                this->scan_prefix(prefix, separator_probability, result.outside_scan, result.inside_scan);
+                this->scan_prefix(prefix, result.outside_scan, result.inside_scan);
                 result.ambiguous = this->is_ambiguous(result.outside_scan, result.inside_scan);
                 result.assumed_start_state = this->choose_start_state(result);
                 return result;
@@ -103,91 +102,43 @@ namespace csv {
                 return parse_flags_.data()[ch + CHAR_OFFSET];
             }
 
+            static constexpr size_t missing_index() noexcept {
+                return (std::numeric_limits<size_t>::max)();
+            }
+
             struct PrefixCounterState {
                 PrefixScanResult result;
-                bool quote_escape = false;
-                bool at_field_start = true;
-                size_t current_record_length = 0;
-                size_t quoted_field_length = 0;
-                bool tracking_quoted_field = false;
+                size_t record_start = 0;
+                size_t quoted_start = missing_index();
                 bool quoted_field_partial = false;
-                bool skip_escaped_quote = false;
+                long double separator_weight = 0;
             };
 
-            long double separator_probability(csv::string_view prefix) const noexcept {
-                if (prefix.empty()) {
-                    return 0;
-                }
-
-                size_t separators = 0;
-                for (size_t i = 0; i < prefix.size(); ++i) {
-                    const ParseFlags flag = this->parse_flag(prefix[i]);
-                    if (flag == ParseFlags::DELIMITER
-                        || flag == ParseFlags::CARRIAGE_RETURN
-                        || flag == ParseFlags::NEWLINE) {
-                        separators++;
-                    }
-                }
-
-                return static_cast<long double>(separators) / static_cast<long double>(prefix.size());
-            }
-
-            void observe_state(PrefixScanResult& result, bool quote_escape) const noexcept {
-                result.total_states++;
-                if (!quote_escape) {
-                    result.unquoted_states++;
-                }
-            }
-
-            void observe_record_byte(size_t& current_record_length, size_t n = 1) const noexcept {
-                current_record_length += n;
-            }
-
-            void finish_record(PrefixScanResult& result, size_t& current_record_length) const noexcept {
-                result.records_seen++;
-                if (current_record_length > result.max_record_length) {
-                    result.max_record_length = current_record_length;
-                }
-                current_record_length = 0;
-            }
-
-            void finish_quoted_field(
+            void observe_quoted_span(
                 PrefixCounterState& state,
-                long double log_separator_probability
+                size_t field_length
             ) const noexcept {
-                if (!state.tracking_quoted_field) {
-                    return;
-                }
-
-                this->observe_quoted_field(
-                    state.result,
-                    state.quoted_field_length,
-                    state.quoted_field_partial,
-                    log_separator_probability
-                );
-                state.tracking_quoted_field = false;
-                state.quoted_field_partial = false;
-                state.quoted_field_length = 0;
-            }
-
-            void observe_quoted_field(
-                PrefixScanResult& result,
-                size_t field_length,
-                bool partial,
-                long double log_separator_probability
-            ) const noexcept {
-                result.quoted_fields++;
+                state.result.quoted_fields++;
 
                 if (field_length == 0) {
                     return;
                 }
 
-                if (partial || field_length == 1) {
-                    result.log_other_start_valid_probability += log_separator_probability;
+                if (state.quoted_field_partial || field_length == 1) {
+                    state.separator_weight += 1;
                 }
                 else {
-                    result.log_other_start_valid_probability += 2 * log_separator_probability;
+                    state.separator_weight += 2;
                 }
+            }
+
+            void finish_record(PrefixCounterState& state, size_t record_end) const noexcept {
+                state.result.records_seen++;
+                const size_t record_length = record_end - state.record_start;
+                if (record_length > state.result.max_record_length) {
+                    state.result.max_record_length = record_length;
+                }
+                state.record_start = record_end;
             }
 
             bool is_separator_or_record_end(ParseFlags flag) const noexcept {
@@ -196,91 +147,69 @@ namespace csv {
                     || flag == ParseFlags::NEWLINE;
             }
 
+            bool quote_can_open(csv::string_view prefix, size_t pos) const noexcept {
+                if (pos == 0) {
+                    return true;
+                }
+
+                return this->is_separator_or_record_end(this->parse_flag(prefix[pos - 1]));
+            }
+
             bool quote_can_close(csv::string_view prefix, size_t pos) const noexcept {
                 if (pos + 1 >= prefix.size()) {
                     return true;
                 }
 
-                const ParseFlags next = this->parse_flag(prefix[pos + 1]);
-                return next != ParseFlags::QUOTE && this->is_separator_or_record_end(next);
+                return this->is_separator_or_record_end(this->parse_flag(prefix[pos + 1]));
             }
 
-            void count_byte(
+            void start_quoted_span(PrefixCounterState& state, size_t pos, bool partial) const noexcept {
+                state.quoted_start = pos;
+                state.quoted_field_partial = partial;
+            }
+
+            void finish_quoted_span(PrefixCounterState& state, size_t pos) const noexcept {
+                if (state.quoted_start == this->missing_index()) {
+                    return;
+                }
+
+                this->observe_quoted_span(state, pos - state.quoted_start);
+                state.quoted_start = this->missing_index();
+                state.quoted_field_partial = false;
+            }
+
+            void finish_partial_quoted_span(PrefixCounterState& state, size_t prefix_size) const noexcept {
+                if (state.quoted_start == this->missing_index()) {
+                    return;
+                }
+
+                this->observe_quoted_span(state, prefix_size - state.quoted_start);
+                state.quoted_start = this->missing_index();
+                state.quoted_field_partial = false;
+            }
+
+            void finish_scan(
                 PrefixCounterState& state,
                 csv::string_view prefix,
-                size_t pos,
-                size_t width,
+                bool ending_state,
                 long double log_separator_probability
             ) const noexcept {
-                const ParseFlags flag = this->parse_flag(prefix[pos]);
-                this->observe_state(state.result, state.quote_escape);
-                this->observe_record_byte(state.current_record_length, width);
-
-                if (state.quote_escape) {
-                    if (flag == ParseFlags::QUOTE) {
-                        if (state.skip_escaped_quote) {
-                            state.skip_escaped_quote = false;
-                            state.quoted_field_length += width;
-                            return;
-                        }
-
-                        const bool escaped_quote = pos + 1 < prefix.size()
-                            && this->parse_flag(prefix[pos + 1]) == ParseFlags::QUOTE;
-                        if (escaped_quote) {
-                            state.quoted_field_length += width;
-                            state.skip_escaped_quote = true;
-                            return;
-                        }
-
-                        if (this->quote_can_close(prefix, pos)) {
-                            state.quote_escape = false;
-                            if (state.result.first_quote_close == (std::numeric_limits<size_t>::max)()) {
-                                state.result.first_quote_close = pos;
-                            }
-                            this->finish_quoted_field(state, log_separator_probability);
-                            return;
-                        }
-                    }
-
-                    state.quoted_field_length += width;
-                    return;
+                const size_t tail_length = prefix.size() - state.record_start;
+                if (tail_length > state.result.max_record_length) {
+                    state.result.max_record_length = tail_length;
                 }
-
-                if (flag == ParseFlags::QUOTE && state.at_field_start) {
-                    state.quote_escape = true;
-                    state.at_field_start = false;
-                    state.tracking_quoted_field = true;
-                    state.quoted_field_partial = false;
-                    state.quoted_field_length = 0;
-                    if (state.result.first_quote_open == (std::numeric_limits<size_t>::max)()) {
-                        state.result.first_quote_open = pos;
-                    }
-                    return;
-                }
-
-                if (flag == ParseFlags::DELIMITER) {
-                    state.at_field_start = true;
-                    return;
-                }
-
-                if (flag == ParseFlags::CARRIAGE_RETURN || flag == ParseFlags::NEWLINE) {
-                    this->finish_record(state.result, state.current_record_length);
-                    state.at_field_start = true;
-                    if (state.result.first_record_end == (std::numeric_limits<size_t>::max)()) {
-                        state.result.first_record_end = pos + width;
-                    }
-                    return;
-                }
-
-                state.at_field_start = false;
+                state.result.ending_state = ParserDFAState(ending_state);
+                state.result.log_other_start_valid_probability = state.separator_weight == 0
+                    ? 0
+                    : state.separator_weight * log_separator_probability;
             }
 
-            // SIGMOD 2019's speculative pass needs counts and quote-boundary
-            // evidence, not row materialization. Keep this as a single prefix
-            // counter for the two possible starting interpretations.
+            // The speculative pass should be much cheaper than parsing. This
+            // is a quote-parity scan: q-o / o-q pattern evidence usually
+            // decides the starting state, and the probability model is left
+            // for the rare ambiguous prefix.
             void scan_prefix(
                 csv::string_view prefix,
-                long double separator_probability,
                 PrefixScanResult& outside_scan,
                 PrefixScanResult& inside_scan
             ) const {
@@ -288,37 +217,92 @@ namespace csv {
 
                 PrefixCounterState outside;
                 PrefixCounterState inside;
-                inside.quote_escape = true;
-                inside.tracking_quoted_field = true;
-                inside.quoted_field_partial = true;
+                this->start_quoted_span(inside, 0, true);
 
-                const long double log_separator_probability = separator_probability > 0
-                    ? std::log(separator_probability)
-                    : -std::numeric_limits<long double>::infinity();
+                bool odd_quotes = false;
+                size_t separators = 0;
 
                 for (size_t pos = 0; pos < prefix.size();) {
+                    const ParseFlags flag = this->parse_flag(prefix[pos]);
                     size_t width = 1;
-                    if (this->parse_flag(prefix[pos]) == ParseFlags::CARRIAGE_RETURN
+                    if (flag == ParseFlags::CARRIAGE_RETURN
                         && pos + 1 < prefix.size()
                         && this->parse_flag(prefix[pos + 1]) == ParseFlags::NEWLINE) {
                         width = 2;
                     }
 
-                    this->count_byte(outside, prefix, pos, width, log_separator_probability);
-                    this->count_byte(inside, prefix, pos, width, log_separator_probability);
+                    outside.result.total_states += width;
+                    inside.result.total_states += width;
+                    if (!odd_quotes) {
+                        outside.result.unquoted_states += width;
+                    }
+                    else {
+                        inside.result.unquoted_states += width;
+                    }
+
+                    if (flag == ParseFlags::DELIMITER || flag == ParseFlags::CARRIAGE_RETURN || flag == ParseFlags::NEWLINE) {
+                        separators++;
+                    }
+
+                    if (flag == ParseFlags::QUOTE) {
+                        if (outside.result.first_quote_open == this->missing_index()
+                            && this->quote_can_open(prefix, pos)) {
+                            outside.result.first_quote_open = pos;
+                        }
+                        if (inside.result.first_quote_close == this->missing_index()
+                            && this->quote_can_close(prefix, pos)) {
+                            inside.result.first_quote_close = pos;
+                        }
+
+                        if (odd_quotes) {
+                            this->finish_quoted_span(outside, pos);
+                            this->start_quoted_span(inside, pos + 1, false);
+                        }
+                        else {
+                            this->start_quoted_span(outside, pos + 1, false);
+                            this->finish_quoted_span(inside, pos);
+                        }
+
+                        odd_quotes = !odd_quotes;
+                        pos++;
+                        continue;
+                    }
+
+                    if (flag == ParseFlags::CARRIAGE_RETURN || flag == ParseFlags::NEWLINE) {
+                        const size_t record_end = pos + width;
+                        if (!odd_quotes) {
+                            this->finish_record(outside, record_end);
+                            if (outside.result.first_record_end == this->missing_index()) {
+                                outside.result.first_record_end = record_end;
+                            }
+                        }
+                        else {
+                            this->finish_record(inside, record_end);
+                            if (inside.result.first_record_end == this->missing_index()) {
+                                inside.result.first_record_end = record_end;
+                            }
+                        }
+                    }
+
                     pos += width;
                 }
 
-                this->finish_quoted_field(outside, log_separator_probability);
-                this->finish_quoted_field(inside, log_separator_probability);
-                if (outside.current_record_length > outside.result.max_record_length) {
-                    outside.result.max_record_length = outside.current_record_length;
+                const long double separator_probability = prefix.empty()
+                    ? 0
+                    : static_cast<long double>(separators) / static_cast<long double>(prefix.size());
+                const long double log_separator_probability = separator_probability > 0
+                    ? std::log(separator_probability)
+                    : -std::numeric_limits<long double>::infinity();
+
+                if (odd_quotes) {
+                    this->finish_partial_quoted_span(outside, prefix.size());
                 }
-                if (inside.current_record_length > inside.result.max_record_length) {
-                    inside.result.max_record_length = inside.current_record_length;
+                else {
+                    this->finish_partial_quoted_span(inside, prefix.size());
                 }
-                outside.result.ending_state = ParserDFAState(outside.quote_escape);
-                inside.result.ending_state = ParserDFAState(inside.quote_escape);
+
+                this->finish_scan(outside, prefix, odd_quotes, log_separator_probability);
+                this->finish_scan(inside, prefix, !odd_quotes, log_separator_probability);
                 outside_scan = outside.result;
                 inside_scan = inside.result;
             }

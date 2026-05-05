@@ -183,19 +183,20 @@ TEST_CASE("Speculative scanner leaves ordinary quoted rows unquoted", "[raw_csv_
     REQUIRE(speculation.outside_scan.first_quote_open < speculation.inside_scan.first_quote_close);
 }
 
-TEST_CASE("Speculative scanner uses probability model for unresolved quote-boundary ties", "[raw_csv_parse][speculative]") {
+TEST_CASE("Speculative scanner uses probability model for unresolved embedded-quote ambiguity", "[raw_csv_parse][speculative]") {
     SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
     const std::string chunk =
-        "\",a\",b\n"
-        "next,row\n";
+        "ab\"c\n"
+        "d\"ef\n"
+        "gh\n";
 
     const auto speculation = scanner.speculate(6, 32768, chunk);
 
     REQUIRE(speculation.ambiguous);
     REQUIRE(speculation.used_probability_model);
     REQUIRE_FALSE(speculation.used_record_size_heuristic);
-    REQUIRE(speculation.quoted_start_odds > 1);
-    REQUIRE(speculation.assumed_start_state.quote_escape);
+    REQUIRE(speculation.quoted_start_odds < 1);
+    REQUIRE_FALSE(speculation.assumed_start_state.quote_escape);
 }
 
 TEST_CASE("Speculative scanner preserves escaped quote pairs in quoted interpretation", "[raw_csv_parse][speculative]") {
