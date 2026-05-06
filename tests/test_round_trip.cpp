@@ -16,26 +16,57 @@
 
 #include <array>
 #include <catch2/catch_all.hpp>
-#include <cstdio>
-#include <iostream>
 
 #include "csv.hpp"
-#include "shared/file_guard.hpp"
+#include "shared/generated_file.hpp"
 
 using namespace csv;
 
 namespace {
 #ifndef __EMSCRIPTEN__
-    const char* quoted_round_trip_matrix_filename() {
-        static const char* filename = "round_trip_quoted_matrix.csv";
-        static FileGuard cleanup(filename);
-        static bool generated = false;
+    const std::string& simple_round_trip_filename() {
+        static csv_test::GeneratedFile file("round_trip_simple.csv");
 
-        // Catch2 SECTIONs re-run the test body, so keep this expensive fixture
-        // memoized locally. If another round-trip matrix needs the same pattern,
-        // move the helper into tests/shared instead of duplicating it.
-        if (!generated) {
-            std::ofstream outfile(filename, std::ios::binary);
+        return file.path([](std::ofstream& outfile) {
+            auto writer = make_csv_writer(outfile);
+
+            writer << std::vector<std::string>({ "A", "B", "C", "D", "E" });
+
+            const size_t n_rows = 1000000;
+
+            for (size_t i = 0; i < n_rows; i++) {
+                auto str = internals::to_string(i);
+                writer << std::array<csv::string_view, 5>({ str, str, str, str, str });
+            }
+        });
+    }
+
+    const std::string& distinct_round_trip_filename() {
+        static csv_test::GeneratedFile file("round_trip_distinct.csv");
+
+        return file.path([](std::ofstream& outfile) {
+            auto writer = make_csv_writer(outfile);
+
+            writer << std::vector<std::string>({ "col_A", "col_B", "col_C", "col_D", "col_E" });
+
+            const size_t n_rows = 500000;  // Enough to cross 10MB chunk boundary
+
+            for (size_t i = 0; i < n_rows; i++) {
+                // Each column gets a DISTINCT value so corruption is obvious
+                auto a = internals::to_string(i * 5 + 0);
+                auto b = internals::to_string(i * 5 + 1);
+                auto c = internals::to_string(i * 5 + 2);
+                auto d = internals::to_string(i * 5 + 3);
+                auto e = internals::to_string(i * 5 + 4);
+                writer << std::array<csv::string_view, 5>({ a, b, c, d, e });
+            }
+        });
+    }
+
+    const std::string& quoted_round_trip_matrix_filename() {
+        static csv_test::GeneratedFile file("round_trip_quoted_matrix.csv");
+
+        return file.path([](std::ofstream& outfile) {
             auto writer = make_csv_writer(outfile);
 
             writer << std::vector<std::string>({ "id", "with_comma", "with_newline", "with_quote", "empty" });
@@ -51,11 +82,7 @@ namespace {
 
                 writer << std::array<std::string, 5>({ id, with_comma, with_newline, with_quote, empty });
             }
-
-            generated = true;
-        }
-
-        return filename;
+        });
     }
 #endif
 }
@@ -65,83 +92,41 @@ namespace {
 // ==============================================================================
 
 #ifndef __EMSCRIPTEN__
-TEST_CASE("Simple Buffered Integer Round Trip Test", "[test_roundtrip_int]") {
-    auto filename = "round_trip.csv";
-    FileGuard cleanup(filename);
-    
-    std::ofstream outfile(filename, std::ios::binary);
-    auto writer = make_csv_writer(outfile).set_auto_flush(false);
-
-    writer << std::vector<std::string>({"A", "B", "C", "D", "E"});
-
-    const size_t n_rows = 1000000;
-
-    for (size_t i = 0; i < n_rows; i++) {
-        auto str = internals::to_string(i);
-        writer << std::array<csv::string_view, 5>({str, str, str, str, str});
-    }
-    writer.flush();
-
-    CSVReader reader(filename);
-
-    size_t i = 0;
-    for (auto &row : reader) {
-        // Verify field count (detects if field boundaries are corrupted)
-        REQUIRE(row.size() == 5);
-        
-        for (auto &col : row) {
-            REQUIRE(col == i);
-            
-            // Verify field doesn't contain corruption markers (newlines/commas)
-            auto field_str = col.get_sv();
-            REQUIRE(field_str.find('\n') == std::string::npos);
-            REQUIRE(field_str.find(',') == std::string::npos);
-        }
-
-        i++;
-    }
-
-    REQUIRE(reader.n_rows() == n_rows);
-}
-#endif
-
-#ifndef __EMSCRIPTEN__
 TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
-    auto filename = "round_trip.csv";
-    FileGuard cleanup(filename);
-    
-    std::ofstream outfile(filename, std::ios::binary);
-    auto writer = make_csv_writer(outfile);
+    const std::string& filename = simple_round_trip_filename();
+    const size_t expected_rows = 1000000;
 
-    writer << std::vector<std::string>({ "A", "B", "C", "D", "E" });
+    auto validate_reader = [&](CSVReader& reader) {
+        size_t i = 0;
+        for (auto& row : reader) {
+            // Verify field count (detects if field boundaries are corrupted)
+            REQUIRE(row.size() == 5);
 
-    const size_t n_rows = 1000000;
+            for (auto& col : row) {
+                REQUIRE(col == i);
 
-    for (size_t i = 0; i < n_rows; i++) {
-        auto str = internals::to_string(i);
-        writer << std::array<csv::string_view, 5>({ str, str, str, str, str });
-    }
+                // Verify field doesn't contain corruption markers (newlines/commas)
+                auto field_str = col.get_sv();
+                REQUIRE(field_str.find('\n') == std::string::npos);
+                REQUIRE(field_str.find(',') == std::string::npos);
+            }
 
-    CSVReader reader(filename);
-
-    size_t i = 0;
-    for (auto& row : reader) {
-        // Verify field count (detects if field boundaries are corrupted)
-        REQUIRE(row.size() == 5);
-        
-        for (auto& col : row) {
-            REQUIRE(col == i);
-            
-            // Verify field doesn't contain corruption markers (newlines/commas)
-            auto field_str = col.get_sv();
-            REQUIRE(field_str.find('\n') == std::string::npos);
-            REQUIRE(field_str.find(',') == std::string::npos);
+            i++;
         }
 
-        i++;
+        REQUIRE(reader.n_rows() == expected_rows);
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(filename);
+        validate_reader(reader);
     }
 
-    REQUIRE(reader.n_rows() == n_rows);
+    SECTION("std::ifstream path") {
+        std::ifstream infile(filename, std::ios::binary);
+        CSVReader reader(infile, CSVFormat());
+        validate_reader(reader);
+    }
 }
 #endif
 
@@ -159,29 +144,7 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
     //
     // Using different values per column makes corruption obvious. If column boundaries
     // break, at least one of the assertions below will fail immediately.
-    auto filename = "round_trip_distinct.csv";
-    FileGuard cleanup(filename);
-    
-    // Write the CSV file
-    {
-        std::ofstream outfile(filename, std::ios::binary);
-        auto writer = make_csv_writer(outfile);
-
-        writer << std::vector<std::string>({ "col_A", "col_B", "col_C", "col_D", "col_E" });
-
-        const size_t n_rows = 500000;  // Enough to cross 10MB chunk boundary
-
-        for (size_t i = 0; i < n_rows; i++) {
-            // Each column gets a DISTINCT value so corruption is obvious
-            auto a = internals::to_string(i * 5 + 0);
-            auto b = internals::to_string(i * 5 + 1);
-            auto c = internals::to_string(i * 5 + 2);
-            auto d = internals::to_string(i * 5 + 3);
-            auto e = internals::to_string(i * 5 + 4);
-            writer << std::array<csv::string_view, 5>({ a, b, c, d, e });
-        }
-    }
-
+    const std::string& filename = distinct_round_trip_filename();
     const size_t expected_rows = 500000;
 
     // Shared validation for both CSVReader implementations:
@@ -235,7 +198,7 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quoted]") {
-    const char* filename = quoted_round_trip_matrix_filename();
+    const std::string& filename = quoted_round_trip_matrix_filename();
     const size_t expected_rows = 300000;
 
     // Validation logic

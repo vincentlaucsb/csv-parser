@@ -36,6 +36,7 @@ When adding, removing, or renaming a utility in `tests/shared/`, update this tab
 |------|---------|
 | `shared/file_guard.hpp` | RAII temp-file cleanup — **use this for every temp file** |
 | `shared/float_test_cases.hpp` | Shared floating-point edge-case data |
+| `shared/generated_file.hpp` | Memoized generated-file fixture for expensive Catch2 `SECTION` matrices |
 | `shared/timeout_helper.hpp` | Timeout wrapper for race/stress tests to prevent hangs |
 
 #### FileGuard — RAII temp file cleanup

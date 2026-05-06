@@ -1,5 +1,7 @@
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
+#include <fstream>
 #include <sstream>
 
 using namespace csv;
@@ -199,3 +201,38 @@ TEST_CASE("CSVReader honors runtime threading opt-out", "[csv_format][csv_reader
     REQUIRE(rows[0][0] == "a");
     REQUIRE(rows[2][2] == "6");
 }
+
+#ifndef __EMSCRIPTEN__
+TEST_CASE("CSVReader honors runtime threading opt-out for filename inputs", "[csv_format][csv_reader]") {
+    FileGuard cleanup("./tests/data/tmp_threading_opt_out_mmap.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        std::string content = "a,b,c\n";
+        while (content.size() <= internals::CSV_CHUNK_SIZE_FLOOR + 1024) {
+            content += "1,2,3\n";
+        }
+        out << content;
+    }
+
+    CSVFormat format;
+    format.no_header()
+        .delimiter(',')
+        .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
+        .threading(false)
+        .speculative_parallel()
+        .speculative_parallel_min_bytes(1)
+        .speculative_parallel_threads(2);
+
+    CSVReader reader(cleanup.filename, format);
+    REQUIRE(reader.parse_worker_count() == 1);
+
+    size_t rows = 0;
+    for (auto& row : reader) {
+        REQUIRE(row.size() == 3);
+        rows++;
+    }
+
+    REQUIRE(rows > 1);
+    REQUIRE(reader.speculative_diagnostics().chunks == 0);
+}
+#endif

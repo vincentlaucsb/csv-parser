@@ -482,6 +482,35 @@ TEST_CASE("ParallelCSVParser parses caller-owned chunks from the speculative sca
     REQUIRE(output[3][2] == "ok");
 }
 
+TEST_CASE("ParallelCSVParser preserves column names for emitted rows", "[raw_csv_parse][speculative][parallel]") {
+    const auto parse_flags = internals::make_parse_flags(',', '"');
+    const auto ws_flags = internals::WhitespaceMap();
+    auto col_names = std::make_shared<internals::ColNames>();
+    col_names->set_col_names({ "id", "name", "status" });
+
+    SpeculativeScanner scanner(parse_flags, 8);
+    auto input = std::make_shared<std::string>(
+        "1,Alice,ready\n"
+        "2,Bob,done\n"
+    );
+
+    auto chunks = make_speculative_parse_chunks(*input, input, 8, scanner);
+    REQUIRE(chunks.size() > 1);
+
+    std::vector<CSVRow> output;
+    ParallelCSVParser parser(parse_flags, ws_flags, 2, col_names);
+    const auto result = parser.parse_chunks(chunks, output);
+
+    REQUIRE(result.chunks_processed == chunks.size());
+    REQUIRE(output.size() == 2);
+    REQUIRE(output[0]["id"].get<int>() == 1);
+    REQUIRE(output[0]["name"].get<std::string>() == "Alice");
+    REQUIRE(output[0]["status"].get<std::string>() == "ready");
+    REQUIRE(output[1]["id"].get<int>() == 2);
+    REQUIRE(output[1]["name"].get<std::string>() == "Bob");
+    REQUIRE(output[1]["status"].get<std::string>() == "done");
+}
+
 TEST_CASE("ParallelCSVParser can leave the final split row pending", "[raw_csv_parse][speculative][parallel]") {
     const auto parse_flags = internals::make_parse_flags(',', '"');
     const auto ws_flags = internals::WhitespaceMap();

@@ -8,7 +8,7 @@ TEST_CASE("Test delim from file", "[test_csv_reader_get_format_get_delim_from_fi
     csv::CSVReader reader("./tests/data/fake_data/delimeter.csv");
     char delim = reader.get_format().get_delim();
     REQUIRE(delim == ';');
-}
+} 
 
 TEST_CASE("Test delim from string", "[test_csv_reader_get_format_get_delim_from_string]") {
     std::ifstream file_stream("./tests/data/fake_data/delimeter.csv");

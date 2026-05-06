@@ -2,7 +2,6 @@
  *  Tests for CSV parsing
  */
 
-#include <stdio.h> // remove()
 #include <fstream>
 #include <sstream>
 #include <catch2/catch_all.hpp>

@@ -2,16 +2,39 @@
  *  Tests for CSV parsing
  */
 
-#include <stdio.h> // remove()
 #include <fstream>
 #include <sstream>
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
 #include "shared/file_guard.hpp"
+#include "shared/generated_file.hpp"
 
 using namespace csv;
 using std::vector;
 using std::string;
+
+namespace {
+#ifndef __EMSCRIPTEN__
+    const std::string& speculative_read_chunk_flags_filename() {
+        static csv_test::GeneratedFile file("./tests/data/tmp_speculative_read_chunk_flags.csv");
+
+        return file.path([](std::ofstream& out) {
+            out << "id,text,tail\n";
+
+            const size_t rows_to_write = 100000;
+            for (size_t i = 0; i < rows_to_write; ++i) {
+                out << i << ",  \"literal_" << i << "\"  ,tail_" << i << "\n";
+                if (i == 6000) {
+                    out << "short,only_two_columns\n";
+                }
+                if (i == 17000) {
+                    out << "long,has,one,extra_column\n";
+                }
+            }
+        });
+    }
+#endif
+}
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE("col_pos() Test", "[test_col_pos]") {
@@ -196,28 +219,26 @@ TEST_CASE("Test read_row() CSVField - Power Status", "[read_row_csvf3]") {
 // Regression test for issue #149: trailing newline at EOF must not produce a spurious
 // empty row when reading from an ifstream (mmap parser path).
 TEST_CASE("Trailing newline at EOF (ifstream/mmap)", "[trailing_newline_ifstream]") {
-    const char* tmpfile = "./tests/data/tmp_trailing_newline.csv";
+    auto write_and_count = [](const std::string& filename, const std::string& content) -> size_t {
+        FileGuard cleanup(filename);
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << content;
+        out.close();
 
-    auto write_and_count = [&](const std::string& content) -> size_t {
-        {
-            std::ofstream out(tmpfile, std::ios::binary);
-            out << content;
-        }
         CSVFormat format;
         format.no_header();
-        CSVReader reader(tmpfile, format);
+        CSVReader reader(cleanup.filename, format);
         size_t row_count = 0;
         for (auto& row : reader) {
             REQUIRE(row.size() > 0);
             row_count++;
         }
-        std::remove(tmpfile);
         return row_count;
     };
 
-    REQUIRE(write_and_count("A,B,C\r\n1,2,3\r\n") == 2);  // CRLF trailing newline
-    REQUIRE(write_and_count("A,B,C\n1,2,3\n")     == 2);  // LF trailing newline
-    REQUIRE(write_and_count("A,B,C\n1,2,3")        == 2);  // no trailing newline (control)
+    REQUIRE(write_and_count("./tests/data/tmp_trailing_newline_crlf.csv", "A,B,C\r\n1,2,3\r\n") == 2);
+    REQUIRE(write_and_count("./tests/data/tmp_trailing_newline_lf.csv", "A,B,C\n1,2,3\n") == 2);
+    REQUIRE(write_and_count("./tests/data/tmp_trailing_newline_none.csv", "A,B,C\n1,2,3") == 2);
 }
 
 TEST_CASE("Trim regression: quoted unescape and bounded field slice", "[read_csv_trim][regression]") {
@@ -481,6 +502,55 @@ TEST_CASE("CSVReader no_quote treats quote bytes as ordinary data", "[csv_format
         validate_reader(reader);
     }
 }
+
+#if CSV_ENABLE_THREADS
+TEST_CASE("CSVReader speculative read_chunk preserves format flags", "[read_chunk][speculative]") {
+    const std::string& filename = speculative_read_chunk_flags_filename();
+
+    CSVFormat format;
+    format.delimiter(',')
+        .trim({ ' ' })
+        .quote(false)
+        .variable_columns(VariableColumnPolicy::IGNORE_ROW)
+        .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
+        .speculative_parallel()
+        .speculative_parallel_min_bytes(1)
+        .speculative_parallel_threads(2);
+
+    auto validate_reader = [&](CSVReader& reader) {
+        REQUIRE(reader.parse_worker_count() == 2);
+        REQUIRE_FALSE(reader.get_format().is_quoting_enabled());
+
+        std::vector<CSVRow> chunk;
+        size_t rows_seen = 0;
+        while (reader.read_chunk(chunk, 777)) {
+            REQUIRE(chunk.size() <= 777);
+            for (auto& row : chunk) {
+                const size_t id = row["id"].get<size_t>();
+                REQUIRE(id == rows_seen);
+                REQUIRE(row["text"].get<std::string>() == "\"literal_" + internals::to_string(id) + "\"");
+                REQUIRE(row["tail"].get<std::string>() == "tail_" + internals::to_string(id));
+                rows_seen++;
+            }
+        }
+
+        REQUIRE(rows_seen == 100000);
+        REQUIRE(reader.n_rows() == 100000);
+        REQUIRE(reader.speculative_diagnostics().chunks > 0);
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        std::ifstream infile(filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+}
+#endif
 
 TEST_CASE("Issue #195 - header_row() preserved when delimiter guessing", "[issue_195][skip_rows_file]") {
     // When the user explicitly sets header_row(N) alongside guess_csv(),
