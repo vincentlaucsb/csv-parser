@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 namespace csv {
@@ -23,8 +24,8 @@ namespace csv {
          *  to become populated.
          *
          *  Concurrency strategy: writer-side mutations (push_back/pop_front) are locked;
-         *  hot-path flags (empty/is_waitable) are atomic; operator[] and iterators are
-         *  not synchronized and must not run concurrently with writers.
+         *  hot-path flags (empty/is_waitable) are atomic; inspect() is the synchronized
+         *  observation path for tests and diagnostics.
          */
         template<typename T>
         class ThreadSafeDeque {
@@ -49,15 +50,6 @@ namespace csv {
             T& front() noexcept {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 return this->data.front();
-            }
-
-            /** NOTE: operator[] is not synchronized.
-             *  Only call when no concurrent push_back/pop_front can occur.
-             *  std::deque can reallocate its internal map on push_back, which
-             *  makes concurrent operator[] access undefined behavior.
-             */
-            T& operator[](size_t n) {
-                return this->data[n];
             }
 
             void push_back(T&& item) {
@@ -102,6 +94,17 @@ namespace csv {
                 }
 
                 return drain_count;
+            }
+
+            /** Invoke @p callback with a stable const view of queued rows under one lock.
+             *
+             *  This is intended for diagnostics and tests that need to inspect
+             *  queue contents without using unsynchronized random access.
+             */
+            template<typename Callback>
+            void inspect(Callback&& callback) const {
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                std::forward<Callback>(callback)(this->data);
             }
 
             /** Returns true if a thread is actively pushing items to this deque */

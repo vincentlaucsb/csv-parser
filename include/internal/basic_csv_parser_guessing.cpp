@@ -3,6 +3,7 @@
 #include "stream_parser.hpp"
 
 #include <unordered_map>
+#include <vector>
 
 namespace csv {
     namespace internals {
@@ -17,7 +18,7 @@ namespace csv {
             // tables — bypasses format resolution entirely and avoids recursion back
             // into guess_format.
             internals::StringViewStream source(head);
-            RowCollection rows;
+            std::vector<CSVRow> rows;
 
             const auto parse_flags = format.is_quoting_enabled()
                 ? internals::make_parse_flags(format.get_delim(), format.get_quote_char())

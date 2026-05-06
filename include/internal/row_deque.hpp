@@ -30,22 +30,25 @@ namespace csv {
 #endif
 
 #ifdef CSV_HAS_CXX20
+        template<typename T>
+        struct RowDequeInspectProbe {
+            template<typename Rows>
+            void operator()(const Rows&) const noexcept {}
+        };
+
         template<typename Q, typename T>
         concept RowDequeLike = requires(Q q, const Q cq, T item, size_t n, std::vector<T> batch) {
             { Q(100) };
             { q.push_back(std::move(item)) } -> std::same_as<void>;
             { q.pop_front() } -> std::same_as<T>;
             { q.drain_front(batch, n) } -> std::same_as<size_t>;
+            { cq.inspect(RowDequeInspectProbe<T>{}) } -> std::same_as<void>;
             { cq.empty() } -> std::same_as<bool>;
             { cq.is_waitable() } -> std::same_as<bool>;
             { q.wait() } -> std::same_as<void>;
             { q.notify_all() } -> std::same_as<void>;
             { q.kill_all() } -> std::same_as<void>;
-            { q.front() } -> std::same_as<T&>;
-            { q[n] } -> std::same_as<T&>;
             { cq.size() } -> std::same_as<size_t>;
-            { q.begin() };
-            { q.end() };
         };
 
         #if CSV_ENABLE_THREADS

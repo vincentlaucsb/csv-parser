@@ -35,10 +35,6 @@ namespace csv {
                 return this->data.front();
             }
 
-            T& operator[](size_t n) {
-                return this->data[n];
-            }
-
             void push_back(T&& item) {
                 this->data.push_back(std::move(item));
                 this->_is_empty = false;
@@ -70,6 +66,15 @@ namespace csv {
                 }
 
                 return drain_count;
+            }
+
+            /** Invoke @p callback with a stable const view of queued rows.
+             *
+             *  Kept API-compatible with ThreadSafeDeque for diagnostics and tests.
+             */
+            template<typename Callback>
+            void inspect(Callback&& callback) const {
+                std::forward<Callback>(callback)(this->data);
             }
 
             bool is_waitable() const noexcept {
