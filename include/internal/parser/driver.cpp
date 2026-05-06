@@ -1,9 +1,10 @@
-#include "basic_csv_parser.hpp"
+#include "driver.hpp"
 
 #include <system_error>
 
 namespace csv {
     namespace internals {
+        namespace parser {
 #if defined(__EMSCRIPTEN__)
         // Opens the file and delegates to the template overload to avoid duplicating the read/resize logic.
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename) {
@@ -112,14 +113,14 @@ namespace csv {
 
             if (resolved.format.no_quote) {
                 this->set_parse_flags(
-                    internals::make_parse_flags(resolved.format.get_delim()),
+                    make_parse_flags(resolved.format.get_delim()),
                     resolved.format.get_delim(),
                     resolved.format.get_delim()
                 );
             }
             else {
                 this->set_parse_flags(
-                    internals::make_parse_flags(resolved.format.get_delim(), resolved.format.quote_char),
+                    make_parse_flags(resolved.format.get_delim(), resolved.format.quote_char),
                     resolved.format.get_delim(),
                     resolved.format.quote_char
                 );
@@ -130,5 +131,6 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma endregion
 #endif
+        }
     }
 }

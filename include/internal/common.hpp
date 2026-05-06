@@ -397,7 +397,7 @@ namespace csv {
          * Bug #280 was caused by fields spanning chunk boundaries being corrupted.
          * 
          * @note Tests must write >10MB of data to cross chunk boundaries
-         * @see basic_csv_parser.cpp MmapParser::next() for chunk transition logic
+         * @see parser/mmap.cpp MmapParser::next() for chunk transition logic
          */
         constexpr size_t CSV_CHUNK_SIZE_DEFAULT = 10000000; // 10MB
 

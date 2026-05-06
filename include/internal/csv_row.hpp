@@ -65,7 +65,9 @@ namespace csv {
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         class CSVParserCore;
         struct CSVRowRowPolicy;
-        class CSVParserDriverBase;
+        namespace parser {
+            class CSVParserDriverBase;
+        }
         namespace speculative {
             struct CSVRowFragment;
         }
@@ -542,7 +544,7 @@ namespace csv {
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         friend class internals::CSVParserCore;
         friend struct internals::CSVRowRowPolicy;
-        friend internals::CSVParserDriverBase;
+        friend internals::parser::CSVParserDriverBase;
         friend struct internals::speculative::CSVRowFragment;
 
         CSVRow() = default;

@@ -44,7 +44,7 @@ namespace csv {
 #pragma region Format and header helpers
 #endif
     CSV_INLINE void CSVReader::init_parser(
-        std::unique_ptr<internals::CSVParserDriverBase> parser_impl
+        std::unique_ptr<internals::parser::CSVParserDriverBase> parser_impl
     ) {
         auto resolved = parser_impl->get_resolved_format();
         this->_format = resolved.format;

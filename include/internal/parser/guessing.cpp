@@ -1,12 +1,13 @@
-#include "basic_csv_parser.hpp"
-#include "string_view_stream.hpp"
-#include "stream_parser.hpp"
+#include "driver.hpp"
+#include "../string_view_stream.hpp"
+#include "stream.hpp"
 
 #include <unordered_map>
 #include <vector>
 
 namespace csv {
     namespace internals {
+        namespace parser {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format) {
             // Frequency counter of row length
             std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
@@ -20,9 +21,9 @@ namespace csv {
             std::vector<CSVRow> rows;
 
             const auto parse_flags = format.is_quoting_enabled()
-                ? internals::make_parse_flags(format.get_delim(), format.get_quote_char())
-                : internals::make_parse_flags(format.get_delim());
-            const auto ws_flags = internals::make_ws_flags(format.get_trim_chars());
+                ? make_parse_flags(format.get_delim(), format.get_quote_char())
+                : make_parse_flags(format.get_delim());
+            const auto ws_flags = make_ws_flags(format.get_trim_chars());
             auto head_owner = std::make_shared<std::string>(std::string(head));
             CSVParserCore<std::vector<CSVRow>> parser(parse_flags, ws_flags);
             parser.parse_chunk(*head_owner, head_owner, rows);
@@ -93,6 +94,7 @@ namespace csv {
             }
 
             return { current_delim, (int)header, n_cols };
+        }
         }
     }
 }

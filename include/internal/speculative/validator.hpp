@@ -18,7 +18,7 @@ namespace csv {
                 output_(output),
                 expected_start_state_(initial_state) {}
 
-            ParserChunkResult validate_and_release(ParsedChunkRows chunk) {
+            ParserChunkResult validate_and_release(ParsedChunkRows&& chunk) {
                 if (!parser_dfa_state_equal(chunk.parse_result.initial_state, this->expected_start_state_)) {
                     chunk = repair_parsed_chunk_rows(
                         this->repair_parser_,
@@ -56,7 +56,7 @@ namespace csv {
             }
 
         private:
-            void release(ParsedChunkRows chunk) {
+            void release(ParsedChunkRows&& chunk) {
                 if (!chunk.prefix_fragment.empty()) {
                     if (!this->pending_suffix_.empty()) {
                         this->pending_suffix_ = concatenate_row_fragments(

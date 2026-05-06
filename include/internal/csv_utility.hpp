@@ -200,7 +200,7 @@ namespace csv {
     inline std::vector<std::string> get_col_names(
         csv::string_view filename,
         const CSVFormat& format = CSVFormat::guess_csv()) {
-        auto head = internals::get_csv_head(filename);
+        auto head = internals::parser::get_csv_head(filename);
         return parse_unsafe(head, format).get_col_names();
     }
 

@@ -1,8 +1,9 @@
 #include <catch2/catch_all.hpp>
 #include "internal/csv_row.hpp"
+#include "internal/parser/mmap.hpp"
+#include "internal/parser/stream.hpp"
 #include "internal/speculative/scanner.hpp"
 #include "internal/speculative/validator.hpp"
-#include "internal/stream_parser.hpp"
 #include "shared/file_guard.hpp"
 
 #include <fstream>
@@ -10,6 +11,7 @@
 
 using namespace csv;
 using namespace csv::internals;
+using namespace csv::internals::parser;
 using namespace csv::internals::speculative;
 
 #if CSV_ENABLE_THREADS

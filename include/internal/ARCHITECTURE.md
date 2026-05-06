@@ -9,6 +9,7 @@ Scope:
 - Where to add tests for subsystem changes
 
 For queue synchronization protocol details, see THREADSAFE_DEQUE_DESIGN.md.
+For a narrative byte-to-field walkthrough, see JOURNEY_OF_A_CSV_FIELD.md.
 For AI-agent workflow and guardrails, see ../../AGENTS.md and ../../tests/AGENTS.md.
 
 ## 1. System Shape
@@ -63,6 +64,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 - CSVParserDriverBase
   - Internal source-adapter base that preserves the parser driver API used by CSVReader.
   - Delegates byte parsing to CSVParserCore.
+  - Lives under `csv::internals::parser`; files in `include/internal/parser/`
+    intentionally share that namespace.
 
 - csv_chunk_parser.hpp
   - Compatibility include for speculative chunk helpers.
@@ -75,15 +78,16 @@ Two independent parser paths exist and must be kept behaviorally aligned:
   - Speculative-only helpers live under `csv::internals::speculative`.
   - Compiled out when `CSV_ENABLE_THREADS=0`.
 
-- csv_parse_orchestrator.hpp
+- parser/orchestrator.hpp
   - Chooses serial CSVParserCore parsing or speculative parallel parsing for a byte window.
 
 - MmapParser
   - Reads chunks from memory maps and handles chunk-transition remainder.
+  - Declared in parser/mmap.hpp; implemented in parser/mmap.cpp.
 
 - StreamParser
   - Reads chunks from stream sources.
-  - Template definition lives in stream_parser.hpp.
+  - Template definition lives in parser/stream.hpp.
 
 ### Internal storage and transport
 
@@ -181,6 +185,14 @@ Operationally:
 
 ## 4. Key Invariants
 
+### Internal folders map to internal namespaces
+
+When a subsystem earns a folder under `include/internal/`, its namespace should
+follow the folder path. For example, parser source adapters live in
+`include/internal/parser/` and `csv::internals::parser`, while speculative
+helpers live in `include/internal/speculative/` and
+`csv::internals::speculative`.
+
 ### Chunk boundary integrity
 
 Fields spanning chunk boundaries must not be split/corrupted.
@@ -223,10 +235,10 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
   - csv_parser_core.hpp, speculative/chunks.hpp
 
 - Chunk transition changes:
-  - mmap_parser.cpp (MmapParser next), stream_parser.hpp (StreamParser next)
+  - parser/mmap.cpp (MmapParser next), parser/stream.hpp (StreamParser next)
 
 - Speculative parallel parsing changes:
-  - speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp, csv_parse_orchestrator.hpp, speculative/diagnostics.hpp, mmap_parser.cpp, stream_parser.hpp
+  - speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp, parser/orchestrator.hpp, speculative/diagnostics.hpp, parser/mmap.cpp, parser/stream.hpp
 
 - Reader worker/iteration behavior:
   - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, csv_read_scheduler.hpp

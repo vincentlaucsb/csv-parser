@@ -20,7 +20,8 @@
 #include "csv_exceptions.hpp"
 #include "data_type.hpp"
 #include "csv_format.hpp"
-#include "stream_parser.hpp"
+#include "parser/mmap.hpp"
+#include "parser/stream.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
@@ -132,8 +133,8 @@ namespace csv {
 
             this->init_from_stream(*this->owned_stream, format);
 #else
-            this->init_parser(std::unique_ptr<internals::CSVParserDriverBase>(
-                new internals::MmapParser(filename, format, this->col_names)
+            this->init_parser(std::unique_ptr<internals::parser::CSVParserDriverBase>(
+                new internals::parser::MmapParser(filename, format, this->col_names)
             ));
 #endif
         }
@@ -376,7 +377,7 @@ namespace csv {
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
         /** Helper class which actually does the parsing */
-        std::unique_ptr<internals::CSVParserDriverBase> parser = nullptr;
+        std::unique_ptr<internals::parser::CSVParserDriverBase> parser = nullptr;
 
         /** Queue of parsed CSV rows */
         std::unique_ptr<RowCollection> records{new RowCollection(100)};
@@ -420,14 +421,14 @@ namespace csv {
         /** Shared parser installation after source-specific bootstrap has completed
          *  in concrete parser implementations.
          */
-        void init_parser(std::unique_ptr<internals::CSVParserDriverBase> parser);
+        void init_parser(std::unique_ptr<internals::parser::CSVParserDriverBase> parser);
 
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
             this->init_parser(
-                std::unique_ptr<internals::CSVParserDriverBase>(
-                    new internals::StreamParser<TStream>(source, format, this->col_names)
+                std::unique_ptr<internals::parser::CSVParserDriverBase>(
+                    new internals::parser::StreamParser<TStream>(source, format, this->col_names)
                 )
             );
         }

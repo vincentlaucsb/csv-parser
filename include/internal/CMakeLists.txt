@@ -2,9 +2,6 @@ add_library(csv STATIC "")
 
 target_sources(csv
 	PRIVATE
-		basic_csv_parser.hpp
-		basic_csv_parser.cpp
-		basic_csv_parser_guessing.cpp
 		col_names.cpp
 		col_names.hpp
 		common.hpp
@@ -14,8 +11,14 @@ target_sources(csv
 		csv_chunk_parser.hpp
 		csv_parser_core.hpp
 		csv_parallel_parser.hpp
-		csv_parse_orchestrator.hpp
 		csv_read_scheduler.hpp
+		parser/driver.hpp
+		parser/driver.cpp
+		parser/guessing.cpp
+		parser/mmap.hpp
+		parser/mmap.cpp
+		parser/orchestrator.hpp
+		parser/stream.hpp
 		speculative/chunks.hpp
 		speculative/diagnostics.hpp
 		speculative/scanner.hpp
@@ -29,12 +32,10 @@ target_sources(csv
 		csv_utility.hpp
 		csv_writer.hpp
 		data_type.hpp
-		mmap_parser.cpp
 		raw_csv_data.hpp
 		raw_csv_data.hpp
 		row_deque.hpp
 		single_thread_deque.hpp
-		stream_parser.hpp
 		string_view_stream.hpp
 		thread_safe_deque.hpp
 	)

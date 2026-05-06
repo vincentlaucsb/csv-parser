@@ -15,7 +15,9 @@ namespace csv {
     namespace internals {
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         class CSVParserCore;
-        class CSVParserDriverBase;
+        namespace parser {
+            class CSVParserDriverBase;
+        }
     }
 
     class CSVReader;
@@ -245,7 +247,7 @@ namespace csv {
         friend CSVReader;
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         friend class internals::CSVParserCore;
-        friend internals::CSVParserDriverBase;
+        friend internals::parser::CSVParserDriverBase;
         
     private:
         /**< Throws an error if delimiters and trim characters overlap */

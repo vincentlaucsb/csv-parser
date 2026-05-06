@@ -1,10 +1,11 @@
 #pragma once
 
-#include "basic_csv_parser.hpp"
-#include "csv_parse_orchestrator.hpp"
+#include "driver.hpp"
+#include "orchestrator.hpp"
 
 namespace csv {
     namespace internals {
+        namespace parser {
         constexpr size_t CSV_STREAM_WINDOW_SIZE_MAX = 256 * 1024 * 1024;
 
         /** A class for parsing CSV data from any std::istream, including
@@ -25,7 +26,7 @@ namespace csv {
          *  `leftover_` so the first next() call re-parses them without re-reading.
          */
         template<typename TStream>
-        class StreamParser: public CSVParserDriverBase {
+        class StreamParser : public CSVParserDriverBase {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
@@ -49,8 +50,8 @@ namespace csv {
 
             StreamParser(
                 TStream& source,
-                internals::ParseFlagMap parse_flags,
-                internals::WhitespaceMap ws_flags
+                ParseFlagMap parse_flags,
+                WhitespaceMap ws_flags
             ) : CSVParserDriverBase(parse_flags, ws_flags),
                 source_(source) {
                 this->parse_orchestrator_ = make_csv_parse_orchestrator(
@@ -164,5 +165,6 @@ namespace csv {
 
             TStream& source_;
         };
+        }
     }
 }

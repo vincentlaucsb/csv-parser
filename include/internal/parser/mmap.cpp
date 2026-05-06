@@ -1,9 +1,10 @@
-#include "basic_csv_parser.hpp"
-#include "csv_parse_orchestrator.hpp"
+#include "mmap.hpp"
+#include "orchestrator.hpp"
 
 #if !defined(__EMSCRIPTEN__)
 namespace csv {
     namespace internals {
+        namespace parser {
         CSV_INLINE MmapParser::MmapParser(
             csv::string_view filename,
             const CSVFormat& format,
@@ -117,6 +118,7 @@ namespace csv {
             // Create string view
             csv::string_view chunk(mmap_ptr->data(), mmap_ptr->length());
             this->finalize_loaded_chunk(chunk, mmap_owner, length, bytes);
+        }
         }
     }
 }

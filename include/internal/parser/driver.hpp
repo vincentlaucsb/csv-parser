@@ -16,19 +16,20 @@
 #include <vector>
 
 #if !defined(__EMSCRIPTEN__)
-#include "../external/mio.hpp"
+#include "../../external/mio.hpp"
 #endif
-#include "basic_csv_parser_simd.hpp"
-#include "col_names.hpp"
-#include "common.hpp"
-#include "csv_exceptions.hpp"
-#include "csv_format.hpp"
-#include "csv_parser_core.hpp"
-#include "csv_row.hpp"
-#include "speculative/diagnostics.hpp"
+#include "../basic_csv_parser_simd.hpp"
+#include "../col_names.hpp"
+#include "../common.hpp"
+#include "../csv_exceptions.hpp"
+#include "../csv_format.hpp"
+#include "../csv_parser_core.hpp"
+#include "../csv_row.hpp"
+#include "../speculative/diagnostics.hpp"
 
 namespace csv {
     namespace internals {
+        namespace parser {
         struct GuessScore {
             size_t header;
             size_t mode_row_length;
@@ -75,6 +76,7 @@ namespace csv {
         };
 
         class CSVParserDriverBase;
+        }
     }
 
     /** @brief Guess the delimiter, header row, and mode column count of a CSV file
@@ -91,16 +93,17 @@ namespace csv {
          *  - Comment lines before the actual header (first row shorter than mode)
          *  - Standard CSVs where first row is the header
          *
-        *  @note Score = (row_length � count_of_rows_with_that_length)
+        *  @note Score = (row_length * count_of_rows_with_that_length)
         *  @note Also returns inferred mode-width column count (CSVGuessResult::n_cols)
          */
     inline CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }) {
-        auto head = internals::get_csv_head(filename);
-        return internals::guess_format(head, delims);
+        auto head = internals::parser::get_csv_head(filename);
+        return internals::parser::guess_format(head, delims);
     }
 
     namespace internals {
+        namespace parser {
 
         class ICSVParseOrchestrator {
         public:
@@ -188,65 +191,6 @@ namespace csv {
 
             void resolve_format_from_head(const CSVFormat& format);
         };
-    }
-}
-
-namespace csv {
-    namespace internals {
-        class CSVParseOrchestrator;
-        template<typename TStream>
-        class StreamParser;
-
-#if !defined(__EMSCRIPTEN__)
-        /** Parser for memory-mapped files
-         *
-         *  @par Implementation
-         *  This class constructs moving windows over a file to avoid
-         *  creating massive memory maps which may require more RAM
-         *  than the user has available. It contains logic to automatically
-         *  re-align each memory map to the beginning of a CSV row.
-         *
-         *  @par Head buffer
-         *  CSVReader may prime a pre-read head buffer used for format guessing
-         *  via prime_head_for_reuse(). When provided, the first next() call
-         *  parses that buffer directly, then resumes mmap reads from the proper
-         *  file offset while preserving chunk-boundary remainder semantics.
-         *
-         */
-        class MmapParser : public CSVParserDriverBase {
-        public:
-            MmapParser(csv::string_view filename,
-                const CSVFormat& format,
-                const ColNamesPtr& col_names = nullptr
-            );
-
-            ~MmapParser();
-
-            std::string& get_csv_head() override {
-                // head_ was already populated in the constructor.
-                return this->head_;
-            }
-
-            void next(size_t bytes) override;
-
-            SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override;
-
-            size_t parse_worker_count() const noexcept override;
-
-        private:
-            void finalize_loaded_chunk(
-                csv::string_view chunk,
-                std::shared_ptr<void> owner,
-                size_t length,
-                size_t chunk_size
-            );
-
-            size_t read_window_size(size_t chunk_size) const noexcept;
-
-            std::string _filename;
-            size_t mmap_pos = 0;
-            std::string head_;
-        };
-#endif
+        }
     }
 }

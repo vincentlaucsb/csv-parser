@@ -1,7 +1,7 @@
 #include <catch2/catch_all.hpp>
-#include "internal/basic_csv_parser.hpp"
 #include "internal/csv_row.hpp"
-#include "internal/stream_parser.hpp"
+#include "internal/parser/driver.hpp"
+#include "internal/parser/stream.hpp"
 
 #include <deque>
 #include <memory>
@@ -12,6 +12,7 @@
 
 using namespace csv;
 using namespace csv::internals;
+using namespace csv::internals::parser;
 
 static std::vector<CSVRow> parse_raw_rows(
     const std::string& csv_text,

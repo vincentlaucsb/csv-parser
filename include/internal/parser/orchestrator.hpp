@@ -1,9 +1,11 @@
 #pragma once
 
-#include "csv_parallel_parser.hpp"
+#include "../csv_parallel_parser.hpp"
+#include "driver.hpp"
 
 namespace csv {
     namespace internals {
+        namespace parser {
         class CSVParseOrchestrator : public ICSVParseOrchestrator {
         public:
             CSVParseOrchestrator(
@@ -219,6 +221,7 @@ namespace csv {
                 enable_speculative_parallel,
                 source_size_known
             ));
+        }
         }
     }
 }
