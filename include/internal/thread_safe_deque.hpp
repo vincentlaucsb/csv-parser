@@ -27,7 +27,9 @@ namespace csv {
          *
          *  Concurrency strategy: writer-side mutations (push_back/pop_front) are locked;
          *  hot-path flags (empty/is_waitable) are atomic; inspect() is the synchronized
-         *  observation path for tests and diagnostics.
+         *  observation path for tests and diagnostics. Keep inspect() as a local
+         *  ThreadSafeDeque affordance instead of promoting a generic queue-view type
+         *  into the parser queue concept.
          */
         template<typename T>
         class ThreadSafeDeque {
@@ -130,7 +132,10 @@ namespace csv {
             /** Invoke @p callback with a synchronized copy of queued rows.
              *
              *  Intended for tests and diagnostics that need stable indexed
-             *  observation without exposing unsynchronized random access.
+             *  observation without exposing unsynchronized random access. The
+             *  plain vector snapshot is deliberate: callers do not need to know
+             *  whether the underlying queue is batch-backed, and RowDequeLike
+             *  should not grow a custom inspection-view abstraction.
              */
             template<typename Callback>
             void inspect(Callback&& callback) const {

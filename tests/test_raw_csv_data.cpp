@@ -102,6 +102,7 @@ TEST_CASE("CSVParserCore default policies emit CSVRow output", "[raw_csv_parse][
     REQUIRE(parsed_rows[1][1] == "2");
 }
 
+#if CSV_ENABLE_THREADS
 TEST_CASE("Row collection inspect peeks queued rows from synchronized snapshot", "[raw_csv_parse][row_deque]") {
     auto parsed_rows = parse_raw_rows(
         "A,B\n"
@@ -119,6 +120,7 @@ TEST_CASE("Row collection inspect peeks queued rows from synchronized snapshot",
 
     REQUIRE(rows.size() == 2);
 }
+#endif
 
 TEST_CASE("Row collection append_rows preserves order and ignores empty batches", "[raw_csv_parse][row_deque]") {
     auto parsed_rows = parse_raw_rows(
@@ -134,12 +136,14 @@ TEST_CASE("Row collection append_rows preserves order and ignores empty batches"
 
     rows.append_rows(std::move(parsed_rows));
 
+#if CSV_ENABLE_THREADS
     rows.inspect([](const std::vector<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "A");
         REQUIRE(queued[1][0] == "1");
         REQUIRE(queued[2][1] == "4");
     });
+#endif
 
     REQUIRE_FALSE(rows.empty());
     REQUIRE(rows.pop_front()[0] == "A");
@@ -202,12 +206,14 @@ TEST_CASE("Row collection drain_front preserves partial batch remainders", "[raw
     REQUIRE(drained[1][0] == "1");
     REQUIRE(rows.size() == 3);
 
+#if CSV_ENABLE_THREADS
     rows.inspect([](const std::vector<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "3");
         REQUIRE(queued[1][0] == "5");
         REQUIRE(queued[2][0] == "7");
     });
+#endif
 
     std::vector<CSVRow> rest;
     REQUIRE(rows.drain_front(rest, 10) == 3);

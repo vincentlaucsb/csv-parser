@@ -284,14 +284,14 @@ TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection",
     validator.finish();
 
     REQUIRE(validator.repair_count() == 1);
-    output.inspect([](const std::vector<CSVRow>& queued) {
-        REQUIRE(queued.size() == 3);
-        REQUIRE(queued[0][0] == "id");
-        REQUIRE(queued[1][0] == "1");
-        REQUIRE(queued[1][1] == "hello world");
-        REQUIRE(queued[2][0] == "2");
-        REQUIRE(queued[2][1] == "done");
-    });
+    std::vector<CSVRow> queued;
+    output.drain_front(queued, output.size());
+    REQUIRE(queued.size() == 3);
+    REQUIRE(queued[0][0] == "id");
+    REQUIRE(queued[1][0] == "1");
+    REQUIRE(queued[1][1] == "hello world");
+    REQUIRE(queued[2][0] == "2");
+    REQUIRE(queued[2][1] == "done");
 }
 
 TEST_CASE("Speculative validator carries split rows across chunks without record boundaries", "[raw_csv_parse][speculative][validator]") {

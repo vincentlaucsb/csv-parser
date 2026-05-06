@@ -12,6 +12,12 @@
 
 namespace csv {
     namespace internals {
+        /** Minimal row queue used when parser threading is disabled.
+         *
+         *  This intentionally stores rows directly. It only needs to satisfy the
+         *  parser queue operations in RowDequeLike; it does not mirror
+         *  ThreadSafeDeque's batch storage or test-only inspection helper.
+         */
         template<typename T>
         class SingleThreadDeque {
         public:

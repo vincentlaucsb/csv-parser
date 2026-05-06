@@ -30,6 +30,10 @@ namespace csv {
 #endif
 
 #ifdef CSV_HAS_CXX20
+        // This concept is intentionally limited to parser queue semantics.
+        // Diagnostics such as ThreadSafeDeque::inspect() stay out of the
+        // contract so single-threaded and threaded queues can use different
+        // storage without inventing a generic inspection-view abstraction.
         template<typename Q, typename T>
         concept RowDequeLike = requires(Q q, const Q cq, T item, size_t n, std::vector<T> batch) {
             { Q(100) };
@@ -45,12 +49,12 @@ namespace csv {
             { cq.size() } -> std::same_as<size_t>;
         };
 
-        #if CSV_ENABLE_THREADS
+#if CSV_ENABLE_THREADS
             static_assert(RowDequeLike<ThreadSafeDeque<int>, int>, "ThreadSafeDeque must satisfy RowDequeLike contract");
-        #else
+#else
             static_assert(RowDequeLike<SingleThreadDeque<int>, int>, "SingleThreadDeque must satisfy RowDequeLike contract");
             static_assert(RowDequeLike<ThreadSafeDeque<int>, int>, "Selected ThreadSafeDeque alias must satisfy RowDequeLike contract");
-        #endif
+#endif
 #endif
     }
 }

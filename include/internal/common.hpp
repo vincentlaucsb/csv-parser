@@ -108,6 +108,22 @@
 #define CSV_HAS_CXX14
 #endif
 
+// Annotate intentional switch fallthroughs in parser hot loops without
+// reshaping the control flow just to appease compiler diagnostics.
+#if defined(CSV_HAS_CXX17)
+#define CSV_FALLTHROUGH [[fallthrough]]
+#elif defined(__clang__) && defined(__has_cpp_attribute)
+#if __has_cpp_attribute(clang::fallthrough)
+#define CSV_FALLTHROUGH [[clang::fallthrough]]
+#else
+#define CSV_FALLTHROUGH ((void)0)
+#endif
+#elif defined(__GNUC__) && __GNUC__ >= 7
+#define CSV_FALLTHROUGH __attribute__((fallthrough))
+#else
+#define CSV_FALLTHROUGH ((void)0)
+#endif
+
 // Include string_view BEFORE csv namespace to avoid namespace pollution issues
 #ifdef CSV_HAS_CXX17
 #include <string_view>

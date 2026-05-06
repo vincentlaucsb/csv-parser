@@ -454,6 +454,7 @@ namespace csv {
                 this->resolve_pending_linefeed_at_start(in);
                 this->resolve_pending_quote_at_start(in);
                 while (this->data_pos_ < in.size()) {
+                    const size_t raw_end = this->data_pos_;
                     switch (compound_parse_flag(in[this->data_pos_])) {
                     case ParseFlags::DELIMITER:
                         this->push_field();
@@ -461,26 +462,22 @@ namespace csv {
                         break;
 
                     case ParseFlags::CARRIAGE_RETURN:
-                    {
-                        const size_t raw_end = this->data_pos_;
                         if (this->data_pos_ + 1 == in.size()) {
                             this->pending_linefeed_ = true;
+                            this->data_pos_++;
+                            this->finish_row(raw_end);
+                            break;
                         }
                         else if (parse_flag(in[this->data_pos_ + 1]) == ParseFlags::NEWLINE) {
                             this->data_pos_++;
                         }
-                        this->data_pos_++;
-                        this->finish_row(raw_end);
-                        break;
-                    }
+
+                        CSV_FALLTHROUGH;
 
                     case ParseFlags::NEWLINE:
-                    {
-                        const size_t raw_end = this->data_pos_;
                         this->data_pos_++;
                         this->finish_row(raw_end);
                         break;
-                    }
 
                     case ParseFlags::NOT_SPECIAL:
                         this->parse_field();
