@@ -204,6 +204,12 @@ namespace csv {
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
             ) : CSVParserCore<std::vector<CSVRow>>(parse_flags, ws_flags) {}
+
+            ChunkParserCore(
+                const ParseFlagMap& parse_flags,
+                const WhitespaceMap& ws_flags,
+                const ColNamesPtr& col_names
+            ) : CSVParserCore<std::vector<CSVRow>>(parse_flags, ws_flags, col_names) {}
         };
         }
     }

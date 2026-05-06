@@ -79,6 +79,50 @@ TEST_CASE("Speculative scanner uses probability model for unresolved embedded-qu
     REQUIRE_FALSE(speculation.assumed_start_state.quote_escape);
 }
 
+TEST_CASE("Speculative scanner probability model can choose a quoted start", "[raw_csv_parse][speculative]") {
+    SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
+    const std::string chunk = "\",";
+
+    const auto speculation = scanner.speculate(8, 4096, chunk);
+
+    REQUIRE(speculation.ambiguous);
+    REQUIRE(speculation.used_probability_model);
+    REQUIRE_FALSE(speculation.used_record_size_heuristic);
+    REQUIRE(speculation.quoted_start_odds > 1);
+    REQUIRE(speculation.assumed_start_state.quote_escape);
+}
+
+TEST_CASE("Speculative scanner falls back to record-size heuristic when odds tie", "[raw_csv_parse][speculative]") {
+    SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
+    const std::string chunk = ",\",";
+
+    const auto speculation = scanner.speculate(9, 8192, chunk);
+
+    REQUIRE(speculation.ambiguous);
+    REQUIRE_FALSE(speculation.used_probability_model);
+    REQUIRE(speculation.used_record_size_heuristic);
+    REQUIRE_FALSE(speculation.assumed_start_state.quote_escape);
+
+    SpeculativeParseDiagnostics diagnostics;
+    observe_speculation(diagnostics, speculation);
+    REQUIRE(diagnostics.chunks == 1);
+    REQUIRE(diagnostics.ambiguous_chunks == 1);
+    REQUIRE(diagnostics.record_size_heuristic_chunks == 1);
+    REQUIRE(diagnostics.assumed_unquoted_chunks == 1);
+}
+
+TEST_CASE("Speculative scanner record-size heuristic can choose a quoted start", "[raw_csv_parse][speculative]") {
+    SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
+    const std::string chunk = "\"\n\"\n";
+
+    const auto speculation = scanner.speculate(10, 12288, chunk);
+
+    REQUIRE(speculation.ambiguous);
+    REQUIRE_FALSE(speculation.used_probability_model);
+    REQUIRE(speculation.used_record_size_heuristic);
+    REQUIRE(speculation.assumed_start_state.quote_escape);
+}
+
 TEST_CASE("Speculative scanner preserves escaped quote pairs in quoted interpretation", "[raw_csv_parse][speculative]") {
     SpeculativeScanner scanner(internals::make_parse_flags(',', '"'));
     const std::string chunk = "continued \"\"quoted\"\" text\",tail\n";

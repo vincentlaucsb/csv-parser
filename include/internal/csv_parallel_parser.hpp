@@ -80,9 +80,11 @@ namespace csv {
             ParallelCSVParser(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags,
-                size_t worker_count = 1
+                size_t worker_count = 1,
+                const ColNamesPtr& col_names = nullptr
             ) : parse_flags_(parse_flags),
                 ws_flags_(ws_flags),
+                col_names_(col_names),
                 worker_count_(worker_count == 0 ? 1 : worker_count) {
                 this->start_workers();
             }
@@ -95,7 +97,7 @@ namespace csv {
             ParallelCSVParser& operator=(const ParallelCSVParser&) = delete;
 
             ParsedChunkRows parse_chunk(const SpeculativeParseChunk& chunk) const {
-                ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
+                ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 return this->parse_chunk_with(parser, chunk);
             }
 
@@ -114,7 +116,7 @@ namespace csv {
                 std::vector<ParsedChunkRows> parsed(chunks.size());
                 this->parse_chunks_into(chunks, parsed);
 
-                ChunkParserCore repair_parser(this->parse_flags_, this->ws_flags_);
+                ChunkParserCore repair_parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 SpeculativeParseValidator<RowSink> validator(repair_parser, output);
                 for (size_t i = 0; i < parsed.size(); ++i) {
                     validator.validate_and_release(std::move(parsed[i]));
@@ -172,7 +174,7 @@ namespace csv {
                     return;
                 }
 
-                ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
+                ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 for (size_t i = 0; i < chunks.size(); ++i) {
                     parsed[i] = this->parse_chunk_with(parser, chunks[i]);
                 }
@@ -183,7 +185,7 @@ namespace csv {
                 std::vector<ParsedChunkRows>& parsed
             ) {
                 if (this->workers_.empty()) {
-                    ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
+                    ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                     for (size_t i = 0; i < chunks.size(); ++i) {
                         parsed[i] = this->parse_chunk_with(parser, chunks[i]);
                     }
@@ -246,7 +248,7 @@ namespace csv {
             }
 
             void worker_loop() {
-                ChunkParserCore parser(this->parse_flags_, this->ws_flags_);
+                ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 size_t observed_generation = 0;
 
                 for (;;) {
@@ -302,6 +304,7 @@ namespace csv {
 
             ParseFlagMap parse_flags_;
             WhitespaceMap ws_flags_;
+            ColNamesPtr col_names_;
             size_t worker_count_;
             std::vector<std::thread> workers_;
             std::mutex work_mutex_;

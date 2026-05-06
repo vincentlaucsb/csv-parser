@@ -50,7 +50,8 @@ namespace csv {
                     this->speculative_parser_.reset(new speculative::ParallelCSVParser(
                         this->parse_flags_,
                         this->ws_flags_,
-                        this->worker_count_
+                        this->worker_count_,
+                        col_names
                     ));
                 }
 #else

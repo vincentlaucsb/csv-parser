@@ -24,6 +24,42 @@
 
 using namespace csv;
 
+namespace {
+#ifndef __EMSCRIPTEN__
+    const char* quoted_round_trip_matrix_filename() {
+        static const char* filename = "round_trip_quoted_matrix.csv";
+        static FileGuard cleanup(filename);
+        static bool generated = false;
+
+        // Catch2 SECTIONs re-run the test body, so keep this expensive fixture
+        // memoized locally. If another round-trip matrix needs the same pattern,
+        // move the helper into tests/shared instead of duplicating it.
+        if (!generated) {
+            std::ofstream outfile(filename, std::ios::binary);
+            auto writer = make_csv_writer(outfile);
+
+            writer << std::vector<std::string>({ "id", "with_comma", "with_newline", "with_quote", "empty" });
+
+            const size_t n_rows = 300000;  // Enough to cross 10MB chunk boundary
+
+            for (size_t i = 0; i < n_rows; i++) {
+                auto id = internals::to_string(i);
+                auto with_comma = "value," + internals::to_string(i) + ",data";
+                auto with_newline = "line1\nline2_" + internals::to_string(i);
+                auto with_quote = "quoted\"value\"" + internals::to_string(i);
+                auto empty = std::string("");
+
+                writer << std::array<std::string, 5>({ id, with_comma, with_newline, with_quote, empty });
+            }
+
+            generated = true;
+        }
+
+        return filename;
+    }
+#endif
+}
+
 // ==============================================================================
 // EASY: Basic round trip with uniform values
 // ==============================================================================
@@ -199,44 +235,13 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quoted]") {
-    // Stress test: quoted fields with embedded delimiters, newlines, and escaped quotes
-    // This tests the parser's ability to handle complex quoting scenarios across chunk boundaries
-    auto filename = "round_trip_quoted.csv";
-
-    FileGuard cleanup(filename);
-    // Write the CSV file with challenging content
-    {
-        std::ofstream outfile(filename, std::ios::binary);
-        auto writer = make_csv_writer(outfile);
-
-        writer << std::vector<std::string>({ "id", "with_comma", "with_newline", "with_quote", "empty" });
-
-        const size_t n_rows = 300000;  // Enough to cross 10MB chunk boundary
-
-        for (size_t i = 0; i < n_rows; i++) {
-            // Create progressively challenging fields
-            auto id = internals::to_string(i);
-
-            // Field with embedded comma (requires quoting)
-            auto with_comma = "value," + internals::to_string(i) + ",data";
-
-            // Field with embedded newline (requires quoting)
-            auto with_newline = "line1\nline2_" + internals::to_string(i);
-
-            // Field with embedded quote (requires quoting and escaping)
-            auto with_quote = "quoted\"value\"" + internals::to_string(i);
-
-            // Empty field
-            auto empty = std::string("");
-
-            writer << std::array<std::string, 5>({ id, with_comma, with_newline, with_quote, empty });
-        }
-    }
-
+    const char* filename = quoted_round_trip_matrix_filename();
     const size_t expected_rows = 300000;
 
     // Validation logic
-    auto validate_reader = [&](CSVReader& reader) {
+    auto validate_reader = [&](CSVReader& reader, size_t expected_workers, bool expect_speculative) {
+        REQUIRE(reader.parse_worker_count() == expected_workers);
+
         size_t i = 0;
         for (auto& row : reader) {
             // Verify field count
@@ -263,17 +268,45 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
             i++;
         }
         REQUIRE(reader.n_rows() == expected_rows);
+        if (expect_speculative) {
+            REQUIRE(reader.speculative_diagnostics().chunks > 0);
+        }
+        else {
+            REQUIRE(reader.speculative_diagnostics().chunks == 0);
+        }
         };
+
+    CSVFormat serial_format;
+
+#if CSV_ENABLE_THREADS
+    CSVFormat speculative_format;
+    speculative_format.speculative_parallel()
+        .speculative_parallel_min_bytes(1)
+        .speculative_parallel_threads(2);
+#endif
 
     SECTION("Memory-mapped file path") {
         CSVReader reader(filename);
-        validate_reader(reader);
+        validate_reader(reader, 1, false);
     }
 
     SECTION("std::ifstream path") {
         std::ifstream infile(filename, std::ios::binary);
-        CSVReader reader(infile, CSVFormat());
-        validate_reader(reader);
+        CSVReader reader(infile, serial_format);
+        validate_reader(reader, 1, false);
     }
+
+#if CSV_ENABLE_THREADS
+    SECTION("Memory-mapped speculative path") {
+        CSVReader reader(filename, speculative_format);
+        validate_reader(reader, 2, true);
+    }
+
+    SECTION("std::ifstream speculative path") {
+        std::ifstream infile(filename, std::ios::binary);
+        CSVReader reader(infile, speculative_format);
+        validate_reader(reader, 2, true);
+    }
+#endif
 }
 #endif
