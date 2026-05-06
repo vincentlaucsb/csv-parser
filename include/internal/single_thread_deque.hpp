@@ -31,12 +31,19 @@ namespace csv {
                 return this->_is_empty;
             }
 
-            T& front() noexcept {
-                return this->data.front();
-            }
-
             void push_back(T&& item) {
                 this->data.push_back(std::move(item));
+                this->_is_empty = false;
+            }
+
+            void append_rows(std::vector<T>&& rows) {
+                if (rows.empty()) {
+                    return;
+                }
+
+                for (auto& row : rows) {
+                    this->data.push_back(std::move(row));
+                }
                 this->_is_empty = false;
             }
 
@@ -87,14 +94,6 @@ namespace csv {
 
             size_t size() const noexcept {
                 return this->data.size();
-            }
-
-            typename std::deque<T>::iterator begin() noexcept {
-                return this->data.begin();
-            }
-
-            typename std::deque<T>::iterator end() noexcept {
-                return this->data.end();
             }
 
             void notify_all() {

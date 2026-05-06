@@ -223,6 +223,29 @@ namespace csv {
                 this->end_row(std::move(row));
             }
 
+            void append_rows(std::vector<CSVRow>&& rows) {
+                if (rows.empty()) {
+                    return;
+                }
+
+                switch (this->kind_) {
+                case Kind::RowCollection:
+                    this->records_->append_rows(std::move(rows));
+                    break;
+                case Kind::Vector:
+                    this->vector_rows_->reserve(this->vector_rows_->size() + rows.size());
+                    for (auto& row : rows) {
+                        this->vector_rows_->push_back(std::move(row));
+                    }
+                    break;
+                case Kind::Forward:
+                    this->forward_->append_rows(std::move(rows));
+                    break;
+                case Kind::None:
+                    break;
+                }
+            }
+
             void end_row(CSVRow&& row) {
                 switch (this->kind_) {
                 case Kind::RowCollection:

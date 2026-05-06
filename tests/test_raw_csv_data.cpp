@@ -99,6 +99,34 @@ TEST_CASE("Row collection inspect peeks queued rows under one lock", "[raw_csv_p
     REQUIRE(rows.size() == 2);
 }
 
+TEST_CASE("Row collection append_rows preserves order and ignores empty batches", "[raw_csv_parse][row_deque]") {
+    auto parsed_rows = parse_raw_rows(
+        "A,B\n"
+        "1,2\n"
+        "3,4\n"
+    );
+    RowCollection rows;
+
+    rows.append_rows(std::vector<CSVRow>());
+    REQUIRE(rows.empty());
+    REQUIRE(rows.size() == 0);
+
+    rows.append_rows(std::move(parsed_rows));
+
+    rows.inspect([](const std::deque<CSVRow>& queued) {
+        REQUIRE(queued.size() == 3);
+        REQUIRE(queued[0][0] == "A");
+        REQUIRE(queued[1][0] == "1");
+        REQUIRE(queued[2][1] == "4");
+    });
+
+    REQUIRE_FALSE(rows.empty());
+    REQUIRE(rows.pop_front()[0] == "A");
+    REQUIRE(rows.pop_front()[0] == "1");
+    REQUIRE(rows.pop_front()[0] == "3");
+    REQUIRE(rows.empty());
+}
+
 TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]") {
     std::stringstream unused_source;
     std::vector<CSVRow> parsed_rows;

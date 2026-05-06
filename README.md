@@ -172,9 +172,6 @@ If you're including this in another CMake project, you can simply clone this rep
 and add the following to your CMakeLists.txt:
 
 ```
-# Optional: Defaults to C++ 17
-# set(CSV_CXX_STANDARD 11)
-
 # Optional: disable background parsing threads
 # set(CSV_ENABLE_THREADS OFF)
 
@@ -185,6 +182,29 @@ add_subdirectory(csv-parser)
 add_executable(<your program> ...)
 target_link_libraries(<your program> csv)
 
+```
+
+`csv-parser` respects the normal CMake `CMAKE_CXX_STANDARD` variable. If no
+standard is provided, it defaults to C++20. The project-specific
+`CSV_CXX_STANDARD` option is also supported as an explicit override:
+
+1. `CSV_CXX_STANDARD`, when set
+2. `CMAKE_CXX_STANDARD`, when set
+3. C++20 by default
+
+For example:
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+add_subdirectory(csv-parser)
+```
+
+or, if you want the csv-parser subtree to use a specific standard regardless of
+the parent project default:
+
+```cmake
+set(CSV_CXX_STANDARD 11)
+add_subdirectory(csv-parser)
 ```
 
 #### Avoid cloning with FetchContent

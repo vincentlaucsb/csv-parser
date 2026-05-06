@@ -75,9 +75,7 @@ namespace csv {
                     this->release_pending_suffix();
                 }
 
-                for (auto& row : chunk.complete_rows) {
-                    this->output_.push_row(std::move(row));
-                }
+                this->output_.append_rows(std::move(chunk.complete_rows));
 
                 this->pending_suffix_ = chunk.suffix_fragment;
                 this->expected_start_state_ = chunk.parse_result.ending_state;
@@ -89,9 +87,7 @@ namespace csv {
                 }
 
                 auto rows = materialize_row_fragment(this->repair_parser_, this->pending_suffix_);
-                for (auto& row : rows) {
-                    this->output_.push_row(std::move(row));
-                }
+                this->output_.append_rows(std::move(rows));
 
                 this->pending_suffix_ = CSVRowFragment();
             }

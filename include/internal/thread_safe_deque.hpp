@@ -47,14 +47,25 @@ namespace csv {
                 return this->_is_empty.load(std::memory_order_acquire);
             }
 
-            T& front() noexcept {
-                std::lock_guard<std::mutex> lock{ this->_lock };
-                return this->data.front();
-            }
-
             void push_back(T&& item) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 this->data.push_back(std::move(item));
+                this->_is_empty.store(false, std::memory_order_release);
+
+                if (this->data.size() >= _notify_size) {
+                    this->_cond.notify_all();
+                }
+            }
+
+            void append_rows(std::vector<T>&& rows) {
+                if (rows.empty()) {
+                    return;
+                }
+
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                for (auto& row : rows) {
+                    this->data.push_back(std::move(row));
+                }
                 this->_is_empty.store(false, std::memory_order_release);
 
                 if (this->data.size() >= _notify_size) {
@@ -125,14 +136,6 @@ namespace csv {
             size_t size() const noexcept {
                 std::lock_guard<std::mutex> lock{ this->_lock };
                 return this->data.size();
-            }
-
-            typename std::deque<T>::iterator begin() noexcept {
-                return this->data.begin();
-            }
-
-            typename std::deque<T>::iterator end() noexcept {
-                return this->data.end();
             }
 
             /** Tell listeners that this deque is actively being pushed to */

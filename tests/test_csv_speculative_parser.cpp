@@ -4,13 +4,13 @@
 #include "internal/stream_parser.hpp"
 #include "shared/file_guard.hpp"
 
+#include <deque>
 #include <fstream>
 #include <sstream>
 
 using namespace csv;
 using namespace csv::internals;
 using namespace csv::internals::speculative;
-using RowCollectionTest = ThreadSafeDeque<CSVRow>;
 
 #if CSV_ENABLE_THREADS
 TEST_CASE("Speculative scanner classifies obvious outside chunks", "[raw_csv_parse][speculative]") {
@@ -255,6 +255,70 @@ TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[
     REQUIRE(output[2][0] == "2");
     REQUIRE(output[2][1] == "done");
     REQUIRE(output[2][2] == "ok");
+}
+
+TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection", "[raw_csv_parse][speculative][validator][row_deque]") {
+    std::stringstream chunk0_source;
+    std::stringstream chunk1_source;
+    std::stringstream repair_source;
+
+    StreamParser<std::stringstream> chunk0_parser(
+        chunk0_source,
+        internals::make_parse_flags(',', '"'),
+        internals::WhitespaceMap()
+    );
+    StreamParser<std::stringstream> chunk1_parser(
+        chunk1_source,
+        internals::make_parse_flags(',', '"'),
+        internals::WhitespaceMap()
+    );
+    StreamParser<std::stringstream> repair_parser(
+        repair_source,
+        internals::make_parse_flags(',', '"'),
+        internals::WhitespaceMap()
+    );
+
+    auto chunk0 = std::make_shared<std::string>("id,text,status\n1,\"hello ");
+    std::vector<CSVRow> parsed0;
+    CSVRowOutput sink0(parsed0);
+    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, sink0);
+    auto rows0 = split_parsed_chunk_rows(0, *chunk0, chunk0, result0, std::move(parsed0), true);
+
+    auto chunk1 = std::make_shared<std::string>("world\",ok\n2,done,ok\n");
+    std::vector<CSVRow> parsed1_wrong;
+    CSVRowOutput sink1(parsed1_wrong);
+    const auto result1_wrong = chunk1_parser.parse_chunk(
+        *chunk1,
+        chunk1,
+        sink1,
+        ParserChunkOptions(ParserDFAState(false), false)
+    );
+    auto rows1_wrong = split_parsed_chunk_rows(
+        1,
+        *chunk1,
+        chunk1,
+        result1_wrong,
+        std::move(parsed1_wrong),
+        false
+    );
+
+    RowCollection output;
+    CSVRowOutput output_sink(output);
+    SpeculativeParseValidator validator(repair_parser, output_sink);
+
+    validator.validate_and_release(std::move(rows0));
+    validator.validate_and_release(std::move(rows1_wrong));
+    validator.finish();
+
+    REQUIRE(validator.repair_count() == 1);
+    output.inspect([](const std::deque<CSVRow>& queued) {
+        REQUIRE(queued.size() == 3);
+        REQUIRE(queued[0][0] == "id");
+        REQUIRE(queued[1][0] == "1");
+        REQUIRE(queued[1][1] == "hello world");
+        REQUIRE(queued[2][0] == "2");
+        REQUIRE(queued[2][1] == "done");
+    });
 }
 
 TEST_CASE("Speculative validator carries split rows across chunks without record boundaries", "[raw_csv_parse][speculative][validator]") {
