@@ -47,12 +47,12 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - CSVParserCore
   - Templated, non-virtual byte parser core in csv_parser_core.hpp.
-  - Owns DFA state, BOM handling, field/row construction, and parse-output policy dispatch.
+  - Owns DFA state, BOM handling, field/row construction, and concrete row-sink emission.
   - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
 
-- CSVRowOutput / PermissiveParsePolicy
-  - Default CSVRow-building output adapter and no-op parse policy extension point.
-  - Preserve RawCSVData/CSVRow lazy materialization while keeping the hot path free of virtual row sinks.
+- PermissiveParsePolicy
+  - No-op parse policy extension point.
+  - Preserves RawCSVData/CSVRow lazy materialization while keeping the hot path free of virtual row sinks.
 
 - CSVParserDriverBase
   - Internal source-adapter base that preserves the parser driver API used by CSVReader.

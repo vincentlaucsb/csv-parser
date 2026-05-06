@@ -98,25 +98,6 @@ namespace {
         csv_bench::set_bytes_processed(state, bytes);
     }
 
-    void BM_csv_parser_dataframe_save_with_csvwriter(benchmark::State& state) {
-        const auto& path = bench_file();
-        const auto bytes = std::filesystem::file_size(path);
-        std::size_t rows = 0;
-        const auto out_path = output_path("csv_parser_dataframe_save_bench.csv");
-        auto frame = load_csv_parser_frame(path, rows);
-        apply_two_column_edits(frame);
-
-        for (auto _ : state) {
-            save_csv_parser_frame(frame, out_path);
-
-            benchmark::DoNotOptimize(rows);
-            benchmark::ClobberMemory();
-        }
-
-        csv_bench::set_items_processed(state, rows);
-        csv_bench::set_bytes_processed(state, bytes);
-    }
-
     void BM_csv_parser_dataframe_load_and_csvwriter_save(benchmark::State& state) {
         const auto& path = bench_file();
         const auto bytes = std::filesystem::file_size(path);
@@ -152,25 +133,6 @@ namespace {
         csv_bench::set_bytes_processed(state, bytes);
     }
 
-    void BM_rapidcsv_document_save(benchmark::State& state) {
-        const auto& path = bench_file();
-        const auto bytes = std::filesystem::file_size(path);
-        std::size_t rows = 0;
-        const auto out_path = output_path("rapidcsv_document_save_bench.csv");
-        auto document = load_rapidcsv_document(path, rows);
-        apply_two_column_edits(document);
-
-        for (auto _ : state) {
-            save_rapidcsv_document(document, out_path);
-
-            benchmark::DoNotOptimize(rows);
-            benchmark::ClobberMemory();
-        }
-
-        csv_bench::set_items_processed(state, rows);
-        csv_bench::set_bytes_processed(state, bytes);
-    }
-
     void BM_rapidcsv_document_load_and_save(benchmark::State& state) {
         const auto& path = bench_file();
         const auto bytes = std::filesystem::file_size(path);
@@ -191,10 +153,8 @@ namespace {
     }
 
     BENCHMARK(BM_csv_parser_dataframe_load)->UseRealTime()->Unit(benchmark::kMillisecond);
-    BENCHMARK(BM_csv_parser_dataframe_save_with_csvwriter)->UseRealTime()->Unit(benchmark::kMillisecond);
     BENCHMARK(BM_csv_parser_dataframe_load_and_csvwriter_save)->UseRealTime()->Unit(benchmark::kMillisecond);
     BENCHMARK(BM_rapidcsv_document_load)->UseRealTime()->Unit(benchmark::kMillisecond);
-    BENCHMARK(BM_rapidcsv_document_save)->UseRealTime()->Unit(benchmark::kMillisecond);
     BENCHMARK(BM_rapidcsv_document_load_and_save)->UseRealTime()->Unit(benchmark::kMillisecond);
 }
 

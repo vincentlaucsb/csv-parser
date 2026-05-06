@@ -27,7 +27,7 @@ The short version:
   workloads here at the **materialization** stage, stays faster for the full
   materialize+multi-pass ETL path, and remains usable on multiline CSV that
   `fast-cpp-csv-parser` cannot parse at all.
-- Against `rapidcsv`, `csv-parser` wins every measured load, save, and
+- Against `rapidcsv`, `csv-parser` wins every measured load and edited
   load+save benchmark, often by a very wide margin.
 
 All tables below use **median real time** from the Google Benchmark output.
@@ -38,6 +38,10 @@ All tables below use **median real time** from the Google Benchmark output.
   constructor and therefore the native mmap parser where supported.
 - `csv_parser_multi_pass_bench`: single-threaded materialization and multi-pass
   ETL-style benchmarks using reusable `CSVRow` objects.
+- `csv_parser_fast_cpp_read_bench`: one-binary positional-read comparison
+  between this library and `fast-cpp-csv-parser`, with this library measured at
+  1, 2, 4, and 8 requested parser threads and `fast-cpp-csv-parser` reported
+  once as a single-thread baseline.
 - `fast_cpp_csv_parser_read_bench`: read-focused benchmarks for
   `fast-cpp-csv-parser`.
 - `fast_cpp_csv_parser_multi_pass_bench`: single-threaded materialization and
@@ -45,11 +49,11 @@ All tables below use **median real time** from the Google Benchmark output.
   fixed-width STL rows before running repeated passes.
 - `dataframe_rapidcsv_roundtrip_bench`: table/round-trip-oriented benchmarks
   comparing this library's `DataFrame` workflow with `rapidcsv`, including
-  load-only, save-only, and full round-trip cases.
+  load-only and edited full round-trip cases.
 
-The rapidcsv benchmark uses `rapidcsv::Document::Save()` for the rapidcsv write
-side. The csv-parser benchmark writes through this library's `CSVWriter`, so
-benchmark names call that out explicitly.
+The rapidcsv round-trip benchmark uses `rapidcsv::Document::Save()` for the
+rapidcsv write side. The csv-parser benchmark writes through this library's
+`CSVWriter`, so benchmark names call that out explicitly.
 
 ## Configure
 
@@ -103,6 +107,7 @@ Example run:
 ```powershell
 build/benchmarks/Release/csv_parser_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/csv_parser_multi_pass_bench.exe --benchmark_format=json data/bench_8col_500k.csv
+build/benchmarks/Release/csv_parser_fast_cpp_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/fast_cpp_csv_parser_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/fast_cpp_csv_parser_multi_pass_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/dataframe_rapidcsv_roundtrip_bench.exe --benchmark_format=json data/bench_8col_500k.csv
@@ -251,21 +256,21 @@ realistic table mutation work.
 
 Median real time, lower is better.
 
-| Dataset | csv-parser load | rapidcsv load | csv-parser save | rapidcsv save | csv-parser load+save | rapidcsv load+save |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| clean | 156 ms | 276 ms | 107 ms | 456 ms | 233 ms | 693 ms |
-| quoted | 173 ms | 322 ms | 210 ms | 559 ms | 466 ms | 866 ms |
-| multiline | 170 ms | 332 ms | 183 ms | 569 ms | 419 ms | 916 ms |
+| Dataset | csv-parser load | rapidcsv load | csv-parser load+save | rapidcsv load+save |
+| --- | ---: | ---: | ---: | ---: |
+| clean | 156 ms | 276 ms | 233 ms | 693 ms |
+| quoted | 173 ms | 322 ms | 466 ms | 866 ms |
+| multiline | 170 ms | 332 ms | 419 ms | 916 ms |
 
 ### 5M Rows
 
 Median real time, lower is better.
 
-| Dataset | csv-parser load | rapidcsv load | csv-parser save | rapidcsv save | csv-parser load+save | rapidcsv load+save |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| clean | 1549 ms | 2684 ms | 1059 ms | 4546 ms | 2570 ms | 7067 ms |
-| quoted | 1680 ms | 3609 ms | 2806 ms | 5634 ms | 5231 ms | 9979 ms |
-| multiline | 1839 ms | 3610 ms | 2544 ms | 5741 ms | 4734 ms | 9505 ms |
+| Dataset | csv-parser load | rapidcsv load | csv-parser load+save | rapidcsv load+save |
+| --- | ---: | ---: | ---: | ---: |
+| clean | 1549 ms | 2684 ms | 2570 ms | 7067 ms |
+| quoted | 1680 ms | 3609 ms | 5231 ms | 9979 ms |
+| multiline | 1839 ms | 3610 ms | 4734 ms | 9505 ms |
 
 ### Headline Ratios
 
@@ -274,15 +279,13 @@ Some representative median speedups:
 | Workflow | Dataset | Speedup |
 | --- | --- | ---: |
 | Load | 5M quoted | 2.15x faster |
-| Save | 5M clean | 4.29x faster |
 | Load+save | 5M clean | 2.75x faster |
 | Load+save | 5M multiline | 2.01x faster |
 
 The broad conclusion is straightforward:
 
 - `csv-parser` loads faster
-- `csv-parser` saves faster
-- `csv-parser` round-trips faster
+- `csv-parser` edited round-trips faster
 - `csv-parser` stays ahead on clean, quoted, and multiline data
 
 This is not a narrow win on one cherry-picked case. It is a clean sweep across
@@ -315,6 +318,7 @@ Each profile directory contains:
 - `benchmark_input.csv`: the exact generated input used for the run
 - `csv_parser_read_bench.json`
 - `csv_parser_multi_pass_bench.json`
+- `csv_parser_fast_cpp_read_bench.json` where applicable
 - `fast_cpp_csv_parser_read_bench.json` where applicable
 - `fast_cpp_csv_parser_multi_pass_bench.json` where applicable
 - `dataframe_rapidcsv_roundtrip_bench.json`

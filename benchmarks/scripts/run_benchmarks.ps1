@@ -137,6 +137,7 @@ if (-not (Test-Path $exeDir)) {
 $benches = @(
     "csv_parser_read_bench",
     "csv_parser_multi_pass_bench",
+    "csv_parser_fast_cpp_read_bench",
     "fast_cpp_csv_parser_read_bench",
     "fast_cpp_csv_parser_multi_pass_bench",
     "dataframe_rapidcsv_roundtrip_bench"
@@ -152,6 +153,8 @@ foreach ($datasetSpec in $datasetSpecs) {
         "csv_parser_read_bench.json.tmp",
         "csv_parser_multi_pass_bench.json",
         "csv_parser_multi_pass_bench.json.tmp",
+        "csv_parser_fast_cpp_read_bench.json",
+        "csv_parser_fast_cpp_read_bench.json.tmp",
         "fast_cpp_csv_parser_read_bench.json",
         "fast_cpp_csv_parser_read_bench.json.tmp",
         "fast_cpp_csv_parser_multi_pass_bench.json",
@@ -194,6 +197,7 @@ foreach ($datasetSpec in $datasetSpecs) {
 
         foreach ($bench in $benches) {
             if (($datasetProfile -eq "multiline") -and (
+                ($bench -eq "csv_parser_fast_cpp_read_bench") -or
                 ($bench -eq "fast_cpp_csv_parser_read_bench") -or
                 ($bench -eq "fast_cpp_csv_parser_multi_pass_bench")
             )) {

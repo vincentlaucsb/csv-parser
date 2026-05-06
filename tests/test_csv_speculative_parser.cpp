@@ -90,19 +90,16 @@ TEST_CASE("Speculative scanner preserves escaped quote pairs in quoted interpret
 #endif
 
 TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv_parse][fragments]") {
-    std::stringstream unused_source;
-    StreamParser<std::stringstream> parser(
-        unused_source,
+    CSVParserCore<std::vector<CSVRow>> parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
     SECTION("record-boundary chunk keeps trailing partial row as suffix") {
         std::vector<CSVRow> parsed_rows;
-        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>("id,value\n1,\"long");
 
-        const auto parse_result = parser.parse_chunk(*chunk, chunk, sink);
+        const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows);
         auto rows = split_parsed_chunk_rows(
             0,
             *chunk,
@@ -121,11 +118,10 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("continuation chunk keeps leading partial row as prefix") {
         std::vector<CSVRow> parsed_rows;
-        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>(" value\",2\n3,Bob\n4,\"tail");
         ParserChunkOptions options(ParserDFAState(true), false);
 
-        const auto parse_result = parser.parse_chunk(*chunk, chunk, sink, options);
+        const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows, options);
         auto rows = split_parsed_chunk_rows(
             1,
             *chunk,
@@ -145,11 +141,10 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("continuation prefix preserves embedded newlines") {
         std::vector<CSVRow> parsed_rows;
-        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>("line one\nline two\",tail\nnext,row\npartial");
         ParserChunkOptions options(ParserDFAState(true), false);
 
-        const auto parse_result = parser.parse_chunk(*chunk, chunk, sink, options);
+        const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows, options);
         auto rows = split_parsed_chunk_rows(
             2,
             *chunk,
@@ -168,11 +163,10 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("continuation chunk without a record boundary is one prefix fragment") {
         std::vector<CSVRow> parsed_rows;
-        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>(" still inside the same quoted field");
         ParserChunkOptions options(ParserDFAState(true), false);
 
-        const auto parse_result = parser.parse_chunk(*chunk, chunk, sink, options);
+        const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows, options);
         auto rows = split_parsed_chunk_rows(
             2,
             *chunk,
@@ -191,39 +185,30 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
 #if CSV_ENABLE_THREADS
 TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[raw_csv_parse][speculative][validator]") {
-    std::stringstream chunk0_source;
-    std::stringstream chunk1_source;
-    std::stringstream repair_source;
-
-    StreamParser<std::stringstream> chunk0_parser(
-        chunk0_source,
+    ChunkParserCore chunk0_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> chunk1_parser(
-        chunk1_source,
+    ChunkParserCore chunk1_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> repair_parser(
-        repair_source,
+    ChunkParserCore repair_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
     auto chunk0 = std::make_shared<std::string>("id,text,status\n1,\"hello ");
     std::vector<CSVRow> parsed0;
-    CSVRowOutput sink0(parsed0);
-    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, sink0);
+    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, parsed0);
     auto rows0 = split_parsed_chunk_rows(0, *chunk0, chunk0, result0, std::move(parsed0), true);
 
     auto chunk1 = std::make_shared<std::string>("world\",ok\n2,done,ok\n");
     std::vector<CSVRow> parsed1_wrong;
-    CSVRowOutput sink1(parsed1_wrong);
     const auto result1_wrong = chunk1_parser.parse_chunk(
         *chunk1,
         chunk1,
-        sink1,
+        parsed1_wrong,
         ParserChunkOptions(ParserDFAState(false), false)
     );
     auto rows1_wrong = split_parsed_chunk_rows(
@@ -236,8 +221,7 @@ TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[
     );
 
     std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
-    SpeculativeParseValidator validator(repair_parser, output_sink);
+    SpeculativeParseValidator<std::vector<CSVRow>> validator(repair_parser, output);
 
     validator.validate_and_release(std::move(rows0));
     REQUIRE(output.size() == 1);
@@ -257,39 +241,30 @@ TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[
 }
 
 TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection", "[raw_csv_parse][speculative][validator][row_deque]") {
-    std::stringstream chunk0_source;
-    std::stringstream chunk1_source;
-    std::stringstream repair_source;
-
-    StreamParser<std::stringstream> chunk0_parser(
-        chunk0_source,
+    ChunkParserCore chunk0_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> chunk1_parser(
-        chunk1_source,
+    ChunkParserCore chunk1_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> repair_parser(
-        repair_source,
+    ChunkParserCore repair_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
     auto chunk0 = std::make_shared<std::string>("id,text,status\n1,\"hello ");
     std::vector<CSVRow> parsed0;
-    CSVRowOutput sink0(parsed0);
-    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, sink0);
+    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, parsed0);
     auto rows0 = split_parsed_chunk_rows(0, *chunk0, chunk0, result0, std::move(parsed0), true);
 
     auto chunk1 = std::make_shared<std::string>("world\",ok\n2,done,ok\n");
     std::vector<CSVRow> parsed1_wrong;
-    CSVRowOutput sink1(parsed1_wrong);
     const auto result1_wrong = chunk1_parser.parse_chunk(
         *chunk1,
         chunk1,
-        sink1,
+        parsed1_wrong,
         ParserChunkOptions(ParserDFAState(false), false)
     );
     auto rows1_wrong = split_parsed_chunk_rows(
@@ -302,8 +277,7 @@ TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection",
     );
 
     RowCollection output;
-    CSVRowOutput output_sink(output);
-    SpeculativeParseValidator validator(repair_parser, output_sink);
+    SpeculativeParseValidator<RowCollection> validator(repair_parser, output);
 
     validator.validate_and_release(std::move(rows0));
     validator.validate_and_release(std::move(rows1_wrong));
@@ -321,63 +295,50 @@ TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection",
 }
 
 TEST_CASE("Speculative validator carries split rows across chunks without record boundaries", "[raw_csv_parse][speculative][validator]") {
-    std::stringstream chunk0_source;
-    std::stringstream chunk1_source;
-    std::stringstream chunk2_source;
-    std::stringstream repair_source;
-
-    StreamParser<std::stringstream> chunk0_parser(
-        chunk0_source,
+    ChunkParserCore chunk0_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> chunk1_parser(
-        chunk1_source,
+    ChunkParserCore chunk1_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> chunk2_parser(
-        chunk2_source,
+    ChunkParserCore chunk2_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
-    StreamParser<std::stringstream> repair_parser(
-        repair_source,
+    ChunkParserCore repair_parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
     auto chunk0 = std::make_shared<std::string>("id,text,status\n1,\"alpha");
     std::vector<CSVRow> parsed0;
-    CSVRowOutput sink0(parsed0);
-    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, sink0);
+    const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, parsed0);
     auto rows0 = split_parsed_chunk_rows(0, *chunk0, chunk0, result0, std::move(parsed0), true);
 
     auto chunk1 = std::make_shared<std::string>(" beta");
     std::vector<CSVRow> parsed1;
-    CSVRowOutput sink1(parsed1);
     const auto result1 = chunk1_parser.parse_chunk(
         *chunk1,
         chunk1,
-        sink1,
+        parsed1,
         ParserChunkOptions(ParserDFAState(true), false)
     );
     auto rows1 = split_parsed_chunk_rows(1, *chunk1, chunk1, result1, std::move(parsed1), false);
 
     auto chunk2 = std::make_shared<std::string>(" gamma\",ok\n");
     std::vector<CSVRow> parsed2;
-    CSVRowOutput sink2(parsed2);
     const auto result2 = chunk2_parser.parse_chunk(
         *chunk2,
         chunk2,
-        sink2,
+        parsed2,
         ParserChunkOptions(ParserDFAState(true), false)
     );
     auto rows2 = split_parsed_chunk_rows(2, *chunk2, chunk2, result2, std::move(parsed2), false);
 
     std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
-    SpeculativeParseValidator validator(repair_parser, output_sink);
+    SpeculativeParseValidator<std::vector<CSVRow>> validator(repair_parser, output);
 
     validator.validate_and_release(std::move(rows0));
     REQUIRE(output.size() == 1);
@@ -426,9 +387,8 @@ TEST_CASE("ParallelCSVParser repairs speculative worker output in order", "[raw_
     chunks.push_back(second);
 
     std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 2);
-    const auto result = parser.parse_chunks(chunks, output_sink);
+    const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == 2);
     REQUIRE(result.repair_count == 1);
@@ -458,9 +418,8 @@ TEST_CASE("ParallelCSVParser parses caller-owned chunks from the speculative sca
     REQUIRE(chunks.size() > 3);
 
     std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 3);
-    const auto result = parser.parse_chunks(chunks, output_sink);
+    const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == chunks.size());
     REQUIRE(output.size() == 4);
@@ -507,9 +466,8 @@ TEST_CASE("ParallelCSVParser can leave the final split row pending", "[raw_csv_p
     chunks.push_back(second);
 
     std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 2);
-    const auto result = parser.parse_chunks(chunks, output_sink, false);
+    const auto result = parser.parse_chunks(chunks, output, false);
 
     REQUIRE(result.chunks_processed == 2);
     REQUIRE(result.repair_count == 0);
@@ -530,9 +488,8 @@ TEST_CASE("ParallelCSVParser repairs chunks split between CR and LF", "[raw_csv_
     REQUIRE(chunks.size() == 3);
 
     std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 2);
-    const auto result = parser.parse_chunks(chunks, output_sink);
+    const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == chunks.size());
     REQUIRE(result.repair_count >= 1);
@@ -572,24 +529,25 @@ TEST_CASE("MmapParser speculative path preserves row order and split quoted rows
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
-    std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
+    RowCollection output;
     MmapParser parser(cleanup.filename, format);
-    parser.set_output(output_sink);
+    parser.set_output(output);
 
     while (!parser.eof()) {
         parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
     }
 
-    REQUIRE(output.size() == generated_rows + 2);
-    REQUIRE(output[0][0] == "0");
-    REQUIRE(output[generated_rows - 1][0].get<std::string>() == std::to_string(generated_rows - 1));
-    REQUIRE(output[generated_rows][0] == "tail-quoted");
-    REQUIRE(output[generated_rows][1].get<std::string>() == "alpha\n" + std::string(internals::CSV_CHUNK_SIZE_FLOOR, 'x') + "\nomega");
-    REQUIRE(output[generated_rows][2] == "ok");
-    REQUIRE(output[generated_rows + 1][0] == "tail-plain");
-    REQUIRE(output[generated_rows + 1][1] == "done");
-    REQUIRE(output[generated_rows + 1][2] == "ok");
+    std::vector<CSVRow> rows;
+    output.drain_front(rows, output.size());
+    REQUIRE(rows.size() == generated_rows + 2);
+    REQUIRE(rows[0][0] == "0");
+    REQUIRE(rows[generated_rows - 1][0].get<std::string>() == std::to_string(generated_rows - 1));
+    REQUIRE(rows[generated_rows][0] == "tail-quoted");
+    REQUIRE(rows[generated_rows][1].get<std::string>() == "alpha\n" + std::string(internals::CSV_CHUNK_SIZE_FLOOR, 'x') + "\nomega");
+    REQUIRE(rows[generated_rows][2] == "ok");
+    REQUIRE(rows[generated_rows + 1][0] == "tail-plain");
+    REQUIRE(rows[generated_rows + 1][1] == "done");
+    REQUIRE(rows[generated_rows + 1][2] == "ok");
 }
 #endif
 
@@ -615,10 +573,9 @@ TEST_CASE("StreamParser speculative path preserves row order and split worker ch
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
-    std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
+    RowCollection output;
     StreamParser<std::stringstream> parser(input, format);
-    parser.set_output(output_sink);
+    parser.set_output(output);
 
     while (!parser.eof()) {
         parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
@@ -626,15 +583,17 @@ TEST_CASE("StreamParser speculative path preserves row order and split worker ch
 
     REQUIRE(parser.parse_worker_count() == 2);
     REQUIRE(parser.speculative_diagnostics().chunks > 0);
-    REQUIRE(output.size() == generated_rows + 2);
-    REQUIRE(output[0][0] == "0");
-    REQUIRE(output[generated_rows - 1][0].get<std::string>() == std::to_string(generated_rows - 1));
-    REQUIRE(output[generated_rows][0] == "tail-quoted");
-    REQUIRE(output[generated_rows][1].get<std::string>() == "alpha\n" + std::string(internals::CSV_CHUNK_SIZE_FLOOR / 2, 'x') + "\nomega");
-    REQUIRE(output[generated_rows][2] == "ok");
-    REQUIRE(output[generated_rows + 1][0] == "tail-plain");
-    REQUIRE(output[generated_rows + 1][1] == "done");
-    REQUIRE(output[generated_rows + 1][2] == "ok");
+    std::vector<CSVRow> rows;
+    output.drain_front(rows, output.size());
+    REQUIRE(rows.size() == generated_rows + 2);
+    REQUIRE(rows[0][0] == "0");
+    REQUIRE(rows[generated_rows - 1][0].get<std::string>() == std::to_string(generated_rows - 1));
+    REQUIRE(rows[generated_rows][0] == "tail-quoted");
+    REQUIRE(rows[generated_rows][1].get<std::string>() == "alpha\n" + std::string(internals::CSV_CHUNK_SIZE_FLOOR / 2, 'x') + "\nomega");
+    REQUIRE(rows[generated_rows][2] == "ok");
+    REQUIRE(rows[generated_rows + 1][0] == "tail-plain");
+    REQUIRE(rows[generated_rows + 1][1] == "done");
+    REQUIRE(rows[generated_rows + 1][2] == "ok");
 }
 
 TEST_CASE("StreamParser speculative path carries quoted rows across buffered windows", "[raw_csv_parse][speculative][stream]") {
@@ -652,22 +611,23 @@ TEST_CASE("StreamParser speculative path carries quoted rows across buffered win
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
-    std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
+    RowCollection output;
     StreamParser<std::stringstream> parser(input, format);
-    parser.set_output(output_sink);
+    parser.set_output(output);
 
     while (!parser.eof()) {
         parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
     }
 
     REQUIRE(parser.speculative_diagnostics().chunks > 0);
-    REQUIRE(output.size() == 3);
-    REQUIRE(output[0][0] == "first");
-    REQUIRE(output[1][0] == "big");
-    REQUIRE(output[1][1].get<std::string>() == std::string((internals::CSV_CHUNK_SIZE_FLOOR * 2) + 128, 'q'));
-    REQUIRE(output[1][2] == "ok");
-    REQUIRE(output[2][0] == "last");
+    std::vector<CSVRow> rows;
+    output.drain_front(rows, output.size());
+    REQUIRE(rows.size() == 3);
+    REQUIRE(rows[0][0] == "first");
+    REQUIRE(rows[1][0] == "big");
+    REQUIRE(rows[1][1].get<std::string>() == std::string((internals::CSV_CHUNK_SIZE_FLOOR * 2) + 128, 'q'));
+    REQUIRE(rows[1][2] == "ok");
+    REQUIRE(rows[2][0] == "last");
 }
 
 TEST_CASE("StreamParser speculative path flushes pending suffix once at EOF", "[raw_csv_parse][speculative][stream]") {
@@ -684,21 +644,22 @@ TEST_CASE("StreamParser speculative path flushes pending suffix once at EOF", "[
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
-    std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
+    RowCollection output;
     StreamParser<std::stringstream> parser(input, format);
-    parser.set_output(output_sink);
+    parser.set_output(output);
 
     while (!parser.eof()) {
         parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
     }
 
     REQUIRE(parser.speculative_diagnostics().chunks > 0);
-    REQUIRE(output.size() == 2);
-    REQUIRE(output[0][0] == "first");
-    REQUIRE(output[1][0] == "final");
-    REQUIRE(output[1][1].get<std::string>() == std::string((internals::CSV_CHUNK_SIZE_FLOOR * 2) + 128, 'z'));
-    REQUIRE(output[1][2] == "done");
+    std::vector<CSVRow> rows;
+    output.drain_front(rows, output.size());
+    REQUIRE(rows.size() == 2);
+    REQUIRE(rows[0][0] == "first");
+    REQUIRE(rows[1][0] == "final");
+    REQUIRE(rows[1][1].get<std::string>() == std::string((internals::CSV_CHUNK_SIZE_FLOOR * 2) + 128, 'z'));
+    REQUIRE(rows[1][2] == "done");
 }
 #endif
 
@@ -711,17 +672,18 @@ TEST_CASE("StreamParser stays serial when speculative parsing is disabled", "[ra
     CSVFormat format;
     format.no_header().delimiter(',');
 
-    std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
+    RowCollection output;
     StreamParser<std::stringstream> parser(input, format);
-    parser.set_output(output_sink);
+    parser.set_output(output);
     parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
 
     REQUIRE(parser.parse_worker_count() == 1);
     REQUIRE(parser.speculative_diagnostics().chunks == 0);
-    REQUIRE(output.size() == 3);
-    REQUIRE(output[0][0] == "a");
-    REQUIRE(output[2][2] == "6");
+    std::vector<CSVRow> rows;
+    output.drain_front(rows, output.size());
+    REQUIRE(rows.size() == 3);
+    REQUIRE(rows[0][0] == "a");
+    REQUIRE(rows[2][2] == "6");
 }
 
 #if !CSV_ENABLE_THREADS
@@ -738,10 +700,9 @@ TEST_CASE("StreamParser stays serial with speculative flag in no-thread builds",
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
-    std::vector<CSVRow> output;
-    CSVRowOutput output_sink(output);
+    RowCollection output;
     StreamParser<std::stringstream> parser(input, format);
-    parser.set_output(output_sink);
+    parser.set_output(output);
     parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
 
     REQUIRE(parser.parse_worker_count() == 1);

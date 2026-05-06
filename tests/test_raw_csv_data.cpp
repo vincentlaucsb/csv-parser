@@ -4,8 +4,10 @@
 #include "internal/stream_parser.hpp"
 
 #include <deque>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -16,16 +18,15 @@ static std::vector<CSVRow> parse_raw_rows(
     const std::string& csv_text,
     const WhitespaceMap& ws_flags = WhitespaceMap()
 ) {
-    std::stringstream csv(csv_text);
     std::vector<CSVRow> rows;
+    auto chunk = std::make_shared<std::string>(csv_text);
 
-    StreamParser<std::stringstream> parser(
-        csv,
+    CSVParserCore<std::vector<CSVRow>> parser(
         internals::make_parse_flags(',', '"'),
         ws_flags
     );
-    parser.set_output(rows);
-    parser.next();
+    parser.parse_chunk(*chunk, chunk, rows);
+    parser.end_feed();
 
     return rows;
 }
@@ -59,26 +60,73 @@ TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
 }
 
 TEST_CASE("Raw parser can emit rows into a vector sink", "[raw_csv_parse]") {
-    std::stringstream csv(
+    auto chunk = std::make_shared<std::string>(
         "A,B,C\n"
         "1,2,3\n"
         "4,5,6\n"
     );
 
     std::vector<CSVRow> parsed_rows;
-    StreamParser<std::stringstream> parser(
-        csv,
+    CSVParserCore<std::vector<CSVRow>> parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
 
-    parser.set_output(parsed_rows);
-    parser.next();
+    parser.parse_chunk(*chunk, chunk, parsed_rows);
+    parser.end_feed();
 
     REQUIRE(parsed_rows.size() == 3);
     REQUIRE(parsed_rows[0][0] == "A");
     REQUIRE(parsed_rows[1][1] == "2");
     REQUIRE(parsed_rows[2][2] == "6");
+}
+
+TEST_CASE("CSVParserCore default policies emit CSVRow output", "[raw_csv_parse][parser_core][policy]") {
+    CSVParserCore<std::vector<CSVRow>> parser(
+        internals::make_parse_flags(',', '"'),
+        internals::WhitespaceMap()
+    );
+    std::vector<CSVRow> parsed_rows;
+
+    auto chunk = std::make_shared<std::string>(
+        "A,B\n"
+        "1,2\n"
+    );
+
+    const auto result = parser.parse_chunk(*chunk, chunk, parsed_rows);
+
+    REQUIRE(result.complete_prefix_length == chunk->size());
+    REQUIRE(parsed_rows.size() == 2);
+    REQUIRE(parsed_rows[0][0] == "A");
+    REQUIRE(parsed_rows[0][1] == "B");
+    REQUIRE(parsed_rows[1][0] == "1");
+    REQUIRE(parsed_rows[1][1] == "2");
+}
+
+TEST_CASE("Tuple policy skeleton receives simple fields in order", "[raw_csv_parse][parser_core][policy][tuple]") {
+    using RowTuple = std::tuple<int, std::string, double>;
+
+    RowTuple row;
+    TupleFieldPolicy<RowTuple> field_policy(row);
+    field_policy.begin_row();
+    field_policy.push_field("42");
+    field_policy.push_field("alpha");
+    field_policy.push_field("3.5");
+    field_policy.push_field("ignored");
+
+    REQUIRE(field_policy.fields_seen() == 4);
+    REQUIRE(std::get<0>(row) == 42);
+    REQUIRE(std::get<1>(row) == "alpha");
+    REQUIRE(std::get<2>(row) == Catch::Approx(3.5));
+
+    std::vector<RowTuple> emitted_rows;
+    TupleRowPolicy<RowTuple> row_policy(emitted_rows);
+    row_policy.end_row(std::move(row));
+
+    REQUIRE(emitted_rows.size() == 1);
+    REQUIRE(std::get<0>(emitted_rows[0]) == 42);
+    REQUIRE(std::get<1>(emitted_rows[0]) == "alpha");
+    REQUIRE(std::get<2>(emitted_rows[0]) == Catch::Approx(3.5));
 }
 
 TEST_CASE("Row collection inspect peeks queued rows under one lock", "[raw_csv_parse][row_deque]") {
@@ -198,12 +246,9 @@ TEST_CASE("Row collection drain_front preserves partial batch remainders", "[raw
 }
 
 TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]") {
-    std::stringstream unused_source;
     std::vector<CSVRow> parsed_rows;
-    CSVRowOutput sink(parsed_rows);
 
-    StreamParser<std::stringstream> parser(
-        unused_source,
+    CSVParserCore<std::vector<CSVRow>> parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
@@ -213,7 +258,7 @@ TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]
         "\"a,b\",2\n"
     );
 
-    const auto result = parser.parse_chunk(*chunk, chunk, sink);
+    const auto result = parser.parse_chunk(*chunk, chunk, parsed_rows);
 
     REQUIRE(result.complete_prefix_length == chunk->size());
     REQUIRE_FALSE(result.ending_state.quote_escape);
@@ -225,12 +270,9 @@ TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]
 }
 
 TEST_CASE("CSVRow raw_str uses record boundaries rather than newline search", "[raw_csv_parse]") {
-    std::stringstream unused_source;
     std::vector<CSVRow> parsed_rows;
-    CSVRowOutput sink(parsed_rows);
 
-    StreamParser<std::stringstream> parser(
-        unused_source,
+    CSVParserCore<std::vector<CSVRow>> parser(
         internals::make_parse_flags(',', '"'),
         internals::WhitespaceMap()
     );
@@ -241,7 +283,7 @@ TEST_CASE("CSVRow raw_str uses record boundaries rather than newline search", "[
         "2,plain,ok\r\n"
     );
 
-    const auto result = parser.parse_chunk(*chunk, chunk, sink);
+    const auto result = parser.parse_chunk(*chunk, chunk, parsed_rows);
 
     REQUIRE(result.complete_prefix_length == chunk->size());
     REQUIRE(parsed_rows.size() == 3);
@@ -288,7 +330,7 @@ TEST_CASE("Test Quote Escapes", "[test_parse_quote_escape]") {
 TEST_CASE("Parser DFA state can be seeded and reported", "[raw_csv_parse][dfa_state]") {
     SECTION("Reports unfinished quoted field at chunk end") {
         std::stringstream csv("A,\"unfinished");
-        std::vector<CSVRow> rows;
+        RowCollection rows;
 
         StreamParser<std::stringstream> parser(
             csv,
@@ -306,7 +348,7 @@ TEST_CASE("Parser DFA state can be seeded and reported", "[raw_csv_parse][dfa_st
 
     SECTION("Reports pending quote when chunk ends on quoted-field quote") {
         std::stringstream csv("\"abc\"z\n");
-        std::vector<CSVRow> rows;
+        RowCollection rows;
 
         StreamParser<std::stringstream> parser(
             csv,
@@ -325,7 +367,7 @@ TEST_CASE("Parser DFA state can be seeded and reported", "[raw_csv_parse][dfa_st
 
     SECTION("Seeded quoted state treats delimiters and newlines as field content") {
         std::stringstream csv("alpha\nbeta\",tail\n");
-        std::vector<CSVRow> rows;
+        RowCollection rows;
 
         StreamParser<std::stringstream> parser(
             csv,
@@ -341,7 +383,7 @@ TEST_CASE("Parser DFA state can be seeded and reported", "[raw_csv_parse][dfa_st
         REQUIRE_FALSE(parser.ending_state().pending_quote);
         REQUIRE(rows.size() == 1);
 
-        const auto row = rows[0];
+        const auto row = rows.pop_front();
         REQUIRE(row.size() == 2);
         REQUIRE(row[0] == "alpha\nbeta");
         REQUIRE(row[1] == "tail");

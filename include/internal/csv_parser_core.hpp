@@ -1,5 +1,5 @@
 /** @file
- *  @brief Focused CSV byte parser core and parse-output adapters.
+ *  @brief Focused CSV byte parser core.
  */
 
 #pragma once
@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -174,111 +175,175 @@ namespace csv {
             void end_row(const CSVRow&) noexcept {}
         };
 
-        /** CSVRow-building parse output adapter.
+        /** Default field policy for the CSVRow path.
          *
-         *  This adapter preserves today's CSVRow behavior while replacing the
-         *  old virtual row-sink interface with direct, non-virtual dispatch.
-         *  It can emit to the parser queue, to a vector used by speculative
-         *  parsing/tests, or forward to another adapter owned by a source driver.
+         *  Owns RawCSVData/RawCSVFieldList setup and appends RawCSVField metadata
+         *  exactly as the historical parser core did.
          */
-        class CSVRowOutput {
+        struct CSVRowFieldPolicy {
+            void begin_chunk(
+                RawCSVDataPtr& data_ptr,
+                RawCSVFieldList*& fields,
+                const ParseFlagMap& parse_flags,
+                const WhitespaceMap& ws_flags,
+                bool has_ws_trimming,
+                const ColNamesPtr& col_names
+            ) const {
+                data_ptr = std::make_shared<RawCSVData>();
+                data_ptr->parse_flags = parse_flags;
+                data_ptr->ws_flags = ws_flags;
+                data_ptr->has_ws_trimming = has_ws_trimming;
+                data_ptr->col_names = col_names;
+                fields = &(data_ptr->fields);
+            }
+
+            const RawCSVField& push_field(
+                RawCSVFieldList& fields,
+                int field_start,
+                size_t field_length,
+                bool field_has_double_quote
+            ) const {
+                fields.emplace_back(
+                    field_start == UNINITIALIZED_FIELD ? 0 : static_cast<unsigned int>(field_start),
+                    field_length,
+                    field_has_double_quote
+                );
+                return fields[fields.size() - 1];
+            }
+        };
+
+        /** Default row policy for the CSVRow path. */
+        struct CSVRowRowPolicy {
+            CSVRow make_initial_row(const RawCSVDataPtr& data_ptr) const {
+                return CSVRow(data_ptr);
+            }
+
+            CSVRow make_next_row(
+                const RawCSVDataPtr& data_ptr,
+                size_t data_pos,
+                size_t fields_size
+            ) const {
+                return CSVRow(data_ptr, data_pos, fields_size);
+            }
+
+            void finalize_row(
+                CSVRow& row,
+                const RawCSVFieldList& fields,
+                size_t raw_end
+            ) const {
+                row.row_length = fields.size() - row.fields_start;
+                row.data_end = raw_end;
+            }
+        };
+
+        template<size_t Index, typename Tuple>
+        csv::enable_if_t<Index == std::tuple_size<Tuple>::value, void>
+        assign_policy_tuple_field(Tuple&, size_t, csv::string_view) {}
+
+        template<size_t Index, typename Tuple>
+        csv::enable_if_t<(Index < std::tuple_size<Tuple>::value), void>
+        assign_policy_tuple_field(Tuple& out, size_t field_index, csv::string_view field_value) {
+            if (field_index == Index) {
+                CSVField field(field_value);
+                std::get<Index>(out) = field.template get<
+                    typename std::tuple_element<Index, Tuple>::type
+                >();
+                return;
+            }
+
+            assign_policy_tuple_field<Index + 1>(out, field_index, field_value);
+        }
+
+        /** Skeleton field policy for direct tuple paths.
+         *
+         *  This policy intentionally receives already-delimited field bytes and
+         *  does not allocate RawCSVData. The parser-core wiring that will feed it
+         *  directly is a later stage.
+         */
+        template<typename Tuple>
+        class TupleFieldPolicy {
         public:
-            CSVRowOutput() = default;
-            explicit CSVRowOutput(RowCollection& rows) { this->reset(rows); }
-            explicit CSVRowOutput(std::vector<CSVRow>& rows) { this->reset(rows); }
+            TupleFieldPolicy() = default;
+            explicit TupleFieldPolicy(Tuple& tuple) : tuple_(&tuple) {}
 
-            void reset() noexcept {
-                this->kind_ = Kind::None;
-                this->records_ = nullptr;
-                this->vector_rows_ = nullptr;
-                this->forward_ = nullptr;
+            void reset(Tuple& tuple) noexcept {
+                this->tuple_ = &tuple;
+                this->begin_row();
             }
 
-            void reset(RowCollection& rows) noexcept {
-                this->kind_ = Kind::RowCollection;
-                this->records_ = &rows;
-                this->vector_rows_ = nullptr;
-                this->forward_ = nullptr;
+            void begin_row() noexcept {
+                this->field_index_ = 0;
+                this->fields_seen_ = 0;
             }
 
-            void reset(std::vector<CSVRow>& rows) noexcept {
-                this->kind_ = Kind::Vector;
-                this->records_ = nullptr;
-                this->vector_rows_ = &rows;
-                this->forward_ = nullptr;
-            }
-
-            void reset(CSVRowOutput& output) noexcept {
-                this->kind_ = Kind::Forward;
-                this->records_ = nullptr;
-                this->vector_rows_ = nullptr;
-                this->forward_ = &output;
-            }
-
-            void begin_chunk(const RawCSVDataPtr&) noexcept {}
-            void begin_row(const CSVRow&) noexcept {}
-            void push_field(const RawCSVField&) noexcept {}
-
-            void push_row(CSVRow&& row) {
-                this->end_row(std::move(row));
-            }
-
-            void append_rows(std::vector<CSVRow>&& rows) {
-                if (rows.empty()) {
-                    return;
+            void push_field(csv::string_view field) {
+                if (this->tuple_ && this->field_index_ < std::tuple_size<Tuple>::value) {
+                    assign_policy_tuple_field<0>(*this->tuple_, this->field_index_, field);
                 }
 
-                switch (this->kind_) {
-                case Kind::RowCollection:
-                    this->records_->append_rows(std::move(rows));
-                    break;
-                case Kind::Vector:
-                    this->vector_rows_->reserve(this->vector_rows_->size() + rows.size());
-                    for (auto& row : rows) {
-                        this->vector_rows_->push_back(std::move(row));
-                    }
-                    break;
-                case Kind::Forward:
-                    this->forward_->append_rows(std::move(rows));
-                    break;
-                case Kind::None:
-                    break;
-                }
+                this->field_index_++;
+                this->fields_seen_++;
             }
 
-            void end_row(CSVRow&& row) {
-                switch (this->kind_) {
-                case Kind::RowCollection:
-                    this->records_->push_back(std::move(row));
-                    break;
-                case Kind::Vector:
-                    this->vector_rows_->push_back(std::move(row));
-                    break;
-                case Kind::Forward:
-                    this->forward_->end_row(std::move(row));
-                    break;
-                case Kind::None:
-                    break;
+            size_t fields_seen() const noexcept {
+                return this->fields_seen_;
+            }
+
+        private:
+            Tuple* tuple_ = nullptr;
+            size_t field_index_ = 0;
+            size_t fields_seen_ = 0;
+        };
+
+        /** Skeleton row policy for direct tuple paths. */
+        template<typename Tuple>
+        class TupleRowPolicy {
+        public:
+            TupleRowPolicy() = default;
+            explicit TupleRowPolicy(std::vector<Tuple>& rows) : rows_(&rows) {}
+
+            void reset(std::vector<Tuple>& rows) noexcept {
+                this->rows_ = &rows;
+            }
+
+            void end_row(Tuple&& row) {
+                if (this->rows_) {
+                    this->rows_->push_back(std::move(row));
                 }
             }
 
         private:
-            enum class Kind {
-                None,
-                RowCollection,
-                Vector,
-                Forward
-            };
-
-            Kind kind_ = Kind::None;
-            RowCollection* records_ = nullptr;
-            std::vector<CSVRow>* vector_rows_ = nullptr;
-            CSVRowOutput* forward_ = nullptr;
+            std::vector<Tuple>* rows_ = nullptr;
         };
 
+        inline void csv_push_row(RowCollection& sink, CSVRow&& row) {
+            sink.push_back(std::move(row));
+        }
+
+        inline void csv_push_row(std::vector<CSVRow>& sink, CSVRow&& row) {
+            sink.push_back(std::move(row));
+        }
+
+        inline void csv_append_rows(RowCollection& sink, std::vector<CSVRow>&& rows) {
+            sink.append_rows(std::move(rows));
+        }
+
+        inline void csv_append_rows(std::vector<CSVRow>& sink, std::vector<CSVRow>&& rows) {
+            if (rows.empty()) {
+                return;
+            }
+
+            sink.reserve(sink.size() + rows.size());
+            for (auto& row : rows) {
+                sink.push_back(std::move(row));
+            }
+        }
+
         template<
-            typename ParseOutput = CSVRowOutput,
-            typename ParsePolicy = PermissiveParsePolicy>
+            typename RowSink = RowCollection,
+            typename ParsePolicy = PermissiveParsePolicy,
+            typename FieldPolicy = CSVRowFieldPolicy,
+            typename RowPolicy = CSVRowRowPolicy>
         class CSVParserCore {
         public:
             CSVParserCore() = default;
@@ -346,23 +411,12 @@ namespace csv {
             /** Whether or not this CSV has a UTF-8 byte order mark. */
             CONSTEXPR bool utf8_bom() const { return this->utf8_bom_; }
 
-            void set_output(RowCollection& rows) {
-                this->output_.reset(rows);
-                this->active_output_ = &this->output_;
+            void set_output(RowSink& output) noexcept {
+                this->output_ = &output;
             }
 
-            void set_output(std::vector<CSVRow>& rows) noexcept {
-                this->output_.reset(rows);
-                this->active_output_ = &this->output_;
-            }
-
-            void set_output(ParseOutput& output) noexcept {
-                this->output_.reset(output);
-                this->active_output_ = &this->output_;
-            }
-
-            ParseOutput& output() noexcept {
-                return this->output_;
+            RowSink& output() noexcept {
+                return *this->output_;
             }
 
             /** Seed the DFA state for the next parse call. */
@@ -402,7 +456,7 @@ namespace csv {
             ParserChunkResult parse_chunk(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
-                ParseOutput& output
+                RowSink& output
             ) {
                 return this->parse_chunk(
                     chunk,
@@ -415,10 +469,10 @@ namespace csv {
             ParserChunkResult parse_chunk(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
-                ParseOutput& output,
+                RowSink& output,
                 const ParserChunkOptions& options
             ) {
-                this->active_output_ = &output;
+                this->output_ = &output;
                 return this->parse_prepared_chunk(
                     chunk,
                     std::move(owner),
@@ -557,12 +611,14 @@ namespace csv {
 
             /** Create a new RawCSVDataPtr for a new chunk of data. */
             void reset_data_ptr() {
-                this->data_ptr_ = std::make_shared<RawCSVData>();
-                this->data_ptr_->parse_flags = this->parse_flags_;
-                this->data_ptr_->ws_flags = this->ws_flags_;
-                this->data_ptr_->has_ws_trimming = this->has_ws_trimming_;
-                this->data_ptr_->col_names = this->col_names_;
-                this->fields_ = &(this->data_ptr_->fields);
+                this->field_policy_.begin_chunk(
+                    this->data_ptr_,
+                    this->fields_,
+                    this->parse_flags_,
+                    this->ws_flags_,
+                    this->has_ws_trimming_,
+                    this->col_names_
+                );
             }
 
             const WhitespaceMap& whitespace_flags() const noexcept {
@@ -570,7 +626,9 @@ namespace csv {
             }
 
             void emit_row(CSVRow&& row) {
-                this->active_output_->end_row(std::move(row));
+                if (this->output_) {
+                    csv_push_row(*this->output_, std::move(row));
+                }
             }
 
         private:
@@ -598,9 +656,10 @@ namespace csv {
             bool unicode_bom_scan_ = false;
             bool utf8_bom_ = false;
 
-            ParseOutput output_;
-            ParseOutput* active_output_ = &output_;
+            RowSink* output_ = nullptr;
             ParsePolicy policy_;
+            FieldPolicy field_policy_;
+            RowPolicy row_policy_;
 
             CONSTEXPR_17 bool ws_flag(const char ch) const noexcept {
                 return ws_flags_.data()[ch + CHAR_OFFSET];
@@ -670,14 +729,14 @@ namespace csv {
 
             /** Finish parsing the current field. */
             void push_field() {
-                fields_->emplace_back(
-                    field_start_ == UNINITIALIZED_FIELD ? 0 : (unsigned int)field_start_,
-                    field_length_,
-                    field_has_double_quote_
+                const RawCSVField& field = this->field_policy_.push_field(
+                    *this->fields_,
+                    this->field_start_,
+                    this->field_length_,
+                    this->field_has_double_quote_
                 );
 
-                this->policy_.push_field((*fields_)[fields_->size() - 1]);
-                this->active_output_->push_field((*fields_)[fields_->size() - 1]);
+                this->policy_.push_field(field);
                 current_row_.row_length++;
 
                 field_has_double_quote_ = false;
@@ -694,16 +753,17 @@ namespace csv {
                 }
 
                 this->push_row(raw_end);
-                this->current_row_ = CSVRow(data_ptr_, this->data_pos_, fields_->size());
+                this->current_row_ = this->row_policy_.make_next_row(
+                    this->data_ptr_,
+                    this->data_pos_,
+                    this->fields_->size()
+                );
                 this->policy_.begin_row(this->current_row_);
-                this->active_output_->begin_row(this->current_row_);
             }
 
             /** Finish parsing the current row. */
             void push_row(size_t raw_end) {
-                size_t row_len = fields_->size() - current_row_.fields_start;
-                current_row_.row_length = row_len;
-                current_row_.data_end = raw_end;
+                this->row_policy_.finalize_row(this->current_row_, *this->fields_, raw_end);
                 this->policy_.end_row(this->current_row_);
                 this->emit_row(std::move(current_row_));
             }
@@ -731,11 +791,9 @@ namespace csv {
                 this->data_ptr_->data = chunk;
                 this->initial_state_ = options.initial_state;
                 this->scan_bom_for_current_chunk_ = options.scan_bom;
-                this->current_row_ = CSVRow(this->data_ptr_);
+                this->current_row_ = this->row_policy_.make_initial_row(this->data_ptr_);
                 this->policy_.begin_chunk(this->data_ptr_);
-                this->active_output_->begin_chunk(this->data_ptr_);
                 this->policy_.begin_row(this->current_row_);
-                this->active_output_->begin_row(this->current_row_);
 
                 const size_t complete_prefix_length = this->parse();
                 return ParserChunkResult(options.initial_state, this->ending_state_, complete_prefix_length);

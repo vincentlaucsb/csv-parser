@@ -119,7 +119,7 @@ namespace csv {
                 size_t base_offset,
                 size_t serial_chunk_size,
                 bool source_exhausted,
-                CSVRowOutput& output
+                RowCollection& output
             ) = 0;
         };
 

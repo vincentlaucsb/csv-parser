@@ -62,8 +62,9 @@
 
 namespace csv {
     namespace internals {
-        template<typename ParseOutput, typename ParsePolicy>
+        template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         class CSVParserCore;
+        struct CSVRowRowPolicy;
         class CSVParserDriverBase;
         namespace speculative {
             struct CSVRowFragment;
@@ -538,8 +539,9 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        template<typename ParseOutput, typename ParsePolicy>
+        template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         friend class internals::CSVParserCore;
+        friend struct internals::CSVRowRowPolicy;
         friend internals::CSVParserDriverBase;
         friend struct internals::speculative::CSVRowFragment;
 
@@ -828,4 +830,3 @@ namespace csv {
 }
 
 #undef CSV_INIT_WITH_OPTIONAL_DCL
-

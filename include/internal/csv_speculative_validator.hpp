@@ -7,11 +7,12 @@
 namespace csv {
     namespace internals {
         namespace speculative {
+        template<typename RowSink>
         class SpeculativeParseValidator {
         public:
             SpeculativeParseValidator(
-                CSVParserCore<>& repair_parser,
-                CSVRowOutput& output,
+                CSVParserCore<std::vector<CSVRow>>& repair_parser,
+                RowSink& output,
                 ParserDFAState initial_state = ParserDFAState()
             ) : repair_parser_(repair_parser),
                 output_(output),
@@ -75,7 +76,7 @@ namespace csv {
                     this->release_pending_suffix();
                 }
 
-                this->output_.append_rows(std::move(chunk.complete_rows));
+                csv_append_rows(this->output_, std::move(chunk.complete_rows));
 
                 this->pending_suffix_ = chunk.suffix_fragment;
                 this->expected_start_state_ = chunk.parse_result.ending_state;
@@ -87,13 +88,13 @@ namespace csv {
                 }
 
                 auto rows = materialize_row_fragment(this->repair_parser_, this->pending_suffix_);
-                this->output_.append_rows(std::move(rows));
+                csv_append_rows(this->output_, std::move(rows));
 
                 this->pending_suffix_ = CSVRowFragment();
             }
 
-            CSVParserCore<>& repair_parser_;
-            CSVRowOutput& output_;
+            CSVParserCore<std::vector<CSVRow>>& repair_parser_;
+            RowSink& output_;
             ParserDFAState expected_start_state_;
             CSVRowFragment pending_suffix_;
             size_t repair_count_ = 0;

@@ -99,9 +99,10 @@ namespace csv {
                 return this->parse_chunk_with(parser, chunk);
             }
 
+            template<typename RowSink>
             ParallelCSVParseResult parse_chunks(
                 const std::vector<SpeculativeParseChunk>& chunks,
-                CSVRowOutput& output,
+                RowSink& output,
                 bool finish = true
             ) {
                 ParallelCSVParseResult result;
@@ -114,7 +115,7 @@ namespace csv {
                 this->parse_chunks_into(chunks, parsed);
 
                 ChunkParserCore repair_parser(this->parse_flags_, this->ws_flags_);
-                SpeculativeParseValidator validator(repair_parser, output);
+                SpeculativeParseValidator<RowSink> validator(repair_parser, output);
                 for (size_t i = 0; i < parsed.size(); ++i) {
                     validator.validate_and_release(std::move(parsed[i]));
                 }
@@ -138,15 +139,14 @@ namespace csv {
 
         private:
             ParsedChunkRows parse_chunk_with(
-                CSVParserCore<>& parser,
+                CSVParserCore<std::vector<CSVRow>>& parser,
                 const SpeculativeParseChunk& chunk
             ) const {
                 std::vector<CSVRow> rows;
-                CSVRowOutput sink(rows);
                 const ParserChunkResult parse_result = parser.parse_chunk(
                     chunk.bytes,
                     chunk.owner,
-                    sink,
+                    rows,
                     ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.scan_bom)
                 );
 
