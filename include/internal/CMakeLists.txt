@@ -15,6 +15,7 @@ target_sources(csv
 		csv_parser_core.hpp
 		csv_parallel_parser.hpp
 		csv_parse_orchestrator.hpp
+		csv_read_scheduler.hpp
 		speculative/chunks.hpp
 		speculative/diagnostics.hpp
 		speculative/scanner.hpp

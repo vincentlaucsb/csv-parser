@@ -24,7 +24,8 @@ namespace csv {
             {
 #if CSV_ENABLE_THREADS
                 size_t n_threads = 1;
-                if (enable_speculative_parallel
+                if (format.is_threading_enabled()
+                    && enable_speculative_parallel
                     && format.is_speculative_parallel_enabled()
                     && (!source_size_known || source_size >= format.get_speculative_parallel_min_bytes())) {
                     n_threads = format.get_speculative_parallel_threads();
@@ -35,7 +36,8 @@ namespace csv {
                 }
 
                 this->worker_count_ = n_threads == 0 ? 1 : n_threads;
-                this->use_speculative_parallel_ = enable_speculative_parallel
+                this->use_speculative_parallel_ = format.is_threading_enabled()
+                    && enable_speculative_parallel
                     && format.is_speculative_parallel_enabled()
                     && this->worker_count_ > 1
                     && (!source_size_known || format.should_use_speculative_parallel(

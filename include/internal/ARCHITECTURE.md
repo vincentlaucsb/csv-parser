@@ -32,6 +32,11 @@ Two independent parser paths exist and must be kept behaviorally aligned:
   - Orchestrates parser lifecycle, worker cycle, and row retrieval.
   - Holds parser, queue, format, and exception propagation state.
 
+- CSVReadScheduler
+  - Internal concrete scheduler selected from sync/thread-capable implementations.
+  - Owns worker-thread launch/join and exception transfer so CSVReader does not
+    intermix public facade logic with compile-time threading branches.
+
 - CSVRow
   - Lightweight row view over shared chunk data.
   - Resolves field slices and supports index/name access.
@@ -42,6 +47,7 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - CSVFormat
   - Parse configuration (delimiter/quote/trim/header/chunk size/policies).
+  - Runtime threading can be disabled per reader with `CSVFormat::threading(false)`.
 
 ### Parsing core
 
@@ -64,13 +70,10 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 - speculative/chunks.hpp
   - Row-fragment repair primitives and chunk parser shell used by speculative parsing.
 
-- speculative/parser.hpp
-  - Umbrella include for speculative parser internals and the parse orchestrator.
-  - Compiled out when `CSV_ENABLE_THREADS=0`.
-
 - speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp
   - Speculative scanner, row-fragment validation/repair, and optional threaded chunk parser.
   - Speculative-only helpers live under `csv::internals::speculative`.
+  - Compiled out when `CSV_ENABLE_THREADS=0`.
 
 - csv_parse_orchestrator.hpp
   - Chooses serial CSVParserCore parsing or speculative parallel parsing for a byte window.
@@ -171,7 +174,10 @@ Operationally:
 2. Parser next(bytes) ingests one chunk and emits complete rows.
 3. Queue buffers rows for consumer-side retrieval.
 4. CSVRow/CSVField lazily materialize trim/unescape/conversion behavior.
-5. Worker completion and errors are signaled back to the consumer side.
+5. CSVReadScheduler signals worker completion and transfers errors back to the
+   consumer side. When `CSVFormat::threading(false)` is active, the same parse
+   cycle runs synchronously on the caller thread and speculative parsing is
+   disabled.
 
 ## 4. Key Invariants
 
@@ -220,10 +226,10 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
   - mmap_parser.cpp (MmapParser next), stream_parser.hpp (StreamParser next)
 
 - Speculative parallel parsing changes:
-  - speculative/parser.hpp, speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp, csv_parse_orchestrator.hpp, speculative/diagnostics.hpp, mmap_parser.cpp, stream_parser.hpp
+  - speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp, csv_parse_orchestrator.hpp, speculative/diagnostics.hpp, mmap_parser.cpp, stream_parser.hpp
 
 - Reader worker/iteration behavior:
-  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp
+  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, csv_read_scheduler.hpp
 
 - Field extraction and trimming/unescaping:
   - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp

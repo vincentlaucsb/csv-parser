@@ -687,6 +687,34 @@ TEST_CASE("StreamParser stays serial when speculative parsing is disabled", "[ra
     REQUIRE(rows[2][2] == "6");
 }
 
+TEST_CASE("Runtime threading switch keeps StreamParser synchronous", "[raw_csv_parse][stream]") {
+    std::stringstream input(
+        "a,b,c\n"
+        "1,2,3\n"
+        "4,5,6\n"
+    );
+    CSVFormat format;
+    format.no_header()
+        .delimiter(',')
+        .threading(false)
+        .speculative_parallel()
+        .speculative_parallel_min_bytes(1)
+        .speculative_parallel_threads(2);
+
+    RowCollection output;
+    StreamParser<std::stringstream> parser(input, format);
+    parser.set_output(output);
+    parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
+
+    REQUIRE(parser.parse_worker_count() == 1);
+    REQUIRE(parser.speculative_diagnostics().chunks == 0);
+    std::vector<CSVRow> rows;
+    output.drain_front(rows, output.size());
+    REQUIRE(rows.size() == 3);
+    REQUIRE(rows[0][0] == "a");
+    REQUIRE(rows[2][2] == "6");
+}
+
 #if !CSV_ENABLE_THREADS
 TEST_CASE("StreamParser stays serial with speculative flag in no-thread builds", "[raw_csv_parse][stream]") {
     std::stringstream input(

@@ -142,6 +142,20 @@ namespace csv {
          */
         CSVFormat& chunk_size(size_t size);
 
+        /** Enable or disable parser threading at runtime.
+         *
+         *  Threading is enabled by default when the library is compiled with
+         *  `CSV_ENABLE_THREADS=1`. Disable it for workloads with many small CSVs
+         *  where a background parser thread costs more than it helps.
+         *
+         *  When disabled, CSVReader parses synchronously on the caller thread and
+         *  speculative parallel parsing is also disabled.
+         */
+        CONSTEXPR_14 CSVFormat& threading(bool enabled = true) {
+            this->_threading = enabled;
+            return *this;
+        }
+
         /** Enable or disable speculative parallel parsing for large filename-backed inputs.
          *
          *  The normal serial parser remains the default. When enabled, CSVReader
@@ -187,12 +201,20 @@ namespace csv {
         CONSTEXPR VariableColumnPolicy get_variable_column_policy() const { return this->variable_column_policy; }
         CONSTEXPR ColumnNamePolicy get_column_name_policy() const { return this->_column_name_policy; }
         CONSTEXPR size_t get_chunk_size() const { return this->_chunk_size; }
+        CONSTEXPR bool is_threading_enabled() const {
+#if CSV_ENABLE_THREADS
+            return this->_threading;
+#else
+            return false;
+#endif
+        }
         CONSTEXPR bool is_speculative_parallel_enabled() const { return this->_speculative_parallel; }
         CONSTEXPR size_t get_speculative_parallel_threads() const { return this->_speculative_parallel_threads; }
         CONSTEXPR size_t get_speculative_parallel_min_bytes() const { return this->_speculative_parallel_min_bytes; }
         CONSTEXPR bool should_use_speculative_parallel(size_t source_size, size_t n_threads) const {
 #if CSV_ENABLE_THREADS
-            return this->_speculative_parallel
+            return this->_threading
+                && this->_speculative_parallel
                 && n_threads > 1
                 && source_size >= this->_speculative_parallel_min_bytes;
 #else
@@ -261,6 +283,9 @@ namespace csv {
 
         /**< Chunk size for reading; passed to CSVReader at construction time */
         size_t _chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+
+        /**< Whether CSVReader may use runtime parser threads */
+        bool _threading = true;
 
         /**< Whether filename-backed readers may use speculative parallel parsing */
         bool _speculative_parallel = false;

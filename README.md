@@ -133,7 +133,21 @@ This library requires C++ exceptions to be enabled (for example, do not compile 
 SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
 
 ### Threading Modes
-By default, `csv-parser` uses a background thread to parse file-based input. If CMake cannot find a thread library, threading is disabled automatically.
+By default, `csv-parser` uses a background parser thread when thread support is
+available. If CMake cannot find a thread library, threading is disabled
+automatically.
+
+For programs that parse many small CSVs, you can keep thread support compiled
+in but disable parser threading for a specific reader:
+
+```cpp
+CSVFormat format;
+format.threading(false);
+
+CSVReader reader("small.csv", format); // parses synchronously on the caller thread
+```
+
+This runtime switch also disables speculative parallel parsing for that reader.
 
 You can also disable it explicitly:
 
