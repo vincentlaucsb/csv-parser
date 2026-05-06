@@ -284,7 +284,7 @@ TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection",
     validator.finish();
 
     REQUIRE(validator.repair_count() == 1);
-    output.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
+    output.inspect([](const std::vector<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "id");
         REQUIRE(queued[1][0] == "1");

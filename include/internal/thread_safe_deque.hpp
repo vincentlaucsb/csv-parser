@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "row_queue_batch.hpp"
-#include "row_queue_inspection.hpp"
 
 namespace csv {
     namespace internals {
@@ -128,16 +127,30 @@ namespace csv {
                 return drain_count;
             }
 
-            /** Invoke @p callback with a stable const view of queued rows under one lock.
+            /** Invoke @p callback with a synchronized copy of queued rows.
              *
-             *  This is intended for diagnostics and tests that need to inspect
-             *  queue contents without using unsynchronized random access.
+             *  Intended for tests and diagnostics that need stable indexed
+             *  observation without exposing unsynchronized random access.
              */
             template<typename Callback>
             void inspect(Callback&& callback) const {
-                std::lock_guard<std::mutex> lock{ this->_lock };
-                RowQueueInspectionView<T> view(this->batches_, this->front_index_, this->size_);
-                std::forward<Callback>(callback)(view);
+                std::vector<T> snapshot;
+                {
+                    std::lock_guard<std::mutex> lock{ this->_lock };
+                    snapshot.reserve(this->size_);
+
+                    bool first_batch = true;
+                    for (const auto& batch : this->batches_) {
+                        const size_t start = first_batch ? this->front_index_ : 0;
+                        first_batch = false;
+
+                        for (size_t i = start; i < batch.size(); ++i) {
+                            snapshot.push_back(batch[i]);
+                        }
+                    }
+                }
+
+                std::forward<Callback>(callback)(snapshot);
             }
 
             /** Returns true if a thread is actively pushing items to this deque */

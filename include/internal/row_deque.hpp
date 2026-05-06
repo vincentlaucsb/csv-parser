@@ -19,7 +19,6 @@
 #include <utility>
 
 #ifdef CSV_HAS_CXX20
-#include "row_queue_inspection.hpp"
 #include <concepts>
 #endif
 
@@ -31,13 +30,6 @@ namespace csv {
 #endif
 
 #ifdef CSV_HAS_CXX20
-        template<typename T>
-        struct RowDequeInspectProbe {
-            void operator()(const RowQueueInspectionView<T>& rows) const noexcept {
-                (void)rows.size();
-            }
-        };
-
         template<typename Q, typename T>
         concept RowDequeLike = requires(Q q, const Q cq, T item, size_t n, std::vector<T> batch) {
             { Q(100) };
@@ -45,7 +37,6 @@ namespace csv {
             { q.append_rows(std::move(batch)) } -> std::same_as<void>;
             { q.pop_front() } -> std::same_as<T>;
             { q.drain_front(batch, n) } -> std::same_as<size_t>;
-            { cq.inspect(RowDequeInspectProbe<T>{}) } -> std::same_as<void>;
             { cq.empty() } -> std::same_as<bool>;
             { cq.is_waitable() } -> std::same_as<bool>;
             { q.wait() } -> std::same_as<void>;

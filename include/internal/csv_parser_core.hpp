@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <array>
 #include <memory>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -234,86 +233,6 @@ namespace csv {
                 row.row_length = fields.size() - row.fields_start;
                 row.data_end = raw_end;
             }
-        };
-
-        template<size_t Index, typename Tuple>
-        csv::enable_if_t<Index == std::tuple_size<Tuple>::value, void>
-        assign_policy_tuple_field(Tuple&, size_t, csv::string_view) {}
-
-        template<size_t Index, typename Tuple>
-        csv::enable_if_t<(Index < std::tuple_size<Tuple>::value), void>
-        assign_policy_tuple_field(Tuple& out, size_t field_index, csv::string_view field_value) {
-            if (field_index == Index) {
-                CSVField field(field_value);
-                std::get<Index>(out) = field.template get<
-                    typename std::tuple_element<Index, Tuple>::type
-                >();
-                return;
-            }
-
-            assign_policy_tuple_field<Index + 1>(out, field_index, field_value);
-        }
-
-        /** Skeleton field policy for direct tuple paths.
-         *
-         *  This policy intentionally receives already-delimited field bytes and
-         *  does not allocate RawCSVData. The parser-core wiring that will feed it
-         *  directly is a later stage.
-         */
-        template<typename Tuple>
-        class TupleFieldPolicy {
-        public:
-            TupleFieldPolicy() = default;
-            explicit TupleFieldPolicy(Tuple& tuple) : tuple_(&tuple) {}
-
-            void reset(Tuple& tuple) noexcept {
-                this->tuple_ = &tuple;
-                this->begin_row();
-            }
-
-            void begin_row() noexcept {
-                this->field_index_ = 0;
-                this->fields_seen_ = 0;
-            }
-
-            void push_field(csv::string_view field) {
-                if (this->tuple_ && this->field_index_ < std::tuple_size<Tuple>::value) {
-                    assign_policy_tuple_field<0>(*this->tuple_, this->field_index_, field);
-                }
-
-                this->field_index_++;
-                this->fields_seen_++;
-            }
-
-            size_t fields_seen() const noexcept {
-                return this->fields_seen_;
-            }
-
-        private:
-            Tuple* tuple_ = nullptr;
-            size_t field_index_ = 0;
-            size_t fields_seen_ = 0;
-        };
-
-        /** Skeleton row policy for direct tuple paths. */
-        template<typename Tuple>
-        class TupleRowPolicy {
-        public:
-            TupleRowPolicy() = default;
-            explicit TupleRowPolicy(std::vector<Tuple>& rows) : rows_(&rows) {}
-
-            void reset(std::vector<Tuple>& rows) noexcept {
-                this->rows_ = &rows;
-            }
-
-            void end_row(Tuple&& row) {
-                if (this->rows_) {
-                    this->rows_->push_back(std::move(row));
-                }
-            }
-
-        private:
-            std::vector<Tuple>* rows_ = nullptr;
         };
 
         inline void csv_push_row(RowCollection& sink, CSVRow&& row) {

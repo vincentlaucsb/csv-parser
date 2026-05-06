@@ -7,7 +7,6 @@
 #include <memory>
 #include <sstream>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -103,33 +102,7 @@ TEST_CASE("CSVParserCore default policies emit CSVRow output", "[raw_csv_parse][
     REQUIRE(parsed_rows[1][1] == "2");
 }
 
-TEST_CASE("Tuple policy skeleton receives simple fields in order", "[raw_csv_parse][parser_core][policy][tuple]") {
-    using RowTuple = std::tuple<int, std::string, double>;
-
-    RowTuple row;
-    TupleFieldPolicy<RowTuple> field_policy(row);
-    field_policy.begin_row();
-    field_policy.push_field("42");
-    field_policy.push_field("alpha");
-    field_policy.push_field("3.5");
-    field_policy.push_field("ignored");
-
-    REQUIRE(field_policy.fields_seen() == 4);
-    REQUIRE(std::get<0>(row) == 42);
-    REQUIRE(std::get<1>(row) == "alpha");
-    REQUIRE(std::get<2>(row) == Catch::Approx(3.5));
-
-    std::vector<RowTuple> emitted_rows;
-    TupleRowPolicy<RowTuple> row_policy(emitted_rows);
-    row_policy.end_row(std::move(row));
-
-    REQUIRE(emitted_rows.size() == 1);
-    REQUIRE(std::get<0>(emitted_rows[0]) == 42);
-    REQUIRE(std::get<1>(emitted_rows[0]) == "alpha");
-    REQUIRE(std::get<2>(emitted_rows[0]) == Catch::Approx(3.5));
-}
-
-TEST_CASE("Row collection inspect peeks queued rows under one lock", "[raw_csv_parse][row_deque]") {
+TEST_CASE("Row collection inspect peeks queued rows from synchronized snapshot", "[raw_csv_parse][row_deque]") {
     auto parsed_rows = parse_raw_rows(
         "A,B\n"
         "1,2\n"
@@ -138,7 +111,7 @@ TEST_CASE("Row collection inspect peeks queued rows under one lock", "[raw_csv_p
     rows.push_back(std::move(parsed_rows[0]));
     rows.push_back(std::move(parsed_rows[1]));
 
-    rows.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
+    rows.inspect([](const std::vector<CSVRow>& queued) {
         REQUIRE(queued.size() == 2);
         REQUIRE(queued[0][0] == "A");
         REQUIRE(queued[1][1] == "2");
@@ -161,7 +134,7 @@ TEST_CASE("Row collection append_rows preserves order and ignores empty batches"
 
     rows.append_rows(std::move(parsed_rows));
 
-    rows.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
+    rows.inspect([](const std::vector<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "A");
         REQUIRE(queued[1][0] == "1");
@@ -229,7 +202,7 @@ TEST_CASE("Row collection drain_front preserves partial batch remainders", "[raw
     REQUIRE(drained[1][0] == "1");
     REQUIRE(rows.size() == 3);
 
-    rows.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
+    rows.inspect([](const std::vector<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "3");
         REQUIRE(queued[1][0] == "5");
