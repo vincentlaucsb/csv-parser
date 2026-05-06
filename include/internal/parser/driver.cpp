@@ -37,6 +37,7 @@ namespace csv {
             return get_csv_head_mmap(filename).first;
 #endif
         }
+        }
 
         CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom) {
             utf8_bom = false;
@@ -76,6 +77,7 @@ namespace csv {
             return 0;
         }
 
+        namespace parser {
 
 #ifdef _MSC_VER
 #pragma region CSVParserDriverBase
