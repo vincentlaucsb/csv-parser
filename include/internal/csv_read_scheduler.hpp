@@ -10,6 +10,10 @@
 
 #include "common.hpp"
 
+#ifdef CSV_HAS_CXX20
+#include <concepts>
+#endif
+
 #if CSV_ENABLE_THREADS
 #include <mutex>
 #include <thread>
@@ -36,13 +40,7 @@ namespace csv {
             }
 
             void run(std::function<void()> task) {
-                this->clear_exception();
-                try {
-                    task();
-                }
-                catch (...) {
-                    this->exception_ = std::current_exception();
-                }
+                task();
             }
 
             void run(
@@ -64,28 +62,17 @@ namespace csv {
                 return false;
             }
 
-            void clear_exception() noexcept {
-                this->exception_ = nullptr;
-            }
+            void clear_exception() noexcept {}
 
             std::exception_ptr take_exception() noexcept {
-                auto eptr = this->exception_;
-                this->exception_ = nullptr;
-                return eptr;
+                return nullptr;
             }
 
             void adopt_exception(std::exception_ptr eptr) noexcept {
-                this->exception_ = std::move(eptr);
+                (void)eptr;
             }
 
-            void rethrow_exception_if_any() {
-                if (auto eptr = this->take_exception()) {
-                    std::rethrow_exception(eptr);
-                }
-            }
-
-        private:
-            std::exception_ptr exception_ = nullptr;
+            void rethrow_exception_if_any() {}
         };
 
 #if CSV_ENABLE_THREADS
@@ -281,6 +268,47 @@ namespace csv {
         };
 #else
         using CSVReadScheduler = SynchronousCSVReadScheduler;
+#endif
+
+#ifdef CSV_HAS_CXX20
+        template<typename Scheduler>
+        concept CSVConcreteReadSchedulerLike = requires(
+            Scheduler scheduler,
+            std::function<void()> task,
+            std::function<void()> before_async_run,
+            std::function<bool()> is_waitable,
+            std::exception_ptr eptr
+        ) {
+            { scheduler.run(task) } -> std::same_as<void>;
+            { scheduler.run(task, before_async_run) } -> std::same_as<void>;
+            { scheduler.wait_if_active(is_waitable, before_async_run) } -> std::same_as<bool>;
+            { scheduler.join() } -> std::same_as<void>;
+            { scheduler.clear_exception() } -> std::same_as<void>;
+            { scheduler.take_exception() } -> std::same_as<std::exception_ptr>;
+            { scheduler.adopt_exception(eptr) } -> std::same_as<void>;
+            { scheduler.rethrow_exception_if_any() } -> std::same_as<void>;
+        };
+
+        template<typename Scheduler>
+        concept CSVReadSchedulerLike = CSVConcreteReadSchedulerLike<Scheduler>
+            && requires(Scheduler scheduler, bool enabled) {
+                { scheduler.set_threading_enabled(enabled) } -> std::same_as<void>;
+            };
+
+        static_assert(
+            CSVConcreteReadSchedulerLike<SynchronousCSVReadScheduler>,
+            "SynchronousCSVReadScheduler must satisfy the concrete read scheduler contract."
+        );
+#if CSV_ENABLE_THREADS
+        static_assert(
+            CSVConcreteReadSchedulerLike<ThreadedCSVReadScheduler>,
+            "ThreadedCSVReadScheduler must satisfy the concrete read scheduler contract."
+        );
+#endif
+        static_assert(
+            CSVReadSchedulerLike<CSVReadScheduler>,
+            "CSVReadScheduler must satisfy the reader-facing scheduler contract."
+        );
 #endif
     }
 }
