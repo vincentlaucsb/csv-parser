@@ -13,7 +13,8 @@
 
 namespace csv {
     namespace internals {
-        class IBasicCSVParser;
+        class CSVParserCore;
+        class CSVParserDriverBase;
     }
 
     class CSVReader;
@@ -219,7 +220,8 @@ namespace csv {
         }
 
         friend CSVReader;
-        friend internals::IBasicCSVParser;
+        friend internals::CSVParserCore;
+        friend internals::CSVParserDriverBase;
         
     private:
         /**< Throws an error if delimiters and trim characters overlap */

@@ -149,7 +149,7 @@ namespace csv {
         }
 
         inline std::vector<CSVRow> materialize_row_fragment(
-            IBasicCSVParser& parser,
+            CSVParserCore& parser,
             const CSVRowFragment& fragment
         ) {
             std::vector<CSVRow> rows;
@@ -169,7 +169,7 @@ namespace csv {
         }
 
         inline ParsedChunkRows repair_parsed_chunk_rows(
-            IBasicCSVParser& parser,
+            CSVParserCore& parser,
             const ParsedChunkRows& chunk,
             ParserDFAState corrected_initial_state
         ) {
@@ -197,24 +197,14 @@ namespace csv {
         /** Minimal parser shell for caller-owned chunks.
          *
          *  The SIGMOD-style speculative path treats input sourcing as an
-         *  external concern. This parser core only needs delimiter/whitespace
-         *  state and the shared DFA implementation from IBasicCSVParser.
+         *  external concern. This parser core only needs delimiter/whitespace state.
          */
-        class ChunkParserCore : public IBasicCSVParser {
+        class ChunkParserCore : public CSVParserCore {
         public:
             ChunkParserCore(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
-            ) : IBasicCSVParser(parse_flags, ws_flags) {}
-
-            void next(size_t) override {}
-
-        private:
-            std::string& get_csv_head() override {
-                return this->empty_head_;
-            }
-
-            std::string empty_head_;
+            ) : CSVParserCore(parse_flags, ws_flags) {}
         };
     }
 }

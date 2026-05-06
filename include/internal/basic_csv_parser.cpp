@@ -77,9 +77,9 @@ namespace csv {
 
 
 #ifdef _MSC_VER
-#pragma region IBasicCSVParser
+#pragma region CSVParserDriverBase
 #endif
-        CSV_INLINE IBasicCSVParser::IBasicCSVParser(
+        CSV_INLINE CSVParserCore::CSVParserCore(
             const CSVFormat& source_format,
             const ColNamesPtr& col_names
         ) : col_names_(col_names) {
@@ -92,7 +92,12 @@ namespace csv {
             has_ws_trimming_ = !source_format.trim_chars.empty();
         }
 
-        CSV_INLINE void IBasicCSVParser::resolve_format_from_head(const CSVFormat& source_format) {
+        CSV_INLINE CSVParserDriverBase::CSVParserDriverBase(
+            const CSVFormat& source_format,
+            const ColNamesPtr& col_names
+        ) : CSVParserCore(source_format, col_names) {}
+
+        CSV_INLINE void CSVParserDriverBase::resolve_format_from_head(const CSVFormat& source_format) {
             auto head = this->get_csv_head();
 
             ResolvedFormat resolved;
@@ -118,15 +123,19 @@ namespace csv {
             }
 
             if (resolved.format.no_quote) {
-                parse_flags_ = internals::make_parse_flags(resolved.format.get_delim());
+                this->set_parse_flags(
+                    internals::make_parse_flags(resolved.format.get_delim()),
+                    resolved.format.get_delim(),
+                    resolved.format.get_delim()
+                );
             }
             else {
-                parse_flags_ = internals::make_parse_flags(resolved.format.get_delim(), resolved.format.quote_char);
+                this->set_parse_flags(
+                    internals::make_parse_flags(resolved.format.get_delim(), resolved.format.quote_char),
+                    resolved.format.get_delim(),
+                    resolved.format.quote_char
+                );
             }
-            const char resolved_eff_quote = resolved.format.no_quote
-                ? resolved.format.get_delim()
-                : resolved.format.quote_char;
-            simd_sentinels_ = SentinelVecs(resolved.format.get_delim(), resolved_eff_quote);
 
             this->format = resolved;
         }
@@ -137,7 +146,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region IBasicCVParser: Core Parse Loop
 #endif
-        CSV_INLINE void IBasicCSVParser::end_feed() {
+        CSV_INLINE void CSVParserCore::end_feed() {
             using internals::ParseFlags;
 
             bool empty_last_field = this->data_ptr_
@@ -156,7 +165,7 @@ namespace csv {
                 this->push_row(this->data_ptr_ ? this->data_ptr_->data.size() : this->current_row_start());
         }
 
-        CSV_INLINE void IBasicCSVParser::resolve_pending_quote_at_start(csv::string_view in) {
+        CSV_INLINE void CSVParserCore::resolve_pending_quote_at_start(csv::string_view in) {
             using internals::ParseFlags;
 
             if (!this->pending_quote_ || this->data_pos_ >= in.size()) {
@@ -187,7 +196,7 @@ namespace csv {
             this->field_length_++;
         }
 
-        CSV_INLINE void IBasicCSVParser::resolve_pending_linefeed_at_start(csv::string_view in) {
+        CSV_INLINE void CSVParserCore::resolve_pending_linefeed_at_start(csv::string_view in) {
             using internals::ParseFlags;
 
             if (!this->pending_linefeed_ || this->data_pos_ >= in.size()) {
@@ -201,7 +210,7 @@ namespace csv {
             }
         }
 
-        CSV_FORCE_INLINE void IBasicCSVParser::parse_field() noexcept {
+        CSV_FORCE_INLINE void CSVParserCore::parse_field() noexcept {
             using internals::ParseFlags;
             auto& in = this->data_ptr_->data;
 
@@ -228,7 +237,7 @@ namespace csv {
             // read field values (e.g. row counting) pay no trimming cost.
         }
 
-        CSV_FORCE_INLINE void IBasicCSVParser::push_field()
+        CSV_FORCE_INLINE void CSVParserCore::push_field()
         {
             // Update
             fields_->emplace_back(
@@ -245,7 +254,7 @@ namespace csv {
             field_length_ = 0;
         }
 
-        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+        CSV_INLINE ParserChunkResult CSVParserCore::parse_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner
         ) {
@@ -256,7 +265,7 @@ namespace csv {
             );
         }
 
-        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+        CSV_INLINE ParserChunkResult CSVParserCore::parse_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
             const ParserChunkOptions& options
@@ -264,7 +273,7 @@ namespace csv {
             return this->parse_prepared_chunk(chunk, std::move(owner), options);
         }
 
-        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+        CSV_INLINE ParserChunkResult CSVParserCore::parse_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
             CSVRowSink& sink
@@ -278,7 +287,7 @@ namespace csv {
             );
         }
 
-        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_chunk(
+        CSV_INLINE ParserChunkResult CSVParserCore::parse_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
             CSVRowSink& sink,
@@ -289,7 +298,7 @@ namespace csv {
             return this->parse_prepared_chunk(chunk, std::move(owner), options);
         }
 
-        CSV_INLINE ParserChunkResult IBasicCSVParser::parse_prepared_chunk(
+        CSV_INLINE ParserChunkResult CSVParserCore::parse_prepared_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
             const ParserChunkOptions& options
@@ -309,7 +318,7 @@ namespace csv {
         }
 
         /** Parse the current chunk and return the number of bytes belonging to complete rows. */
-        CSV_INLINE size_t IBasicCSVParser::parse()
+        CSV_INLINE size_t CSVParserCore::parse()
         {
             using internals::ParseFlags;
 
@@ -407,7 +416,7 @@ namespace csv {
             return this->finish_parse(this->current_row_start());
         }
 
-        CSV_INLINE void IBasicCSVParser::finish_row(size_t raw_end) {
+        CSV_INLINE void CSVParserCore::finish_row(size_t raw_end) {
             // End of record. Preserve intentional empty fields such as trailing
             // delimiters and quoted empty strings, but leave a truly blank line
             // as an empty row.
@@ -421,7 +430,7 @@ namespace csv {
             this->current_row_ = CSVRow(data_ptr_, this->data_pos_, fields_->size());
         }
 
-        CSV_INLINE void IBasicCSVParser::push_row(size_t raw_end) {
+        CSV_INLINE void CSVParserCore::push_row(size_t raw_end) {
             size_t row_len = fields_->size() - current_row_.fields_start;
             // Set row_length before pushing (immutable once created)
             current_row_.row_length = row_len;
@@ -429,7 +438,7 @@ namespace csv {
             this->emit_row(std::move(current_row_));
         }
 
-        CSV_INLINE void IBasicCSVParser::reset_data_ptr() {
+        CSV_INLINE void CSVParserCore::reset_data_ptr() {
             this->data_ptr_ = std::make_shared<RawCSVData>();
             this->data_ptr_->parse_flags = this->parse_flags_;
             this->data_ptr_->ws_flags = this->ws_flags_;
@@ -438,7 +447,7 @@ namespace csv {
             this->fields_ = &(this->data_ptr_->fields);
         }
 
-        CSV_INLINE void IBasicCSVParser::strip_unicode_bom() {
+        CSV_INLINE void CSVParserCore::strip_unicode_bom() {
             auto& data = this->data_ptr_->data;
 
             if (!this->unicode_bom_scan_) {

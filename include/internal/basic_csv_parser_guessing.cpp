@@ -1,4 +1,5 @@
 #include "basic_csv_parser.hpp"
+#include "csv_speculative_parser.hpp"
 #include "string_view_stream.hpp"
 
 #include <unordered_map>

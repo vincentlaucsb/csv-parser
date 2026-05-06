@@ -62,7 +62,8 @@
 
 namespace csv {
     namespace internals {
-        class IBasicCSVParser;
+        class CSVParserCore;
+        class CSVParserDriverBase;
         struct CSVRowFragment;
 
         static const std::string ERROR_NAN = "Not a number.";
@@ -534,7 +535,8 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        friend internals::IBasicCSVParser;
+        friend internals::CSVParserCore;
+        friend internals::CSVParserDriverBase;
         friend struct internals::CSVRowFragment;
 
         CSVRow() = default;

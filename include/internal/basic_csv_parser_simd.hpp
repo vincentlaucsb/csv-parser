@@ -71,7 +71,7 @@ namespace csv {
         static_assert(sizeof(SentinelVecs) == 128, "SentinelVecs layout must stay ISA-independent.");
         static_assert(alignof(SentinelVecs) <= alignof(void*), "SentinelVecs must not require over-aligned allocation.");
 
-        // Free function — easy to unit test independently of IBasicCSVParser.
+        // Free function — easy to unit test independently of CSVParserCore.
         //
         // SIMD-only fast-forward: skips pos forward past any bytes that are
         // definitely not one of the four CSV sentinel characters. Stops as

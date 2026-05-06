@@ -13,12 +13,6 @@
 
 namespace csv {
     namespace internals {
-        struct CSVParseWindowResult {
-            size_t complete_prefix_length = 0;
-            bool finish_serial_feed = false;
-            std::vector<CSVRow> rows;
-        };
-
 #if CSV_ENABLE_THREADS
         constexpr size_t CSV_SPECULATIVE_PREFIX_SIZE = 64 * 1024;
 
@@ -444,7 +438,7 @@ namespace csv {
         class SpeculativeParseValidator {
         public:
             SpeculativeParseValidator(
-                IBasicCSVParser& repair_parser,
+                CSVParserCore& repair_parser,
                 CSVRowSink& output,
                 ParserDFAState initial_state = ParserDFAState()
             ) : repair_parser_(repair_parser),
@@ -530,7 +524,7 @@ namespace csv {
                 this->pending_suffix_ = CSVRowFragment();
             }
 
-            IBasicCSVParser& repair_parser_;
+            CSVParserCore& repair_parser_;
             CSVRowSink& output_;
             ParserDFAState expected_start_state_;
             CSVRowFragment pending_suffix_;
@@ -662,7 +656,7 @@ namespace csv {
 
         private:
             ParsedChunkRows parse_chunk_with(
-                IBasicCSVParser& parser,
+                CSVParserCore& parser,
                 const SpeculativeParseChunk& chunk
             ) const {
                 std::vector<CSVRow> rows;
@@ -842,24 +836,29 @@ namespace csv {
         };
 #endif
 
-        class CSVParseOrchestrator {
+        class CSVParseOrchestrator : public ICSVParseOrchestrator {
         public:
             CSVParseOrchestrator(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags,
                 const CSVFormat& format,
-                size_t source_size
+                size_t source_size,
+                const ColNamesPtr& col_names = nullptr,
+                bool enable_speculative_parallel = true,
+                bool source_size_known = true
             )
+                : serial_parser_(parse_flags, ws_flags, col_names)
 #if CSV_ENABLE_THREADS
-                : parse_flags_(parse_flags),
+                  , parse_flags_(parse_flags),
                   ws_flags_(ws_flags),
                   scanner_(parse_flags)
 #endif
             {
 #if CSV_ENABLE_THREADS
                 size_t n_threads = 1;
-                if (format.is_speculative_parallel_enabled()
-                    && source_size >= format.get_speculative_parallel_min_bytes()) {
+                if (enable_speculative_parallel
+                    && format.is_speculative_parallel_enabled()
+                    && (!source_size_known || source_size >= format.get_speculative_parallel_min_bytes())) {
                     n_threads = format.get_speculative_parallel_threads();
                     if (n_threads == 0) {
                         const unsigned int hardware_threads = std::thread::hardware_concurrency();
@@ -868,10 +867,13 @@ namespace csv {
                 }
 
                 this->worker_count_ = n_threads == 0 ? 1 : n_threads;
-                this->use_speculative_parallel_ = format.should_use_speculative_parallel(
-                    source_size,
-                    this->worker_count_
-                );
+                this->use_speculative_parallel_ = enable_speculative_parallel
+                    && format.is_speculative_parallel_enabled()
+                    && this->worker_count_ > 1
+                    && (!source_size_known || format.should_use_speculative_parallel(
+                        source_size,
+                        this->worker_count_
+                    ));
                 if (this->use_speculative_parallel_) {
                     this->speculative_parser_.reset(new ParallelCSVParser(
                         this->parse_flags_,
@@ -884,10 +886,12 @@ namespace csv {
                 (void)ws_flags;
                 (void)format;
                 (void)source_size;
+                (void)enable_speculative_parallel;
+                (void)source_size_known;
 #endif
             }
 
-            size_t worker_count() const noexcept {
+            size_t worker_count() const noexcept override {
 #if CSV_ENABLE_THREADS
                 return this->use_speculative_parallel_ ? this->worker_count_ : 1;
 #else
@@ -895,11 +899,11 @@ namespace csv {
 #endif
             }
 
-            SpeculativeParseDiagnostics diagnostics() const noexcept {
+            SpeculativeParseDiagnostics diagnostics() const noexcept override {
                 return this->speculative_diagnostics_;
             }
 
-            size_t read_window_size(size_t chunk_size) const noexcept {
+            size_t read_window_size(size_t chunk_size) const noexcept override {
 #if CSV_ENABLE_THREADS
                 if (!this->use_speculative_parallel_ || this->worker_count_ <= 1) {
                     return chunk_size;
@@ -916,14 +920,26 @@ namespace csv {
 #endif
             }
 
+            bool utf8_bom() const noexcept override {
+                return this->serial_parser_.utf8_bom();
+            }
+
+            void reset_with_initial_state(ParserDFAState state) noexcept override {
+                this->serial_parser_.reset_with_initial_state(state);
+            }
+
+            ParserDFAState ending_state() const noexcept override {
+                return this->serial_parser_.ending_state();
+            }
+
             CSVParseWindowResult parse_window(
-                IBasicCSVParser& serial_parser,
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
                 size_t base_offset,
                 size_t serial_chunk_size,
-                bool source_exhausted
-            ) {
+                bool source_exhausted,
+                CSVRowSink& output
+            ) override {
 #if CSV_ENABLE_THREADS
                 if (this->use_speculative_parallel_
                     && this->worker_count_ > 1
@@ -934,7 +950,8 @@ namespace csv {
                         std::move(owner),
                         base_offset,
                         serial_chunk_size,
-                        source_exhausted
+                        source_exhausted,
+                        output
                     );
                 }
 #else
@@ -943,24 +960,30 @@ namespace csv {
 #endif
 
                 return this->parse_serial_window(
-                    serial_parser,
                     chunk,
                     std::move(owner),
-                    source_exhausted
+                    source_exhausted,
+                    output
                 );
             }
 
         private:
             CSVParseWindowResult parse_serial_window(
-                IBasicCSVParser& serial_parser,
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
-                bool source_exhausted
+                bool source_exhausted,
+                CSVRowSink& output
             ) {
                 CSVParseWindowResult result;
-                const ParserChunkResult parse_result = serial_parser.parse_chunk(chunk, std::move(owner));
+                const ParserChunkResult parse_result = this->serial_parser_.parse_chunk(
+                    chunk,
+                    std::move(owner),
+                    output
+                );
                 result.complete_prefix_length = parse_result.complete_prefix_length;
-                result.finish_serial_feed = source_exhausted;
+                if (source_exhausted) {
+                    this->serial_parser_.end_feed();
+                }
                 return result;
             }
 
@@ -970,7 +993,8 @@ namespace csv {
                 std::shared_ptr<void> owner,
                 size_t base_offset,
                 size_t serial_chunk_size,
-                bool source_exhausted
+                bool source_exhausted,
+                CSVRowSink& output
             ) {
                 CSVParseWindowResult result;
                 auto chunks = make_speculative_parse_chunks(
@@ -983,10 +1007,9 @@ namespace csv {
                     base_offset == 0
                 );
 
-                VectorRowSink output_sink(result.rows);
                 const ParallelCSVParseResult parse_result = this->speculative_parser_->parse_chunks(
                     chunks,
-                    output_sink,
+                    output,
                     source_exhausted
                 );
 
@@ -996,6 +1019,7 @@ namespace csv {
             }
 #endif
 
+            CSVParserCore serial_parser_;
             SpeculativeParseDiagnostics speculative_diagnostics_;
 #if CSV_ENABLE_THREADS
             ParseFlagMap parse_flags_;
@@ -1006,5 +1030,25 @@ namespace csv {
             std::unique_ptr<ParallelCSVParser> speculative_parser_;
 #endif
         };
+
+        inline std::unique_ptr<ICSVParseOrchestrator> make_csv_parse_orchestrator(
+            const ParseFlagMap& parse_flags,
+            const WhitespaceMap& ws_flags,
+            const CSVFormat& format,
+            size_t source_size,
+            const ColNamesPtr& col_names,
+            bool enable_speculative_parallel,
+            bool source_size_known
+        ) {
+            return std::unique_ptr<ICSVParseOrchestrator>(new CSVParseOrchestrator(
+                parse_flags,
+                ws_flags,
+                format,
+                source_size,
+                col_names,
+                enable_speculative_parallel,
+                source_size_known
+            ));
+        }
     }
 }

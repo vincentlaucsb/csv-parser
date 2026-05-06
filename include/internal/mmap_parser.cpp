@@ -8,19 +8,21 @@ namespace csv {
             csv::string_view filename,
             const CSVFormat& format,
             const ColNamesPtr& col_names
-        ) : IBasicCSVParser(format, col_names) {
+        ) : CSVParserDriverBase(format, col_names) {
             this->_filename = filename.data();
             auto head_and_size = get_csv_head_mmap(filename);
             this->head_ = std::move(head_and_size.first);
             this->source_size_ = head_and_size.second;
             this->resolve_format_from_head(format);
 
-            this->parse_orchestrator_.reset(new CSVParseOrchestrator(
+            this->parse_orchestrator_ = make_csv_parse_orchestrator(
                 this->parse_flags_,
                 this->whitespace_flags(),
                 format,
-                this->source_size_
-            ));
+                this->source_size_,
+                col_names,
+                true
+            );
         }
 
         CSV_INLINE MmapParser::~MmapParser() = default;
@@ -37,6 +39,12 @@ namespace csv {
                 : 1;
         }
 
+        CSV_INLINE bool MmapParser::utf8_bom() const noexcept {
+            return this->parse_orchestrator_
+                ? this->parse_orchestrator_->utf8_bom()
+                : CSVParserDriverBase::utf8_bom();
+        }
+
         CSV_INLINE void MmapParser::finalize_loaded_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
@@ -45,24 +53,18 @@ namespace csv {
         ) {
             const size_t base_offset = this->mmap_pos - length;
             const bool source_exhausted = this->mmap_pos == this->source_size_;
+            ParserCoreRowSink output(*this);
             CSVParseWindowResult result = this->parse_orchestrator_->parse_window(
-                *this,
                 chunk,
                 std::move(owner),
                 base_offset,
                 chunk_size,
-                source_exhausted
+                source_exhausted,
+                output
             );
-
-            for (auto& row : result.rows) {
-                this->emit_row(std::move(row));
-            }
 
             if (source_exhausted) {
                 this->eof_ = true;
-                if (result.finish_serial_feed) {
-                    this->end_feed();
-                }
             }
 
             this->mmap_pos -= (length - result.complete_prefix_length);

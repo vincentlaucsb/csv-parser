@@ -152,7 +152,7 @@ namespace csv {
             size_t n_cols = 0;
         };
 
-        class IBasicCSVParser;
+        class CSVParserDriverBase;
     }
 
     /** @brief Guess the delimiter, header row, and mode column count of a CSV file
@@ -260,17 +260,21 @@ namespace csv {
             size_t complete_prefix_length = 0;
         };
 
-        /** Abstract base class which provides CSV parsing logic.
+        struct CSVParseWindowResult {
+            size_t complete_prefix_length = 0;
+        };
+
+        /** Non-virtual CSV byte parser core.
          *
-         *  Concrete implementations may customize this logic across
-         *  different input sources, such as memory mapped files, stringstreams,
-         *  etc...
+         *  Source adapters feed caller-owned chunks into this class. It owns
+         *  the DFA state, row/field construction, BOM handling, and row output
+         *  routing, but knows nothing about files, streams, or mmap windows.
          */
-        class IBasicCSVParser {
+        class CSVParserCore {
         public:
-            IBasicCSVParser() = default;
-            IBasicCSVParser(const CSVFormat&, const ColNamesPtr&);
-            IBasicCSVParser(
+            CSVParserCore() = default;
+            CSVParserCore(const CSVFormat&, const ColNamesPtr&);
+            CSVParserCore(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
             ) : parse_flags_(parse_flags), ws_flags_(ws_flags) {
@@ -278,16 +282,15 @@ namespace csv {
                 simd_sentinels_ = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
                 has_ws_trimming_ = std::any_of(ws_flags.begin(), ws_flags.end(), [](bool b) { return b; });
             }
+            CSVParserCore(
+                const ParseFlagMap& parse_flags,
+                const WhitespaceMap& ws_flags,
+                const ColNamesPtr& col_names
+            ) : CSVParserCore(parse_flags, ws_flags) {
+                this->col_names_ = col_names;
+            }
 
-            virtual ~IBasicCSVParser() {}
-
-            /** Whether or not we have reached the end of source */
-            bool eof() { return this->eof_; }
-
-            ResolvedFormat get_resolved_format() { return this->format; }
-
-            /** Parse the next block of data */
-            virtual void next(size_t bytes) = 0;
+            ~CSVParserCore() {}
 
             /** Indicate the last block of data has been parsed */
             void end_feed();
@@ -303,14 +306,6 @@ namespace csv {
             /** Whether or not this CSV has a UTF-8 byte order mark */
             CONSTEXPR bool utf8_bom() const { return this->utf8_bom_; }
 
-            virtual SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
-                return SpeculativeParseDiagnostics();
-            }
-
-            virtual size_t parse_worker_count() const noexcept {
-                return 1;
-            }
-
             void set_output(RowCollection& rows) {
                 this->records_ = &rows;
                 this->row_sink_ = nullptr;
@@ -319,6 +314,10 @@ namespace csv {
             void set_output(CSVRowSink& sink) noexcept {
                 this->records_ = nullptr;
                 this->row_sink_ = &sink;
+            }
+
+            void push_output_row(CSVRow&& row) {
+                this->emit_row(std::move(row));
             }
 
             /** Seed the DFA state for the next parse call. */
@@ -361,6 +360,26 @@ namespace csv {
             );
 
         protected:
+            void set_col_names(const ColNamesPtr& col_names) {
+                this->col_names_ = col_names;
+            }
+
+            void set_whitespace_flags(const WhitespaceMap& ws_flags) {
+                this->ws_flags_ = ws_flags;
+                this->has_ws_trimming_ = std::any_of(ws_flags.begin(), ws_flags.end(), [](bool b) { return b; });
+            }
+
+            void set_parse_flags(const ParseFlagMap& parse_flags) {
+                this->parse_flags_ = parse_flags;
+                const char d = internals::infer_delimiter(parse_flags);
+                this->simd_sentinels_ = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
+            }
+
+            void set_parse_flags(const ParseFlagMap& parse_flags, char delimiter, char quote_char) {
+                this->parse_flags_ = parse_flags;
+                this->simd_sentinels_ = SentinelVecs(delimiter, quote_char);
+            }
+
             /** @name Current Parser State */
             ///@{
             CSVRow current_row_;
@@ -377,25 +396,11 @@ namespace csv {
             ParseFlagMap parse_flags_;
             ///@}
 
-            /** @name Current Stream/File State */
-            ///@{
-            bool eof_ = false;
-
-            ResolvedFormat format;
-
-            /** The size of the incoming CSV */
-            size_t source_size_ = 0;
-            ///@}
-
-            virtual std::string& get_csv_head() = 0;
-
             /** Parse the current chunk of data and return the completed-row prefix length. */
             size_t parse();
 
             /** Create a new RawCSVDataPtr for a new chunk of data */
             void reset_data_ptr();
-
-            void resolve_format_from_head(const CSVFormat& format);
 
             const WhitespaceMap& whitespace_flags() const noexcept {
                 return this->ws_flags_;
@@ -484,12 +489,108 @@ namespace csv {
                 return remainder;
             }
         };
+
+        class ParserCoreRowSink : public CSVRowSink {
+        public:
+            explicit ParserCoreRowSink(CSVParserCore& parser) : parser_(parser) {}
+
+            void push_row(CSVRow&& row) override {
+                this->parser_.push_output_row(std::move(row));
+            }
+
+        private:
+            CSVParserCore& parser_;
+        };
+
+        class ICSVParseOrchestrator {
+        public:
+            virtual ~ICSVParseOrchestrator() {}
+
+            virtual size_t worker_count() const noexcept = 0;
+            virtual SpeculativeParseDiagnostics diagnostics() const noexcept = 0;
+            virtual size_t read_window_size(size_t chunk_size) const noexcept = 0;
+            virtual bool utf8_bom() const noexcept = 0;
+            virtual void reset_with_initial_state(ParserDFAState state) noexcept = 0;
+            virtual ParserDFAState ending_state() const noexcept = 0;
+
+            virtual CSVParseWindowResult parse_window(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                size_t base_offset,
+                size_t serial_chunk_size,
+                bool source_exhausted,
+                CSVRowSink& output
+            ) = 0;
+        };
+
+        inline std::unique_ptr<ICSVParseOrchestrator> make_csv_parse_orchestrator(
+            const ParseFlagMap& parse_flags,
+            const WhitespaceMap& ws_flags,
+            const CSVFormat& format,
+            size_t source_size,
+            const ColNamesPtr& col_names = nullptr,
+            bool enable_speculative_parallel = true,
+            bool source_size_known = true
+        );
+
+        /** Abstract base class for source adapters.
+         *
+         *  It preserves the existing parser API while delegating byte-level
+         *  parsing to CSVParserCore.
+         */
+        class CSVParserDriverBase : public CSVParserCore {
+        public:
+            CSVParserDriverBase() = default;
+            CSVParserDriverBase(const CSVFormat&, const ColNamesPtr&);
+            CSVParserDriverBase(
+                const ParseFlagMap& parse_flags,
+                const WhitespaceMap& ws_flags
+            ) : CSVParserCore(parse_flags, ws_flags) {}
+
+            virtual ~CSVParserDriverBase() {}
+
+            /** Whether or not we have reached the end of source */
+            bool eof() { return this->eof_; }
+
+            ResolvedFormat get_resolved_format() { return this->format; }
+
+            /** Parse the next block of data */
+            virtual void next(size_t bytes) = 0;
+
+            virtual SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
+                return SpeculativeParseDiagnostics();
+            }
+
+            virtual size_t parse_worker_count() const noexcept {
+                return 1;
+            }
+
+            virtual bool utf8_bom() const noexcept {
+                return CSVParserCore::utf8_bom();
+            }
+
+        protected:
+            /** @name Current Stream/File State */
+            ///@{
+            bool eof_ = false;
+
+            ResolvedFormat format;
+
+            /** The size of the incoming CSV */
+            size_t source_size_ = 0;
+            ///@}
+
+            virtual std::string& get_csv_head() = 0;
+
+            void resolve_format_from_head(const CSVFormat& format);
+        };
     }
 }
 
 namespace csv {
     namespace internals {
         class CSVParseOrchestrator;
+        constexpr size_t CSV_STREAM_WINDOW_SIZE_MAX = 256 * 1024 * 1024;
 
         /** A class for parsing CSV data from any std::istream, including
          *  non-seekable sources such as pipes and decompression filters.
@@ -509,25 +610,44 @@ namespace csv {
          *  `leftover_` so the first next() call re-parses them without re-reading.
          */
         template<typename TStream>
-        class StreamParser: public IBasicCSVParser {
+        class StreamParser: public CSVParserDriverBase {
             using RowCollection = ThreadSafeDeque<CSVRow>;
 
         public:
             StreamParser(TStream& source,
                 const CSVFormat& format,
                 const ColNamesPtr& col_names = nullptr
-            ) : IBasicCSVParser(format, col_names),
+            ) : CSVParserDriverBase(format, col_names),
                 source_(source) {
                 this->resolve_format_from_head(format);
+                this->parse_orchestrator_ = make_csv_parse_orchestrator(
+                    this->parse_flags_,
+                    this->whitespace_flags(),
+                    this->format.format,
+                    0,
+                    col_names,
+                    true,
+                    false
+                );
             }
 
             StreamParser(
                 TStream& source,
                 internals::ParseFlagMap parse_flags,
                 internals::WhitespaceMap ws_flags) :
-                IBasicCSVParser(parse_flags, ws_flags),
+                CSVParserDriverBase(parse_flags, ws_flags),
                 source_(source)
-            {}
+            {
+                this->parse_orchestrator_ = make_csv_parse_orchestrator(
+                    this->parse_flags_,
+                    this->whitespace_flags(),
+                    CSVFormat(),
+                    0,
+                    nullptr,
+                    false,
+                    false
+                );
+            }
 
             ~StreamParser() {}
 
@@ -543,12 +663,20 @@ namespace csv {
                 auto& chunk = *chunk_owner;
 
                 // Prepend leftover bytes from the previous chunk's incomplete
-                // trailing row, then read the next block from the stream.
-                // Uses a raw buffer to avoid std::string::resize() zero-fill
-                // on the full 10MB chunk size (critical for tiny inputs).
+                // trailing row, then read enough bytes to fill the orchestrator
+                // window. The window grows to chunk_size * worker_count only
+                // when speculative parsing is active.
                 chunk = std::move(leftover_);
-                std::unique_ptr<char[]> buf(new char[bytes]);
-                source_.read(buf.get(), (std::streamsize)bytes);
+                const size_t requested_window_size = this->parse_orchestrator_->read_window_size(bytes);
+                const size_t stream_window_cap = bytes > CSV_STREAM_WINDOW_SIZE_MAX
+                    ? bytes
+                    : CSV_STREAM_WINDOW_SIZE_MAX;
+                const size_t window_size = std::min(requested_window_size, stream_window_cap);
+                const size_t read_size = chunk.size() < window_size
+                    ? window_size - chunk.size()
+                    : bytes;
+                std::unique_ptr<char[]> buf(new char[read_size]);
+                source_.read(buf.get(), (std::streamsize)read_size);
 
                 const size_t n = static_cast<size_t>(source_.gcount());
                 
@@ -561,25 +689,73 @@ namespace csv {
                     throw_stream_read_failure();
                 }
 
-                const ParserChunkResult result = this->parse_chunk(chunk, chunk_owner);
+                ParserCoreRowSink output(*this);
+                const bool source_exhausted = source_.eof() || chunk.empty();
+                const CSVParseWindowResult result = this->parse_orchestrator_->parse_window(
+                    chunk,
+                    chunk_owner,
+                    this->stream_pos_,
+                    bytes,
+                    source_exhausted,
+                    output
+                );
 
-                if (source_.eof() || chunk.empty()) {
+                if (source_exhausted) {
                     this->eof_ = true;
-                    this->end_feed();
                 }
                 else {
                     // Save the tail bytes that begin an incomplete row so they
                     // are prepended to the next chunk (see class-level comment).
                     leftover_ = chunk.substr(result.complete_prefix_length);
+                    this->stream_pos_ += result.complete_prefix_length;
                 }
+            }
+
+            SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override {
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->diagnostics()
+                    : SpeculativeParseDiagnostics();
+            }
+
+            size_t parse_worker_count() const noexcept override {
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->worker_count()
+                    : 1;
+            }
+
+            bool utf8_bom() const noexcept override {
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->utf8_bom()
+                    : CSVParserDriverBase::utf8_bom();
+            }
+
+            void reset_with_initial_state(ParserDFAState state) noexcept {
+                if (this->parse_orchestrator_) {
+                    this->parse_orchestrator_->reset_with_initial_state(state);
+                }
+                else {
+                    CSVParserDriverBase::reset_with_initial_state(state);
+                }
+            }
+
+            void reset_with_initial_state(bool starts_in_quoted, bool in_escape = false) noexcept {
+                this->reset_with_initial_state(ParserDFAState{ starts_in_quoted, in_escape });
+            }
+
+            ParserDFAState ending_state() const noexcept {
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->ending_state()
+                    : CSVParserDriverBase::ending_state();
             }
 
         private:
             // Bytes from the previous chunk that form the start of an incomplete
             // row, plus the initial head buffer on the first call.
             std::string leftover_;
+            size_t stream_pos_ = 0;
 
             TStream& source_;
+            std::unique_ptr<ICSVParseOrchestrator> parse_orchestrator_;
         };
 
 #if !defined(__EMSCRIPTEN__)
@@ -598,7 +774,7 @@ namespace csv {
          *  file offset while preserving chunk-boundary remainder semantics.
          *
          */
-        class MmapParser : public IBasicCSVParser {
+        class MmapParser : public CSVParserDriverBase {
         public:
             MmapParser(csv::string_view filename,
                 const CSVFormat& format,
@@ -618,6 +794,8 @@ namespace csv {
 
             size_t parse_worker_count() const noexcept override;
 
+            bool utf8_bom() const noexcept override;
+
         private:
             void finalize_loaded_chunk(
                 csv::string_view chunk,
@@ -631,7 +809,7 @@ namespace csv {
             std::string _filename;
             size_t mmap_pos = 0;
             std::string head_;
-            std::unique_ptr<CSVParseOrchestrator> parse_orchestrator_;
+            std::unique_ptr<ICSVParseOrchestrator> parse_orchestrator_;
         };
 #endif
     }

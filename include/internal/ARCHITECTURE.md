@@ -45,7 +45,7 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 ### Parsing core
 
-- IBasicCSVParser
+- CSVParserDriverBase
   - Shared parse loop and field/row state machine.
 
 - csv_chunk_parser.hpp
@@ -80,7 +80,7 @@ Parser hierarchy:
 
 ```text
                   +------------------+
-                  | IBasicCSVParser  |
+                  | CSVParserDriverBase  |
                   | (abstract base)  |
                   +---------+--------+
                             ^
