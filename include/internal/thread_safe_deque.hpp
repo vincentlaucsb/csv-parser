@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "row_queue_batch.hpp"
 #include "row_queue_inspection.hpp"
 
 namespace csv {
@@ -106,25 +107,19 @@ namespace csv {
             /** Move up to @p max_items rows into a caller-owned batch buffer under one lock.
              *
              *  This is the preferred consumer path for chunked reads: it preserves queue
-             *  semantics while amortizing mutex traffic across many rows.
+             *  semantics while amortizing mutex traffic across many rows. Complete queued
+             *  batches are moved as contiguous spans; per-row moves only remain when the
+             *  requested limit splits a batch.
              */
             size_t drain_front(std::vector<T>& out, size_t max_items) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
-                const size_t drain_count = this->size_ < max_items ? this->size_ : max_items;
-                size_t remaining = drain_count;
-
-                while (remaining > 0) {
-                    auto& batch = this->batches_.front();
-                    const size_t available = batch.size() - this->front_index_;
-                    const size_t take = available < remaining ? available : remaining;
-                    for (size_t i = 0; i < take; ++i) {
-                        out.push_back(std::move(batch[this->front_index_ + i]));
-                    }
-                    this->front_index_ += take;
-                    this->size_ -= take;
-                    remaining -= take;
-                    this->discard_exhausted_front_batch();
-                }
+                const size_t drain_count = drain_front_batches(
+                    this->batches_,
+                    this->front_index_,
+                    this->size_,
+                    out,
+                    max_items
+                );
 
                 if (this->size_ == 0) {
                     this->_is_empty.store(true, std::memory_order_release);

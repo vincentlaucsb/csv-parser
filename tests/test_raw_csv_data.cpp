@@ -156,6 +156,47 @@ TEST_CASE("Row collection pop_front and drain_front cross batch boundaries", "[r
     REQUIRE(rows.empty());
 }
 
+TEST_CASE("Row collection drain_front preserves partial batch remainders", "[raw_csv_parse][row_deque]") {
+    auto first_batch = parse_raw_rows(
+        "A,B\n"
+        "1,2\n"
+        "3,4\n"
+    );
+    auto second_batch = parse_raw_rows(
+        "5,6\n"
+        "7,8\n"
+    );
+
+    RowCollection rows;
+    rows.append_rows(std::move(first_batch));
+    rows.append_rows(std::move(second_batch));
+
+    std::vector<CSVRow> drained;
+    REQUIRE(rows.drain_front(drained, 0) == 0);
+    REQUIRE(rows.size() == 5);
+
+    REQUIRE(rows.drain_front(drained, 2) == 2);
+    REQUIRE(drained.size() == 2);
+    REQUIRE(drained[0][0] == "A");
+    REQUIRE(drained[1][0] == "1");
+    REQUIRE(rows.size() == 3);
+
+    rows.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
+        REQUIRE(queued.size() == 3);
+        REQUIRE(queued[0][0] == "3");
+        REQUIRE(queued[1][0] == "5");
+        REQUIRE(queued[2][0] == "7");
+    });
+
+    std::vector<CSVRow> rest;
+    REQUIRE(rows.drain_front(rest, 10) == 3);
+    REQUIRE(rest.size() == 3);
+    REQUIRE(rest[0][0] == "3");
+    REQUIRE(rest[1][0] == "5");
+    REQUIRE(rest[2][0] == "7");
+    REQUIRE(rows.empty());
+}
+
 TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]") {
     std::stringstream unused_source;
     std::vector<CSVRow> parsed_rows;
