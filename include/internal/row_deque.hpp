@@ -19,6 +19,7 @@
 #include <utility>
 
 #ifdef CSV_HAS_CXX20
+#include "row_queue_inspection.hpp"
 #include <concepts>
 #endif
 
@@ -32,8 +33,9 @@ namespace csv {
 #ifdef CSV_HAS_CXX20
         template<typename T>
         struct RowDequeInspectProbe {
-            template<typename Rows>
-            void operator()(const Rows&) const noexcept {}
+            void operator()(const RowQueueInspectionView<T>& rows) const noexcept {
+                (void)rows.size();
+            }
         };
 
         template<typename Q, typename T>

@@ -4,7 +4,6 @@
 #include "internal/stream_parser.hpp"
 #include "shared/file_guard.hpp"
 
-#include <deque>
 #include <fstream>
 #include <sstream>
 
@@ -311,7 +310,7 @@ TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection",
     validator.finish();
 
     REQUIRE(validator.repair_count() == 1);
-    output.inspect([](const std::deque<CSVRow>& queued) {
+    output.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "id");
         REQUIRE(queued[1][0] == "1");

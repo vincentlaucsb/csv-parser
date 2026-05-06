@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "row_queue_inspection.hpp"
+
 namespace csv {
     namespace internals {
         template<typename T>
@@ -16,14 +18,24 @@ namespace csv {
             SingleThreadDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
 
             SingleThreadDeque(const SingleThreadDeque& other) {
-                this->data = other.data;
+                this->batches_ = other.batches_;
+                this->front_index_ = other.front_index_;
+                this->size_ = other.size_;
                 this->_notify_size = other._notify_size;
                 this->_is_empty = other._is_empty;
                 this->_is_waitable = other._is_waitable;
             }
 
             SingleThreadDeque(const std::deque<T>& source) : SingleThreadDeque() {
-                this->data = source;
+                std::vector<T> rows;
+                rows.reserve(source.size());
+                for (const auto& row : source) {
+                    rows.push_back(row);
+                }
+                if (!rows.empty()) {
+                    this->batches_.push_back(std::move(rows));
+                    this->size_ = source.size();
+                }
                 this->_is_empty = source.empty();
             }
 
@@ -32,7 +44,10 @@ namespace csv {
             }
 
             void push_back(T&& item) {
-                this->data.push_back(std::move(item));
+                std::vector<T> batch;
+                batch.push_back(std::move(item));
+                this->batches_.push_back(std::move(batch));
+                this->size_++;
                 this->_is_empty = false;
             }
 
@@ -41,17 +56,18 @@ namespace csv {
                     return;
                 }
 
-                for (auto& row : rows) {
-                    this->data.push_back(std::move(row));
-                }
+                this->size_ += rows.size();
+                this->batches_.push_back(std::move(rows));
                 this->_is_empty = false;
             }
 
             T pop_front() noexcept {
-                T item = std::move(data.front());
-                data.pop_front();
+                T item = std::move(this->batches_.front()[this->front_index_]);
+                this->front_index_++;
+                this->size_--;
+                this->discard_exhausted_front_batch();
 
-                if (this->data.empty()) {
+                if (this->size_ == 0) {
                     this->_is_empty = true;
                 }
 
@@ -60,15 +76,23 @@ namespace csv {
 
             /** Move up to @p max_items rows into a caller-owned batch buffer. */
             size_t drain_front(std::vector<T>& out, size_t max_items) {
-                const size_t available = this->data.size();
-                const size_t drain_count = available < max_items ? available : max_items;
+                const size_t drain_count = this->size_ < max_items ? this->size_ : max_items;
+                size_t remaining = drain_count;
 
-                for (size_t i = 0; i < drain_count; ++i) {
-                    out.push_back(std::move(this->data.front()));
-                    this->data.pop_front();
+                while (remaining > 0) {
+                    auto& batch = this->batches_.front();
+                    const size_t available = batch.size() - this->front_index_;
+                    const size_t take = available < remaining ? available : remaining;
+                    for (size_t i = 0; i < take; ++i) {
+                        out.push_back(std::move(batch[this->front_index_ + i]));
+                    }
+                    this->front_index_ += take;
+                    this->size_ -= take;
+                    remaining -= take;
+                    this->discard_exhausted_front_batch();
                 }
 
-                if (this->data.empty()) {
+                if (this->size_ == 0) {
                     this->_is_empty = true;
                 }
 
@@ -81,7 +105,8 @@ namespace csv {
              */
             template<typename Callback>
             void inspect(Callback&& callback) const {
-                std::forward<Callback>(callback)(this->data);
+                RowQueueInspectionView<T> view(this->batches_, this->front_index_, this->size_);
+                std::forward<Callback>(callback)(view);
             }
 
             bool is_waitable() const noexcept {
@@ -93,7 +118,7 @@ namespace csv {
             }
 
             size_t size() const noexcept {
-                return this->data.size();
+                return this->size_;
             }
 
             void notify_all() {
@@ -108,7 +133,16 @@ namespace csv {
             bool _is_empty = true;
             bool _is_waitable = false;
             size_t _notify_size;
-            std::deque<T> data;
+            std::deque<std::vector<T>> batches_;
+            size_t front_index_ = 0;
+            size_t size_ = 0;
+
+            void discard_exhausted_front_batch() noexcept {
+                while (!this->batches_.empty() && this->front_index_ >= this->batches_.front().size()) {
+                    this->batches_.pop_front();
+                    this->front_index_ = 0;
+                }
+            }
         };
     }
 }

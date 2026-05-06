@@ -90,7 +90,7 @@ TEST_CASE("Row collection inspect peeks queued rows under one lock", "[raw_csv_p
     rows.push_back(std::move(parsed_rows[0]));
     rows.push_back(std::move(parsed_rows[1]));
 
-    rows.inspect([](const std::deque<CSVRow>& queued) {
+    rows.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
         REQUIRE(queued.size() == 2);
         REQUIRE(queued[0][0] == "A");
         REQUIRE(queued[1][1] == "2");
@@ -113,7 +113,7 @@ TEST_CASE("Row collection append_rows preserves order and ignores empty batches"
 
     rows.append_rows(std::move(parsed_rows));
 
-    rows.inspect([](const std::deque<CSVRow>& queued) {
+    rows.inspect([](const RowQueueInspectionView<CSVRow>& queued) {
         REQUIRE(queued.size() == 3);
         REQUIRE(queued[0][0] == "A");
         REQUIRE(queued[1][0] == "1");
@@ -124,6 +124,35 @@ TEST_CASE("Row collection append_rows preserves order and ignores empty batches"
     REQUIRE(rows.pop_front()[0] == "A");
     REQUIRE(rows.pop_front()[0] == "1");
     REQUIRE(rows.pop_front()[0] == "3");
+    REQUIRE(rows.empty());
+}
+
+TEST_CASE("Row collection pop_front and drain_front cross batch boundaries", "[raw_csv_parse][row_deque]") {
+    auto first_batch = parse_raw_rows(
+        "A,B\n"
+        "1,2\n"
+    );
+    auto second_batch = parse_raw_rows(
+        "3,4\n"
+        "5,6\n"
+    );
+
+    RowCollection rows;
+    rows.append_rows(std::move(first_batch));
+    rows.append_rows(std::move(second_batch));
+    REQUIRE(rows.size() == 4);
+
+    REQUIRE(rows.pop_front()[0] == "A");
+    REQUIRE(rows.size() == 3);
+
+    std::vector<CSVRow> drained;
+    const size_t drained_count = rows.drain_front(drained, 3);
+
+    REQUIRE(drained_count == 3);
+    REQUIRE(drained.size() == 3);
+    REQUIRE(drained[0][0] == "1");
+    REQUIRE(drained[1][0] == "3");
+    REQUIRE(drained[2][0] == "5");
     REQUIRE(rows.empty());
 }
 
