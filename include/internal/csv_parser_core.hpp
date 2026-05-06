@@ -258,13 +258,12 @@ namespace csv {
             typename ParsePolicy = PermissiveParsePolicy>
         class CSVParserCore {
         public:
-            CSVParserCore() : active_output_(&output_) {}
+            CSVParserCore() = default;
 
             CSVParserCore(
                 const CSVFormat& source_format,
                 const ColNamesPtr& col_names
-            ) : active_output_(&output_),
-                col_names_(col_names) {
+            ) : col_names_(col_names) {
                 // Only initialize the fields that are stable before format resolution.
                 // parse_flags_ and simd_sentinels_ are always set by resolve_format_from_head,
                 // so there is no point computing them here with a placeholder delimiter.
@@ -277,8 +276,7 @@ namespace csv {
             CSVParserCore(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
-            ) : active_output_(&output_),
-                parse_flags_(parse_flags),
+            ) : parse_flags_(parse_flags),
                 ws_flags_(ws_flags) {
                 const char d = internals::infer_delimiter(parse_flags);
                 simd_sentinels_ = SentinelVecs(d, internals::infer_quote_char(parse_flags, d));
@@ -578,7 +576,7 @@ namespace csv {
             bool utf8_bom_ = false;
 
             ParseOutput output_;
-            ParseOutput* active_output_ = nullptr;
+            ParseOutput* active_output_ = &output_;
             ParsePolicy policy_;
 
             CONSTEXPR_17 bool ws_flag(const char ch) const noexcept {
