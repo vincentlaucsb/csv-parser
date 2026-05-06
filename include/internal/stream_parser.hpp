@@ -137,12 +137,6 @@ namespace csv {
                     : 1;
             }
 
-            bool utf8_bom() const noexcept override {
-                return this->parse_orchestrator_
-                    ? this->parse_orchestrator_->utf8_bom()
-                    : CSVParserDriverBase::utf8_bom();
-            }
-
             void reset_with_initial_state(ParserDFAState state) noexcept {
                 if (this->parse_orchestrator_) {
                     this->parse_orchestrator_->reset_with_initial_state(state);
@@ -169,7 +163,6 @@ namespace csv {
             size_t stream_pos_ = 0;
 
             TStream& source_;
-            std::unique_ptr<ICSVParseOrchestrator> parse_orchestrator_;
         };
     }
 }

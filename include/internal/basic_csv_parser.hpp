@@ -166,7 +166,9 @@ namespace csv {
             }
 
             virtual bool utf8_bom() const noexcept {
-                return CSVParserCore<>::utf8_bom();
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->utf8_bom()
+                    : CSVParserCore<>::utf8_bom();
             }
 
         protected:
@@ -179,6 +181,8 @@ namespace csv {
             /** The size of the incoming CSV */
             size_t source_size_ = 0;
             ///@}
+
+            std::unique_ptr<ICSVParseOrchestrator> parse_orchestrator_;
 
             virtual std::string& get_csv_head() = 0;
 
@@ -229,8 +233,6 @@ namespace csv {
 
             size_t parse_worker_count() const noexcept override;
 
-            bool utf8_bom() const noexcept override;
-
         private:
             void finalize_loaded_chunk(
                 csv::string_view chunk,
@@ -244,7 +246,6 @@ namespace csv {
             std::string _filename;
             size_t mmap_pos = 0;
             std::string head_;
-            std::unique_ptr<ICSVParseOrchestrator> parse_orchestrator_;
         };
 #endif
     }

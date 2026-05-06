@@ -39,12 +39,6 @@ namespace csv {
                 : 1;
         }
 
-        CSV_INLINE bool MmapParser::utf8_bom() const noexcept {
-            return this->parse_orchestrator_
-                ? this->parse_orchestrator_->utf8_bom()
-                : CSVParserDriverBase::utf8_bom();
-        }
-
         CSV_INLINE void MmapParser::finalize_loaded_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
