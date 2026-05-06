@@ -14,7 +14,7 @@ using std::vector;
 using std::string;
 
 namespace {
-#ifndef __EMSCRIPTEN__
+#if !defined(__EMSCRIPTEN__) && CSV_ENABLE_THREADS
     const std::string& speculative_read_chunk_flags_filename() {
         static csv_test::GeneratedFile file("./tests/data/tmp_speculative_read_chunk_flags.csv");
 
