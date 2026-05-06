@@ -161,11 +161,15 @@ namespace csv {
             virtual void next(size_t bytes) = 0;
 
             virtual SpeculativeParseDiagnostics speculative_diagnostics() const noexcept {
-                return SpeculativeParseDiagnostics();
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->diagnostics()
+                    : SpeculativeParseDiagnostics();
             }
 
             virtual size_t parse_worker_count() const noexcept {
-                return 1;
+                return this->parse_orchestrator_
+                    ? this->parse_orchestrator_->worker_count()
+                    : 1;
             }
 
             virtual bool utf8_bom() const noexcept {

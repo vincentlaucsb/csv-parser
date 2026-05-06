@@ -191,25 +191,7 @@ namespace csv {
         CSVReader(CSVReader&& other) noexcept :
             read_scheduler_(other._format.is_threading_enabled()) {
             other.read_scheduler_.join();
-
-            this->_format = std::move(other._format);
-            this->col_names = std::move(other.col_names);
-            this->parser = std::move(other.parser);
-            this->records = std::move(other.records);
-            this->owned_stream = std::move(other.owned_stream);
-            this->n_cols = other.n_cols;
-            this->_n_rows = other._n_rows;
-            this->header_trimmed = other.header_trimmed;
-            this->_chunk_size = other._chunk_size;
-            this->_read_requested = other._read_requested;
-            this->read_scheduler_.set_threading_enabled(this->_format.is_threading_enabled());
-            this->read_scheduler_.adopt_exception(other.read_scheduler_.take_exception());
-
-            other.n_cols = 0;
-            other._n_rows = 0;
-            other.header_trimmed = false;
-            other._read_requested = false;
-            other._chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+            this->move_state_from(other);
         }
 
         /** Move assignment.
@@ -223,25 +205,7 @@ namespace csv {
 
             this->read_scheduler_.join();
             other.read_scheduler_.join();
-
-            this->_format = std::move(other._format);
-            this->col_names = std::move(other.col_names);
-            this->parser = std::move(other.parser);
-            this->records = std::move(other.records);
-            this->owned_stream = std::move(other.owned_stream);
-            this->n_cols = other.n_cols;
-            this->_n_rows = other._n_rows;
-            this->header_trimmed = other.header_trimmed;
-            this->_chunk_size = other._chunk_size;
-            this->_read_requested = other._read_requested;
-            this->read_scheduler_.set_threading_enabled(this->_format.is_threading_enabled());
-            this->read_scheduler_.adopt_exception(other.read_scheduler_.take_exception());
-
-            other.n_cols = 0;
-            other._n_rows = 0;
-            other.header_trimmed = false;
-            other._read_requested = false;
-            other._chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+            this->move_state_from(other);
 
             return *this;
         }
@@ -412,6 +376,30 @@ namespace csv {
         bool _read_requested = false; /**< Flag to detect infinite read loops (Issue #218) */
         internals::CSVReadScheduler read_scheduler_;
         ///@}
+
+        void move_state_from(CSVReader& other) noexcept {
+            this->_format = std::move(other._format);
+            this->col_names = std::move(other.col_names);
+            this->parser = std::move(other.parser);
+            this->records = std::move(other.records);
+            this->owned_stream = std::move(other.owned_stream);
+            this->n_cols = other.n_cols;
+            this->_n_rows = other._n_rows;
+            this->header_trimmed = other.header_trimmed;
+            this->_chunk_size = other._chunk_size;
+            this->_read_requested = other._read_requested;
+            this->read_scheduler_.set_threading_enabled(this->_format.is_threading_enabled());
+            this->read_scheduler_.adopt_exception(other.read_scheduler_.take_exception());
+            other.reset_after_move();
+        }
+
+        void reset_after_move() noexcept {
+            this->n_cols = 0;
+            this->_n_rows = 0;
+            this->header_trimmed = false;
+            this->_read_requested = false;
+            this->_chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+        }
 
         /** @name Format and Header Helpers
          *

@@ -126,18 +126,6 @@ namespace csv {
                 }
             }
 
-            SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override {
-                return this->parse_orchestrator_
-                    ? this->parse_orchestrator_->diagnostics()
-                    : SpeculativeParseDiagnostics();
-            }
-
-            size_t parse_worker_count() const noexcept override {
-                return this->parse_orchestrator_
-                    ? this->parse_orchestrator_->worker_count()
-                    : 1;
-            }
-
             void reset_with_initial_state(ParserDFAState state) noexcept {
                 if (this->parse_orchestrator_) {
                     this->parse_orchestrator_->reset_with_initial_state(state);

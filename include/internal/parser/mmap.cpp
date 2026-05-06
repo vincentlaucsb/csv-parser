@@ -28,18 +28,6 @@ namespace csv {
 
         CSV_INLINE MmapParser::~MmapParser() = default;
 
-        CSV_INLINE SpeculativeParseDiagnostics MmapParser::speculative_diagnostics() const noexcept {
-            return this->parse_orchestrator_
-                ? this->parse_orchestrator_->diagnostics()
-                : SpeculativeParseDiagnostics();
-        }
-
-        CSV_INLINE size_t MmapParser::parse_worker_count() const noexcept {
-            return this->parse_orchestrator_
-                ? this->parse_orchestrator_->worker_count()
-                : 1;
-        }
-
         CSV_INLINE void MmapParser::finalize_loaded_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,

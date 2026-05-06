@@ -37,10 +37,6 @@ namespace csv {
 
             void next(size_t bytes) override;
 
-            SpeculativeParseDiagnostics speculative_diagnostics() const noexcept override;
-
-            size_t parse_worker_count() const noexcept override;
-
         private:
             void finalize_loaded_chunk(
                 csv::string_view chunk,
