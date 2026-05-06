@@ -10,8 +10,8 @@ namespace csv {
         class SpeculativeParseValidator {
         public:
             SpeculativeParseValidator(
-                CSVParserCore& repair_parser,
-                CSVRowSink& output,
+                CSVParserCore<>& repair_parser,
+                CSVRowOutput& output,
                 ParserDFAState initial_state = ParserDFAState()
             ) : repair_parser_(repair_parser),
                 output_(output),
@@ -96,8 +96,8 @@ namespace csv {
                 this->pending_suffix_ = CSVRowFragment();
             }
 
-            CSVParserCore& repair_parser_;
-            CSVRowSink& output_;
+            CSVParserCore<>& repair_parser_;
+            CSVRowOutput& output_;
             ParserDFAState expected_start_state_;
             CSVRowFragment pending_suffix_;
             size_t repair_count_ = 0;

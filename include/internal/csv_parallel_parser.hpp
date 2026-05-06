@@ -101,7 +101,7 @@ namespace csv {
 
             ParallelCSVParseResult parse_chunks(
                 const std::vector<SpeculativeParseChunk>& chunks,
-                CSVRowSink& output,
+                CSVRowOutput& output,
                 bool finish = true
             ) {
                 ParallelCSVParseResult result;
@@ -138,11 +138,11 @@ namespace csv {
 
         private:
             ParsedChunkRows parse_chunk_with(
-                CSVParserCore& parser,
+                CSVParserCore<>& parser,
                 const SpeculativeParseChunk& chunk
             ) const {
                 std::vector<CSVRow> rows;
-                VectorRowSink sink(rows);
+                CSVRowOutput sink(rows);
                 const ParserChunkResult parse_result = parser.parse_chunk(
                     chunk.bytes,
                     chunk.owner,

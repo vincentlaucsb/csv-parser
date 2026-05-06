@@ -100,7 +100,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("record-boundary chunk keeps trailing partial row as suffix") {
         std::vector<CSVRow> parsed_rows;
-        VectorRowSink sink(parsed_rows);
+        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>("id,value\n1,\"long");
 
         const auto parse_result = parser.parse_chunk(*chunk, chunk, sink);
@@ -122,7 +122,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("continuation chunk keeps leading partial row as prefix") {
         std::vector<CSVRow> parsed_rows;
-        VectorRowSink sink(parsed_rows);
+        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>(" value\",2\n3,Bob\n4,\"tail");
         ParserChunkOptions options(ParserDFAState(true), false);
 
@@ -146,7 +146,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("continuation prefix preserves embedded newlines") {
         std::vector<CSVRow> parsed_rows;
-        VectorRowSink sink(parsed_rows);
+        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>("line one\nline two\",tail\nnext,row\npartial");
         ParserChunkOptions options(ParserDFAState(true), false);
 
@@ -169,7 +169,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
 
     SECTION("continuation chunk without a record boundary is one prefix fragment") {
         std::vector<CSVRow> parsed_rows;
-        VectorRowSink sink(parsed_rows);
+        CSVRowOutput sink(parsed_rows);
         auto chunk = std::make_shared<std::string>(" still inside the same quoted field");
         ParserChunkOptions options(ParserDFAState(true), false);
 
@@ -214,13 +214,13 @@ TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[
 
     auto chunk0 = std::make_shared<std::string>("id,text,status\n1,\"hello ");
     std::vector<CSVRow> parsed0;
-    VectorRowSink sink0(parsed0);
+    CSVRowOutput sink0(parsed0);
     const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, sink0);
     auto rows0 = split_parsed_chunk_rows(0, *chunk0, chunk0, result0, std::move(parsed0), true);
 
     auto chunk1 = std::make_shared<std::string>("world\",ok\n2,done,ok\n");
     std::vector<CSVRow> parsed1_wrong;
-    VectorRowSink sink1(parsed1_wrong);
+    CSVRowOutput sink1(parsed1_wrong);
     const auto result1_wrong = chunk1_parser.parse_chunk(
         *chunk1,
         chunk1,
@@ -237,7 +237,7 @@ TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[
     );
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     SpeculativeParseValidator validator(repair_parser, output_sink);
 
     validator.validate_and_release(std::move(rows0));
@@ -286,13 +286,13 @@ TEST_CASE("Speculative validator carries split rows across chunks without record
 
     auto chunk0 = std::make_shared<std::string>("id,text,status\n1,\"alpha");
     std::vector<CSVRow> parsed0;
-    VectorRowSink sink0(parsed0);
+    CSVRowOutput sink0(parsed0);
     const auto result0 = chunk0_parser.parse_chunk(*chunk0, chunk0, sink0);
     auto rows0 = split_parsed_chunk_rows(0, *chunk0, chunk0, result0, std::move(parsed0), true);
 
     auto chunk1 = std::make_shared<std::string>(" beta");
     std::vector<CSVRow> parsed1;
-    VectorRowSink sink1(parsed1);
+    CSVRowOutput sink1(parsed1);
     const auto result1 = chunk1_parser.parse_chunk(
         *chunk1,
         chunk1,
@@ -303,7 +303,7 @@ TEST_CASE("Speculative validator carries split rows across chunks without record
 
     auto chunk2 = std::make_shared<std::string>(" gamma\",ok\n");
     std::vector<CSVRow> parsed2;
-    VectorRowSink sink2(parsed2);
+    CSVRowOutput sink2(parsed2);
     const auto result2 = chunk2_parser.parse_chunk(
         *chunk2,
         chunk2,
@@ -313,7 +313,7 @@ TEST_CASE("Speculative validator carries split rows across chunks without record
     auto rows2 = split_parsed_chunk_rows(2, *chunk2, chunk2, result2, std::move(parsed2), false);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     SpeculativeParseValidator validator(repair_parser, output_sink);
 
     validator.validate_and_release(std::move(rows0));
@@ -363,7 +363,7 @@ TEST_CASE("ParallelCSVParser repairs speculative worker output in order", "[raw_
     chunks.push_back(second);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 2);
     const auto result = parser.parse_chunks(chunks, output_sink);
 
@@ -395,7 +395,7 @@ TEST_CASE("ParallelCSVParser parses caller-owned chunks from the speculative sca
     REQUIRE(chunks.size() > 3);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 3);
     const auto result = parser.parse_chunks(chunks, output_sink);
 
@@ -444,7 +444,7 @@ TEST_CASE("ParallelCSVParser can leave the final split row pending", "[raw_csv_p
     chunks.push_back(second);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 2);
     const auto result = parser.parse_chunks(chunks, output_sink, false);
 
@@ -467,7 +467,7 @@ TEST_CASE("ParallelCSVParser repairs chunks split between CR and LF", "[raw_csv_
     REQUIRE(chunks.size() == 3);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     ParallelCSVParser parser(parse_flags, ws_flags, 2);
     const auto result = parser.parse_chunks(chunks, output_sink);
 
@@ -510,7 +510,7 @@ TEST_CASE("MmapParser speculative path preserves row order and split quoted rows
         .speculative_parallel_threads(2);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     MmapParser parser(cleanup.filename, format);
     parser.set_output(output_sink);
 
@@ -553,7 +553,7 @@ TEST_CASE("StreamParser speculative path preserves row order and split worker ch
         .speculative_parallel_threads(2);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     StreamParser<std::stringstream> parser(input, format);
     parser.set_output(output_sink);
 
@@ -590,7 +590,7 @@ TEST_CASE("StreamParser speculative path carries quoted rows across buffered win
         .speculative_parallel_threads(2);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     StreamParser<std::stringstream> parser(input, format);
     parser.set_output(output_sink);
 
@@ -622,7 +622,7 @@ TEST_CASE("StreamParser speculative path flushes pending suffix once at EOF", "[
         .speculative_parallel_threads(2);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     StreamParser<std::stringstream> parser(input, format);
     parser.set_output(output_sink);
 
@@ -649,7 +649,7 @@ TEST_CASE("StreamParser stays serial when speculative parsing is disabled", "[ra
     format.no_header().delimiter(',');
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     StreamParser<std::stringstream> parser(input, format);
     parser.set_output(output_sink);
     parser.next(internals::CSV_CHUNK_SIZE_FLOOR);
@@ -676,7 +676,7 @@ TEST_CASE("StreamParser stays serial with speculative flag in no-thread builds",
         .speculative_parallel_threads(2);
 
     std::vector<CSVRow> output;
-    VectorRowSink output_sink(output);
+    CSVRowOutput output_sink(output);
     StreamParser<std::stringstream> parser(input, format);
     parser.set_output(output_sink);
     parser.next(internals::CSV_CHUNK_SIZE_FLOOR);

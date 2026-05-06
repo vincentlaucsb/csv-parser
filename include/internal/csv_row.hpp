@@ -62,6 +62,7 @@
 
 namespace csv {
     namespace internals {
+        template<typename ParseOutput, typename ParsePolicy>
         class CSVParserCore;
         class CSVParserDriverBase;
         namespace speculative {
@@ -537,7 +538,8 @@ namespace csv {
     /** Data structure for representing CSV rows */
     class CSVRow {
     public:
-        friend internals::CSVParserCore;
+        template<typename ParseOutput, typename ParsePolicy>
+        friend class internals::CSVParserCore;
         friend internals::CSVParserDriverBase;
         friend struct internals::speculative::CSVRowFragment;
 

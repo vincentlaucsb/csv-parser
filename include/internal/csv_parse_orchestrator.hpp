@@ -106,7 +106,7 @@ namespace csv {
                 size_t base_offset,
                 size_t serial_chunk_size,
                 bool source_exhausted,
-                CSVRowSink& output
+                CSVRowOutput& output
             ) override {
 #if CSV_ENABLE_THREADS
                 if (this->use_speculative_parallel_
@@ -140,7 +140,7 @@ namespace csv {
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
                 bool source_exhausted,
-                CSVRowSink& output
+                CSVRowOutput& output
             ) {
                 CSVParseWindowResult result;
                 const ParserChunkResult parse_result = this->serial_parser_.parse_chunk(
@@ -162,7 +162,7 @@ namespace csv {
                 size_t base_offset,
                 size_t serial_chunk_size,
                 bool source_exhausted,
-                CSVRowSink& output
+                CSVRowOutput& output
             ) {
                 CSVParseWindowResult result;
                 auto chunks = speculative::make_speculative_parse_chunks(
@@ -187,7 +187,7 @@ namespace csv {
             }
 #endif
 
-            CSVParserCore serial_parser_;
+            CSVParserCore<> serial_parser_;
             SpeculativeParseDiagnostics speculative_diagnostics_;
 #if CSV_ENABLE_THREADS
             ParseFlagMap parse_flags_;

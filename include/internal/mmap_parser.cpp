@@ -53,14 +53,13 @@ namespace csv {
         ) {
             const size_t base_offset = this->mmap_pos - length;
             const bool source_exhausted = this->mmap_pos == this->source_size_;
-            ParserCoreRowSink output(*this);
             CSVParseWindowResult result = this->parse_orchestrator_->parse_window(
                 chunk,
                 std::move(owner),
                 base_offset,
                 chunk_size,
                 source_exhausted,
-                output
+                this->output()
             );
 
             if (source_exhausted) {

@@ -46,9 +46,13 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 ### Parsing core
 
 - CSVParserCore
-  - Non-virtual byte parser core.
-  - Owns DFA state, BOM handling, field/row construction, and row sink emission.
+  - Templated, non-virtual byte parser core in csv_parser_core.hpp.
+  - Owns DFA state, BOM handling, field/row construction, and parse-output policy dispatch.
   - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
+
+- CSVRowOutput / PermissiveParsePolicy
+  - Default CSVRow-building output adapter and no-op parse policy extension point.
+  - Preserve RawCSVData/CSVRow lazy materialization while keeping the hot path free of virtual row sinks.
 
 - CSVParserDriverBase
   - Internal source-adapter base that preserves the parser driver API used by CSVReader.
@@ -205,12 +209,12 @@ auto it = std::max_element(rows.begin(), rows.end(), cmp);
 - Do not add a `std::vector<RawCSVDataPtr>` cache to `CSVReader::iterator` to support multi-pass. That destroys bounded-memory behavior.
 - Do not change `iterator_category` to `forward_iterator_tag` without first solving the chunk-lifetime problem.
 
-This invariant is also documented in `.claude/rules/csv_reader_rules.md`.
+This invariant is canonical here and summarized in the root `AGENTS.md` guidance.
 
 ## 5. Change Impact Map
 
 - Parser state machine changes:
-  - basic_csv_parser.hpp, basic_csv_parser.cpp, csv_speculative_chunks.hpp
+  - csv_parser_core.hpp, csv_speculative_chunks.hpp
 
 - Chunk transition changes:
   - mmap_parser.cpp (MmapParser next), stream_parser.hpp (StreamParser next)

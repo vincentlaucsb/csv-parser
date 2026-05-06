@@ -62,7 +62,7 @@ TEST_CASE("Raw parser can emit rows into a vector sink", "[raw_csv_parse]") {
     );
 
     std::vector<CSVRow> parsed_rows;
-    VectorRowSink sink(parsed_rows);
+    CSVRowOutput sink(parsed_rows);
 
     StreamParser<std::stringstream> parser(
         csv,
@@ -82,7 +82,7 @@ TEST_CASE("Raw parser can emit rows into a vector sink", "[raw_csv_parse]") {
 TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]") {
     std::stringstream unused_source;
     std::vector<CSVRow> parsed_rows;
-    VectorRowSink sink(parsed_rows);
+    CSVRowOutput sink(parsed_rows);
 
     StreamParser<std::stringstream> parser(
         unused_source,
@@ -109,7 +109,7 @@ TEST_CASE("Raw parser can parse a caller-owned chunk directly", "[raw_csv_parse]
 TEST_CASE("CSVRow raw_str uses record boundaries rather than newline search", "[raw_csv_parse]") {
     std::stringstream unused_source;
     std::vector<CSVRow> parsed_rows;
-    VectorRowSink sink(parsed_rows);
+    CSVRowOutput sink(parsed_rows);
 
     StreamParser<std::stringstream> parser(
         unused_source,

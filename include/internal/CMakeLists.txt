@@ -12,6 +12,7 @@ target_sources(csv
 		csv_format.cpp
 		csv_exceptions.hpp
 		csv_chunk_parser.hpp
+		csv_parser_core.hpp
 		csv_parallel_parser.hpp
 		csv_parse_orchestrator.hpp
 		csv_speculative_chunks.hpp

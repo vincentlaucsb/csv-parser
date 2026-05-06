@@ -104,7 +104,6 @@ namespace csv {
                     throw_stream_read_failure();
                 }
 
-                ParserCoreRowSink output(*this);
                 const bool source_exhausted = source_.eof() || chunk.empty();
                 const CSVParseWindowResult result = this->parse_orchestrator_->parse_window(
                     chunk,
@@ -112,7 +111,7 @@ namespace csv {
                     this->stream_pos_,
                     bytes,
                     source_exhausted,
-                    output
+                    this->output()
                 );
 
                 if (source_exhausted) {

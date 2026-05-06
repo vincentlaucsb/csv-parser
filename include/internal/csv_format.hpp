@@ -13,6 +13,7 @@
 
 namespace csv {
     namespace internals {
+        template<typename ParseOutput, typename ParsePolicy>
         class CSVParserCore;
         class CSVParserDriverBase;
     }
@@ -220,7 +221,8 @@ namespace csv {
         }
 
         friend CSVReader;
-        friend internals::CSVParserCore;
+        template<typename ParseOutput, typename ParsePolicy>
+        friend class internals::CSVParserCore;
         friend internals::CSVParserDriverBase;
         
     private:

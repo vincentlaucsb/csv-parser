@@ -2,7 +2,7 @@
 
 Architectural overview for AI assistants working with this codebase.
 
-> **Maintenance rule:** Whenever this file is changed, update both `CLAUDE.md` and `ARCHITECTURE.md` in the same directory to reflect relevant changes. `CLAUDE.md` is a bullet-point summary and `ARCHITECTURE.md` is the top-level architecture index; both must stay in sync with this guidance.
+> **Maintenance rule:** `AGENTS.md` is the canonical AI-agent guidance. When this file changes, update `ARCHITECTURE.md` in the same directory if the architecture index or durable engineering guidance needs to reflect the change. `CLAUDE.md` is only a compatibility shim that points here.
 
 ## Critical: single_include/csv.hpp Is A Shim
 
@@ -52,6 +52,7 @@ For detailed file mapping, parser data flow, and component relationships, see `A
 8.  **Opportunistic rewrites/refactors are allowed when they are safe and justified.** Keep them separated from build-fix urgency where possible, and avoid bundling unrelated churn with compiler triage unless explicitly requested.
 9. **When proposing changes that affect compile-time behavior, explain the tradeoff clearly.** Call out any impact to codegen, performance, portability, and readability before applying the change.
 10. **If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.** Provide a short justification before expanding further.
+11. **`CSVReader::iterator` is intentionally single-pass.** Do not cache all `RawCSVDataPtr` chunks to make it behave like a forward iterator; that defeats bounded-memory streaming for large CSV files. Algorithms that need multi-pass access should first materialize rows into a container such as `std::vector<CSVRow>`.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 

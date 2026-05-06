@@ -150,7 +150,7 @@ namespace csv {
         }
 
         inline std::vector<CSVRow> materialize_row_fragment(
-            CSVParserCore& parser,
+            CSVParserCore<>& parser,
             const CSVRowFragment& fragment
         ) {
             std::vector<CSVRow> rows;
@@ -158,7 +158,7 @@ namespace csv {
                 return rows;
             }
 
-            VectorRowSink sink(rows);
+            CSVRowOutput sink(rows);
             parser.parse_chunk(
                 fragment.bytes,
                 fragment.owner,
@@ -170,12 +170,12 @@ namespace csv {
         }
 
         inline ParsedChunkRows repair_parsed_chunk_rows(
-            CSVParserCore& parser,
+            CSVParserCore<>& parser,
             const ParsedChunkRows& chunk,
             ParserDFAState corrected_initial_state
         ) {
             std::vector<CSVRow> parsed_rows;
-            VectorRowSink sink(parsed_rows);
+            CSVRowOutput sink(parsed_rows);
 
             const ParserChunkResult parse_result = parser.parse_chunk(
                 chunk.chunk,
@@ -200,12 +200,12 @@ namespace csv {
          *  The SIGMOD-style speculative path treats input sourcing as an
          *  external concern. This parser core only needs delimiter/whitespace state.
          */
-        class ChunkParserCore : public CSVParserCore {
+        class ChunkParserCore : public CSVParserCore<> {
         public:
             ChunkParserCore(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
-            ) : CSVParserCore(parse_flags, ws_flags) {}
+            ) : CSVParserCore<>(parse_flags, ws_flags) {}
         };
         }
     }
