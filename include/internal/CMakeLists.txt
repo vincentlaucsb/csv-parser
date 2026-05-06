@@ -15,11 +15,10 @@ target_sources(csv
 		csv_parser_core.hpp
 		csv_parallel_parser.hpp
 		csv_parse_orchestrator.hpp
-		csv_speculative_chunks.hpp
-		csv_speculative_diagnostics.hpp
-		csv_speculative_parser.hpp
-		csv_speculative_scanner.hpp
-		csv_speculative_validator.hpp
+		speculative/chunks.hpp
+		speculative/diagnostics.hpp
+		speculative/scanner.hpp
+		speculative/validator.hpp
 		csv_reader.hpp
 		csv_reader.cpp
 		csv_reader_iterator.cpp

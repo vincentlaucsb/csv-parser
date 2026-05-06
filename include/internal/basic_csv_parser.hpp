@@ -25,7 +25,7 @@
 #include "csv_format.hpp"
 #include "csv_parser_core.hpp"
 #include "csv_row.hpp"
-#include "csv_speculative_diagnostics.hpp"
+#include "speculative/diagnostics.hpp"
 
 namespace csv {
     namespace internals {

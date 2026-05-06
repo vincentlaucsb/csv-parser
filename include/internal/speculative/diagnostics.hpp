@@ -4,6 +4,7 @@
 
 namespace csv {
     namespace internals {
+        namespace speculative {
         struct SpeculativeParseDiagnostics {
             size_t chunks = 0;
             size_t ambiguous_chunks = 0;
@@ -23,5 +24,8 @@ namespace csv {
                 this->validation_repairs += other.validation_repairs;
             }
         };
+        }
+
+        using SpeculativeParseDiagnostics = speculative::SpeculativeParseDiagnostics;
     }
 }

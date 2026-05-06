@@ -61,14 +61,14 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 - csv_chunk_parser.hpp
   - Compatibility include for speculative chunk helpers.
 
-- csv_speculative_chunks.hpp
+- speculative/chunks.hpp
   - Row-fragment repair primitives and chunk parser shell used by speculative parsing.
 
-- csv_speculative_parser.hpp
+- speculative/parser.hpp
   - Umbrella include for speculative parser internals and the parse orchestrator.
   - Compiled out when `CSV_ENABLE_THREADS=0`.
 
-- csv_speculative_scanner.hpp, csv_speculative_validator.hpp, csv_parallel_parser.hpp
+- speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp
   - Speculative scanner, row-fragment validation/repair, and optional threaded chunk parser.
   - Speculative-only helpers live under `csv::internals::speculative`.
 
@@ -214,13 +214,13 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
 ## 5. Change Impact Map
 
 - Parser state machine changes:
-  - csv_parser_core.hpp, csv_speculative_chunks.hpp
+  - csv_parser_core.hpp, speculative/chunks.hpp
 
 - Chunk transition changes:
   - mmap_parser.cpp (MmapParser next), stream_parser.hpp (StreamParser next)
 
 - Speculative parallel parsing changes:
-  - csv_speculative_parser.hpp, csv_speculative_scanner.hpp, csv_speculative_validator.hpp, csv_parallel_parser.hpp, csv_parse_orchestrator.hpp, csv_speculative_diagnostics.hpp, mmap_parser.cpp, stream_parser.hpp
+  - speculative/parser.hpp, speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp, csv_parse_orchestrator.hpp, speculative/diagnostics.hpp, mmap_parser.cpp, stream_parser.hpp
 
 - Reader worker/iteration behavior:
   - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp

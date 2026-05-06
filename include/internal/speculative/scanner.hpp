@@ -1,7 +1,7 @@
 #pragma once
 
-#include "basic_csv_parser.hpp"
-#include "csv_speculative_diagnostics.hpp"
+#include "../basic_csv_parser.hpp"
+#include "diagnostics.hpp"
 
 #include <cmath>
 #include <limits>

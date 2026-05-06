@@ -1,7 +1,7 @@
 #pragma once
 
-#include "csv_speculative_scanner.hpp"
-#include "csv_speculative_validator.hpp"
+#include "speculative/scanner.hpp"
+#include "speculative/validator.hpp"
 
 #if CSV_ENABLE_THREADS
 #include <condition_variable>
