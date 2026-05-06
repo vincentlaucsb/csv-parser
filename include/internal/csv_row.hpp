@@ -64,7 +64,9 @@ namespace csv {
     namespace internals {
         class CSVParserCore;
         class CSVParserDriverBase;
-        struct CSVRowFragment;
+        namespace speculative {
+            struct CSVRowFragment;
+        }
 
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
@@ -537,7 +539,7 @@ namespace csv {
     public:
         friend internals::CSVParserCore;
         friend internals::CSVParserDriverBase;
-        friend struct internals::CSVRowFragment;
+        friend struct internals::speculative::CSVRowFragment;
 
         CSVRow() = default;
         

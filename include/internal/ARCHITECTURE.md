@@ -45,22 +45,38 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 ### Parsing core
 
+- CSVParserCore
+  - Non-virtual byte parser core.
+  - Owns DFA state, BOM handling, field/row construction, and row sink emission.
+  - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
+
 - CSVParserDriverBase
-  - Shared parse loop and field/row state machine.
+  - Internal source-adapter base that preserves the parser driver API used by CSVReader.
+  - Delegates byte parsing to CSVParserCore.
 
 - csv_chunk_parser.hpp
-  - Chunk-owned parser helpers for caller-provided byte windows.
-  - Holds row-fragment repair primitives used by speculative parsing.
+  - Compatibility include for speculative chunk helpers.
+
+- csv_speculative_chunks.hpp
+  - Row-fragment repair primitives and chunk parser shell used by speculative parsing.
 
 - csv_speculative_parser.hpp
-  - Optional threaded speculative chunk parser and validator.
+  - Umbrella include for speculative parser internals and the parse orchestrator.
   - Compiled out when `CSV_ENABLE_THREADS=0`.
+
+- csv_speculative_scanner.hpp, csv_speculative_validator.hpp, csv_parallel_parser.hpp
+  - Speculative scanner, row-fragment validation/repair, and optional threaded chunk parser.
+  - Speculative-only helpers live under `csv::internals::speculative`.
+
+- csv_parse_orchestrator.hpp
+  - Chooses serial CSVParserCore parsing or speculative parallel parsing for a byte window.
 
 - MmapParser
   - Reads chunks from memory maps and handles chunk-transition remainder.
 
 - StreamParser
   - Reads chunks from stream sources.
+  - Template definition lives in stream_parser.hpp.
 
 ### Internal storage and transport
 
@@ -79,16 +95,21 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 Parser hierarchy:
 
 ```text
-                  +------------------+
+                  +----------------------+
+                  |   CSVParserCore      |
+                  | byte parser state    |
+                  +----------+-----------+
+                             ^
+                  +----------+-----------+
                   | CSVParserDriverBase  |
-                  | (abstract base)  |
-                  +---------+--------+
-                            ^
-                 +----------+----------+
+                  | source adapter base  |
+                  +----------+-----------+
+                             ^
+                 +-----------+---------+
                  |                     |
         +--------+--------+    +-------+--------+
         |   MmapParser    |    |  StreamParser  |
-        | concrete parser |    | concrete parser|
+        | concrete source |    | concrete source|
         +-----------------+    +----------------+
 ```
 
@@ -189,13 +210,13 @@ This invariant is also documented in `.claude/rules/csv_reader_rules.md`.
 ## 5. Change Impact Map
 
 - Parser state machine changes:
-  - basic_csv_parser.hpp, basic_csv_parser.cpp, csv_chunk_parser.hpp
+  - basic_csv_parser.hpp, basic_csv_parser.cpp, csv_speculative_chunks.hpp
 
 - Chunk transition changes:
-  - mmap_parser.cpp (MmapParser next), basic_csv_parser.hpp (StreamParser next)
+  - mmap_parser.cpp (MmapParser next), stream_parser.hpp (StreamParser next)
 
 - Speculative parallel parsing changes:
-  - csv_speculative_parser.hpp, csv_speculative_diagnostics.hpp, mmap_parser.cpp
+  - csv_speculative_parser.hpp, csv_speculative_scanner.hpp, csv_speculative_validator.hpp, csv_parallel_parser.hpp, csv_parse_orchestrator.hpp, csv_speculative_diagnostics.hpp, mmap_parser.cpp, stream_parser.hpp
 
 - Reader worker/iteration behavior:
   - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp

@@ -32,6 +32,7 @@ target_sources(csv_test
         test_csv_ranges.cpp
         test_csv_row.cpp
         test_csv_row_json.cpp
+        test_csv_speculative_parser.cpp
         test_data_frame.cpp
         test_data_frame_etl.cpp
         test_data_type.cpp

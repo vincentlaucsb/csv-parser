@@ -20,11 +20,11 @@
 #include <thread>
 #endif
 
-#include "basic_csv_parser.hpp"
 #include "common.hpp"
 #include "csv_exceptions.hpp"
 #include "data_type.hpp"
 #include "csv_format.hpp"
+#include "stream_parser.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
