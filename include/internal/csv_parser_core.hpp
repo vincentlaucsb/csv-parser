@@ -501,8 +501,11 @@ namespace csv {
                 }
 
                 auto& in = this->data_ptr_->data;
+
+                // Resolve any pending state from the previous chunk in speculative parsing
                 this->resolve_pending_linefeed_at_start(in);
                 this->resolve_pending_quote_at_start(in);
+
                 while (this->data_pos_ < in.size()) {
                     const size_t raw_end = this->data_pos_;
                     switch (compound_parse_flag(in[this->data_pos_])) {

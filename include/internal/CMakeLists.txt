@@ -32,7 +32,11 @@ target_sources(csv
 		csv_utility.hpp
 		csv_writer.hpp
 		data_type.hpp
-		raw_csv_data.hpp
+		memory/block_arena.hpp
+		memory/constants.hpp
+		memory/quote_arena.hpp
+		memory/raw_csv_field.hpp
+		memory/raw_csv_field_list.hpp
 		raw_csv_data.hpp
 		row_deque.hpp
 		single_thread_deque.hpp

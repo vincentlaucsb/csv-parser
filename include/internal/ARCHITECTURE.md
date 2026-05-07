@@ -245,8 +245,8 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
 - Reader worker/iteration behavior:
   - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, csv_read_scheduler.hpp
 
-- Field extraction and trimming/unescaping:
-  - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp
+- Field extraction, backing storage, and trimming/unescaping:
+  - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp, memory/*.hpp
 
 - Parse configuration behavior:
   - csv_format.hpp, csv_format.cpp
