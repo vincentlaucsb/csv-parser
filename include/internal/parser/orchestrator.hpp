@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../csv_parallel_parser.hpp"
 #include "driver.hpp"
+#include "../speculative/parallel_parser.hpp"
 
 namespace csv {
     namespace internals {

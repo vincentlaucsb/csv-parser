@@ -8,7 +8,7 @@
 #include <functional>
 #include <utility>
 
-#include "common.hpp"
+#include "../common.hpp"
 
 #ifdef CSV_HAS_CXX20
 #include <concepts>

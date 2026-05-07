@@ -16,11 +16,11 @@
 #include <vector>
 
 #include "common.hpp"
-#include "csv_read_scheduler.hpp"
 #include "csv_exceptions.hpp"
 #include "data_type.hpp"
 #include "csv_format.hpp"
 #include "parser/mmap.hpp"
+#include "parser/scheduler.hpp"
 #include "parser/stream.hpp"
 
 /** The all encompassing namespace */

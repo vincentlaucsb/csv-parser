@@ -8,19 +8,19 @@ target_sources(csv
 		csv_format.hpp
 		csv_format.cpp
 		csv_exceptions.hpp
-		csv_chunk_parser.hpp
-		csv_parser_core.hpp
-		csv_parallel_parser.hpp
-		csv_read_scheduler.hpp
+		parser/core.hpp
 		parser/driver.hpp
 		parser/driver.cpp
 		parser/guessing.cpp
 		parser/mmap.hpp
 		parser/mmap.cpp
 		parser/orchestrator.hpp
+		parser/scheduler.hpp
 		parser/stream.hpp
 		speculative/chunks.hpp
+		speculative/chunk_parser.hpp
 		speculative/diagnostics.hpp
+		speculative/parallel_parser.hpp
 		speculative/scanner.hpp
 		speculative/validator.hpp
 		csv_reader.hpp

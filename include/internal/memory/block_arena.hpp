@@ -43,10 +43,10 @@ namespace csv {
                     : default_block_capacity_(other.default_block_capacity_),
                       grow_blocks_(other.grow_blocks_),
                       next_block_capacity_(other.next_block_capacity_),
-                      blocks_(std::move(other.blocks_)),
-                      size_(other.size_) {
+                      blocks_(std::move(other.blocks_)) {
+                    this->size_.store(other.size_.load(std::memory_order_acquire), std::memory_order_release);
                     this->block_count_.store(other.block_count_.load(std::memory_order_acquire), std::memory_order_release);
-                    other.size_ = 0;
+                    other.size_.store(0, std::memory_order_release);
                     other.block_count_.store(0, std::memory_order_release);
                 }
 
@@ -59,9 +59,9 @@ namespace csv {
                     this->grow_blocks_ = other.grow_blocks_;
                     this->next_block_capacity_ = other.next_block_capacity_;
                     this->blocks_ = std::move(other.blocks_);
-                    this->size_ = other.size_;
+                    this->size_.store(other.size_.load(std::memory_order_acquire), std::memory_order_release);
                     this->block_count_.store(other.block_count_.load(std::memory_order_acquire), std::memory_order_release);
-                    other.size_ = 0;
+                    other.size_.store(0, std::memory_order_release);
                     other.block_count_.store(0, std::memory_order_release);
                     return *this;
                 }
@@ -75,7 +75,7 @@ namespace csv {
 
                 Allocation allocate_contiguous(size_t count) {
                     if (count == 0) {
-                        return Allocation{ this->checked_offset(this->size_), nullptr };
+                        return Allocation{ this->checked_offset(this->size_.load(std::memory_order_acquire)), nullptr };
                     }
 
                     if (this->block_count_.load(std::memory_order_acquire) == 0
@@ -90,22 +90,22 @@ namespace csv {
                         block.values.get() + block_used
                     };
                     block.used.store(block_used + count, std::memory_order_release);
-                    this->size_ += count;
+                    this->size_.fetch_add(count, std::memory_order_release);
                     return allocation;
                 }
 
                 T& operator[](size_t n) const {
-                    assert(n < this->size_);
+                    assert(n < this->size_.load(std::memory_order_acquire));
                     const Block& block = this->find_block(n);
                     return block.values.get()[n - block.logical_start];
                 }
 
                 T& at_fixed(size_t n) const {
-                    assert(n < this->size_);
+                    assert(n < this->size_.load(std::memory_order_acquire));
                     const size_t page_no = n / this->default_block_capacity_;
                     const size_t buffer_idx = n % this->default_block_capacity_;
                     assert(page_no < this->block_count_.load(std::memory_order_acquire));
-                    return this->blocks_[page_no].values.get()[buffer_idx];
+                    return this->blocks_[page_no]->values.get()[buffer_idx];
                 }
 
                 csv::string_view view(size_t offset, size_t length) const {
@@ -120,7 +120,7 @@ namespace csv {
                 }
 
                 size_t size() const noexcept {
-                    return this->size_;
+                    return this->size_.load(std::memory_order_acquire);
                 }
 
                 void reserve_blocks(size_t count) {
@@ -161,8 +161,8 @@ namespace csv {
                 size_t default_block_capacity_;
                 bool grow_blocks_;
                 size_t next_block_capacity_ = 0;
-                std::vector<Block> blocks_;
-                size_t size_ = 0;
+                std::vector<std::unique_ptr<Block>> blocks_;
+                std::atomic<size_t> size_{ 0 };
                 std::atomic<size_t> block_count_{ 0 };
 
                 std::uint32_t checked_offset(size_t value) const noexcept {
@@ -181,11 +181,15 @@ namespace csv {
                         : this->next_block_capacity_;
                     const size_t capacity = (std::max)(baseline, required_capacity);
 
-                    Block& block = this->blocks_[block_count];
+                    if (!this->blocks_[block_count]) {
+                        this->blocks_[block_count] = std::unique_ptr<Block>(new Block());
+                    }
+
+                    Block& block = *this->blocks_[block_count];
                     block.values = std::unique_ptr<T[]>(new T[capacity]);
                     block.capacity = capacity;
                     block.used.store(0, std::memory_order_release);
-                    block.logical_start = this->size_;
+                    block.logical_start = this->size_.load(std::memory_order_acquire);
 
                     if (required_capacity > baseline) {
                         this->next_block_capacity_ = this->default_block_capacity_;
@@ -202,7 +206,7 @@ namespace csv {
 
                 Block& current_block() {
                     const size_t block_count = this->block_count_.load(std::memory_order_acquire);
-                    return this->blocks_[block_count - 1];
+                    return *this->blocks_[block_count - 1];
                 }
 
                 const Block& find_block(size_t offset) const {
@@ -210,7 +214,7 @@ namespace csv {
                     size_t high = this->block_count_.load(std::memory_order_acquire);
                     while (low < high) {
                         const size_t mid = low + (high - low) / 2;
-                        const Block& block = this->blocks_[mid];
+                        const Block& block = *this->blocks_[mid];
                         if (offset < block.logical_start) {
                             high = mid;
                         }
@@ -223,7 +227,7 @@ namespace csv {
                     }
 
                     assert(false && "RawCSVBlockArena offset out of range");
-                    return this->blocks_[this->block_count_.load(std::memory_order_acquire) - 1];
+                    return *this->blocks_[this->block_count_.load(std::memory_order_acquire) - 1];
                 }
             };
         }

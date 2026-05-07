@@ -23,7 +23,7 @@
 #include "../common.hpp"
 #include "../csv_exceptions.hpp"
 #include "../csv_format.hpp"
-#include "../csv_parser_core.hpp"
+#include "core.hpp"
 #include "../csv_row.hpp"
 #include "../speculative/diagnostics.hpp"
 

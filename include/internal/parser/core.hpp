@@ -11,13 +11,13 @@
 #include <utility>
 #include <vector>
 
-#include "basic_csv_parser_simd.hpp"
-#include "col_names.hpp"
-#include "common.hpp"
-#include "csv_exceptions.hpp"
-#include "csv_format.hpp"
-#include "csv_row.hpp"
-#include "row_deque.hpp"
+#include "../basic_csv_parser_simd.hpp"
+#include "../col_names.hpp"
+#include "../common.hpp"
+#include "../csv_exceptions.hpp"
+#include "../csv_format.hpp"
+#include "../csv_row.hpp"
+#include "../row_deque.hpp"
 
 namespace csv {
     namespace internals {

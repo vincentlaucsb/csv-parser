@@ -53,7 +53,7 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 ### Parsing core
 
 - CSVParserCore
-  - Templated, non-virtual byte parser core in csv_parser_core.hpp.
+  - Templated, non-virtual byte parser core in parser/core.hpp.
   - Owns DFA state, BOM handling, field/row construction, and concrete row-sink emission.
   - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
 
@@ -67,13 +67,13 @@ Two independent parser paths exist and must be kept behaviorally aligned:
   - Lives under `csv::internals::parser`; files in `include/internal/parser/`
     intentionally share that namespace.
 
-- csv_chunk_parser.hpp
+- speculative/chunk_parser.hpp
   - Compatibility include for speculative chunk helpers.
 
 - speculative/chunks.hpp
   - Row-fragment repair primitives and chunk parser shell used by speculative parsing.
 
-- speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp
+- speculative/scanner.hpp, speculative/validator.hpp, speculative/parallel_parser.hpp
   - Speculative scanner, row-fragment validation/repair, and optional threaded chunk parser.
   - Speculative-only helpers live under `csv::internals::speculative`.
   - Compiled out when `CSV_ENABLE_THREADS=0`.
@@ -234,16 +234,16 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
 ## 5. Change Impact Map
 
 - Parser state machine changes:
-  - csv_parser_core.hpp, speculative/chunks.hpp
+  - parser/core.hpp, speculative/chunks.hpp
 
 - Chunk transition changes:
   - parser/mmap.cpp (MmapParser next), parser/stream.hpp (StreamParser next)
 
 - Speculative parallel parsing changes:
-  - speculative/scanner.hpp, speculative/validator.hpp, csv_parallel_parser.hpp, parser/orchestrator.hpp, speculative/diagnostics.hpp, parser/mmap.cpp, parser/stream.hpp
+  - speculative/scanner.hpp, speculative/validator.hpp, speculative/parallel_parser.hpp, parser/orchestrator.hpp, speculative/diagnostics.hpp, parser/mmap.cpp, parser/stream.hpp
 
 - Reader worker/iteration behavior:
-  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, csv_read_scheduler.hpp
+  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, parser/scheduler.hpp
 
 - Field extraction, backing storage, and trimming/unescaping:
   - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp, memory/*.hpp
