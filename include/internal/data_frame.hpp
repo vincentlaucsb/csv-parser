@@ -1364,9 +1364,32 @@ namespace csv {
             return 50000;
         }
 
+        template<typename Container>
+        static void reserve_for_append(Container& container, size_t additional) {
+            if (additional == 0) {
+                return;
+            }
+
+            const size_t required = container.size() + additional;
+            if (required <= container.capacity()) {
+                return;
+            }
+
+            const size_t current = container.capacity();
+            // Do not reserve exactly one batch ahead. DataFrame construction
+            // appends fixed-size read_chunk() batches, so exact reserves would
+            // force a reallocation on every batch for large inputs.
+            size_t next = current == 0 ? additional : current * 2;
+            if (next < required || next < current) {
+                next = required;
+            }
+
+            container.reserve(next);
+        }
+
         void append_unkeyed_batch(std::vector<CSVRow>& batch) {
-            rows.reserve(rows.size() + batch.size());
-            edits.reserve(edits.size() + batch.size());
+            reserve_for_append(rows, batch.size());
+            reserve_for_append(edits, batch.size());
 
             for (auto& row : batch) {
                 rows.push_back(std::move(row));
@@ -1381,9 +1404,9 @@ namespace csv {
             DuplicateKeyPolicy policy,
             std::unordered_map<KeyType, size_t>& key_to_pos
         ) {
-            rows.reserve(rows.size() + batch.size());
-            keys_.reserve(keys_.size() + batch.size());
-            edits.reserve(edits.size() + batch.size());
+            reserve_for_append(rows, batch.size());
+            reserve_for_append(keys_, batch.size());
+            reserve_for_append(edits, batch.size());
 
             for (auto& row : batch) {
                 KeyType key = key_func(row);

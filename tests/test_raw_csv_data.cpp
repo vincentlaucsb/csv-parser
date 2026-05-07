@@ -81,6 +81,36 @@ TEST_CASE("Raw parser can emit rows into a vector sink", "[raw_csv_parse]") {
     REQUIRE(parsed_rows[2][2] == "6");
 }
 
+TEST_CASE("Raw parser without output sink ignores emitted rows", "[raw_csv_parse][parser_core][policy]") {
+    auto chunk = std::make_shared<std::string>(
+        "A,B\n"
+        "1,2\n"
+    );
+
+    CSVParserCore<std::vector<CSVRow>> parser(
+        internals::make_parse_flags(',', '"'),
+        internals::WhitespaceMap()
+    );
+
+    REQUIRE_NOTHROW(parser.parse_chunk(*chunk, chunk));
+    REQUIRE_NOTHROW(parser.end_feed());
+}
+
+TEST_CASE("Quote arena keeps early views stable after later appends", "[raw_csv_parse][realized_quotes]") {
+    RawCSVQuoteArena arena;
+    const auto first_start = arena.append("early\"field");
+    const auto first_view = arena.view(first_start, std::string("early\"field").size());
+    const auto first_data = first_view.data();
+
+    std::string large_later(internals::PAGE_SIZE * 2, 'x');
+    const auto later_start = arena.append(large_later);
+    const auto later_view = arena.view(later_start, large_later.size());
+
+    REQUIRE(first_view == "early\"field");
+    REQUIRE(first_view.data() == first_data);
+    REQUIRE(later_view == large_later);
+}
+
 TEST_CASE("CSVParserCore default policies emit CSVRow output", "[raw_csv_parse][parser_core][policy]") {
     CSVParserCore<std::vector<CSVRow>> parser(
         internals::make_parse_flags(',', '"'),

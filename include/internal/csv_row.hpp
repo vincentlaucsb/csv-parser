@@ -9,9 +9,6 @@
 #include <iterator>
 #include <memory> // For CSVField
 #include <limits> // For CSVField
-#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
-#include <mutex>
-#endif
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -39,26 +36,6 @@
 #include "../external/classify_scalar.hpp"
 #include "json_converter.hpp"
 #include "raw_csv_data.hpp"
-
-#if CSV_ENABLE_THREADS
-#define CSV_INIT_WITH_OPTIONAL_DCL(data_ref, value_ref, ...) \
-    do { \
-        if ((value_ref).empty()) { \
-            std::lock_guard<std::mutex> lock((data_ref).double_quote_init_lock); \
-            if ((value_ref).empty()) { \
-                __VA_ARGS__ \
-            } \
-        } \
-    } while (0)
-#else
-#define CSV_INIT_WITH_OPTIONAL_DCL(data_ref, value_ref, ...) \
-    do { \
-        (void)(data_ref); \
-        if ((value_ref).empty()) { \
-            __VA_ARGS__ \
-        } \
-    } while (0)
-#endif
 
 namespace csv {
     namespace internals {
@@ -686,39 +663,20 @@ namespace csv {
     private:
         /** Shared implementation for field access (handles quoting and caching). */
         inline csv::string_view get_field_impl(size_t index, const internals::RawCSVDataPtr& _data) const {
-            using internals::ParseFlags;
-
             if (index >= this->size())
                 throw std::runtime_error(internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
 
             const size_t field_index = this->fields_start + index;
-            auto field = _data->fields[field_index];
-            auto field_str = csv::string_view(_data->data).substr(this->data_start + field.start, field.length);
-
-            if (field.has_double_quote) {
-                auto& value = _data->double_quote_fields[field_index];
-                CSV_INIT_WITH_OPTIONAL_DCL((*_data), value,
-                    bool prev_ch_quote = false;
-                    for (size_t i = 0; i < field.length; i++) {
-                        if (_data->parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                            if (prev_ch_quote) {
-                                prev_ch_quote = false;
-                                continue;
-                            }
-                            else {
-                                prev_ch_quote = true;
-                            }
-                        }
-
-                        value += field_str[i];
-                    }
-                );
-
-                if (_data->has_ws_trimming)
-                    return internals::get_trimmed(csv::string_view(value), _data->ws_flags);
-                return value;
+            const auto field = _data->fields[field_index];
+            csv::string_view field_str;
+            if (field.has_realized_storage()) {
+                field_str = _data->quote_arena.view(field.start, field.length);
             }
-            else if (_data->has_ws_trimming) {
+            else {
+                field_str = csv::string_view(_data->data).substr(this->data_start + field.start, field.length);
+            }
+
+            if (_data->has_ws_trimming) {
                 field_str = internals::get_trimmed(field_str, _data->ws_flags);
             }
 
@@ -830,5 +788,3 @@ namespace csv {
         return this->sv == other;
     }
 }
-
-#undef CSV_INIT_WITH_OPTIONAL_DCL

@@ -18,6 +18,7 @@
     - [Single Header](#single-header)
     - [CMake Instructions](#cmake-instructions)
       - [Avoid cloning with FetchContent](#avoid-cloning-with-fetchcontent)
+    - [Python Bindings](#python-bindings)
   - [Features \& Examples](#features--examples)
     - [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
     - [Memory-Mapped I/O and Streams](#memory-mapped-io-and-streams)
@@ -51,9 +52,10 @@ This library combines SIMD-accelerated parsing, memory-mapped I/O, careful memor
 CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
 
 #### Show me the numbers
-On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz; Samsung 990 EVO), this parser can read
- * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 1.18 seconds (1.2 GBps)
- * a [2.9GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 6.9 seconds (420 MBps)
+On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz), this parser can read
+ * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 0.48 seconds
+ * a [2.9 GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 4.23 seconds
+ * an 11.3 GB tab-delimited metadata file in 12.36 seconds
 
 All benchmarks shown are warm cache runs to focus on parser/CPU performance rather than disk I/O variability.
 
@@ -61,8 +63,12 @@ All benchmarks shown are warm cache runs to focus on parser/CPU performance rath
 
 For broader comparison data, including ETL and round-trip workloads against
 `fast-cpp-csv-parser` and `rapidcsv`, see the
-[benchmark results](benchmarks/README.md). On those workloads, this is
-probably the fastest general-purpose C++ CSV ETL library available today.
+[benchmark results](benchmarks/README.md). On modern desktop and laptop CPUs,
+this is plausibly one of the fastest general-purpose C++ CSV ETL libraries for
+realistic clean-data workloads. On clean positional-read benchmarks, the
+speculative parallel mmap path now overtakes `fast-cpp-csv-parser` with enough
+worker threads, while `fast-cpp-csv-parser` still has the edge on heavily quoted
+inputs it can parse.
 
 #### Chunk Size Tuning
 
@@ -224,6 +230,54 @@ add_subdirectory(csv-parser)
 #### Avoid cloning with FetchContent
 Don't want to clone? No problem. There's also [a simple example documenting how to use CMake's FetchContent module to integrate this library](https://github.com/vincentlaucsb/csv-parser/wiki/Example:-Using-csv%E2%80%90parser-with-CMake-and-FetchContent).
 
+### Python Bindings
+The optional Python package is named `csvpy`; it does not replace or shadow
+Python's stdlib `csv` module. Build it with `-DBUILD_PYTHON=ON`.
+
+`csvpy.reader()` and `csvpy.DictReader()` provide a stdlib-like reader facade
+over the pybind11 binding. For compatibility with Python's `csv` module, fields
+are strings by default:
+
+```python
+import csvpy
+
+with open("data.csv", newline="", encoding="utf-8") as handle:
+    for row in csvpy.reader(handle):
+        assert all(isinstance(value, str) for value in row)
+```
+
+Dictionary rows use the first row as headers unless `fieldnames` is provided:
+
+```python
+with open("data.csv", newline="", encoding="utf-8") as handle:
+    for row in csvpy.DictReader(handle):
+        print(row["name"])
+```
+
+Pass `cast=True` only when you want csv-parser's scalar classification exposed
+as Python values. Empty fields become `None`, integral fields become `int`,
+floating point fields become `float`, and all other fields remain `str`.
+
+```python
+rows = list(csvpy.reader(["id,amount\n", "1,2.5\n"], cast=True))
+assert rows == [["id", "amount"], [1, 2.5]]
+```
+
+The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
+`skipinitialspace`, `strict`, and `fieldnames` options. Unsupported dialect
+features intentionally fail fast instead of silently diverging from stdlib
+behavior. The lower-level pybind11 API remains available as `csvpy.Reader`,
+`csvpy.Format`, `csvpy.Field`, and related classes.
+
+To compare reader throughput locally:
+
+```powershell
+python python/benchmarks/compare_readers.py path/to/input.csv
+```
+
+The script reports file path, size, rows, columns, elapsed seconds, MiB/s, and
+rows/s for `csvpy.reader`, stdlib `csv.reader`, pandas with Apache Arrow when
+available, and pandas' default CSV engine when available.
 
 ## Features & Examples
 ### Reading an Arbitrarily Large File (with Iterators)

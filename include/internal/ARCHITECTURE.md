@@ -154,11 +154,12 @@ CSVRow -> CSVField lazy materialization:
 ```text
 RawCSVData
   |- data (chunk bytes)
-  |- fields[i] = {start, length, has_double_quote}
+  |- quote_arena (stable sidecar bytes for doubled-quote fields)
+  |- fields[i] = {start, length, is_realized}
   v
 CSVRow::get_field_impl(i)
-  -> slice = data.substr(start, length)
-  -> if quoted: unescape/cached materialization
+  -> if is_realized: slice = quote_arena.view(start, length)
+  -> otherwise: slice = data.substr(start, length)
   -> if trim enabled: apply trim at access time
   v
 CSVField(string_view)
@@ -166,7 +167,8 @@ CSVField(string_view)
 ```
 
 Implication:
-- Parser throughput stays focused on boundary detection and row emission; expensive string work is deferred until fields are actually accessed.
+- Raw source bytes stay immutable and ordinary fields remain zero-copy views.
+- Fields containing doubled quotes are realized once by the parser into packed sidecar storage, avoiding per-access hash lookups and lazy string construction.
 
 ## 3. End-to-End Flow
 

@@ -2,6 +2,7 @@
  *  Tests for CSV parsing
  */
 
+#include <cstdint>
 #include <fstream>
 #include <sstream>
 #include <catch2/catch_all.hpp>
@@ -281,6 +282,146 @@ TEST_CASE("Trim regression: quoted unescape and bounded field slice", "[read_csv
     }
 
     SECTION("std::istream path") {
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+}
+
+namespace {
+    bool points_into(csv::string_view view, csv::string_view owner) {
+        if (view.empty() || owner.empty()) {
+            return false;
+        }
+
+        const std::uintptr_t view_begin = reinterpret_cast<std::uintptr_t>(view.data());
+        const std::uintptr_t owner_begin = reinterpret_cast<std::uintptr_t>(owner.data());
+        return view_begin >= owner_begin && view_begin < owner_begin + owner.size();
+    }
+}
+
+TEST_CASE("Doubled quote fields are realized without changing plain quoted views", "[read_csv_quote][realized_quotes]") {
+    FileGuard cleanup("./tests/data/tmp_realized_quotes.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "id,quote_a,plain,quote_b\n"
+            << "1,\"a\"\"b\",\"plain quoted\",\"x\"\"y\"\"z\"\n"
+            << "2,\"left\"\"right\",\"still plain\",\"tail\"\"quote\"\n";
+    }
+
+    auto validate_reader = [&](CSVReader& reader) {
+        CSVRow row;
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row["quote_a"].get<std::string>() == "a\"b");
+        REQUIRE(row["plain"].get<std::string>() == "plain quoted");
+        REQUIRE(row["quote_b"].get<std::string>() == "x\"y\"z");
+
+        const auto first_raw = row.raw_str();
+        const auto first_realized = row["quote_a"].get<csv::string_view>();
+        const auto first_plain = row["plain"].get<csv::string_view>();
+        REQUIRE_FALSE(points_into(first_realized, first_raw));
+        REQUIRE(points_into(first_plain, first_raw));
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row["quote_a"].get<std::string>() == "left\"right");
+        REQUIRE(row["plain"].get<std::string>() == "still plain");
+        REQUIRE(row["quote_b"].get<std::string>() == "tail\"quote");
+
+        REQUIRE_FALSE(reader.read_row(row));
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(cleanup.filename, CSVFormat());
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, CSVFormat());
+        validate_reader(reader);
+    }
+}
+
+TEST_CASE("Whitespace trimming applies after doubled quote realization", "[read_csv_trim][realized_quotes]") {
+    FileGuard cleanup("./tests/data/tmp_realized_quotes_trim.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "id,text,tail\n"
+            << "1,\"  a\"\"b  \",x\n"
+            << "2,\" \t c\"\"d \t \",y\n";
+    }
+
+    CSVFormat format;
+    format.header_row(0)
+        .trim({ ' ', '\t' })
+        .delimiter(',');
+
+    auto validate_reader = [&](CSVReader& reader) {
+        CSVRow row;
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row["text"].get<std::string>() == "a\"b");
+        REQUIRE(row["tail"].get<std::string>() == "x");
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row["text"].get<std::string>() == "c\"d");
+        REQUIRE(row["tail"].get<std::string>() == "y");
+
+        REQUIRE_FALSE(reader.read_row(row));
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+}
+
+TEST_CASE("Doubled quotes across chunks are realized for mmap and stream readers", "[read_csv_quote][realized_quotes][chunk_boundary]") {
+    FileGuard cleanup("./tests/data/tmp_realized_quotes_chunks.csv");
+    std::vector<std::string> expected;
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        out << "id,text,tail\n";
+
+        size_t row = 0;
+        while (expected.size() < 3 || static_cast<size_t>(out.tellp()) < internals::CSV_CHUNK_SIZE_FLOOR + 4096) {
+            const std::string value = "row-" + std::to_string(row) + "-\"quoted\"";
+            out << row << ",\"row-" << row << "-\"\"quoted\"\"\",tail-" << row << "\n";
+            expected.push_back(value);
+            row++;
+        }
+    }
+
+    auto validate_reader = [&](CSVReader& reader) {
+        CSVRow row;
+        for (size_t i = 0; i < expected.size(); ++i) {
+            REQUIRE(reader.read_row(row));
+            REQUIRE(row["id"].get<size_t>() == i);
+            REQUIRE(row["text"].get<std::string>() == expected[i]);
+            REQUIRE(row["tail"].get<std::string>() == "tail-" + std::to_string(i));
+        }
+
+        REQUIRE_FALSE(reader.read_row(row));
+    };
+
+    SECTION("Memory-mapped file path") {
+        CSVFormat format;
+        format.chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);
+
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path") {
+        CSVFormat format;
+        format.chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);
+
         std::ifstream infile(cleanup.filename, std::ios::binary);
         CSVReader reader(infile, format);
         validate_reader(reader);

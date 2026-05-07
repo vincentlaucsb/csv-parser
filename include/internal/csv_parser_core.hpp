@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -197,17 +198,66 @@ namespace csv {
             }
 
             const RawCSVField& push_field(
+                RawCSVData& data,
                 RawCSVFieldList& fields,
+                size_t row_start,
                 int field_start,
                 size_t field_length,
                 bool field_has_double_quote
             ) const {
+                const size_t raw_start = field_start == UNINITIALIZED_FIELD
+                    ? 0
+                    : static_cast<size_t>(field_start);
+                size_t stored_start = raw_start;
+                size_t stored_length = field_length;
+                bool is_realized = false;
+
+                if (field_has_double_quote) {
+                    stored_start = this->append_realized_quoted_field(
+                        data,
+                        row_start + raw_start,
+                        field_length,
+                        stored_length
+                    );
+                    is_realized = true;
+                }
+
                 fields.emplace_back(
-                    field_start == UNINITIALIZED_FIELD ? 0 : static_cast<unsigned int>(field_start),
-                    field_length,
-                    field_has_double_quote
+                    stored_start,
+                    stored_length,
+                    is_realized
                 );
                 return fields[fields.size() - 1];
+            }
+
+        private:
+            std::uint32_t append_realized_quoted_field(
+                RawCSVData& data,
+                size_t field_start,
+                size_t field_length,
+                size_t& realized_length
+            ) const {
+                using internals::ParseFlags;
+
+                const csv::string_view field_str = csv::string_view(data.data).substr(field_start, field_length);
+                // Allocate the original length as an upper bound, then compact doubled
+                // quotes in one pass. Wasting a byte per escaped quote pair is cheaper
+                // than scanning quote-heavy fields twice in the parser hot path.
+                auto allocation = data.quote_arena.allocate_contiguous(field_str.size());
+                char* out = allocation.data;
+                for (size_t i = 0; i < field_str.size(); ++i) {
+                    if (data.parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE
+                        && i + 1 < field_str.size()
+                        && data.parse_flags[field_str[i + 1] + CHAR_OFFSET] == ParseFlags::QUOTE) {
+                        *(out++) = field_str[i++];
+                        continue;
+                    }
+
+                    *(out++) = field_str[i];
+                }
+
+                realized_length = static_cast<size_t>(out - allocation.data);
+                return allocation.offset;
             }
         };
 
@@ -646,7 +696,9 @@ namespace csv {
             /** Finish parsing the current field. */
             void push_field() {
                 const RawCSVField& field = this->field_policy_.push_field(
+                    *this->data_ptr_,
                     *this->fields_,
+                    this->current_row_start(),
                     this->field_start_,
                     this->field_length_,
                     this->field_has_double_quote_
@@ -705,6 +757,7 @@ namespace csv {
                 this->reset_data_ptr();
                 this->data_ptr_->_data = std::move(owner);
                 this->data_ptr_->data = chunk;
+                this->data_ptr_->quote_arena.reserve_for_source_size(chunk.size());
                 this->initial_state_ = options.initial_state;
                 this->scan_bom_for_current_chunk_ = options.scan_bom;
                 this->current_row_ = this->row_policy_.make_initial_row(this->data_ptr_);
@@ -719,7 +772,7 @@ namespace csv {
                 return ParserDFAState{ this->quote_escape_, this->pending_quote_, this->pending_linefeed_ };
             }
 
-            size_t finish_parse(size_t remainder) noexcept {
+            size_t finish_parse(size_t remainder) {
                 this->ending_state_ = this->current_dfa_state();
                 this->initial_state_ = this->ending_state_.pending_linefeed
                     ? this->ending_state_

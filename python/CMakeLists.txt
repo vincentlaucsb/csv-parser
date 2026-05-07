@@ -18,6 +18,25 @@ if (EXISTS ${CMAKE_CURRENT_LIST_DIR}/pybind11)
     add_custom_command(TARGET csvpy POST_BUILD
                        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:csvpy>
                        ${CMAKE_CURRENT_LIST_DIR}/csvpy/csvpy${csvpySuffix})
+
+    if(DEFINED PYTHON_EXECUTABLE)
+        set(CSVPY_TEST_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+    else()
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            set(CSVPY_TEST_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+        endif()
+    endif()
+    if(CSVPY_TEST_PYTHON_EXECUTABLE)
+        enable_testing()
+        add_test(
+            NAME csvpy_compat_tests
+            COMMAND ${CSVPY_TEST_PYTHON_EXECUTABLE} -m unittest discover -s ${CMAKE_CURRENT_LIST_DIR}/tests
+        )
+        set_tests_properties(csvpy_compat_tests PROPERTIES
+            ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_LIST_DIR}"
+        )
+    endif()
 else()
-    message("Cannot build Python bindings because pybind11 submodule was not found. Please run ""git submodule update --recursive"".")
+    message("Cannot build Python bindings because pybind11 submodule was not found. Please run \"git submodule update --recursive\".")
 endif()

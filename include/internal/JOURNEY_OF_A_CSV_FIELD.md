@@ -84,19 +84,22 @@ CSVReader
 - field boundary recording
 - row emission
 
-For each field, the parser records metadata instead of eagerly building a
-`std::string`:
+For each field, the parser records chunk-local metadata instead of building a
+general `std::string` per value:
 
 ```text
 RawCSVField {
   start,
   length,
-  has_double_quote
+  is_realized
 }
 ```
 
-The `start` and `length` point into `RawCSVData::data`, which views the backing
-source window.
+The `start` and `length` point into `RawCSVData::data`, which views the
+immutable backing source window. For fields that contain doubled quotes, the
+parser writes the unescaped bytes into `RawCSVData::quote_arena` and sets
+`is_realized`; for those fields, `start` and `length` refer to the arena instead.
+Fields without doubled quotes keep using the raw backing bytes.
 
 ## Speculative Parallel Path
 

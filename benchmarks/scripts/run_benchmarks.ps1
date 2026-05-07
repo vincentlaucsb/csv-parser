@@ -64,9 +64,29 @@ function Format-SizeLabel {
     return $SizeGb.ToString("0.######", [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Resolve-BenchmarkDataPath {
+    param(
+        [string] $RepoRoot,
+        [string] $DataDir
+    )
+
+    $trimmedDataDir = $DataDir.Trim()
+
+    if ($trimmedDataDir -match '^[A-Za-z]:?\\?$') {
+        $drive = $trimmedDataDir.Substring(0, 1).ToUpperInvariant()
+        return Join-Path "${drive}:\" "csv_temp_data"
+    }
+
+    if ([System.IO.Path]::IsPathFullyQualified($trimmedDataDir)) {
+        return $trimmedDataDir
+    }
+
+    return Join-Path $RepoRoot $trimmedDataDir
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..")
-$dataPath = Join-Path $repoRoot $DataDir
+$dataPath = Resolve-BenchmarkDataPath $repoRoot $DataDir
 $buildPath = Join-Path $repoRoot $BuildDir
 $resultsPath = Join-Path $repoRoot $ResultsDir
 $normalizedProfiles = @()

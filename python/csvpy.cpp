@@ -48,6 +48,10 @@ void init_CSVFormat(py::module& m){
     .def("no_header", 
         &CSVFormat::no_header,
         "Tells the parser that this CSV has no header row")
+    .def("variable_columns",
+        py::overload_cast<VariableColumnPolicy>(&CSVFormat::variable_columns),
+        "Tells the parser how to handle rows with different column counts",
+        py::arg("policy"))
     .def("is_quoting_enabled",
     &CSVFormat::is_quoting_enabled)
     .def("get_quote_char",
@@ -61,9 +65,11 @@ void init_CSVFormat(py::module& m){
 
 void init_CSVReader(py::module& m){
     py::class_<CSVReader>(m, "Reader")
-    .def(py::init<csv::string_view, CSVFormat>(), 
-    "filename"_a, 
-    "format"_a=CSVFormat::guess_csv())
+    .def(py::init<csv::string_view>(),
+    "filename"_a)
+    .def(py::init<csv::string_view, CSVFormat>(),
+    "filename"_a,
+    "format"_a)
     .def("eof", 
     &CSVReader::eof,
     "Returns true if we have reached end of file")
@@ -119,6 +125,14 @@ void init_CSVRow(py::module& m){
 }
 
 void init_DataType(py::module& m){
+    py::enum_<VariableColumnPolicy>(m,
+    "VariableColumnPolicy",
+    "How to handle rows that are shorter or longer than expected")
+    .value("THROW", VariableColumnPolicy::THROW)
+    .value("IGNORE_ROW", VariableColumnPolicy::IGNORE_ROW)
+    .value("KEEP", VariableColumnPolicy::KEEP)
+    .value("KEEP_NON_EMPTY", VariableColumnPolicy::KEEP_NON_EMPTY);
+
     py::enum_<DataType>(m,
     "DataType", 
     py::arithmetic(),
@@ -190,37 +204,18 @@ void init_CSVUtility(py::module& m){
     "Get basic information about a CSV file",
     py::arg("filename"))
     .def("csv_data_types",
-    &csv_data_types,
+    [](csv::string_view filename) {
+        return csv_data_types(filename);
+    },
     "Return a data type for each column such that every value in a column can be converted to the corresponding data type without data loss.",
-    py::arg("filename"));
-}
-
-void init_CSVStat(py::module& m){
-    py::class_<CSVStat>(m, "CSVStat")
-    .def(py::init<csv::string_view, CSVFormat>(),
-    "filename"_a,
-    "format"_a=CSVFormat::guess_csv())
-    .def("get_mean",
-    &CSVStat::get_mean,
-    "Return current means")
-    .def("get_variance",
-    &CSVStat::get_variance,
-    "Return current variances")
-    .def("get_mins",
-    &CSVStat::get_mins,
-    "Return current mins")
-    .def("get_maxes",
-    &CSVStat::get_maxes,
-    "Return current maxes")
-    .def("get_counts",
-    &CSVStat::get_counts,
-    "Get counts for each column")
-    .def("get_dtypes",
-    &CSVStat::get_dtypes,
-    "Get data type counts for each column")
-    .def("get_col_names",
-    &CSVStat::get_col_names,
-    "Return the CSV's column names as a List of strings.");
+    py::arg("filename"))
+    .def("csv_data_types",
+    [](csv::string_view filename, CSVFormat format) {
+        return csv_data_types(filename, format);
+    },
+    "Return a data type for each column such that every value in a column can be converted to the corresponding data type without data loss.",
+    py::arg("filename"),
+    py::arg("format"));
 }
 
 PYBIND11_MODULE(csvpy, m){
@@ -231,5 +226,4 @@ PYBIND11_MODULE(csvpy, m){
     init_DataType(m);
     init_CSVField(m);
     init_CSVUtility(m);
-    init_CSVStat(m);
 }

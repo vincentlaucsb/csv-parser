@@ -102,6 +102,7 @@ add_subdirectory(${CSV_SOURCE_DIR})
 # build the python binding for the library 
 if (${BUILD_PYTHON})
     message("Building Python bindings for the library.")
+    enable_testing()
     add_subdirectory(python)
 endif()
 

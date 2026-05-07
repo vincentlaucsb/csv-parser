@@ -7,6 +7,7 @@ bin/
 build/
 
 # Build: Python
+__pycache__/
 *.pyc
 *.pyd
 
