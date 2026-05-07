@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Compare csvpy.reader, stdlib csv.reader, and pandas CSV readers."""
+"""Compare csvpy.reader against stdlib csv.reader."""
 
 from __future__ import annotations
 
 import argparse
 import csv
-import inspect
 import importlib.machinery
 import importlib.util
 import sys
@@ -101,7 +100,11 @@ def ensure_csvpy_available():
 def measure(name, path, func):
     size = path.stat().st_size
     start = time.perf_counter()
-    result = func(path)
+    try:
+        result = func(path)
+    except Exception as exc:
+        print(f"{name}\tskip={type(exc).__name__}: {exc}")
+        return
     if result is None:
         return
     rows, cols = result
@@ -113,7 +116,7 @@ def measure(name, path, func):
     )
 
 
-def bench_csvpy(path):
+def bench_csvpy_strings(path):
     import csvpy
 
     rows = 0
@@ -125,7 +128,43 @@ def bench_csvpy(path):
     return rows, cols
 
 
-def bench_stdlib(path):
+def bench_csvpy_cast(path):
+    import csvpy
+
+    rows = 0
+    cols = 0
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csvpy.reader(handle, cast=True):
+            rows += 1
+            cols = max(cols, len(row))
+    return rows, cols
+
+
+def bench_csvpy_dict_strings(path):
+    import csvpy
+
+    rows = 0
+    cols = 0
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csvpy.DictReader(handle):
+            rows += 1
+            cols = max(cols, len(row))
+    return rows, cols
+
+
+def bench_csvpy_dict_cast(path):
+    import csvpy
+
+    rows = 0
+    cols = 0
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csvpy.DictReader(handle, cast=True):
+            rows += 1
+            cols = max(cols, len(row))
+    return rows, cols
+
+
+def bench_stdlib_strings(path):
     rows = 0
     cols = 0
     with path.open(newline="", encoding="utf-8") as handle:
@@ -135,30 +174,14 @@ def bench_stdlib(path):
     return rows, cols
 
 
-def bench_pandas_pyarrow(path):
-    try:
-        import pandas as pd
-        import pyarrow  # noqa: F401
-    except ImportError as exc:
-        print(f"pandas_pyarrow\tskip={exc}")
-        return
-
-    kwargs = {"engine": "pyarrow", "header": None}
-    if "dtype_backend" in inspect.signature(pd.read_csv).parameters:
-        kwargs["dtype_backend"] = "pyarrow"
-    frame = pd.read_csv(path, **kwargs)
-    return len(frame.index), len(frame.columns)
-
-
-def bench_pandas_default(path):
-    try:
-        import pandas as pd
-    except ImportError as exc:
-        print(f"pandas_default\tskip={exc}")
-        return
-
-    frame = pd.read_csv(path, header=None)
-    return len(frame.index), len(frame.columns)
+def bench_stdlib_dict_strings(path):
+    rows = 0
+    cols = 0
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            rows += 1
+            cols = max(cols, len(row))
+    return rows, cols
 
 
 def main():
@@ -168,10 +191,12 @@ def main():
     path = args.csv_file
     ensure_csvpy_available()
 
-    measure("csvpy_reader", path, bench_csvpy)
-    measure("stdlib_csv_reader", path, bench_stdlib)
-    measure("pandas_pyarrow", path, bench_pandas_pyarrow)
-    measure("pandas_default", path, bench_pandas_default)
+    measure("stdlib_csv_reader_strings", path, bench_stdlib_strings)
+    measure("csvpy_reader_strings", path, bench_csvpy_strings)
+    measure("csvpy_reader_cast", path, bench_csvpy_cast)
+    measure("stdlib_dict_reader_strings", path, bench_stdlib_dict_strings)
+    measure("csvpy_dict_reader_strings", path, bench_csvpy_dict_strings)
+    measure("csvpy_dict_reader_cast", path, bench_csvpy_dict_cast)
 
 
 if __name__ == "__main__":

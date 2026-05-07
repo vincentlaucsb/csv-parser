@@ -46,6 +46,11 @@ built `csvpy` extension and errors clearly if it is missing:
 python python/benchmarks/compare_readers.py path/to/input.csv
 ```
 
+The benchmark matrix compares stdlib `csv.reader`, `csvpy.reader` with strings,
+`csvpy.reader` with `cast=True`, stdlib `csv.DictReader`, and `csvpy.DictReader`
+with both string and casted values. Keep DataFrame/Table libraries out of this
+script unless the benchmark explicitly normalizes outputs first.
+
 Use the same Python version that built `csvpy`. A `cp310` extension, for
 example, will not import under Python 3.14.
 

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterable, Iterator, Optional, Sequence
 
-from .csvpy import DataType, Field, Format, Reader, VariableColumnPolicy
+from .csvpy import _FastReader, Format, VariableColumnPolicy
 
 
 def _format(
@@ -77,6 +77,7 @@ class _Reader:
         strict: bool = False,
         cast: bool = False,
         typed: Optional[bool] = None,
+        batch_size: int = 8192,
     ):
         if typed is not None:
             cast = typed
@@ -95,7 +96,7 @@ class _Reader:
         else:
             self._temp = _TempCSV(csvfile)
             filename = self._temp.name
-        self._iterator = iter(Reader(filename, fmt))
+        self._iterator = iter(_FastReader(filename, fmt, cast, batch_size))
 
     def __iter__(self) -> "_Reader":
         return self
@@ -107,24 +108,11 @@ class _Reader:
             if self._temp is not None:
                 self._temp.cleanup()
             raise
-        return [_field_value(row[i], self._cast) for i in range(row.size())]
+        return row
 
     def __del__(self):
         if self._temp is not None:
             self._temp.cleanup()
-
-
-def _field_value(field: Field, cast: bool):
-    if not cast:
-        return field.get_str()
-    field_type = field.type()
-    if field_type == DataType.CSV_NULL:
-        return None
-    if DataType.CSV_INT8 <= field_type <= DataType.CSV_INT64:
-        return field.get_int()
-    if field_type == DataType.CSV_DOUBLE:
-        return field.get_double()
-    return field.get_str()
 
 
 def reader(csvfile, dialect="excel", **fmtparams) -> _Reader:

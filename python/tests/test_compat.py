@@ -1,4 +1,5 @@
 import csv
+import datetime
 import io
 import tempfile
 import unittest
@@ -29,10 +30,16 @@ class CompatReaderTests(unittest.TestCase):
         self.assertTrue(all(isinstance(value, str) for value in rows[0]))
 
     def test_reader_cast_true_casts_scalars(self):
-        self.assertEqual(
-            list(csvpy.reader(io.StringIO("1,2.5,text,\n"), cast=True)),
-            [[1, 2.5, "text", None]],
-        )
+        rows = list(csvpy.reader(
+            io.StringIO("1,2.5,text,,true,false,1970-01-02T00:00:00.123Z\n"),
+            cast=True,
+        ))
+        self.assertEqual(rows[0][:6], [1, 2.5, "text", None, True, False])
+        self.assertIsInstance(rows[0][6], datetime.datetime)
+        self.assertEqual(rows[0][6].year, 1970)
+        self.assertEqual(rows[0][6].month, 1)
+        self.assertEqual(rows[0][6].day, 2)
+        self.assertEqual(rows[0][6].microsecond, 123000)
 
     def test_reader_typed_alias_casts_scalars(self):
         self.assertEqual(list(csvpy.reader(io.StringIO("1,2.5\n"), typed=True)), [[1, 2.5]])

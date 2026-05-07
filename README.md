@@ -84,6 +84,9 @@ fmt.chunk_size(100 * 1024 * 1024);  // 100MB chunks
 CSVReader reader("massive_rows.csv", fmt);
 ```
 
+When speculative parsing is enabled, the parser may read a window of
+`chunk_size * worker_count` bytes at a time.
+
 ### Fully RFC 4180-Compliant (and Beyond) Parser
 This CSV parser is a fully [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt)-compliant parser out of the box. We do not disable embedded newline detection by default just so we can look better on benchmarks.
 
@@ -141,7 +144,12 @@ SIMD acceleration is enabled by default when the build/compiler flags support it
 ### Threading Modes
 By default, `csv-parser` uses a background parser thread when thread support is
 available. If CMake cannot find a thread library, threading is disabled
-automatically.
+automatically. Threading has two layers:
+
+- **Reader threading:** a background producer thread keeps `CSVReader` fed while
+  your code consumes rows.
+- **Speculative parallel parsing:** optional multi-worker parsing for large,
+  filename-backed inputs.
 
 For programs that parse many small CSVs, you can keep thread support compiled
 in but disable parser threading for a specific reader:
@@ -154,6 +162,22 @@ CSVReader reader("small.csv", format); // parses synchronously on the caller thr
 ```
 
 This runtime switch also disables speculative parallel parsing for that reader.
+
+For large files, opt into speculative parallel parsing:
+
+```cpp
+CSVFormat format;
+format.speculative_parallel(true);          // off by default
+format.speculative_parallel_threads(0);     // 0 = auto
+format.speculative_parallel_min_bytes(250 * 1024 * 1024);
+
+CSVReader reader("large.csv", format);
+```
+
+`CSVReader::parse_worker_count()` reports the active parser worker count, and
+`CSVReader::speculative_diagnostics()` reports chunk/repair counters. Stream
+readers still benefit from reader threading, but speculative parsing is primarily
+intended for large file-backed inputs.
 
 You can also disable it explicitly:
 
