@@ -183,7 +183,9 @@ Operationally:
 5. CSVReadScheduler signals worker completion and transfers errors back to the
    consumer side. When `CSVFormat::threading(false)` is active, the same parse
    cycle runs synchronously on the caller thread and speculative parsing is
-   disabled.
+   disabled. In thread-enabled builds this runtime opt-out still uses
+   `ThreadSafeDeque<CSVRow>` internally; replacing it with `SingleThreadDeque`
+   would be a small optimization, not a semantic difference.
 
 ## 4. Key Invariants
 

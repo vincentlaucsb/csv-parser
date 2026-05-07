@@ -1,6 +1,6 @@
 {
   "context": {
-    "date": "2026-05-06T20:37:16-07:00",
+    "date": "2026-05-06T23:12:24-07:00",
     "host_name": "VINCE_DESKTOP",
     "executable": "E:\\GitHub\\csv-parser\\build\\benchmarks\\Release\\fast_cpp_csv_parser_multi_pass_bench.exe",
     "num_cpus": 12,
@@ -48,11 +48,11 @@
       "aggregate_name": "mean",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 2.5880233400013822e+03,
-      "cpu_time": 2.5437500000000000e+03,
+      "real_time": 2.5479689400002831e+03,
+      "cpu_time": 2.5187500000000005e+03,
       "time_unit": "ms",
-      "bytes_per_second": 1.1501175835132959e+08,
-      "items_per_second": 1.9342223817763885e+06
+      "bytes_per_second": 1.1678912495512611e+08,
+      "items_per_second": 1.9641134321782396e+06
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_array_8col/real_time_median",
@@ -65,11 +65,11 @@
       "aggregate_name": "median",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 2.6172246000023733e+03,
-      "cpu_time": 2.5468750000000000e+03,
+      "real_time": 2.5114992000007987e+03,
+      "cpu_time": 2.4843750000000000e+03,
       "time_unit": "ms",
-      "bytes_per_second": 1.1359647353143877e+08,
-      "items_per_second": 1.9104206799811777e+06
+      "bytes_per_second": 1.1837849082329209e+08,
+      "items_per_second": 1.9908427603713390e+06
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_array_8col/real_time_stddev",
@@ -82,11 +82,11 @@
       "aggregate_name": "stddev",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 9.8190381477067575e+01,
-      "cpu_time": 7.5259966117447135e+01,
+      "real_time": 8.7172293438586735e+01,
+      "cpu_time": 7.9211199097717113e+01,
       "time_unit": "ms",
-      "bytes_per_second": 4.4004270550263077e+06,
-      "items_per_second": 7.4004646318049156e+04
+      "bytes_per_second": 3.8372905717465547e+06,
+      "items_per_second": 6.4534039089989637e+04
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_array_8col/real_time_cv",
@@ -99,11 +99,11 @@
       "aggregate_name": "cv",
       "aggregate_unit": "percentage",
       "iterations": 5,
-      "real_time": 3.7940299826281755e-02,
-      "cpu_time": 2.9586227466318282e-02,
+      "real_time": 3.4212463138807749e-02,
+      "cpu_time": 3.1448615026388925e-02,
       "time_unit": "ms",
-      "bytes_per_second": 3.8260671066207001e-02,
-      "items_per_second": 3.8260671066210776e-02
+      "bytes_per_second": 3.2856574387563543e-02,
+      "items_per_second": 3.2856574387569941e-02
     },
     {
       "name": "BM_fast_cpp_csv_parser_multi_pass_array_8col/real_time_mean",
@@ -116,11 +116,11 @@
       "aggregate_name": "mean",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 2.0746477499960747e+02,
-      "cpu_time": 2.0156250000000000e+02,
+      "real_time": 1.8978820000002088e+02,
+      "cpu_time": 1.8750000000000000e+02,
       "time_unit": "ms",
-      "bytes_per_second": 1.4371712739024572e+09,
-      "items_per_second": 2.4169779544945825e+07
+      "bytes_per_second": 1.5666979606514981e+09,
+      "items_per_second": 2.6348108266623326e+07
     },
     {
       "name": "BM_fast_cpp_csv_parser_multi_pass_array_8col/real_time_median",
@@ -133,11 +133,11 @@
       "aggregate_name": "median",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 2.0662240000001475e+02,
-      "cpu_time": 1.9921875000000000e+02,
+      "real_time": 1.8906872499997007e+02,
+      "cpu_time": 1.8750000000000000e+02,
       "time_unit": "ms",
-      "bytes_per_second": 1.4388928063945572e+09,
-      "items_per_second": 2.4198731599282764e+07
+      "bytes_per_second": 1.5724836828515508e+09,
+      "items_per_second": 2.6445410260215122e+07
     },
     {
       "name": "BM_fast_cpp_csv_parser_multi_pass_array_8col/real_time_stddev",
@@ -150,11 +150,11 @@
       "aggregate_name": "stddev",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 1.2559484620153194e+01,
-      "cpu_time": 8.1001724036437039e+00,
+      "real_time": 2.2474080670213330e+00,
+      "cpu_time": 2.7621358640102653e+00,
       "time_unit": "ms",
-      "bytes_per_second": 8.5189501470766693e+07,
-      "items_per_second": 1.4326834299304727e+06
+      "bytes_per_second": 1.8522148452107817e+07,
+      "items_per_second": 3.1149818599617278e+05
     },
     {
       "name": "BM_fast_cpp_csv_parser_multi_pass_array_8col/real_time_cv",
@@ -167,11 +167,11 @@
       "aggregate_name": "cv",
       "aggregate_unit": "percentage",
       "iterations": 5,
-      "real_time": 6.0537913581604194e-02,
-      "cpu_time": 4.0186901847534658e-02,
+      "real_time": 1.1841663849602271e-02,
+      "cpu_time": 1.4731391274721416e-02,
       "time_unit": "ms",
-      "bytes_per_second": 5.9275817028714574e-02,
-      "items_per_second": 5.9275817028710265e-02
+      "bytes_per_second": 1.1822411796850453e-02,
+      "items_per_second": 1.1822411796856230e-02
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_and_multi_pass_array_8col/real_time_mean",
@@ -184,11 +184,11 @@
       "aggregate_name": "mean",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 2.8773834400002675e+03,
-      "cpu_time": 2.7968750000000000e+03,
+      "real_time": 2.6768407400000797e+03,
+      "cpu_time": 2.6468750000000000e+03,
       "time_unit": "ms",
-      "bytes_per_second": 1.0335356540519738e+08,
-      "items_per_second": 1.7381594917665357e+06
+      "bytes_per_second": 1.1107684627118367e+08,
+      "items_per_second": 1.8680465826681701e+06
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_and_multi_pass_array_8col/real_time_median",
@@ -201,11 +201,11 @@
       "aggregate_name": "median",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 2.8623955000002752e+03,
-      "cpu_time": 2.7656250000000000e+03,
+      "real_time": 2.6807533000001058e+03,
+      "cpu_time": 2.6406250000000000e+03,
       "time_unit": "ms",
-      "bytes_per_second": 1.0386666866964102e+08,
-      "items_per_second": 1.7467886600574655e+06
+      "bytes_per_second": 1.1090445547525327e+08,
+      "items_per_second": 1.8651473822674404e+06
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_and_multi_pass_array_8col/real_time_stddev",
@@ -218,11 +218,11 @@
       "aggregate_name": "stddev",
       "aggregate_unit": "time",
       "iterations": 5,
-      "real_time": 5.3339054485352108e+01,
-      "cpu_time": 5.2986952993168259e+01,
+      "real_time": 2.8847753540925588e+01,
+      "cpu_time": 1.7815241017181510e+01,
       "time_unit": "ms",
-      "bytes_per_second": 1.8831915059573734e+06,
-      "items_per_second": 3.1670771860269204e+04
+      "bytes_per_second": 1.1934761374007443e+06,
+      "items_per_second": 2.0071410872898570e+04
     },
     {
       "name": "BM_fast_cpp_csv_parser_materialize_and_multi_pass_array_8col/real_time_cv",
@@ -235,11 +235,11 @@
       "aggregate_name": "cv",
       "aggregate_unit": "percentage",
       "iterations": 5,
-      "real_time": 1.8537346724059534e-02,
-      "cpu_time": 1.8945055818786416e-02,
+      "real_time": 1.0776791129129607e-02,
+      "cpu_time": 6.7306695696553514e-03,
       "time_unit": "ms",
-      "bytes_per_second": 1.8220866387863119e-02,
-      "items_per_second": 1.8220866387860295e-02
+      "bytes_per_second": 1.0744598694195770e-02,
+      "items_per_second": 1.0744598694230716e-02
     }
   ]
 }

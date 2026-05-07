@@ -65,10 +65,9 @@ For broader comparison data, including ETL and round-trip workloads against
 `fast-cpp-csv-parser` and `rapidcsv`, see the
 [benchmark results](benchmarks/README.md). On modern desktop and laptop CPUs,
 this is plausibly one of the fastest general-purpose C++ CSV ETL libraries for
-realistic clean-data workloads. On clean positional-read benchmarks, the
-speculative parallel mmap path now overtakes `fast-cpp-csv-parser` with enough
-worker threads, while `fast-cpp-csv-parser` still has the edge on heavily quoted
-inputs it can parse.
+realistic workloads. On positional-read benchmarks, the speculative parallel
+mmap path now overtakes `fast-cpp-csv-parser` with enough worker threads, and
+the DataFrame benchmarks beat `rapidcsv` on the checked-in runs.
 
 #### Chunk Size Tuning
 

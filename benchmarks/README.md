@@ -17,26 +17,19 @@ These benchmarks were run on:
 - Google Benchmark 1.8.5
 - 12th Gen Intel(R) Core(TM) i5-12400
 - 12 logical CPUs at ~2.5 GHz
-- WDC `WD40EZAZ-00SF3B0` storage
+- Samsung 990 EVO SSD storage
 
 The short version:
 
-- `csv-parser` is not the fastest library for bare "count rows as quickly as
-  possible" benchmarks. `fast-cpp-csv-parser` is very strong there.
-- When users choose positional access, `csv-parser` now beats
-  `fast-cpp-csv-parser` on clean workloads once the speculative parallel mmap
-  path has enough worker threads. That is the closest raw-read comparison
-  because both libraries are using positional fields.
-- Heavily quoted workloads are still the main exception:
-  `fast-cpp-csv-parser` remains faster there on the quoted datasets it can
-  parse.
-- For ETL-style work, `csv-parser` remains competitive and often faster on
-  clean data, handles multiline CSV that `fast-cpp-csv-parser` cannot parse at
-  all, and provides chunked/parallel processing primitives instead of making
-  every user build that machinery themselves.
-- Against `rapidcsv`, the 500K-row run still favors `csv-parser`. The 5M-row
-  run exposed a `DataFrame` append-capacity regression and should be regenerated
-  before drawing a release-note conclusion.
+- `fast-cpp-csv-parser` remains faster for single-thread count/read loops on
+  the supported inputs here.
+- With positional access and 4+ parser workers, `csv-parser` overtakes
+  `fast-cpp-csv-parser` on both clean and quoted read workloads.
+- `csv-parser` wins the materialization and materialize+aggregation ETL
+  benchmarks shown below, while also supporting multiline CSV that
+  `fast-cpp-csv-parser` cannot parse.
+- `csv-parser` beats `rapidcsv` for both DataFrame load and edited load+save
+  workflows at 500K and 5M rows.
 
 All tables below use **median real time** from the Google Benchmark output.
 
@@ -168,10 +161,9 @@ There are two very different stories here:
 `fast-cpp-csv-parser` is excellent at the first category. These benchmarks are
 included because that speed is real and worth acknowledging.
 
-The second category is where the libraries trade wins. `csv-parser` is faster
-on clean materialize+multi-pass workloads, while `fast-cpp-csv-parser` remains
-faster on the heavily quoted workloads it supports. `csv-parser` also supports
-multiline CSV files that `fast-cpp-csv-parser` cannot parse.
+The second category is where `csv-parser` pulls ahead in these runs. It is
+faster on the materialize and materialize+multi-pass workloads shown below, and
+it supports multiline CSV files that `fast-cpp-csv-parser` cannot parse.
 
 One more important point: the materialization and multi-pass ETL comparisons
 below are intentionally single-threaded to stay as apples-to-apples as possible.
@@ -188,10 +180,10 @@ Median real time, 8-column datasets.
 
 | Dataset | csv-parser count | fast-cpp count | csv-parser read | fast-cpp read |
 | --- | ---: | ---: | ---: | ---: |
-| 500K clean | 176.2 ms | 84.9 ms | 178.7 ms | 91.6 ms |
-| 500K quoted | 178.9 ms | 133.1 ms | 360.0 ms | 133.6 ms |
-| 5M clean | 1,502 ms | 853.6 ms | 1,740 ms | 861.1 ms |
-| 5M quoted | 1,640 ms | 1,193 ms | 3,273 ms | 1,195 ms |
+| 500K clean | 148.1 ms | 82.2 ms | 154.0 ms | 83.0 ms |
+| 500K quoted | 199.5 ms | 115.7 ms | 219.7 ms | 117.6 ms |
+| 5M clean | 1,507 ms | 889.1 ms | 1,680 ms | 961.1 ms |
+| 5M quoted | 1,961 ms | 1,156 ms | 2,221 ms | 1,152 ms |
 
 That is the honest "bytes in, rows out" picture: `fast-cpp-csv-parser` wins
 these raw throughput tests on the inputs it supports.
@@ -203,16 +195,14 @@ parallel mmap path changes the picture:
 
 | Dataset | csv-parser 1 thread | csv-parser 2 threads | csv-parser 4 threads | csv-parser 8 threads | fast-cpp read |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 500K clean | 186.6 ms | 108.5 ms | 85.1 ms | 77.7 ms | 87.4 ms |
-| 500K quoted | 332.5 ms | 288.7 ms | 250.1 ms | 245.2 ms | 131.5 ms |
-| 5M clean | 1,791 ms | 869.6 ms | 784.6 ms | 732.6 ms | 862.0 ms |
-| 5M quoted | 3,697 ms | 2,574 ms | 2,334 ms | 2,391 ms | 1,353 ms |
+| 500K clean | 157.3 ms | 108.6 ms | 75.4 ms | 74.0 ms | 84.3 ms |
+| 500K quoted | 214.9 ms | 117.5 ms | 86.8 ms | 83.6 ms | 119.8 ms |
+| 5M clean | 1,722 ms | 941.9 ms | 743.7 ms | 699.5 ms | 950.4 ms |
+| 5M quoted | 2,059 ms | 1,131 ms | 887.1 ms | 824.2 ms | 1,193 ms |
 
-That is the core performance story for modern `csv-parser`: clean positional
-reads scale with worker threads and overtake `fast-cpp-csv-parser` by 4 threads
-on these runs. Heavy quoting is still expensive for this parser, and
-`fast-cpp-csv-parser` remains faster there when the input is within its
-supported CSV surface.
+That is the core performance story for modern `csv-parser`: positional reads
+scale with worker threads and overtake `fast-cpp-csv-parser` by 4 threads on
+these clean and quoted runs.
 
 ### Materialization Throughput
 
@@ -225,12 +215,12 @@ Lower is better.
 
 | Dataset | csv-parser | fast-cpp-csv-parser | Winner |
 | --- | ---: | ---: | --- |
-| 500K clean | 179.9 ms | 288.3 ms | csv-parser |
-| 500K quoted | 198.6 ms | 322.6 ms | csv-parser |
-| 500K multiline | 198.3 ms | unsupported | csv-parser |
-| 5M clean | 1,856 ms | 2,523 ms | csv-parser |
-| 5M quoted | 2,037 ms | 2,969 ms | csv-parser |
-| 5M multiline | 2,398 ms | unsupported | csv-parser |
+| 500K clean | 154.4 ms | 273.0 ms | csv-parser |
+| 500K quoted | 215.6 ms | 310.5 ms | csv-parser |
+| 500K multiline | 204.4 ms | unsupported | csv-parser |
+| 5M clean | 1,839 ms | 2,511 ms | csv-parser |
+| 5M quoted | 2,190 ms | 3,023 ms | csv-parser |
+| 5M multiline | 2,182 ms | unsupported | csv-parser |
 
 ### Materialize + Aggregation Throughput
 
@@ -243,45 +233,31 @@ Lower is better.
 
 | Dataset | csv-parser | fast-cpp-csv-parser | Winner |
 | --- | ---: | ---: | --- |
-| 500K clean | 231.2 ms | 305.4 ms | csv-parser |
-| 500K quoted | 458.4 ms | 343.6 ms | fast-cpp-csv-parser |
-| 500K multiline | 337.2 ms | unsupported | csv-parser |
-| 5M clean | 2,603 ms | 2,769 ms | csv-parser |
-| 5M quoted | 4,779 ms | 3,169 ms | fast-cpp-csv-parser |
-| 5M multiline | 3,896 ms | unsupported | csv-parser |
+| 500K clean | 196.3 ms | 298.5 ms | csv-parser |
+| 500K quoted | 261.0 ms | 335.5 ms | csv-parser |
+| 500K multiline | 240.4 ms | unsupported | csv-parser |
+| 5M clean | 2,224 ms | 2,681 ms | csv-parser |
+| 5M quoted | 2,692 ms | 3,230 ms | csv-parser |
+| 5M multiline | 2,689 ms | unsupported | csv-parser |
 
 ### Takeaway
 
-- If all you care about is single-thread raw parsing speed on supported inputs,
-  `fast-cpp-csv-parser` is faster.
-- If you can use multiple parser threads and positional access, `csv-parser`
-  overtakes it on the clean datasets here.
-- If you care about **materializing rows into a workable structure**, the
-  numbers here strongly favor `csv-parser`.
-- If you care about **end-to-end ETL work on clean data**, `csv-parser` is
-  faster in these benchmarks as well.
-- If your workload is **heavily quoted but not multiline**, that remains the
-  clearest `fast-cpp-csv-parser` win in this benchmark set.
-- If you care about **parallel ETL ergonomics**, `csv-parser` already provides
-  chunked processing and parallel apply primitives, while
-  `fast-cpp-csv-parser` leaves that infrastructure to the caller.
-- If your CSVs contain **quoted line breaks**, `csv-parser` still runs and
-  `fast-cpp-csv-parser` does not.
-
-That is the actual tradeoff surface, and it is more useful than pretending one
-library dominates every category.
+- `fast-cpp-csv-parser` is still faster for single-thread raw count/read loops.
+- `csv-parser` wins the positional-read comparison once 4 parser workers are
+  available.
+- `csv-parser` wins the materialization and ETL-style tables above.
+- `csv-parser` handles quoted line breaks; `fast-cpp-csv-parser` does not.
 
 ## csv-parser vs rapidcsv
-
-This comparison needs one more local rerun before release. The latest checked-in
-JSON exposed a `DataFrame` scaling regression: append batches were reserving
-exactly one batch ahead, which forced repeated reallocations on the 5M-row
-inputs. That has been fixed, so the 5M rapidcsv numbers below should be treated
-as stale diagnostic data until this benchmark is regenerated.
 
 The benchmark edits two columns before save paths, so the test is not merely
 "load a file and dump it back unchanged." Both libraries are asked to do small,
 realistic table mutation work.
+
+These rapidcsv comparisons are single-threaded table load/save benchmarks. They
+do not include a speculative parallel `CSVReader`, `DataFrameExecutor`,
+`column_parallel_apply()`, or `chunk_parallel_apply()`; using those primitives
+would likely widen the gap for real ETL workloads.
 
 ### 500K Rows
 
@@ -289,9 +265,9 @@ Median real time, lower is better.
 
 | Dataset | csv-parser load | rapidcsv load | csv-parser load+save | rapidcsv load+save |
 | --- | ---: | ---: | ---: | ---: |
-| clean | 186.6 ms | 252.2 ms | 326.8 ms | 686.7 ms |
-| quoted | 204.7 ms | 329.0 ms | 565.5 ms | 901.9 ms |
-| multiline | 211.6 ms | 322.5 ms | 503.7 ms | 877.3 ms |
+| clean | 153.6 ms | 249.8 ms | 314.2 ms | 722.6 ms |
+| quoted | 215.6 ms | 320.2 ms | 404.9 ms | 909.7 ms |
+| multiline | 215.6 ms | 319.8 ms | 393.0 ms | 908.4 ms |
 
 ### 5M Rows
 
@@ -299,31 +275,21 @@ Median real time, lower is better.
 
 | Dataset | csv-parser load | rapidcsv load | csv-parser load+save | rapidcsv load+save |
 | --- | ---: | ---: | ---: | ---: |
-| clean | 6,469 ms | 2,830 ms | 6,921 ms | 7,694 ms |
-| quoted | 5,506 ms | 3,716 ms | 9,510 ms | 9,642 ms |
-| multiline | 5,520 ms | 3,660 ms | 8,938 ms | 9,410 ms |
+| clean | 1,837 ms | 2,629 ms | 3,356 ms | 7,503 ms |
+| quoted | 2,270 ms | 3,468 ms | 4,026 ms | 9,596 ms |
+| multiline | 2,225 ms | 3,402 ms | 3,941 ms | 9,498 ms |
 
 ### Headline Ratios
 
-Some representative median ratios from the stale run:
+Some representative median ratios:
 
 | Workflow | Dataset | Result |
 | --- | --- | ---: |
-| Load | 500K quoted | csv-parser 1.61x faster |
-| Load+save | 500K clean | csv-parser 2.10x faster |
-| Load | 5M clean | rapidcsv 2.29x faster |
-| Load+save | 5M clean | csv-parser 1.11x faster |
-| Load+save | 5M multiline | csv-parser 1.05x faster |
-
-The temporary conclusion:
-
-- `csv-parser` wins the 500K-row load and edited round-trip cases.
-- The 5M rows exposed a `DataFrame` construction regression and should be rerun
-  before drawing a release-note conclusion.
-
-That makes this section a useful reminder that benchmark anomalies are often
-more valuable as smoke tests than as marketing copy. Do not ship the 5M rapidcsv
-claim until the fixed build has produced fresh JSON.
+| Load | 500K clean | csv-parser 1.63x faster |
+| Load+save | 500K quoted | csv-parser 2.25x faster |
+| Load | 5M multiline | csv-parser 1.53x faster |
+| Load+save | 5M clean | csv-parser 2.24x faster |
+| Load+save | 5M quoted | csv-parser 2.38x faster |
 
 ## Notes On Interpretation
 

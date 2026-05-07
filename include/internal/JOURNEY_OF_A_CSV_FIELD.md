@@ -247,6 +247,12 @@ Parsed rows are pushed into `RowCollection`.
 - Threaded builds use `ThreadSafeDeque<CSVRow>`.
 - No-thread builds alias the same queue name to `SingleThreadDeque<CSVRow>`.
 
+`CSVFormat::threading(false)` changes scheduling, not the queue type. In a
+thread-enabled build, the reader still owns a `ThreadSafeDeque<CSVRow>`, but the
+read cycle runs synchronously and no background producer races the consumer.
+Swapping to `SingleThreadDeque` for this runtime opt-out would be a micro-
+optimization, not a correctness requirement.
+
 Both queues satisfy the parser queue concept: push rows, append row batches, pop
 rows, drain rows, and expose wait/notify hooks. Diagnostic helpers such as
 `ThreadSafeDeque::inspect()` are intentionally not part of the shared queue
