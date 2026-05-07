@@ -43,7 +43,7 @@ jobs:
         python-version: '3.x'
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-msvc-no-zc-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -95,7 +95,7 @@ jobs:
           mingw-w64-x86_64-ninja
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-mingw-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}

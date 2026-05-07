@@ -1,5 +1,5 @@
 /** @file
- *  @brief Stable append-only block arena used by parser backing storage
+ *  @brief Stable append-only arenas used by parser backing storage
  */
 
 #pragma once
@@ -18,6 +18,12 @@
 namespace csv {
     namespace internals {
         namespace memory {
+            /** Variable-size block arena used for quote realization bytes.
+             *
+             *  Quote fields can be larger than the default page and blocks may grow,
+             *  so this arena carries per-block metadata and resolves logical offsets
+             *  by binary search.
+             */
             template<typename T>
             class RawCSVBlockArena {
             public:
@@ -100,12 +106,8 @@ namespace csv {
                     return block.values.get()[n - block.logical_start];
                 }
 
-                T& at_fixed(size_t n) const {
-                    assert(n < this->size_.load(std::memory_order_acquire));
-                    const size_t page_no = n / this->default_block_capacity_;
-                    const size_t buffer_idx = n % this->default_block_capacity_;
-                    assert(page_no < this->block_count_.load(std::memory_order_acquire));
-                    return this->blocks_[page_no]->values.get()[buffer_idx];
+                size_t size() const noexcept {
+                    return this->size_.load(std::memory_order_acquire);
                 }
 
                 csv::string_view view(size_t offset, size_t length) const {
@@ -119,10 +121,6 @@ namespace csv {
                     return csv::string_view(block.values.get() + block_offset, length);
                 }
 
-                size_t size() const noexcept {
-                    return this->size_.load(std::memory_order_acquire);
-                }
-
                 void reserve_blocks(size_t count) {
                     if (count > this->blocks_.size()) {
                         this->blocks_.resize(count);
@@ -131,27 +129,6 @@ namespace csv {
 
             private:
                 struct Block {
-                    Block() = default;
-                    Block(const Block&) = delete;
-                    Block& operator=(const Block&) = delete;
-                    Block(Block&& other) noexcept
-                        : values(std::move(other.values)),
-                          capacity(other.capacity),
-                          logical_start(other.logical_start) {
-                        used.store(other.used.load(std::memory_order_acquire), std::memory_order_release);
-                    }
-                    Block& operator=(Block&& other) noexcept {
-                        if (this == &other) {
-                            return *this;
-                        }
-
-                        values = std::move(other.values);
-                        capacity = other.capacity;
-                        used.store(other.used.load(std::memory_order_acquire), std::memory_order_release);
-                        logical_start = other.logical_start;
-                        return *this;
-                    }
-
                     std::unique_ptr<T[]> values;
                     size_t capacity = 0;
                     std::atomic<size_t> used{ 0 };

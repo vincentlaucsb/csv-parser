@@ -13,7 +13,6 @@
 
 #include "col_names.hpp"
 #include "common.hpp"
-#include "memory/block_arena.hpp"
 #include "memory/constants.hpp"
 #include "memory/quote_arena.hpp"
 #include "memory/raw_csv_field.hpp"
@@ -24,7 +23,6 @@ namespace csv {
         class JsonConverter;
 
         using memory::INVALID_REALIZED_OFFSET;
-        using memory::RawCSVBlockArena;
         using memory::RawCSVField;
         using memory::RawCSVFieldList;
         using memory::RawCSVQuoteArena;

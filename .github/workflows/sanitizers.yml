@@ -49,7 +49,7 @@ jobs:
         submodules: recursive
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-sanitizer-${{ matrix.sanitizer }}-std${{ matrix.cxx_standard }}-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -81,7 +81,7 @@ jobs:
     
     - name: Upload sanitizer logs
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: linux-sanitizer-logs-${{ matrix.sanitizer }}-std${{ matrix.cxx_standard }}
         path: build/Testing/
@@ -103,7 +103,7 @@ jobs:
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-msvc-asan-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -130,7 +130,7 @@ jobs:
 
     - name: Upload MSVC AddressSanitizer logs
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: windows-msvc-asan-logs-std20
         path: build/msvc-asan/Testing/
@@ -145,7 +145,7 @@ jobs:
         submodules: recursive
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-valgrind-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -177,7 +177,7 @@ jobs:
     
     - name: Upload Valgrind results
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: valgrind-results
         path: build/Testing/
@@ -194,7 +194,7 @@ jobs:
         submodules: recursive
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-o3-coverage-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}

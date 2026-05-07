@@ -24,7 +24,7 @@ jobs:
         submodules: recursive
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-coverage-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}

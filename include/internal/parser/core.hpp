@@ -760,6 +760,7 @@ namespace csv {
                 this->reset_data_ptr();
                 this->data_ptr_->_data = std::move(owner);
                 this->data_ptr_->data = chunk;
+                this->data_ptr_->fields.reserve_for_source_size(chunk.size());
                 this->data_ptr_->quote_arena.reserve_for_source_size(chunk.size());
                 this->initial_state_ = options.initial_state;
                 this->scan_bom_for_current_chunk_ = options.scan_bom;
