@@ -15,29 +15,16 @@
 #include <string>
 #include <vector>
 
-#if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
-#include <mutex>
-#include <thread>
-#endif
-
-#include "basic_csv_parser.hpp"
 #include "common.hpp"
 #include "csv_exceptions.hpp"
 #include "data_type.hpp"
 #include "csv_format.hpp"
+#include "parser/mmap.hpp"
+#include "parser/scheduler.hpp"
+#include "parser/stream.hpp"
 
 /** The all encompassing namespace */
 namespace csv {
-#if CSV_ENABLE_THREADS
-    inline void join_worker(std::thread& worker) {
-        if (worker.joinable()) worker.join();
-    }
-
-    #define JOIN_WORKER(worker) join_worker(worker)
-#else
-    #define JOIN_WORKER(worker) ((void)0)
-#endif
-
     /** @class CSVReader
      *  @brief Main class for parsing CSVs from files and in-memory sources
      *
@@ -132,7 +119,9 @@ namespace csv {
          * @note When writing tests that validate I/O behavior, test both filename and stream constructors.
          * @see StreamParser for the stream-based alternative.
          */
-        CSVReader(csv::string_view filename, const CSVFormat& format = CSVFormat::guess_csv()) : _format(format) {
+        CSVReader(csv::string_view filename, const CSVFormat& format = CSVFormat::guess_csv())
+            : _format(format),
+              read_scheduler_(format.is_threading_enabled()) {
 #if defined(__EMSCRIPTEN__)
             this->owned_stream = std::unique_ptr<std::istream>(
                 new std::ifstream(std::string(filename), std::ios::binary)
@@ -144,8 +133,8 @@ namespace csv {
 
             this->init_from_stream(*this->owned_stream, format);
 #else
-            this->init_parser(std::unique_ptr<internals::IBasicCSVParser>(
-                new internals::MmapParser(filename, format, this->col_names)
+            this->init_parser(std::unique_ptr<internals::parser::CSVParserDriverBase>(
+                new internals::parser::MmapParser(filename, format, this->col_names)
             ));
 #endif
         }
@@ -164,7 +153,9 @@ namespace csv {
          */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
-        CSVReader(TStream &source, CSVFormat format = CSVFormat::guess_csv()) : _format(format) {
+        CSVReader(TStream &source, CSVFormat format = CSVFormat::guess_csv())
+            : _format(format),
+              read_scheduler_(format.is_threading_enabled()) {
             this->init_from_stream(source, format);
         }
 
@@ -174,7 +165,10 @@ namespace csv {
          *  CSVReader takes ownership and guarantees the stream outlives parsing.
          */
         CSVReader(std::unique_ptr<std::istream> source,
-            const CSVFormat& format = CSVFormat::guess_csv()) : _format(format), owned_stream(std::move(source)) {
+            const CSVFormat& format = CSVFormat::guess_csv())
+            : _format(format),
+              owned_stream(std::move(source)),
+              read_scheduler_(format.is_threading_enabled()) {
             if (!this->owned_stream) {
                 throw std::invalid_argument(internals::ERROR_READER_NULL_STREAM);
             }
@@ -191,28 +185,13 @@ namespace csv {
          * Required so C++11 builds can return CSVReader by value from helpers like
          * csv::parse()/csv::parse_unsafe(), where copy elision is not guaranteed.
          *
-         * Any active worker on the source is joined before moving parser state to
+         * Any active read scheduler on the source is joined before moving parser state to
          * avoid a thread continuing to run against the source object's address.
          */
         CSVReader(CSVReader&& other) noexcept :
-            _format(std::move(other._format)),
-            col_names(std::move(other.col_names)),
-            parser(std::move(other.parser)),
-            records(std::move(other.records)),
-            owned_stream(std::move(other.owned_stream)),
-            n_cols(other.n_cols),
-            _n_rows(other._n_rows),
-            header_trimmed(other.header_trimmed),
-            _chunk_size(other._chunk_size),
-            _read_requested(other._read_requested),
-            read_csv_exception(other.take_read_csv_exception()) {
-            JOIN_WORKER(other.read_csv_worker);
-
-            other.n_cols = 0;
-            other._n_rows = 0;
-            other.header_trimmed = false;
-            other._read_requested = false;
-            other._chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+            read_scheduler_(other._format.is_threading_enabled()) {
+            other.read_scheduler_.join();
+            this->move_state_from(other);
         }
 
         /** Move assignment.
@@ -224,32 +203,15 @@ namespace csv {
                 return *this;
             }
 
-            JOIN_WORKER(this->read_csv_worker);
-            JOIN_WORKER(other.read_csv_worker);
-
-            this->_format = std::move(other._format);
-            this->col_names = std::move(other.col_names);
-            this->parser = std::move(other.parser);
-            this->records = std::move(other.records);
-            this->owned_stream = std::move(other.owned_stream);
-            this->n_cols = other.n_cols;
-            this->_n_rows = other._n_rows;
-            this->header_trimmed = other.header_trimmed;
-            this->_chunk_size = other._chunk_size;
-            this->_read_requested = other._read_requested;
-            this->read_csv_exception = other.take_read_csv_exception();
-
-            other.n_cols = 0;
-            other._n_rows = 0;
-            other.header_trimmed = false;
-            other._read_requested = false;
-            other._chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
+            this->read_scheduler_.join();
+            other.read_scheduler_.join();
+            this->move_state_from(other);
 
             return *this;
         }
 
         ~CSVReader() {
-            JOIN_WORKER(this->read_csv_worker);
+            this->read_scheduler_.join();
         }
 
         /** @name Retrieving CSV Rows */
@@ -379,7 +341,7 @@ namespace csv {
         internals::ColNamesPtr col_names = std::make_shared<internals::ColNames>();
 
         /** Helper class which actually does the parsing */
-        std::unique_ptr<internals::IBasicCSVParser> parser = nullptr;
+        std::unique_ptr<internals::parser::CSVParserDriverBase> parser = nullptr;
 
         /** Queue of parsed CSV rows */
         std::unique_ptr<RowCollection> records{new RowCollection(100)};
@@ -408,48 +370,36 @@ namespace csv {
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
         
-        /** @name Multi-Threaded File Reading: Flags and State */
+        /** @name Reader Scheduling: Flags and State */
         ///@{
-    #if CSV_ENABLE_THREADS
-        std::thread read_csv_worker; /**< Worker thread for read_csv() */
-    #endif
         size_t _chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT; /**< Current chunk size in bytes */
         bool _read_requested = false; /**< Flag to detect infinite read loops (Issue #218) */
+        internals::CSVReadScheduler read_scheduler_;
         ///@}
 
-        /** @name Worker Exception Handling
-         *
-         *  Bridges exceptions from the parsing worker back to the consumer thread.
-         */
-        ///@{
-        /** If the worker thread throws, store it here and rethrow on the consumer thread. */
-        std::exception_ptr read_csv_exception = nullptr;
-#if CSV_ENABLE_THREADS
-        std::mutex read_csv_exception_lock;
-#endif
-
-        void set_read_csv_exception(std::exception_ptr eptr) {
-#if CSV_ENABLE_THREADS
-            std::lock_guard<std::mutex> lock(this->read_csv_exception_lock);
-#endif
-            this->read_csv_exception = std::move(eptr);
+        void move_state_from(CSVReader& other) noexcept {
+            this->_format = std::move(other._format);
+            this->col_names = std::move(other.col_names);
+            this->parser = std::move(other.parser);
+            this->records = std::move(other.records);
+            this->owned_stream = std::move(other.owned_stream);
+            this->n_cols = other.n_cols;
+            this->_n_rows = other._n_rows;
+            this->header_trimmed = other.header_trimmed;
+            this->_chunk_size = other._chunk_size;
+            this->_read_requested = other._read_requested;
+            this->read_scheduler_.set_threading_enabled(this->_format.is_threading_enabled());
+            this->read_scheduler_.adopt_exception(other.read_scheduler_.take_exception());
+            other.reset_after_move();
         }
 
-        std::exception_ptr take_read_csv_exception() {
-#if CSV_ENABLE_THREADS
-            std::lock_guard<std::mutex> lock(this->read_csv_exception_lock);
-#endif
-            auto eptr = this->read_csv_exception;
-            this->read_csv_exception = nullptr;
-            return eptr;
+        void reset_after_move() noexcept {
+            this->n_cols = 0;
+            this->_n_rows = 0;
+            this->header_trimmed = false;
+            this->_read_requested = false;
+            this->_chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
         }
-
-        void rethrow_read_csv_exception_if_any() {
-            if (auto eptr = this->take_read_csv_exception()) {
-                std::rethrow_exception(eptr);
-            }
-        }
-        ///@}
 
         /** @name Format and Header Helpers
          *
@@ -459,27 +409,23 @@ namespace csv {
         /** Shared parser installation after source-specific bootstrap has completed
          *  in concrete parser implementations.
          */
-        void init_parser(std::unique_ptr<internals::IBasicCSVParser> parser);
+        void init_parser(std::unique_ptr<internals::parser::CSVParserDriverBase> parser);
 
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
         void init_from_stream(TStream& source, CSVFormat format) {
             this->init_parser(
-                std::unique_ptr<internals::IBasicCSVParser>(
-                    new internals::StreamParser<TStream>(source, format, this->col_names)
+                std::unique_ptr<internals::parser::CSVParserDriverBase>(
+                    new internals::parser::StreamParser<TStream>(source, format, this->col_names)
                 )
             );
         }
 
         /** Read initial chunk to get metadata */
         void initial_read() {
-#if CSV_ENABLE_THREADS
-            this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
-            this->read_csv_worker.join();
-#else
-            this->read_csv(this->_chunk_size);
-#endif
-            this->rethrow_read_csv_exception_if_any();
+            this->read_scheduler_.run([this] { this->read_csv(this->_chunk_size); });
+            this->read_scheduler_.join();
+            this->read_scheduler_.rethrow_exception_if_any();
         }
 
         void trim_header();

@@ -1,3 +1,5 @@
+@page internal_architecture Internal Architecture
+
 # Internal Architecture
 
 This document describes the high-level architecture of the CSV parser internals and how major classes interact.
@@ -9,6 +11,7 @@ Scope:
 - Where to add tests for subsystem changes
 
 For queue synchronization protocol details, see THREADSAFE_DEQUE_DESIGN.md.
+For a narrative byte-to-field walkthrough, see JOURNEY_OF_A_CSV_FIELD.md.
 For AI-agent workflow and guardrails, see ../../AGENTS.md and ../../tests/AGENTS.md.
 
 ## 1. System Shape
@@ -32,6 +35,11 @@ Two independent parser paths exist and must be kept behaviorally aligned:
   - Orchestrates parser lifecycle, worker cycle, and row retrieval.
   - Holds parser, queue, format, and exception propagation state.
 
+- CSVReadScheduler
+  - Internal concrete scheduler selected from sync/thread-capable implementations.
+  - Owns worker-thread launch/join and exception transfer so CSVReader does not
+    intermix public facade logic with compile-time threading branches.
+
 - CSVRow
   - Lightweight row view over shared chunk data.
   - Resolves field slices and supports index/name access.
@@ -42,25 +50,46 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - CSVFormat
   - Parse configuration (delimiter/quote/trim/header/chunk size/policies).
+  - Runtime threading can be disabled per reader with `CSVFormat::threading(false)`.
 
 ### Parsing core
 
-- IBasicCSVParser
-  - Shared parse loop and field/row state machine.
+- CSVParserCore
+  - Templated, non-virtual byte parser core in parser/core.hpp.
+  - Owns DFA state, BOM handling, field/row construction, and concrete row-sink emission.
+  - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
 
-- csv_chunk_parser.hpp
-  - Chunk-owned parser helpers for caller-provided byte windows.
-  - Holds row-fragment repair primitives used by speculative parsing.
+- PermissiveParsePolicy
+  - No-op parse policy extension point.
+  - Preserves RawCSVData/CSVRow lazy materialization while keeping the hot path free of virtual row sinks.
 
-- csv_speculative_parser.hpp
-  - Optional threaded speculative chunk parser and validator.
+- CSVParserDriverBase
+  - Internal source-adapter base that preserves the parser driver API used by CSVReader.
+  - Delegates byte parsing to CSVParserCore.
+  - Lives under `csv::internals::parser`; files in `include/internal/parser/`
+    intentionally share that namespace.
+
+- speculative/chunk_parser.hpp
+  - Compatibility include for speculative chunk helpers.
+
+- speculative/chunks.hpp
+  - Row-fragment repair primitives and chunk parser shell used by speculative parsing.
+
+- speculative/scanner.hpp, speculative/validator.hpp, speculative/parallel_parser.hpp
+  - Speculative scanner, row-fragment validation/repair, and optional threaded chunk parser.
+  - Speculative-only helpers live under `csv::internals::speculative`.
   - Compiled out when `CSV_ENABLE_THREADS=0`.
+
+- parser/orchestrator.hpp
+  - Chooses serial CSVParserCore parsing or speculative parallel parsing for a byte window.
 
 - MmapParser
   - Reads chunks from memory maps and handles chunk-transition remainder.
+  - Declared in parser/mmap.hpp; implemented in parser/mmap.cpp.
 
 - StreamParser
   - Reads chunks from stream sources.
+  - Template definition lives in parser/stream.hpp.
 
 ### Internal storage and transport
 
@@ -79,16 +108,21 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 Parser hierarchy:
 
 ```text
-                  +------------------+
-                  | IBasicCSVParser  |
-                  | (abstract base)  |
-                  +---------+--------+
-                            ^
-                 +----------+----------+
+                  +----------------------+
+                  |   CSVParserCore      |
+                  | byte parser state    |
+                  +----------+-----------+
+                             ^
+                  +----------+-----------+
+                  | CSVParserDriverBase  |
+                  | source adapter base  |
+                  +----------+-----------+
+                             ^
+                 +-----------+---------+
                  |                     |
         +--------+--------+    +-------+--------+
         |   MmapParser    |    |  StreamParser  |
-        | concrete parser |    | concrete parser|
+        | concrete source |    | concrete source|
         +-----------------+    +----------------+
 ```
 
@@ -122,11 +156,12 @@ CSVRow -> CSVField lazy materialization:
 ```text
 RawCSVData
   |- data (chunk bytes)
-  |- fields[i] = {start, length, has_double_quote}
+  |- quote_arena (stable sidecar bytes for doubled-quote fields)
+  |- fields[i] = {start, length, is_realized}
   v
 CSVRow::get_field_impl(i)
-  -> slice = data.substr(start, length)
-  -> if quoted: unescape/cached materialization
+  -> if is_realized: slice = quote_arena.view(start, length)
+  -> otherwise: slice = data.substr(start, length)
   -> if trim enabled: apply trim at access time
   v
 CSVField(string_view)
@@ -134,7 +169,8 @@ CSVField(string_view)
 ```
 
 Implication:
-- Parser throughput stays focused on boundary detection and row emission; expensive string work is deferred until fields are actually accessed.
+- Raw source bytes stay immutable and ordinary fields remain zero-copy views.
+- Fields containing doubled quotes are realized once by the parser into packed sidecar storage, avoiding per-access hash lookups and lazy string construction.
 
 ## 3. End-to-End Flow
 
@@ -146,9 +182,22 @@ Operationally:
 2. Parser next(bytes) ingests one chunk and emits complete rows.
 3. Queue buffers rows for consumer-side retrieval.
 4. CSVRow/CSVField lazily materialize trim/unescape/conversion behavior.
-5. Worker completion and errors are signaled back to the consumer side.
+5. CSVReadScheduler signals worker completion and transfers errors back to the
+   consumer side. When `CSVFormat::threading(false)` is active, the same parse
+   cycle runs synchronously on the caller thread and speculative parsing is
+   disabled. In thread-enabled builds this runtime opt-out still uses
+   `ThreadSafeDeque<CSVRow>` internally; replacing it with `SingleThreadDeque`
+   would be a small optimization, not a semantic difference.
 
 ## 4. Key Invariants
+
+### Internal folders map to internal namespaces
+
+When a subsystem earns a folder under `include/internal/`, its namespace should
+follow the folder path. For example, parser source adapters live in
+`include/internal/parser/` and `csv::internals::parser`, while speculative
+helpers live in `include/internal/speculative/` and
+`csv::internals::speculative`.
 
 ### Chunk boundary integrity
 
@@ -184,24 +233,24 @@ auto it = std::max_element(rows.begin(), rows.end(), cmp);
 - Do not add a `std::vector<RawCSVDataPtr>` cache to `CSVReader::iterator` to support multi-pass. That destroys bounded-memory behavior.
 - Do not change `iterator_category` to `forward_iterator_tag` without first solving the chunk-lifetime problem.
 
-This invariant is also documented in `.claude/rules/csv_reader_rules.md`.
+This invariant is canonical here and summarized in the root `AGENTS.md` guidance.
 
 ## 5. Change Impact Map
 
 - Parser state machine changes:
-  - basic_csv_parser.hpp, basic_csv_parser.cpp, csv_chunk_parser.hpp
+  - parser/core.hpp, speculative/chunks.hpp
 
 - Chunk transition changes:
-  - mmap_parser.cpp (MmapParser next), basic_csv_parser.hpp (StreamParser next)
+  - parser/mmap.cpp (MmapParser next), parser/stream.hpp (StreamParser next)
 
 - Speculative parallel parsing changes:
-  - csv_speculative_parser.hpp, csv_speculative_diagnostics.hpp, mmap_parser.cpp
+  - speculative/scanner.hpp, speculative/validator.hpp, speculative/parallel_parser.hpp, parser/orchestrator.hpp, speculative/diagnostics.hpp, parser/mmap.cpp, parser/stream.hpp
 
 - Reader worker/iteration behavior:
-  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp
+  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, parser/scheduler.hpp
 
-- Field extraction and trimming/unescaping:
-  - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp
+- Field extraction, backing storage, and trimming/unescaping:
+  - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp, memory/*.hpp
 
 - Parse configuration behavior:
   - csv_format.hpp, csv_format.cpp

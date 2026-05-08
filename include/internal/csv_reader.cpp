@@ -11,15 +11,15 @@ namespace csv {
     CSV_INLINE bool CSVReader::check_for_rows() {
         if (!this->records->empty()) return true;
 
-#if CSV_ENABLE_THREADS
-        if (this->records->is_waitable()) {
-            this->records->wait();
+        if (this->read_scheduler_.wait_if_active(
+            [this] { return this->records->is_waitable(); },
+            [this] { this->records->wait(); }
+        )) {
             return true;
         }
-#endif
 
-        JOIN_WORKER(this->read_csv_worker);
-        this->rethrow_read_csv_exception_if_any();
+        this->read_scheduler_.join();
+        this->read_scheduler_.rethrow_exception_if_any();
 
         if (this->parser->eof()) return false;
 
@@ -27,13 +27,11 @@ namespace csv {
             internals::throw_row_too_large_for_chunk(this->_chunk_size);
         }
 
-#if CSV_ENABLE_THREADS
-        this->records->notify_all();
-        this->read_csv_worker = std::thread(&CSVReader::read_csv, this, this->_chunk_size);
-#else
-        this->read_csv(this->_chunk_size);
-        this->rethrow_read_csv_exception_if_any();
-#endif
+        this->read_scheduler_.run(
+            [this] { this->read_csv(this->_chunk_size); },
+            [this] { this->records->notify_all(); }
+        );
+        this->read_scheduler_.rethrow_exception_if_any();
         this->_read_requested = true;
         return true;
     }
@@ -46,7 +44,7 @@ namespace csv {
 #pragma region Format and header helpers
 #endif
     CSV_INLINE void CSVReader::init_parser(
-        std::unique_ptr<internals::IBasicCSVParser> parser_impl
+        std::unique_ptr<internals::parser::CSVParserDriverBase> parser_impl
     ) {
         auto resolved = parser_impl->get_resolved_format();
         this->_format = resolved.format;
@@ -156,23 +154,25 @@ namespace csv {
     /**
      * Read a chunk of CSV data.
      *
-     * @note This method is meant to be run on its own thread. Only one `read_csv()` thread
-     *       should be active at a time.
+     * @note This method may run on a worker thread or synchronously on the caller
+     *       thread when CSVFormat::threading(false) is active. Only one read_csv()
+     *       invocation should be active at a time.
      *
-     * @see CSVReader::read_csv_worker
+     * @see csv::internals::CSVReadScheduler
      * @see CSVReader::read_row()
      */
     CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
-        // WORKER THREAD FUNCTION: Runs asynchronously to read CSV chunks
+        // SCHEDULED READ FUNCTION: Runs asynchronously when runtime threading
+        // is enabled, or synchronously when CSVFormat::threading(false) is active.
         //
         // Threading model:
         // 1. notify_all() - signals read_row() that worker is active
         // 2. parser->next() - reads and parses bytes (10MB chunks)
         // 3. kill_all() - signals read_row() that worker is done
         //
-        // Exception handling: Exceptions thrown here MUST propagate to the calling
-        // thread via std::exception_ptr. Bug #282 fixed cases where exceptions were
-        // swallowed, causing std::terminate() instead of proper error handling.
+        // Exception handling: CSVReadScheduler catches exceptions and rethrows
+        // them on the consumer thread. Bug #282 fixed cases where worker
+        // exceptions were swallowed, causing std::terminate().
         
         // Tell read_row() to listen for CSV rows
         this->records->notify_all();
@@ -186,9 +186,8 @@ namespace csv {
             }
         }
         catch (...) {
-            // Never allow exceptions to escape the worker thread, or std::terminate will be invoked.
-            // Store the exception and rethrow from the consumer thread (read_row / iterator).
-            this->set_read_csv_exception(std::current_exception());
+            this->records->kill_all();
+            throw;
         }
 
         // Tell read_row() to stop waiting

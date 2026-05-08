@@ -14,7 +14,10 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <utility>
 #include <vector>
+
+#include "row_queue_batch.hpp"
 
 namespace csv {
     namespace internals {
@@ -23,8 +26,10 @@ namespace csv {
          *  to become populated.
          *
          *  Concurrency strategy: writer-side mutations (push_back/pop_front) are locked;
-         *  hot-path flags (empty/is_waitable) are atomic; operator[] and iterators are
-         *  not synchronized and must not run concurrently with writers.
+         *  hot-path flags (empty/is_waitable) are atomic; inspect() is the synchronized
+         *  observation path for tests and diagnostics. Keep inspect() as a local
+         *  ThreadSafeDeque affordance instead of promoting a generic queue-view type
+         *  into the parser queue concept.
          */
         template<typename T>
         class ThreadSafeDeque {
@@ -32,13 +37,25 @@ namespace csv {
             ThreadSafeDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
 
             ThreadSafeDeque(const ThreadSafeDeque& other) {
-                this->data = other.data;
+                std::lock_guard<std::mutex> lock{ other._lock };
+                this->batches_ = other.batches_;
+                this->front_index_ = other.front_index_;
+                this->size_ = other.size_;
                 this->_notify_size = other._notify_size;
                 this->_is_empty.store(other._is_empty.load(std::memory_order_acquire), std::memory_order_release);
+                this->_is_waitable.store(other._is_waitable.load(std::memory_order_acquire), std::memory_order_release);
             }
 
             ThreadSafeDeque(const std::deque<T>& source) : ThreadSafeDeque() {
-                this->data = source;
+                std::vector<T> rows;
+                rows.reserve(source.size());
+                for (const auto& row : source) {
+                    rows.push_back(row);
+                }
+                if (!rows.empty()) {
+                    this->batches_.push_back(std::move(rows));
+                    this->size_ = source.size();
+                }
                 this->_is_empty.store(source.empty(), std::memory_order_release);
             }
 
@@ -46,36 +63,42 @@ namespace csv {
                 return this->_is_empty.load(std::memory_order_acquire);
             }
 
-            T& front() noexcept {
-                std::lock_guard<std::mutex> lock{ this->_lock };
-                return this->data.front();
-            }
-
-            /** NOTE: operator[] is not synchronized.
-             *  Only call when no concurrent push_back/pop_front can occur.
-             *  std::deque can reallocate its internal map on push_back, which
-             *  makes concurrent operator[] access undefined behavior.
-             */
-            T& operator[](size_t n) {
-                return this->data[n];
-            }
-
             void push_back(T&& item) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
-                this->data.push_back(std::move(item));
+                std::vector<T> batch;
+                batch.push_back(std::move(item));
+                this->batches_.push_back(std::move(batch));
+                this->size_++;
                 this->_is_empty.store(false, std::memory_order_release);
 
-                if (this->data.size() >= _notify_size) {
+                if (this->size_ >= _notify_size) {
+                    this->_cond.notify_all();
+                }
+            }
+
+            void append_rows(std::vector<T>&& rows) {
+                if (rows.empty()) {
+                    return;
+                }
+
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                this->size_ += rows.size();
+                this->batches_.push_back(std::move(rows));
+                this->_is_empty.store(false, std::memory_order_release);
+
+                if (this->size_ >= _notify_size) {
                     this->_cond.notify_all();
                 }
             }
 
             T pop_front() noexcept {
                 std::lock_guard<std::mutex> lock{ this->_lock };
-                T item = std::move(data.front());
-                data.pop_front();
+                T item = std::move(this->batches_.front()[this->front_index_]);
+                this->front_index_++;
+                this->size_--;
+                this->discard_exhausted_front_batch();
 
-                if (this->data.empty()) {
+                if (this->size_ == 0) {
                     this->_is_empty.store(true, std::memory_order_release);
                 }
 
@@ -85,23 +108,54 @@ namespace csv {
             /** Move up to @p max_items rows into a caller-owned batch buffer under one lock.
              *
              *  This is the preferred consumer path for chunked reads: it preserves queue
-             *  semantics while amortizing mutex traffic across many rows.
+             *  semantics while amortizing mutex traffic across many rows. Complete queued
+             *  batches are moved as contiguous spans; per-row moves only remain when the
+             *  requested limit splits a batch.
              */
             size_t drain_front(std::vector<T>& out, size_t max_items) {
                 std::lock_guard<std::mutex> lock{ this->_lock };
-                const size_t available = this->data.size();
-                const size_t drain_count = available < max_items ? available : max_items;
+                const size_t drain_count = drain_front_batches(
+                    this->batches_,
+                    this->front_index_,
+                    this->size_,
+                    out,
+                    max_items
+                );
 
-                for (size_t i = 0; i < drain_count; ++i) {
-                    out.push_back(std::move(this->data.front()));
-                    this->data.pop_front();
-                }
-
-                if (this->data.empty()) {
+                if (this->size_ == 0) {
                     this->_is_empty.store(true, std::memory_order_release);
                 }
 
                 return drain_count;
+            }
+
+            /** Invoke @p callback with a synchronized copy of queued rows.
+             *
+             *  Intended for tests and diagnostics that need stable indexed
+             *  observation without exposing unsynchronized random access. The
+             *  plain vector snapshot is deliberate: callers do not need to know
+             *  whether the underlying queue is batch-backed, and RowDequeLike
+             *  should not grow a custom inspection-view abstraction.
+             */
+            template<typename Callback>
+            void inspect(Callback&& callback) const {
+                std::vector<T> snapshot;
+                {
+                    std::lock_guard<std::mutex> lock{ this->_lock };
+                    snapshot.reserve(this->size_);
+
+                    bool first_batch = true;
+                    for (const auto& batch : this->batches_) {
+                        const size_t start = first_batch ? this->front_index_ : 0;
+                        first_batch = false;
+
+                        for (size_t i = start; i < batch.size(); ++i) {
+                            snapshot.push_back(batch[i]);
+                        }
+                    }
+                }
+
+                std::forward<Callback>(callback)(snapshot);
             }
 
             /** Returns true if a thread is actively pushing items to this deque */
@@ -115,21 +169,13 @@ namespace csv {
                 }
 
                 std::unique_lock<std::mutex> lock{ this->_lock };
-                this->_cond.wait(lock, [this] { return this->data.size() >= _notify_size || !this->is_waitable(); });
+                this->_cond.wait(lock, [this] { return this->size_ >= _notify_size || !this->is_waitable(); });
                 lock.unlock();
             }
 
             size_t size() const noexcept {
                 std::lock_guard<std::mutex> lock{ this->_lock };
-                return this->data.size();
-            }
-
-            typename std::deque<T>::iterator begin() noexcept {
-                return this->data.begin();
-            }
-
-            typename std::deque<T>::iterator end() noexcept {
-                return this->data.end();
+                return this->size_;
             }
 
             /** Tell listeners that this deque is actively being pushed to */
@@ -151,7 +197,16 @@ namespace csv {
             size_t _notify_size;
             mutable std::mutex _lock;
             std::condition_variable _cond;
-            std::deque<T> data;
+            std::deque<std::vector<T>> batches_;
+            size_t front_index_ = 0;
+            size_t size_ = 0;
+
+            void discard_exhausted_front_batch() noexcept {
+                while (!this->batches_.empty() && this->front_index_ >= this->batches_.front().size()) {
+                    this->batches_.pop_front();
+                    this->front_index_ = 0;
+                }
+            }
         };
     }
 }

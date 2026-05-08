@@ -1,13 +1,79 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/chrono.h>
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
-#include <utility>
-#include <vector>
+#include <chrono>
 #include <algorithm>
+#include <utility>
 #include "csv.hpp"
 namespace py = pybind11;
 using namespace pybind11::literals;
 using namespace csv;
+
+py::object field_to_python(CSVField field, bool cast) {
+    if (!cast) {
+        return py::str(field.get<std::string>());
+    }
+
+    const DataType field_type = field.type();
+
+    switch (field_type) {
+        case DataType::UNKNOWN:
+        case DataType::CSV_STRING:
+            return py::str(field.get<std::string>());
+        case DataType::CSV_NULL:
+            return py::none();
+        case DataType::CSV_BOOL:
+            return py::bool_(field.get<bool>());
+        case DataType::CSV_INT8:
+        case DataType::CSV_INT16:
+        case DataType::CSV_INT32:
+        case DataType::CSV_INT64:
+            return py::int_(field.get<int64_t>());
+        case DataType::CSV_DOUBLE:
+            return py::float_(field.get<double>());
+        case DataType::CSV_TIMESTAMP:
+            return py::cast(field.get<std::chrono::system_clock::time_point>());
+        default:
+            return py::str(field.get<std::string>());
+    }
+
+    return py::str(field.get<std::string>());
+}
+
+class FastCSVReader {
+public:
+    FastCSVReader(
+        const std::string& filename,
+        CSVFormat format,
+        bool cast,
+        size_t batch_size = 8192
+    ) : reader_(filename, format),
+        cast_(cast) {
+        (void)batch_size;
+    }
+
+    FastCSVReader& iter() {
+        return *this;
+    }
+
+    py::list next() {
+        CSVRow row;
+        if (!this->reader_.read_row(row)) {
+            throw py::stop_iteration();
+        }
+
+        py::list out(row.size());
+        for (size_t i = 0; i < row.size(); ++i) {
+            out[i] = field_to_python(row[i], this->cast_);
+        }
+        return out;
+    }
+
+private:
+    CSVReader reader_;
+    bool cast_ = false;
+};
 
 void init_CSVFormat(py::module& m){
     py::class_<CSVFormat>(m, "Format")
@@ -48,6 +114,10 @@ void init_CSVFormat(py::module& m){
     .def("no_header", 
         &CSVFormat::no_header,
         "Tells the parser that this CSV has no header row")
+    .def("variable_columns",
+        py::overload_cast<VariableColumnPolicy>(&CSVFormat::variable_columns),
+        "Tells the parser how to handle rows with different column counts",
+        py::arg("policy"))
     .def("is_quoting_enabled",
     &CSVFormat::is_quoting_enabled)
     .def("get_quote_char",
@@ -61,9 +131,11 @@ void init_CSVFormat(py::module& m){
 
 void init_CSVReader(py::module& m){
     py::class_<CSVReader>(m, "Reader")
-    .def(py::init<csv::string_view, CSVFormat>(), 
-    "filename"_a, 
-    "format"_a=CSVFormat::guess_csv())
+    .def(py::init<csv::string_view>(),
+    "filename"_a)
+    .def(py::init<csv::string_view, CSVFormat>(),
+    "filename"_a,
+    "format"_a)
     .def("eof", 
     &CSVReader::eof,
     "Returns true if we have reached end of file")
@@ -80,6 +152,17 @@ void init_CSVReader(py::module& m){
     .def("__iter__", 
     [](CSVReader& reader){return py::make_iterator(reader.begin(), reader.end());},
     py::keep_alive<0, 1>());
+
+    py::class_<FastCSVReader>(m, "_FastReader")
+    .def(py::init<const std::string&, CSVFormat, bool, size_t>(),
+        "filename"_a,
+        "format"_a,
+        "cast"_a = false,
+        "batch_size"_a = 8192)
+    .def("__iter__",
+        &FastCSVReader::iter,
+        py::return_value_policy::reference_internal)
+    .def("__next__", &FastCSVReader::next);
 }
 
 void init_CSVRow(py::module& m){
@@ -119,6 +202,14 @@ void init_CSVRow(py::module& m){
 }
 
 void init_DataType(py::module& m){
+    py::enum_<VariableColumnPolicy>(m,
+    "VariableColumnPolicy",
+    "How to handle rows that are shorter or longer than expected")
+    .value("THROW", VariableColumnPolicy::THROW)
+    .value("IGNORE_ROW", VariableColumnPolicy::IGNORE_ROW)
+    .value("KEEP", VariableColumnPolicy::KEEP)
+    .value("KEEP_NON_EMPTY", VariableColumnPolicy::KEEP_NON_EMPTY);
+
     py::enum_<DataType>(m,
     "DataType", 
     py::arithmetic(),
@@ -126,11 +217,14 @@ void init_DataType(py::module& m){
     .value("UNKNOWN" ,DataType::UNKNOWN)
     .value("CSV_NULL", DataType::CSV_NULL, "Empty string")
     .value("CSV_STRING", DataType::CSV_STRING, "Non-numeric string")
+    .value("CSV_BOOL", DataType::CSV_BOOL, "Boolean value")
     .value("CSV_INT8", DataType::CSV_INT8, "8-bit integer")
     .value("CSV_INT16", DataType::CSV_INT16, "16-bit integer")
     .value("CSV_INT32", DataType::CSV_INT32, "32-bit integer")
     .value("CSV_INT64", DataType::CSV_INT64, "64-bit integer")
-    .value("CSV_DOUBLE", DataType::CSV_DOUBLE, "Floating point value");
+    .value("CSV_BIGINT", DataType::CSV_BIGINT, "Integer too large to fit in 64 bits")
+    .value("CSV_DOUBLE", DataType::CSV_DOUBLE, "Floating point value")
+    .value("CSV_TIMESTAMP", DataType::CSV_TIMESTAMP, "Timestamp value");
 }
 
 void init_CSVField(py::module& m){
@@ -154,10 +248,17 @@ void init_CSVField(py::module& m){
     .def("is_float", 
     &CSVField::is_float,
     "Returns true if field is a floating point value")
+    .def("is_bool",
+    &CSVField::is_bool,
+    "Returns true if field is a boolean value")
+    .def("is_timestamp",
+    &CSVField::is_timestamp,
+    "Returns true if field is a timestamp value")
     .def("type",
     &CSVField::type,
     "Return the type of the underlying CSV data")
     .def("get_int", &CSVField::get<int64_t>)
+    .def("get_bool", &CSVField::get<bool>)
     .def("get_str", &CSVField::get<std::string>)
     .def("get_double", &CSVField::get<double>)
     .def("get_float", &CSVField::get<float>);
@@ -190,37 +291,18 @@ void init_CSVUtility(py::module& m){
     "Get basic information about a CSV file",
     py::arg("filename"))
     .def("csv_data_types",
-    &csv_data_types,
+    [](csv::string_view filename) {
+        return csv_data_types(filename);
+    },
     "Return a data type for each column such that every value in a column can be converted to the corresponding data type without data loss.",
-    py::arg("filename"));
-}
-
-void init_CSVStat(py::module& m){
-    py::class_<CSVStat>(m, "CSVStat")
-    .def(py::init<csv::string_view, CSVFormat>(),
-    "filename"_a,
-    "format"_a=CSVFormat::guess_csv())
-    .def("get_mean",
-    &CSVStat::get_mean,
-    "Return current means")
-    .def("get_variance",
-    &CSVStat::get_variance,
-    "Return current variances")
-    .def("get_mins",
-    &CSVStat::get_mins,
-    "Return current mins")
-    .def("get_maxes",
-    &CSVStat::get_maxes,
-    "Return current maxes")
-    .def("get_counts",
-    &CSVStat::get_counts,
-    "Get counts for each column")
-    .def("get_dtypes",
-    &CSVStat::get_dtypes,
-    "Get data type counts for each column")
-    .def("get_col_names",
-    &CSVStat::get_col_names,
-    "Return the CSV's column names as a List of strings.");
+    py::arg("filename"))
+    .def("csv_data_types",
+    [](csv::string_view filename, CSVFormat format) {
+        return csv_data_types(filename, format);
+    },
+    "Return a data type for each column such that every value in a column can be converted to the corresponding data type without data loss.",
+    py::arg("filename"),
+    py::arg("format"));
 }
 
 PYBIND11_MODULE(csvpy, m){
@@ -231,5 +313,4 @@ PYBIND11_MODULE(csvpy, m){
     init_DataType(m);
     init_CSVField(m);
     init_CSVUtility(m);
-    init_CSVStat(m);
 }

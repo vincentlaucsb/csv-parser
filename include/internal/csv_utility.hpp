@@ -175,9 +175,6 @@ namespace csv {
      */
     inline CSVFileInfo get_file_info(const std::string& filename) {
         CSVFormat reader_format = CSVFormat::guess_csv();
-        // TODO: Move this policy into CSVReader so large filename-backed inputs
-        // automatically use speculative parsing based on source size.
-        reader_format.speculative_parallel();
 
         CSVReader reader(filename, reader_format);
         CSVFormat format = reader.get_format();
@@ -200,7 +197,7 @@ namespace csv {
     inline std::vector<std::string> get_col_names(
         csv::string_view filename,
         const CSVFormat& format = CSVFormat::guess_csv()) {
-        auto head = internals::get_csv_head(filename);
+        auto head = internals::parser::get_csv_head(filename);
         return parse_unsafe(head, format).get_col_names();
     }
 

@@ -108,6 +108,22 @@
 #define CSV_HAS_CXX14
 #endif
 
+// Annotate intentional switch fallthroughs in parser hot loops without
+// reshaping the control flow just to appease compiler diagnostics.
+#if defined(CSV_HAS_CXX17)
+#define CSV_FALLTHROUGH [[fallthrough]]
+#elif defined(__clang__) && defined(__has_cpp_attribute)
+#if __has_cpp_attribute(clang::fallthrough)
+#define CSV_FALLTHROUGH [[clang::fallthrough]]
+#else
+#define CSV_FALLTHROUGH ((void)0)
+#endif
+#elif defined(__GNUC__) && __GNUC__ >= 7
+#define CSV_FALLTHROUGH __attribute__((fallthrough))
+#else
+#define CSV_FALLTHROUGH ((void)0)
+#endif
+
 // Include string_view BEFORE csv namespace to avoid namespace pollution issues
 #ifdef CSV_HAS_CXX17
 #include <string_view>
@@ -381,7 +397,7 @@ namespace csv {
          * Bug #280 was caused by fields spanning chunk boundaries being corrupted.
          * 
          * @note Tests must write >10MB of data to cross chunk boundaries
-         * @see basic_csv_parser.cpp MmapParser::next() for chunk transition logic
+         * @see parser/mmap.cpp MmapParser::next() for chunk transition logic
          */
         constexpr size_t CSV_CHUNK_SIZE_DEFAULT = 10000000; // 10MB
 
@@ -393,7 +409,7 @@ namespace csv {
         constexpr size_t CSV_CHUNK_SIZE_FLOOR = 500 * 1024; // 500KB
 
         /** Default minimum source size before speculative parallel parsing is considered. */
-        constexpr size_t CSV_SPECULATIVE_PARALLEL_MIN_BYTES = 250ull * 1024ull * 1024ull; // 250MB
+        constexpr size_t CSV_SPECULATIVE_PARALLEL_MIN_BYTES = 50ull * 1024ull * 1024ull; // 50MB
 
         template<typename T>
         inline bool is_equal(T a, T b, T epsilon = 0.001) {

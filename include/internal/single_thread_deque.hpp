@@ -4,51 +4,64 @@
 
 #pragma once
 
+#include <cstddef>
 #include <deque>
+#include <iterator>
 #include <utility>
 #include <vector>
 
 namespace csv {
     namespace internals {
+        /** Minimal row queue used when parser threading is disabled.
+         *
+         *  This intentionally stores rows directly. It only needs to satisfy the
+         *  parser queue operations in RowDequeLike; it does not mirror
+         *  ThreadSafeDeque's batch storage or test-only inspection helper.
+         */
         template<typename T>
         class SingleThreadDeque {
         public:
-            SingleThreadDeque(size_t notify_size = 100) : _notify_size(notify_size) {}
+            SingleThreadDeque(size_t notify_size = 100) {
+                (void)notify_size;
+            }
 
             SingleThreadDeque(const SingleThreadDeque& other) {
-                this->data = other.data;
-                this->_notify_size = other._notify_size;
+                this->records_ = other.records_;
                 this->_is_empty = other._is_empty;
                 this->_is_waitable = other._is_waitable;
             }
 
-            SingleThreadDeque(const std::deque<T>& source) : SingleThreadDeque() {
-                this->data = source;
-                this->_is_empty = source.empty();
-            }
+            SingleThreadDeque(const std::deque<T>& source)
+                : _is_empty(source.empty()),
+                  records_(source) {}
 
             bool empty() const noexcept {
                 return this->_is_empty;
             }
 
-            T& front() noexcept {
-                return this->data.front();
-            }
-
-            T& operator[](size_t n) {
-                return this->data[n];
-            }
-
             void push_back(T&& item) {
-                this->data.push_back(std::move(item));
+                this->records_.push_back(std::move(item));
+                this->_is_empty = false;
+            }
+
+            void append_rows(std::vector<T>&& rows) {
+                if (rows.empty()) {
+                    return;
+                }
+
+                this->records_.insert(
+                    this->records_.end(),
+                    std::make_move_iterator(rows.begin()),
+                    std::make_move_iterator(rows.end())
+                );
                 this->_is_empty = false;
             }
 
             T pop_front() noexcept {
-                T item = std::move(data.front());
-                data.pop_front();
+                T item = std::move(this->records_.front());
+                this->records_.pop_front();
 
-                if (this->data.empty()) {
+                if (this->records_.empty()) {
                     this->_is_empty = true;
                 }
 
@@ -57,15 +70,15 @@ namespace csv {
 
             /** Move up to @p max_items rows into a caller-owned batch buffer. */
             size_t drain_front(std::vector<T>& out, size_t max_items) {
-                const size_t available = this->data.size();
-                const size_t drain_count = available < max_items ? available : max_items;
+                const size_t drain_count = this->records_.size() < max_items ? this->records_.size() : max_items;
+                out.reserve(out.size() + drain_count);
 
                 for (size_t i = 0; i < drain_count; ++i) {
-                    out.push_back(std::move(this->data.front()));
-                    this->data.pop_front();
+                    out.push_back(std::move(this->records_.front()));
+                    this->records_.pop_front();
                 }
 
-                if (this->data.empty()) {
+                if (this->records_.empty()) {
                     this->_is_empty = true;
                 }
 
@@ -81,15 +94,7 @@ namespace csv {
             }
 
             size_t size() const noexcept {
-                return this->data.size();
-            }
-
-            typename std::deque<T>::iterator begin() noexcept {
-                return this->data.begin();
-            }
-
-            typename std::deque<T>::iterator end() noexcept {
-                return this->data.end();
+                return this->records_.size();
             }
 
             void notify_all() {
@@ -103,8 +108,7 @@ namespace csv {
         private:
             bool _is_empty = true;
             bool _is_waitable = false;
-            size_t _notify_size;
-            std::deque<T> data;
+            std::deque<T> records_;
         };
     }
 }

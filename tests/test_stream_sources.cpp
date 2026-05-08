@@ -149,6 +149,41 @@ TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
         }
         REQUIRE(row_count == 2);
     }
+
+#if CSV_ENABLE_THREADS
+    SECTION("Non-seekable stream can use speculative parsing") {
+        std::string content = "A,B,C\n";
+        size_t expected_rows = 0;
+        while (content.size() <= internals::CSV_CHUNK_SIZE_FLOOR + 1024) {
+            content += std::to_string(expected_rows);
+            content += ",value";
+            content += std::to_string(expected_rows);
+            content += ",tail\n";
+            expected_rows++;
+        }
+
+        NonSeekableStream stream(content);
+        CSVFormat format;
+        format.delimiter(',')
+            .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
+            .speculative_parallel_min_bytes(1)
+            .speculative_parallel_threads(2);
+
+        CSVReader reader(stream, format);
+        REQUIRE(reader.parse_worker_count() == 2);
+
+        size_t row_count = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() == 3);
+            REQUIRE(row["A"].get<size_t>() == row_count);
+            REQUIRE(row["B"].get<std::string>() == "value" + internals::to_string(row_count));
+            row_count++;
+        }
+
+        REQUIRE(row_count == expected_rows);
+        REQUIRE(reader.speculative_diagnostics().chunks > 0);
+    }
+#endif
 }
 
 TEST_CASE("StringViewStreamBuf seek coverage", "[stream_sources][string_view_stream]") {

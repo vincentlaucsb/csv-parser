@@ -64,9 +64,29 @@ function Format-SizeLabel {
     return $SizeGb.ToString("0.######", [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Resolve-BenchmarkDataPath {
+    param(
+        [string] $RepoRoot,
+        [string] $DataDir
+    )
+
+    $trimmedDataDir = $DataDir.Trim()
+
+    if ($trimmedDataDir -match '^[A-Za-z]:?\\?$') {
+        $drive = $trimmedDataDir.Substring(0, 1).ToUpperInvariant()
+        return Join-Path "${drive}:\" "csv_temp_data"
+    }
+
+    if ([System.IO.Path]::IsPathFullyQualified($trimmedDataDir)) {
+        return $trimmedDataDir
+    }
+
+    return Join-Path $RepoRoot $trimmedDataDir
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..")
-$dataPath = Join-Path $repoRoot $DataDir
+$dataPath = Resolve-BenchmarkDataPath $repoRoot $DataDir
 $buildPath = Join-Path $repoRoot $BuildDir
 $resultsPath = Join-Path $repoRoot $ResultsDir
 $normalizedProfiles = @()
@@ -137,6 +157,7 @@ if (-not (Test-Path $exeDir)) {
 $benches = @(
     "csv_parser_read_bench",
     "csv_parser_multi_pass_bench",
+    "csv_parser_fast_cpp_read_bench",
     "fast_cpp_csv_parser_read_bench",
     "fast_cpp_csv_parser_multi_pass_bench",
     "dataframe_rapidcsv_roundtrip_bench"
@@ -152,6 +173,8 @@ foreach ($datasetSpec in $datasetSpecs) {
         "csv_parser_read_bench.json.tmp",
         "csv_parser_multi_pass_bench.json",
         "csv_parser_multi_pass_bench.json.tmp",
+        "csv_parser_fast_cpp_read_bench.json",
+        "csv_parser_fast_cpp_read_bench.json.tmp",
         "fast_cpp_csv_parser_read_bench.json",
         "fast_cpp_csv_parser_read_bench.json.tmp",
         "fast_cpp_csv_parser_multi_pass_bench.json",
@@ -194,6 +217,7 @@ foreach ($datasetSpec in $datasetSpecs) {
 
         foreach ($bench in $benches) {
             if (($datasetProfile -eq "multiline") -and (
+                ($bench -eq "csv_parser_fast_cpp_read_bench") -or
                 ($bench -eq "fast_cpp_csv_parser_read_bench") -or
                 ($bench -eq "fast_cpp_csv_parser_multi_pass_bench")
             )) {

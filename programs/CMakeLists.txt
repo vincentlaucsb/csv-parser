@@ -12,6 +12,10 @@ if(CSV_DEVELOPER)
 	add_executable(csv_bench ${CMAKE_CURRENT_LIST_DIR}/csv_bench.cpp)
 	target_link_libraries(csv_bench csv)
 
+	# Matrix tuner for chunk size and speculative worker count
+	add_executable(csv_tuning ${CMAKE_CURRENT_LIST_DIR}/csv_tuning.cpp)
+	target_link_libraries(csv_tuning csv)
+
 	# Scalar-only build for side-by-side SIMD vs no-SIMD comparison
 	add_executable(csv_bench_no_simd ${CMAKE_CURRENT_LIST_DIR}/csv_bench.cpp)
 	target_link_libraries(csv_bench_no_simd csv_no_simd)

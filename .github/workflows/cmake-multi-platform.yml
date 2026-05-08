@@ -63,7 +63,7 @@ jobs:
         python-version: '3.x'
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-${{ matrix.c_compiler }}-std${{ matrix.cxx_standard }}-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -127,7 +127,7 @@ jobs:
         submodules: recursive
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-single-threaded-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -167,7 +167,7 @@ jobs:
         python-version: '3.x'
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-emscripten-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
@@ -228,7 +228,7 @@ jobs:
         submodules: recursive
 
     - name: Cache CMake FetchContent dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CSV_FETCHCONTENT_BASE_DIR }}
         key: fetchcontent-${{ runner.os }}-simd-${{ matrix.simd_mode }}-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}

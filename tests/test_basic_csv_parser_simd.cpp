@@ -1,5 +1,5 @@
 #include <catch2/catch_all.hpp>
-#include "internal/basic_csv_parser.hpp"
+#include "internal/basic_csv_parser_simd.hpp"
 
 #include <string>
 

@@ -1,5 +1,9 @@
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
+#include <cstdint>
+#include <fstream>
+#include <limits>
 #include <sstream>
 
 using namespace csv;
@@ -118,19 +122,28 @@ TEST_CASE("CSVFormat - no_header() with Delimiter Guessing (Issue #285)", "[csv_
 TEST_CASE("CSVFormat - speculative parallel parsing options", "[csv_format]") {
     CSVFormat format;
 
-    REQUIRE_FALSE(format.is_speculative_parallel_enabled());
+#if CSV_ENABLE_THREADS
+    REQUIRE(format.is_threading_enabled());
+#else
+    REQUIRE_FALSE(format.is_threading_enabled());
+#endif
     REQUIRE(format.get_speculative_parallel_threads() == 0);
     REQUIRE(format.get_speculative_parallel_min_bytes() == internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES);
+#if CSV_ENABLE_THREADS
+    REQUIRE(format.should_use_speculative_parallel(
+        internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES,
+        4
+    ));
+#else
     REQUIRE_FALSE(format.should_use_speculative_parallel(
         internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES,
         4
     ));
+#endif
 
-    format.speculative_parallel()
-        .speculative_parallel_threads(4)
+    format.speculative_parallel_threads(4)
         .speculative_parallel_min_bytes(1024);
 
-    REQUIRE(format.is_speculative_parallel_enabled());
     REQUIRE(format.get_speculative_parallel_threads() == 4);
     REQUIRE(format.get_speculative_parallel_min_bytes() == 1024);
     REQUIRE_FALSE(format.should_use_speculative_parallel(1023, 4));
@@ -140,7 +153,101 @@ TEST_CASE("CSVFormat - speculative parallel parsing options", "[csv_format]") {
 #else
     REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 2));
 #endif
-
-    format.speculative_parallel(false);
-    REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 4));
 }
+
+TEST_CASE("CSVFormat - runtime threading switch disables speculative workers", "[csv_format]") {
+    CSVFormat format;
+    format.threading(false)
+        .speculative_parallel_threads(4)
+        .speculative_parallel_min_bytes(1);
+
+    REQUIRE_FALSE(format.is_threading_enabled());
+    REQUIRE_FALSE(format.should_use_speculative_parallel(1, 4));
+
+    format.threading();
+#if CSV_ENABLE_THREADS
+    REQUIRE(format.is_threading_enabled());
+    REQUIRE(format.should_use_speculative_parallel(1, 4));
+#else
+    REQUIRE_FALSE(format.is_threading_enabled());
+    REQUIRE_FALSE(format.should_use_speculative_parallel(1, 4));
+#endif
+}
+
+TEST_CASE("CSVFormat - chunk_size rejects values larger than uint32_t", "[csv_format]") {
+    CSVFormat format;
+
+    if ((std::numeric_limits<size_t>::max)() <= (std::numeric_limits<std::uint32_t>::max)()) {
+        SUCCEED("size_t cannot represent a chunk size larger than uint32_t on this platform");
+        return;
+    }
+
+    const size_t too_large = static_cast<size_t>((std::numeric_limits<std::uint32_t>::max)()) + 1;
+    REQUIRE_THROWS_WITH(
+        format.chunk_size(too_large),
+        internals::make_chunk_size_ceiling_error((std::numeric_limits<std::uint32_t>::max)(), too_large)
+    );
+}
+
+TEST_CASE("CSVReader honors runtime threading opt-out", "[csv_format][csv_reader]") {
+    std::stringstream input(
+        "a,b,c\n"
+        "1,2,3\n"
+        "4,5,6\n"
+    );
+    CSVFormat format;
+    format.no_header()
+        .delimiter(',')
+        .threading(false)
+        .speculative_parallel_min_bytes(1)
+        .speculative_parallel_threads(2);
+
+    CSVReader reader(input, format);
+
+    REQUIRE(reader.parse_worker_count() == 1);
+    REQUIRE(reader.speculative_diagnostics().chunks == 0);
+
+    std::vector<CSVRow> rows;
+    CSVRow row;
+    while (reader.read_row(row)) {
+        rows.push_back(row);
+    }
+
+    REQUIRE(rows.size() == 3);
+    REQUIRE(rows[0][0] == "a");
+    REQUIRE(rows[2][2] == "6");
+}
+
+#ifndef __EMSCRIPTEN__
+TEST_CASE("CSVReader honors runtime threading opt-out for filename inputs", "[csv_format][csv_reader]") {
+    FileGuard cleanup("./tests/data/tmp_threading_opt_out_mmap.csv");
+    {
+        std::ofstream out(cleanup.filename, std::ios::binary);
+        std::string content = "a,b,c\n";
+        while (content.size() <= internals::CSV_CHUNK_SIZE_FLOOR + 1024) {
+            content += "1,2,3\n";
+        }
+        out << content;
+    }
+
+    CSVFormat format;
+    format.no_header()
+        .delimiter(',')
+        .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
+        .threading(false)
+        .speculative_parallel_min_bytes(1)
+        .speculative_parallel_threads(2);
+
+    CSVReader reader(cleanup.filename, format);
+    REQUIRE(reader.parse_worker_count() == 1);
+
+    size_t rows = 0;
+    for (auto& row : reader) {
+        REQUIRE(row.size() == 3);
+        rows++;
+    }
+
+    REQUIRE(rows > 1);
+    REQUIRE(reader.speculative_diagnostics().chunks == 0);
+}
+#endif

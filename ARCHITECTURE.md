@@ -7,6 +7,7 @@ Primary architecture document:
 
 Subsystem deep-dive:
 - include/internal/THREADSAFE_DEQUE_DESIGN.md
+- BOMStrippingRefactor.md
 
 Operational/testing guidance:
 - AGENTS.md
@@ -23,7 +24,9 @@ Notes:
 - Private member naming should prefer trailing underscores; when editing mixed-style code, normalize the touched region toward that convention.
 - Prefer LF (`\n`) line endings for tracked source, test, CMake, and Markdown files; when touching a file with mixed endings, normalize it to LF unless there is a file-specific reason not to.
 - Keep preprocessor directives flush left; `#define`, `#if`, `#ifdef`, `#else`, and `#endif` should start at column 0, and code inside multi-line macros should be indented as if the macro wrapper were not present.
-- Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md and CLAUDE.md for details.
+- Keep constructor initializer lists in the same order as base/member declarations so GCC/Clang `-Wreorder` remains clean and initialization dependencies stay obvious.
+- Internal folder namespaces should match folder structure when practical; for example `include/internal/parser/` maps to `csv::internals::parser`.
+- Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md for details.
 - API constraints should be user-friendly: do not over-constrain templates unless needed for correctness, safety, or a measured performance win.
 - `CSVReader` is intentionally non-copyable and move-enabled; use explicit ownership transfer patterns (`std::move`, `std::unique_ptr`) at API boundaries.
 - Respect existing compile-time compatibility macros (`IF_CONSTEXPR`, `CONSTEXPR_VALUE`, etc.) unless correctness requires change.
@@ -32,4 +35,3 @@ Notes:
 - When changing compile-time behavior, explicitly document tradeoffs (codegen, performance, portability, readability).
 - If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.
 - Apply the 5/2 anti-duplication rule: if equivalent behavior exists in 2+ code paths and each copy is ~5+ meaningful lines, extract a shared helper; if duplication remains, document why and keep regression coverage for each path.
-

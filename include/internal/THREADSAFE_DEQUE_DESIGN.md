@@ -1,3 +1,5 @@
+@page threadsafe_deque_design ThreadSafeDeque Synchronization Protocol
+
 # ThreadSafeDeque Synchronization Protocol
 
 ## Overview

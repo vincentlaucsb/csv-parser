@@ -2,7 +2,7 @@
 
 Architectural overview for AI assistants working with this codebase.
 
-> **Maintenance rule:** Whenever this file is changed, update both `CLAUDE.md` and `ARCHITECTURE.md` in the same directory to reflect relevant changes. `CLAUDE.md` is a bullet-point summary and `ARCHITECTURE.md` is the top-level architecture index; both must stay in sync with this guidance.
+> **Maintenance rule:** `AGENTS.md` is the canonical AI-agent guidance. When this file changes, update `ARCHITECTURE.md` in the same directory if the architecture index or durable engineering guidance needs to reflect the change. `CLAUDE.md` is only a compatibility shim that points here.
 
 ## Critical: single_include/csv.hpp Is A Shim
 
@@ -52,6 +52,7 @@ For detailed file mapping, parser data flow, and component relationships, see `A
 8.  **Opportunistic rewrites/refactors are allowed when they are safe and justified.** Keep them separated from build-fix urgency where possible, and avoid bundling unrelated churn with compiler triage unless explicitly requested.
 9. **When proposing changes that affect compile-time behavior, explain the tradeoff clearly.** Call out any impact to codegen, performance, portability, and readability before applying the change.
 10. **If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.** Provide a short justification before expanding further.
+11. **`CSVReader::iterator` is intentionally single-pass.** Do not cache all `RawCSVDataPtr` chunks to make it behave like a forward iterator; that defeats bounded-memory streaming for large CSV files. Algorithms that need multi-pass access should first materialize rows into a container such as `std::vector<CSVRow>`.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 
@@ -71,6 +72,9 @@ See `tests/AGENTS.md` for test strategy, checklist, and conventions.
    - **Consolidation:** If a `.cpp` would be under ~100 lines *and* the split causes excessive comment duplication between the two files, prefer a single `.hpp` with definitions marked `inline` (free functions and methods alike). Do not use `CSV_INLINE` for consolidated definitions — `CSV_INLINE` expands to empty in multi-header mode, which would produce ODR violations across TUs. Do not consolidate just for brevity — only when duplication is the dominant cost.
 7. **Prefer LF (`\n`) line endings for tracked source, test, CMake, and Markdown files.** When you touch a file with mixed line endings, normalize the edited file to LF unless there is a file-specific reason not to. Avoid introducing mixed CRLF/LF endings in the same file.
 8. **Keep preprocessor directives flush left.** `#define`, `#if`, `#ifdef`, `#else`, and `#endif` should start at column 0. Code inside multi-line macros should be indented exactly as the equivalent non-macro code would be; do not add extra indentation just because it lives inside a macro body.
+9. **Keep constructor initializer lists in declaration order.** C++ initializes bases and members in declaration order, not initializer-list order. When adding or editing a constructor, order its initializer list to match the class declaration exactly so GCC/Clang `-Wreorder` stays clean and readers do not infer a false initialization dependency.
+10. **Internal folder namespaces should match folder structure.** When adding or moving files under `include/internal/`, place their contents in the matching nested namespace when practical. For example, `include/internal/speculative/` maps to `csv::internals::speculative`, and `include/internal/parser/` maps to `csv::internals::parser`. Do not churn existing files solely for this rule unless the namespace move is part of an intentional architecture cleanup.
+11. **Do not accidentally pass large objects by value.** Use `const&` for observation, `&` for mutation, and `&&` / by-value-with-an-explicit-`std::move` for ownership transfer. If passing a large object by value is intentional, make the consuming semantics obvious at the call site or add a brief comment.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**

@@ -1,6 +1,6 @@
 # CSV Parser - Test Agent Context
 
-> **Maintenance rule:** Whenever this file is changed, `CLAUDE.md` in the same directory must be updated to reflect the changes. `CLAUDE.md` is a bullet-point summary of this file and must stay in sync.
+> **Maintenance rule:** `tests/AGENTS.md` is the canonical test guidance. When shared test helpers are added, removed, or renamed, update the shared utilities table in this file.
 
 ## Test Checklist
 
@@ -30,10 +30,13 @@
 
 **Always check `tests/shared/` before implementing any test helper from scratch.**
 
+When adding, removing, or renaming a utility in `tests/shared/`, update this table and any related usage notes in the same commit.
+
 | File | Purpose |
 |------|---------|
 | `shared/file_guard.hpp` | RAII temp-file cleanup — **use this for every temp file** |
 | `shared/float_test_cases.hpp` | Shared floating-point edge-case data |
+| `shared/generated_file.hpp` | Memoized generated-file fixture for expensive Catch2 `SECTION` matrices |
 | `shared/timeout_helper.hpp` | Timeout wrapper for race/stress tests to prevent hangs |
 
 #### FileGuard — RAII temp file cleanup

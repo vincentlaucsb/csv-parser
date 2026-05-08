@@ -7,6 +7,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -99,6 +100,54 @@ namespace csv {
 
         mutable std::atomic_flag busy = ATOMIC_FLAG_INIT;
         std::unordered_map<size_t, std::string> values;
+    };
+
+    struct RowOverlaySlot {
+        RowOverlaySlot() noexcept : ptr(nullptr) {}
+        RowOverlaySlot(const RowOverlaySlot&) = delete;
+        RowOverlaySlot& operator=(const RowOverlaySlot&) = delete;
+
+        RowOverlaySlot(RowOverlaySlot&& other) noexcept
+            : ptr(nullptr),
+            owned(std::move(other.owned)) {
+            RowOverlay* overlay = owned.get();
+            ptr.store(overlay, std::memory_order_release);
+            other.ptr.store(nullptr, std::memory_order_release);
+        }
+
+        RowOverlaySlot& operator=(RowOverlaySlot&& other) noexcept {
+            if (this != &other) {
+                owned = std::move(other.owned);
+                RowOverlay* overlay = owned.get();
+                ptr.store(overlay, std::memory_order_release);
+                other.ptr.store(nullptr, std::memory_order_release);
+            }
+
+            return *this;
+        }
+
+        RowOverlay* get() noexcept {
+            return ptr.load(std::memory_order_acquire);
+        }
+
+        const RowOverlay* get() const noexcept {
+            return ptr.load(std::memory_order_acquire);
+        }
+
+        RowOverlay* ensure() {
+            RowOverlay* overlay = this->get();
+            if (!overlay) {
+                owned.reset(new RowOverlay());
+                overlay = owned.get();
+                ptr.store(overlay, std::memory_order_release);
+            }
+
+            return overlay;
+        }
+
+    private:
+        std::atomic<RowOverlay*> ptr;
+        std::unique_ptr<RowOverlay> owned;
     };
 
     namespace internals {
@@ -1002,7 +1051,7 @@ namespace csv {
          */
         DataFrameRow<KeyType> at(size_t i) {
             const auto& row = rows.at(i);
-            auto* row_edits = &edits.at(i);
+            auto* row_edits = this->ensure_row_edits(i);
             return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
         }
         
@@ -1022,7 +1071,7 @@ namespace csv {
         DataFrameRow<KeyType> operator[](const KeyType& key) {
             this->require_keyed_frame();
             auto position = this->position_of(key);
-            return DataFrameRow<KeyType>(&rows.at(position), this, position, &edits.at(position), this->key_ptr_at(position));
+            return DataFrameRow<KeyType>(&rows.at(position), this, position, this->ensure_row_edits(position), this->key_ptr_at(position));
         }
 
         /** Access a row by its key (const version). */
@@ -1232,19 +1281,22 @@ namespace csv {
         mutable internals::lazy_shared_ptr<internals::JsonConverter> json_converter_;
 
         /**
-         * One sparse overlay per row. Each overlay is independently synchronized
-         * so unrelated row edits do not contend with each other.
+         * Sparse per-row edit overlays. Slots stay cheap at load time; the
+         * heavier synchronized overlay map is allocated only for rows that are
+         * actually edited.
          */
-        std::vector<RowOverlay> edits;
+        std::vector<RowOverlaySlot> edits;
+        std::shared_ptr<std::mutex> edits_creation_lock_{ new std::mutex() };
 
         /** Initialize an unkeyed DataFrame from a CSV reader. */
         void init_unkeyed_from_reader(CSVReader& reader) {
             this->assert_fresh_storage(false);
             this->is_keyed = false;
             this->col_names_ = reader.col_names_ptr();
-            for (auto& row : reader) {
-                rows.push_back(row);
-                edits.emplace_back();
+
+            std::vector<CSVRow> batch;
+            while (reader.read_chunk(batch, dataframe_read_chunk_rows())) {
+                this->append_unkeyed_batch(batch);
             }
         }
 
@@ -1302,7 +1354,61 @@ namespace csv {
             std::unordered_map<KeyType, size_t> key_to_pos;
             this->assert_fresh_storage(true);
 
-            for (auto& row : reader) {
+            std::vector<CSVRow> batch;
+            while (reader.read_chunk(batch, dataframe_read_chunk_rows())) {
+                this->append_keyed_batch(batch, key_func, policy, key_to_pos);
+            }
+        }
+
+        static size_t dataframe_read_chunk_rows() noexcept {
+            return 50000;
+        }
+
+        template<typename Container>
+        static void reserve_for_append(Container& container, size_t additional) {
+            if (additional == 0) {
+                return;
+            }
+
+            const size_t required = container.size() + additional;
+            if (required <= container.capacity()) {
+                return;
+            }
+
+            const size_t current = container.capacity();
+            // Do not reserve exactly one batch ahead. DataFrame construction
+            // appends fixed-size read_chunk() batches, so exact reserves would
+            // force a reallocation on every batch for large inputs.
+            size_t next = current == 0 ? additional : current * 2;
+            if (next < required || next < current) {
+                next = required;
+            }
+
+            container.reserve(next);
+        }
+
+        void append_unkeyed_batch(std::vector<CSVRow>& batch) {
+            reserve_for_append(rows, batch.size());
+            reserve_for_append(edits, batch.size());
+
+            for (auto& row : batch) {
+                rows.push_back(std::move(row));
+                edits.emplace_back();
+            }
+        }
+
+        template<typename KeyFunc>
+        void append_keyed_batch(
+            std::vector<CSVRow>& batch,
+            KeyFunc& key_func,
+            DuplicateKeyPolicy policy,
+            std::unordered_map<KeyType, size_t>& key_to_pos
+        ) {
+            reserve_for_append(rows, batch.size());
+            reserve_for_append(keys_, batch.size());
+            reserve_for_append(edits, batch.size());
+
+            for (auto& row : batch) {
                 KeyType key = key_func(row);
 
                 auto existing = key_to_pos.find(key);
@@ -1311,12 +1417,12 @@ namespace csv {
                         throw std::runtime_error(internals::ERROR_DUPLICATE_KEY);
 
                     if (policy == DuplicateKeyPolicy::OVERWRITE)
-                        rows[existing->second] = row;
+                        rows[existing->second] = std::move(row);
 
                     continue;
                 }
 
-                rows.push_back(row);
+                rows.push_back(std::move(row));
                 keys_.push_back(key);
                 edits.emplace_back();
                 key_to_pos[key] = rows.size() - 1;
@@ -1331,12 +1437,24 @@ namespace csv {
 
         /** Return the overlay for a specific row index. */
         const RowOverlay* find_row_edits(size_t row_index) const {
-            return &edits.at(row_index);
+            return edits.at(row_index).get();
+        }
+
+        /** Return the row overlay, allocating it only when mutable access needs it. */
+        RowOverlay* ensure_row_edits(size_t row_index) {
+            RowOverlaySlot& slot = edits.at(row_index);
+            RowOverlay* overlay = slot.get();
+            if (overlay) {
+                return overlay;
+            }
+
+            std::lock_guard<std::mutex> lock(*edits_creation_lock_);
+            return slot.ensure();
         }
 
         DataFrameRow<KeyType> make_row_proxy(size_t row_index) {
             const auto& row = rows.at(row_index);
-            return DataFrameRow<KeyType>(&row, this, row_index, &edits.at(row_index), this->key_ptr_at(row_index));
+            return DataFrameRow<KeyType>(&row, this, row_index, this->ensure_row_edits(row_index), this->key_ptr_at(row_index));
         }
 
         DataFrameRow<KeyType> make_const_row_proxy(size_t row_index) const {

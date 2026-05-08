@@ -51,6 +51,8 @@ namespace csv {
             "There is more than one possible delimiter.";
         CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_FLOOR_PREFIX[] = "Chunk size must be at least ";
         CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_FLOOR_MIDDLE[] = " bytes (500KB). Provided: ";
+        CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_CEILING_PREFIX[] = "Chunk size must fit in uint32_t. Maximum: ";
+        CONSTEXPR_VALUE_14 char ERROR_CHUNK_SIZE_CEILING_MIDDLE[] = ". Provided: ";
         CONSTEXPR_VALUE_14 char ERROR_CHAR_OVERLAP_PREFIX[] =
             "There should be no overlap between the quote character, "
             "the set of possible delimiters "
@@ -68,6 +70,13 @@ namespace csv {
             return std::string(ERROR_CHUNK_SIZE_FLOOR_PREFIX)
                 + std::to_string(floor)
                 + ERROR_CHUNK_SIZE_FLOOR_MIDDLE
+                + std::to_string(provided);
+        }
+
+        inline std::string make_chunk_size_ceiling_error(size_t ceiling, size_t provided) {
+            return std::string(ERROR_CHUNK_SIZE_CEILING_PREFIX)
+                + std::to_string(ceiling)
+                + ERROR_CHUNK_SIZE_CEILING_MIDDLE
                 + std::to_string(provided);
         }
 

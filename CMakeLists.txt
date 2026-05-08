@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
 project(csv)
 
-if(CSV_CXX_STANDARD)
+if(DEFINED CSV_CXX_STANDARD AND NOT "${CSV_CXX_STANDARD}" STREQUAL "")
 	set(CMAKE_CXX_STANDARD ${CSV_CXX_STANDARD})
-else()
-	set(CMAKE_CXX_STANDARD 11)
-endif(CSV_CXX_STANDARD)
+elseif(NOT DEFINED CMAKE_CXX_STANDARD OR "${CMAKE_CXX_STANDARD}" STREQUAL "")
+	set(CMAKE_CXX_STANDARD 20)
+endif()
+
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_PYTHON "Build Python Binding" OFF)
 option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
@@ -96,10 +99,62 @@ endif()
 ## Main Library
 add_subdirectory(${CSV_SOURCE_DIR})
 
-# build the python binding for the library 
+set(CSVPY_BOOTSTRAP_BINARY_DIR "${CSV_BUILD_DIR}/csvpy" CACHE PATH
+    "Build directory used by the csvpy bootstrap target when BUILD_PYTHON is OFF")
+set(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE "" CACHE FILEPATH
+    "Python executable used by the csvpy bootstrap target")
+if(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE AND NOT EXISTS "${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}")
+    message(STATUS "Ignoring missing CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE=${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}")
+    set(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE "" CACHE FILEPATH
+        "Python executable used by the csvpy bootstrap target" FORCE)
+endif()
+
+# Build the Python binding for the library. The real `csvpy` module target is
+# created when BUILD_PYTHON is enabled. Otherwise, keep a bootstrap target so
+# existing CMake builds can build csvpy without reconfiguring the main tree.
 if (${BUILD_PYTHON})
     message("Building Python bindings for the library.")
+    enable_testing()
     add_subdirectory(python)
+else()
+    set(_CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS
+        -S ${CSV_ROOT_DIR}
+        -B ${CSVPY_BOOTSTRAP_BINARY_DIR}
+        -DBUILD_PYTHON=ON
+        -DCSV_BUILD_TESTS=OFF
+        -DCSV_BUILD_PROGRAMS=OFF
+        -DCSV_ENABLE_THREADS=${CSV_ENABLE_THREADS}
+        -DCSV_NO_SIMD=${CSV_NO_SIMD}
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        -U Python_EXECUTABLE
+        -U PYTHON_EXECUTABLE
+    )
+    if(CMAKE_GENERATOR)
+        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -G ${CMAKE_GENERATOR})
+    endif()
+    if(CMAKE_GENERATOR_PLATFORM)
+        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -A ${CMAKE_GENERATOR_PLATFORM})
+    endif()
+    if(CMAKE_GENERATOR_TOOLSET)
+        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -T ${CMAKE_GENERATOR_TOOLSET})
+    endif()
+    if(CMAKE_BUILD_TYPE)
+        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+    endif()
+    if(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE)
+        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS
+            -DPython_EXECUTABLE=${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}
+            -DPYTHON_EXECUTABLE=${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}
+        )
+    endif()
+
+    add_custom_target(csvpy
+        COMMAND ${CMAKE_COMMAND} ${_CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS}
+        COMMAND ${CMAKE_COMMAND} -E env --unset=PATH "Path=$ENV{Path}" ${CMAKE_COMMAND} --build ${CSVPY_BOOTSTRAP_BINARY_DIR} --target csvpy --config $<CONFIG>
+        USES_TERMINAL
+        COMMENT "Configuring and building csvpy in ${CSVPY_BOOTSTRAP_BINARY_DIR}"
+    )
+    unset(_CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS)
 endif()
 
 ## Executables

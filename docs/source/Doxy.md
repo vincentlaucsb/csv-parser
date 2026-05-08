@@ -29,7 +29,7 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
    * csv::get_col_pos(): Returns the zero-based index of a named column
 
  #### See also
- [Dealing with Variable Length CSV Rows](variable_row_lengths.html)
+ [CSV Tuning](@ref csv_tuning)
 
  #### Working with parsed data
  * csv::CSVRow: \copybrief csv::CSVRow
@@ -97,6 +97,11 @@ column extraction, editing, and grouping.
  #### See also
  [High Performance ETL](@ref high_performance_etl)
 
+### Deep Dives
+
+Implementation notes and internal architecture documents are collected under
+[Internal / Deep Dives](@ref internal_deep_dives).
+
 ### CSV Writing
 The [CSV Writing Guide](@ref csv_writing_guide) contains a 
 high-level overview of writing CSVs.
@@ -128,4 +133,3 @@ experimenting should follow these guidelines:
  * csv::CSVRow may be safely processed from multiple threads
  * csv::CSVField objects should only be read from one thread at a time
    * **Note**: csv::CSVRow::operator[]() produces separate copies of `csv::CSVField` objects
-

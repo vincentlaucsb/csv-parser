@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include "internal/basic_csv_parser.hpp"
+#include "internal/parser/mmap.hpp"
 
 namespace {
     bool arg_is(int argc, char** argv, const char* value) {
@@ -38,9 +38,9 @@ int main(int argc, char** argv) {
     const bool simd_check = arg_is(argc, argv, "simd-check");
 
     if (align_check) {
-        void* ptr = ::operator new(sizeof(csv::internals::MmapParser));
+        void* ptr = ::operator new(sizeof(csv::internals::parser::MmapParser));
         std::cerr << "alignof(SentinelVecs)=" << alignof(csv::internals::SentinelVecs)
-                  << " alignof(MmapParser)=" << alignof(csv::internals::MmapParser)
+                  << " alignof(MmapParser)=" << alignof(csv::internals::parser::MmapParser)
                   << " ptr_mod_32=" << (reinterpret_cast<std::uintptr_t>(ptr) % 32) << '\n';
         ::operator delete(ptr);
         return 0;

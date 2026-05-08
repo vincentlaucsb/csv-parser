@@ -6,7 +6,7 @@
     - [Performance and Memory Requirements](#performance-and-memory-requirements)
       - [Show me the numbers](#show-me-the-numbers)
       - [Compared to other libraries](#compared-to-other-libraries)
-      - [Chunk Size Tuning](#chunk-size-tuning)
+      - [Chunk Size and Thread Count Tuning](#chunk-size-and-thread-count-tuning)
     - [Fully RFC 4180-Compliant (and Beyond) Parser](#fully-rfc-4180-compliant-and-beyond-parser)
       - [Encoding](#encoding)
     - [Bug Reports](#bug-reports)
@@ -18,6 +18,7 @@
     - [Single Header](#single-header)
     - [CMake Instructions](#cmake-instructions)
       - [Avoid cloning with FetchContent](#avoid-cloning-with-fetchcontent)
+    - [Python Bindings](#python-bindings)
   - [Features \& Examples](#features--examples)
     - [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
     - [Memory-Mapped I/O and Streams](#memory-mapped-io-and-streams)
@@ -29,7 +30,7 @@
       - [Handling Variable Numbers of Columns and Empty Rows](#handling-variable-numbers-of-columns-and-empty-rows)
       - [Setting Column Names](#setting-column-names)
     - [Parsing an In-Memory String](#parsing-an-in-memory-string)
-    - [DataFrames for Random Access and Updates](#dataframes-for-random-access-and-updates)
+    - [DataFrames for Random Access and Editing](#dataframes-for-random-access-and-editing)
     - [High Performance Extract-Transform-Load with the DataFrame](#high-performance-extract-transform-load-with-the-dataframe)
       - [`chunk_parallel_apply()`](#chunk_parallel_apply)
       - [Building a batch-scoped `DataFrame` yourself](#building-a-batch-scoped-dataframe-yourself)
@@ -45,15 +46,18 @@ I wanted a CSV library that was fast and reliable without forcing you into eithe
 This library tries to be **fast for developers** and **fast for your computer**.
 
 ### Performance and Memory Requirements
-This library combines SIMD-accelerated parsing, memory-mapped I/O, careful memory layout, minimal allocation, and background parsing to process large CSV files quickly, even when they exceed available RAM.
+This library combines SIMD-accelerated parsing, memory-mapped I/O, careful memory layout, minimal allocation, and parallel parsing to process large CSV files quickly, even when they exceed available RAM.
 
-[According to Visual Studio's profiler](https://github.com/vincentlaucsb/csv-parser/wiki/Microsoft-Visual-Studio-CPU-Profiling-Results) this
-CSV parser **spends almost 90% of its CPU cycles actually reading your data** as opposed to getting hung up in hard disk I/O or pushing around memory.
+Specifically, this library implements a speculative parallel parsing algorithm based on the approach described by Ge, Li,
+Eilebrecht, Chandramouli, and Kossmann in "Speculative Distributed CSV Data
+Parsing for Big Data Analytics," SIGMOD '19, pp. 883-899,
+[doi:10.1145/3299869.3319898](https://doi.org/10.1145/3299869.3319898).
 
 #### Show me the numbers
-On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz; Samsung 990 EVO), this parser can read
- * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 1.18 seconds (1.2 GBps)
- * a [2.9GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 6.9 seconds (420 MBps)
+On my computer (12th Gen Intel(R) Core(TM) i5-12400 @ 2.50 GHz), this parser can read
+ * a [1.4 GB Craigslist Used Vehicles Dataset](https://www.kaggle.com/austinreese/craigslist-carstrucks-data/version/7) in 0.48 seconds
+ * a [2.9 GB Car Accidents Dataset](https://www.kaggle.com/sobhanmoosavi/us-accidents) in 2.2 seconds
+ * an 11.3 GB tab-delimited metadata file in 12.36 seconds
 
 All benchmarks shown are warm cache runs to focus on parser/CPU performance rather than disk I/O variability.
 
@@ -61,10 +65,13 @@ All benchmarks shown are warm cache runs to focus on parser/CPU performance rath
 
 For broader comparison data, including ETL and round-trip workloads against
 `fast-cpp-csv-parser` and `rapidcsv`, see the
-[benchmark results](benchmarks/README.md). On those workloads, this is
-probably the fastest general-purpose C++ CSV ETL library available today.
+[benchmark results](benchmarks/README.md). On modern desktop and laptop CPUs,
+this is likely one of the fastest general-purpose C++ CSV ETL libraries for
+realistic workloads. For "read once and discard" workflows, the speculative parallel
+memory-mapped IO path overtakes `fast-cpp-csv-parser` with 2-4 threads, and
+the DataFrame benchmarks beat `rapidcsv` on edit and save workflows.
 
-#### Chunk Size Tuning
+#### Chunk Size and Thread Count Tuning
 
 By default, the parser reads CSV data in 10MB chunks. 10MB was chosen after empirical testing to optimize throughput while minimizing memory and thread synchronization costs, but feel free to experiment with different numbers yourself.
 
@@ -77,6 +84,22 @@ CSVFormat fmt;
 fmt.chunk_size(100 * 1024 * 1024);  // 100MB chunks
 CSVReader reader("massive_rows.csv", fmt);
 ```
+
+When speculative parsing is enabled, the parser may read a window of
+`chunk_size * worker_count` bytes at a time.
+
+Speculative parallel parsing starts at 50MB by default when runtime threading is
+enabled. You can adjust both the source-size threshold and worker count:
+
+```cpp
+CSVFormat fmt;
+fmt.speculative_parallel_min_bytes(50 * 1024 * 1024)
+   .speculative_parallel_threads(4);
+CSVReader reader("large.csv", fmt);
+```
+
+For workload-specific tuning, build and run `csv_tuning`; see the
+[CSV Tuning Doxygen page](https://vincentlaucsb.github.io/csv-parser/csv_tuning.html).
 
 ### Fully RFC 4180-Compliant (and Beyond) Parser
 This CSV parser is a fully [RFC 4180](https://www.rfc-editor.org/rfc/rfc4180.txt)-compliant parser out of the box. We do not disable embedded newline detection by default just so we can look better on benchmarks.
@@ -133,7 +156,44 @@ This library requires C++ exceptions to be enabled (for example, do not compile 
 SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
 
 ### Threading Modes
-By default, `csv-parser` uses a background thread to parse file-based input. If CMake cannot find a thread library, threading is disabled automatically.
+By default, `csv-parser` uses threads. If CMake cannot find a thread library, threading is disabled
+automatically. Threading has two layers:
+
+- **Reader threading:** a background producer thread keeps `CSVReader` fed while
+  your code consumes rows.
+- **Speculative parallel parsing:** automatic multi-worker parsing for large,
+  filename-backed inputs when runtime threading is enabled.
+
+For programs that parse many small CSVs, you can keep thread support compiled
+in but disable parser threading for a specific reader:
+
+```cpp
+CSVFormat format;
+format.threading(false);
+
+CSVReader reader("small.csv", format); // parses synchronously on the caller thread
+```
+
+This runtime switch also disables speculative parallel parsing for that reader.
+
+For large files, speculative parallel parsing is automatic. You can tune the
+worker count and size threshold:
+
+```cpp
+CSVFormat format;
+format.speculative_parallel_threads(0);     // 0 = auto
+format.speculative_parallel_min_bytes(50 * 1024 * 1024);
+
+CSVReader reader("large.csv", format);
+```
+
+Use `format.threading(false)` if you want to force synchronous parsing and turn
+off speculative parsing for a reader.
+
+`CSVReader::parse_worker_count()` reports the active parser worker count, and
+`CSVReader::speculative_diagnostics()` reports chunk/repair counters. Stream
+readers still benefit from reader threading, but speculative parsing is primarily
+intended for large file-backed inputs.
 
 You can also disable it explicitly:
 
@@ -172,9 +232,6 @@ If you're including this in another CMake project, you can simply clone this rep
 and add the following to your CMakeLists.txt:
 
 ```
-# Optional: Defaults to C++ 17
-# set(CSV_CXX_STANDARD 11)
-
 # Optional: disable background parsing threads
 # set(CSV_ENABLE_THREADS OFF)
 
@@ -187,9 +244,36 @@ target_link_libraries(<your program> csv)
 
 ```
 
+`csv-parser` respects the normal CMake `CMAKE_CXX_STANDARD` variable. If no
+standard is provided, it defaults to C++20. The project-specific
+`CSV_CXX_STANDARD` option is also supported as an explicit override:
+
+1. `CSV_CXX_STANDARD`, when set
+2. `CMAKE_CXX_STANDARD`, when set
+3. C++20 by default
+
+For example:
+
+```cmake
+set(CMAKE_CXX_STANDARD 17)
+add_subdirectory(csv-parser)
+```
+
+or, if you want the csv-parser subtree to use a specific standard regardless of
+the parent project default:
+
+```cmake
+set(CSV_CXX_STANDARD 11)
+add_subdirectory(csv-parser)
+```
+
 #### Avoid cloning with FetchContent
 Don't want to clone? No problem. There's also [a simple example documenting how to use CMake's FetchContent module to integrate this library](https://github.com/vincentlaucsb/csv-parser/wiki/Example:-Using-csv%E2%80%90parser-with-CMake-and-FetchContent).
 
+### Python Bindings
+Experimental Python bindings live under [`python/`](python/). See
+[`python/README.md`](python/README.md) for build instructions, API notes, and
+benchmarks.
 
 ## Features & Examples
 ### Reading an Arbitrarily Large File (with Iterators)
@@ -292,15 +376,15 @@ For the full conversion contract, see the [Scalar Conversion Reference](https://
 
 Type checking is performed on conversions to prevent undefined behavior and integer overflow. Negative numbers cannot be blindly converted to unsigned integer types.
 
-| API | Success behavior | Failure behavior | Notes |
-| --- | --- | --- | --- |
-| `get<T>()` | Returns `T` | Throws `std::runtime_error` | Supports integral, floating point, `bool`, and `std::chrono` targets. |
-| `try_get<T>(out)` | Writes `out`, returns `true` | Returns `false` | Non-throwing equivalent to `get<T>()`. |
-| `std::optional<T> value = field` | Returns populated optional | Returns `std::nullopt` | C++17 and later; uses the same conversion rules as `try_get<T>()`. |
-| `field.as<T>()` | Returns `std::expected<T, CSVConversionError>` | Returns `std::unexpected(CSVConversionError)` | C++23 and later when `std::expected` is available; use when callers need a structured conversion error such as not-a-number, overflow, float-to-int, or negative-to-unsigned. |
-| `try_parse_hex<T>(out)` | Writes an integral `T`, returns `true` | Returns `false` | Allows hex with or without the `0x` prefix. |
-| `try_parse_decimal(out, decimal_symbol)` | Writes `long double`, returns `true` | Returns `false` | Parses decimal numbers that use a non-`.` decimal separator. |
-| `try_parse_timestamp<T>(out)` | Writes timestamp/duration target, returns `true` | Returns `false` | `uint64_t` Unix timestamps and `std::chrono` targets work in all supported C++ versions. |
+| API | Behavior | Notes |
+| --- | --- | --- |
+| `get<T>()` | On success, returns `T`. On failure, throws `std::runtime_error`. | Supports integral, floating point, `bool`, and `std::chrono` targets. |
+| `try_get<T>(out)` | On success, writes `out` and returns `true`. On failure, returns `false`. | Non-throwing equivalent to `get<T>()`. |
+| `std::optional<T> value = field` | On success, returns a populated optional. On failure, returns `std::nullopt`. | C++17 and later; uses the same conversion rules as `try_get<T>()`. |
+| `field.as<T>()` | On success, returns `std::expected<T, CSVConversionError>`. On failure, returns `std::unexpected(CSVConversionError)`. | C++23 and later when `std::expected` is available; use when callers need a structured conversion error such as not-a-number, overflow, float-to-int, or negative-to-unsigned. |
+| `try_parse_hex<T>(out)` | On success, writes an integral `T` and returns `true`. On failure, returns `false`. | Allows hex with or without the `0x` prefix. |
+| `try_parse_decimal(out, decimal_symbol)` | On success, writes `long double` and returns `true`. On failure, returns `false`. | Parses decimal numbers that use a non-`.` decimal separator. |
+| `try_parse_timestamp<T>(out)` | On success, writes a timestamp/duration target and returns `true`. On failure, returns `false`. | `uint64_t` Unix timestamps and `std::chrono` targets work in all supported C++ versions. |
 
 Additional conversion details:
 
@@ -491,7 +575,7 @@ for (auto& r: rows) {
 
 ```
 
-### DataFrames for Random Access and Updates
+### DataFrames for Random Access and Editing
 
 For files that fit comfortably in memory, `DataFrame` provides fast and powerful keyed access, in-place updates, and grouping operations—all built on the same high-performance parser. It uses the same parsing pipeline as `CSVReader` but retains the results in memory for both row-wise and column-wise random access.
 
