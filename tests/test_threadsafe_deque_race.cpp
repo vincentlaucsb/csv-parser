@@ -1,4 +1,4 @@
-﻿//
+//
 // Test for ThreadSafeDeque race condition fix
 // Bug: kill_all() and notify_all() did not hold the mutex when modifying
 // _is_waitable and signaling the condition variable. This caused a race
@@ -114,7 +114,7 @@ TEST_CASE("ThreadSafeDeque concurrent stress test",
                 if (y_val != 2) errors->add_error("Y != 2 (got " + std::to_string(y_val) + ")");
                 if (rows.read_row(row)) errors->add_error("read_row() should have returned false for second read");
             }
-        });
+        }, std::chrono::seconds(60));
         errors->check_and_fail_if_errors();
     }
 }

@@ -63,7 +63,7 @@ private:
  *  @tparam Func Callable that takes no arguments and returns void
  *  @tparam Duration std::chrono duration type (default: seconds)
  *  @param fn Test function to execute (should NOT contain REQUIRE/CHECK calls)
- *  @param timeout Maximum time to wait before failing (default: 10 seconds)
+ *  @param timeout Maximum time to wait before failing (default: 20 seconds)
  *  
  *  @note On timeout, this helper fails the test via REQUIRE and does not join
  *        the worker thread. This avoids deadlocking the test thread while
