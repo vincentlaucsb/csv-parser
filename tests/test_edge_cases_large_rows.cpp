@@ -84,6 +84,9 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
         // The infinite-loop guard fires when a full chunk is consumed without
         // producing any complete rows. StreamParser carries leftover bytes
         // across reads, so this row includes a safety margin above 2x default.
+        CSVFormat serial_format;
+        serial_format.threading(false);
+
         auto validate_throws = [](CSVReader& reader) {
             REQUIRE_THROWS_WITH(
                 [&reader]() {
@@ -96,7 +99,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
         SECTION("stream path") {
             std::stringstream ss;
             ss << "Col1,Col2,Col3\n" << guard_trip_row_3col();
-            CSVReader reader(ss);
+            CSVReader reader(ss, serial_format);
             validate_throws(reader);
         }
 
@@ -107,7 +110,7 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
                 std::ofstream out(cleanup.filename, std::ios::binary);
                 out << "Col1,Col2,Col3\n" << guard_trip_row_3col();
             }
-            CSVReader reader(cleanup.filename);
+            CSVReader reader(cleanup.filename, serial_format);
             validate_throws(reader);
         }
         #endif
@@ -216,8 +219,10 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
 
         CSVFormat big_chunk;
         big_chunk.delimiter(',').chunk_size(kChunkBytesMedium);
+        CSVFormat serial_format;
+        serial_format.threading(false);
         CSVReader reader1(ss1, big_chunk);
-        CSVReader reader2(ss2);  // Default chunk size
+        CSVReader reader2(ss2, serial_format);  // Default chunk size, serial parser
 
         int count1 = 0;
         for (auto& row : reader1) { (void)row; count1++; }
@@ -240,7 +245,9 @@ TEST_CASE("Issue #218 - Infinite read loop detection", "[issue_218]") {
         std::stringstream ss;
         ss << "A,B\n" << "1,2\n" << guard_trip_row_2col();
 
-        CSVReader reader(ss);
+        CSVFormat serial_format;
+        serial_format.threading(false);
+        CSVReader reader(ss, serial_format);
 
         // Header and first data row parse fine.
         auto it = reader.begin();  // Points to "1,2"

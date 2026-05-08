@@ -409,7 +409,7 @@ namespace csv {
         constexpr size_t CSV_CHUNK_SIZE_FLOOR = 500 * 1024; // 500KB
 
         /** Default minimum source size before speculative parallel parsing is considered. */
-        constexpr size_t CSV_SPECULATIVE_PARALLEL_MIN_BYTES = 250ull * 1024ull * 1024ull; // 250MB
+        constexpr size_t CSV_SPECULATIVE_PARALLEL_MIN_BYTES = 50ull * 1024ull * 1024ull; // 50MB
 
         template<typename T>
         inline bool is_equal(T a, T b, T epsilon = 0.001) {

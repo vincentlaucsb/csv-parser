@@ -240,16 +240,16 @@ TEST_CASE("Round Trip with Quoted Fields and Edge Cases", "[test_roundtrip_quote
         };
 
     CSVFormat serial_format;
+    serial_format.threading(false);
 
 #if CSV_ENABLE_THREADS
     CSVFormat speculative_format;
-    speculative_format.speculative_parallel()
-        .speculative_parallel_min_bytes(1)
+    speculative_format.speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 #endif
 
     SECTION("Memory-mapped file path") {
-        CSVReader reader(filename);
+        CSVReader reader(filename, serial_format);
         validate_reader(reader, 1, false);
     }
 

@@ -1,3 +1,5 @@
+@page thread_pool_refactor Thread Pool Refactor Notes
+
 # Thread Pool Refactor Notes
 
 `DataFrameExecutor` and `speculative::ParallelCSVParser` both contain a

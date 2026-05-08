@@ -136,7 +136,7 @@ namespace csv {
         /** Sets the chunk size used when reading the CSV
          *
          *  @param[in] size Chunk size in bytes (minimum: CSV_CHUNK_SIZE_FLOOR)
-         *  @throws std::invalid_argument if size < CSV_CHUNK_SIZE_FLOOR
+         *  @throws std::invalid_argument if size < CSV_CHUNK_SIZE_FLOOR or size > UINT32_MAX
          *
          *  Use this when constructing a CSVReader from a filename and individual rows
          *  may exceed the default 10MB chunk size. The value is passed to CSVReader at
@@ -155,17 +155,6 @@ namespace csv {
          */
         CONSTEXPR_14 CSVFormat& threading(bool enabled = true) {
             this->_threading = enabled;
-            return *this;
-        }
-
-        /** Enable or disable speculative parallel parsing for large filename-backed inputs.
-         *
-         *  The normal serial parser remains the default. When enabled, CSVReader
-         *  still auto-disables speculative parsing for small inputs and for
-         *  single-threaded configurations.
-         */
-        CONSTEXPR_14 CSVFormat& speculative_parallel(bool enabled = true) {
-            this->_speculative_parallel = enabled;
             return *this;
         }
 
@@ -210,13 +199,11 @@ namespace csv {
             return false;
 #endif
         }
-        CONSTEXPR bool is_speculative_parallel_enabled() const { return this->_speculative_parallel; }
         CONSTEXPR size_t get_speculative_parallel_threads() const { return this->_speculative_parallel_threads; }
         CONSTEXPR size_t get_speculative_parallel_min_bytes() const { return this->_speculative_parallel_min_bytes; }
         CONSTEXPR bool should_use_speculative_parallel(size_t source_size, size_t n_threads) const {
 #if CSV_ENABLE_THREADS
             return this->_threading
-                && this->_speculative_parallel
                 && n_threads > 1
                 && source_size >= this->_speculative_parallel_min_bytes;
 #else
@@ -288,9 +275,6 @@ namespace csv {
 
         /**< Whether CSVReader may use runtime parser threads */
         bool _threading = true;
-
-        /**< Whether filename-backed readers may use speculative parallel parsing */
-        bool _speculative_parallel = false;
 
         /**< 0 means the reader may choose automatically */
         size_t _speculative_parallel_threads = 0;

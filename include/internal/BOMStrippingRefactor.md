@@ -1,3 +1,5 @@
+@page bom_stripping_refactor BOM Stripping Refactor
+
 # BOM Stripping Refactor
 
 ## Context

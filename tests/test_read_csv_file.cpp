@@ -654,7 +654,6 @@ TEST_CASE("CSVReader speculative read_chunk preserves format flags", "[read_chun
         .quote(false)
         .variable_columns(VariableColumnPolicy::IGNORE_ROW)
         .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 

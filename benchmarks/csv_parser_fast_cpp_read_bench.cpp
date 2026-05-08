@@ -22,7 +22,6 @@ namespace {
     csv::CSVFormat bench_format(size_t requested_threads) {
         csv::CSVFormat format;
         format.delimiter(',').header_row(0)
-            .speculative_parallel()
             .speculative_parallel_min_bytes(1)
             .speculative_parallel_threads(requested_threads);
         return format;

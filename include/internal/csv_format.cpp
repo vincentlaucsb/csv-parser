@@ -3,6 +3,8 @@
  */
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 #include <set>
 
 #include "csv_format.hpp"
@@ -53,6 +55,10 @@ namespace csv {
     CSV_INLINE CSVFormat& CSVFormat::chunk_size(size_t size) {
         if (size < internals::CSV_CHUNK_SIZE_FLOOR) {
             throw std::invalid_argument(internals::make_chunk_size_error(internals::CSV_CHUNK_SIZE_FLOOR, size));
+        }
+        const size_t max_chunk_size = (std::numeric_limits<std::uint32_t>::max)();
+        if (size > max_chunk_size) {
+            throw std::invalid_argument(internals::make_chunk_size_ceiling_error(max_chunk_size, size));
         }
         this->_chunk_size = size;
         return *this;

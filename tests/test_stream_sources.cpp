@@ -166,7 +166,6 @@ TEST_CASE("Third-party stream compatibility", "[stream_sources][issue_259]") {
         CSVFormat format;
         format.delimiter(',')
             .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
-            .speculative_parallel()
             .speculative_parallel_min_bytes(1)
             .speculative_parallel_threads(2);
 

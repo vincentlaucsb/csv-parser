@@ -39,7 +39,7 @@ namespace {
             << "  --threads <list>     Comma-separated worker counts; 0 means auto\n"
             << "  --passes <n>         Repeated runs for each configuration (default: 1)\n"
             << "  --batch-rows <n>     Rows drained per read_chunk() call (default: 50000)\n"
-            << "  --no-speculative     Disable speculative parallel parsing\n"
+            << "  --no-speculative     Disable parser threading/speculative parsing\n"
             << "\n"
             << "Size suffixes use binary units: K=1024, M=1024^2, G=1024^3.\n";
     }
@@ -126,12 +126,11 @@ namespace {
         format.chunk_size(config.chunk_size);
 
         if (speculative) {
-            format.speculative_parallel()
-                .speculative_parallel_min_bytes(1)
+            format.speculative_parallel_min_bytes(1)
                 .speculative_parallel_threads(config.threads);
         }
         else {
-            format.speculative_parallel(false);
+            format.threading(false);
         }
 
         const auto start = std::chrono::steady_clock::now();

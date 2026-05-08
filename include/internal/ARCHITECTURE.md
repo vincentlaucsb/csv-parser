@@ -1,3 +1,5 @@
+@page internal_architecture Internal Architecture
+
 # Internal Architecture
 
 This document describes the high-level architecture of the CSV parser internals and how major classes interact.

@@ -601,7 +601,6 @@ TEST_CASE("MmapParser speculative path preserves row order and split quoted rows
     CSVFormat format;
     format.no_header()
         .delimiter(',')
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
@@ -645,7 +644,6 @@ TEST_CASE("StreamParser speculative path preserves row order and split worker ch
     CSVFormat format;
     format.no_header()
         .delimiter(',')
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
@@ -683,7 +681,6 @@ TEST_CASE("StreamParser speculative path carries quoted rows across buffered win
     CSVFormat format;
     format.no_header()
         .delimiter(',')
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
@@ -716,7 +713,6 @@ TEST_CASE("StreamParser speculative path flushes pending suffix once at EOF", "[
     CSVFormat format;
     format.no_header()
         .delimiter(',')
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
@@ -739,14 +735,16 @@ TEST_CASE("StreamParser speculative path flushes pending suffix once at EOF", "[
 }
 #endif
 
-TEST_CASE("StreamParser stays serial when speculative parsing is disabled", "[raw_csv_parse][stream]") {
+TEST_CASE("StreamParser stays serial when runtime threading is disabled", "[raw_csv_parse][stream]") {
     std::stringstream input(
         "a,b,c\n"
         "1,2,3\n"
         "4,5,6\n"
     );
     CSVFormat format;
-    format.no_header().delimiter(',');
+    format.no_header()
+        .delimiter(',')
+        .threading(false);
 
     RowCollection output;
     StreamParser<std::stringstream> parser(input, format);
@@ -772,7 +770,6 @@ TEST_CASE("Runtime threading switch keeps StreamParser synchronous", "[raw_csv_p
     format.no_header()
         .delimiter(',')
         .threading(false)
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
@@ -791,7 +788,7 @@ TEST_CASE("Runtime threading switch keeps StreamParser synchronous", "[raw_csv_p
 }
 
 #if !CSV_ENABLE_THREADS
-TEST_CASE("StreamParser stays serial with speculative flag in no-thread builds", "[raw_csv_parse][stream]") {
+TEST_CASE("StreamParser stays serial in no-thread builds", "[raw_csv_parse][stream]") {
     std::stringstream input(
         "a,b,c\n"
         "1,2,3\n"
@@ -800,7 +797,6 @@ TEST_CASE("StreamParser stays serial with speculative flag in no-thread builds",
     CSVFormat format;
     format.no_header()
         .delimiter(',')
-        .speculative_parallel()
         .speculative_parallel_min_bytes(1)
         .speculative_parallel_threads(2);
 
