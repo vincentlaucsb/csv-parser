@@ -18,6 +18,7 @@
     - [Single Header](#single-header)
     - [CMake Instructions](#cmake-instructions)
       - [Avoid cloning with FetchContent](#avoid-cloning-with-fetchcontent)
+    - [Bazel Instructions](#bazel-instructions)
     - [Python Bindings](#python-bindings)
   - [Features \& Examples](#features--examples)
     - [Reading an Arbitrarily Large File (with Iterators)](#reading-an-arbitrarily-large-file-with-iterators)
@@ -269,6 +270,17 @@ add_subdirectory(csv-parser)
 
 #### Avoid cloning with FetchContent
 Don't want to clone? No problem. There's also [a simple example documenting how to use CMake's FetchContent module to integrate this library](https://github.com/vincentlaucsb/csv-parser/wiki/Example:-Using-csv%E2%80%90parser-with-CMake-and-FetchContent).
+
+### Bazel Instructions
+
+This library is available on the Bazel Central Registry. To use it:
+
+- Add the desired version from the [Bazel Central Registry](https://registry.bazel.build/modules/csv-parser) to your project's `MODULE.bazel`:
+  ```bazel
+  bazel_dep(name = "csv-parser", version = "1.2.3")
+  ```
+- Add `"@csv-parser"` to the `deps = []` section of your `cc_library` or `cc_binary` build rule.
+- Include the `csv.hpp` header in your project.
 
 ### Python Bindings
 Experimental Python bindings live under [`python/`](python/). See
