@@ -15,8 +15,10 @@ A CSV field is usually not copied while parsing.
 2. `CSVParseOrchestrator` chooses serial parsing or speculative parallel parsing.
 3. `CSVParserCore` walks bytes and records field boundaries in `RawCSVFieldList`.
 4. `CSVRow` stores a shared pointer to `RawCSVData`.
-5. `CSVField` slices the original bytes and materializes trim/unescape/conversion
-   only when the user asks for it.
+5. `CSVRow` slices either the original bytes or parser-realized quoted-field
+   storage when the user asks for a field.
+6. `CSVField` performs scalar classification/conversion only when the user asks
+   for it.
 
 Speculative parsing changes how rows become safe to release. It does not change
 the public `CSVRow` / `CSVField` ownership model.
@@ -271,15 +273,17 @@ auto field = row["name"];
 auto value = field.get<std::string>();
 ```
 
-the row looks up the field metadata, slices `RawCSVData::data`, and returns a
-`CSVField`.
+the row looks up the field metadata, slices either `RawCSVData::data` or
+`RawCSVData::quote_arena`, applies trim if configured, and returns a `CSVField`.
 
-`CSVField` materializes only what is needed:
+`CSVRow` / `CSVField` split the remaining work this way:
 
 - Unquoted, untrimmed fields can remain a `string_view`.
-- Quoted fields unescape doubled quotes when accessed.
-- Trimmed fields apply trim behavior when accessed.
-- Typed conversions happen in `get<T>()` / `try_get<T>()`.
+- Fields containing doubled quotes were already unescaped into
+  `RawCSVData::quote_arena` by `CSVParserCore`.
+- Trimmed fields apply trim behavior when `CSVRow` creates the field view.
+- Scalar classification and typed conversions happen in `CSVField::type()`,
+  `get<T>()`, and `try_get<T>()`.
 
 This keeps parser throughput focused on boundary detection instead of string
 construction.
@@ -290,7 +294,8 @@ Expected copies:
 
 - Stream sources copy bytes into owned windows.
 - `CSVField::get<std::string>()` returns an owning string.
-- Quoted fields with escaped quotes may materialize an unescaped string.
+- Fields containing doubled quotes are copied once by the parser into
+  `RawCSVData::quote_arena`.
 - Some repair paths concatenate row fragments when speculation was wrong or a
   row spans chunks.
 
@@ -311,7 +316,9 @@ Check these first when field data looks wrong:
 - Wrong speculative initial quote state.
 - Validator repair path and fragment concatenation.
 - `RawCSVData` backing ownership lifetime.
-- Lazy trim/unescape behavior in `CSVRow` / `CSVField`.
+- Parser-realized doubled-quote storage in `RawCSVData::quote_arena`.
+- Trim behavior in `CSVRow`.
+- Lazy scalar classification/conversion behavior in `CSVField`.
 - Runtime `CSVFormat::threading(false)` path, which should change scheduling
   only, not row contents.
 

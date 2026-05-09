@@ -540,11 +540,11 @@ namespace internals {
         void write_field(T in) {
             IF_CONSTEXPR(std::is_convertible<T, csv::string_view>::value) {
                 write_escaped_field(in);
-                return;
             }
-
-            const std::string serialized(in);
-            write_escaped_field(serialized);
+            else {
+                const std::string serialized(in);
+                write_escaped_field(serialized);
+            }
         }
 
         void write_raw(csv::string_view in) {

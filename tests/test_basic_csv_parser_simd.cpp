@@ -6,6 +6,8 @@
 using namespace csv;
 using namespace csv::internals;
 
+#if defined(CSV_SIMD_AVX2) || defined(CSV_SIMD_SSE2) || defined(CSV_SIMD_NEON)
+
 // find_next_non_special is SIMD-only: it fast-forwards through complete lanes
 // that contain no sentinel bytes, then returns. The caller's scalar loop handles
 // the sub-lane tail. When data is shorter than one lane, the function is a noop.
@@ -103,3 +105,5 @@ TEST_CASE("SIMD skip treats UTF-8 bytes as non-special content", "[simd][parser]
     const auto pos = find_next_non_special(data, 0, sentinels);
     REQUIRE(pos == data.size());
 }
+
+#endif

@@ -5,6 +5,7 @@ CMakeLists2.txt
 # Build
 bin/
 build/
+downstream/
 
 # Build: Python
 __pycache__/

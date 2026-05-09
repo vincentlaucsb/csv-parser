@@ -253,6 +253,20 @@ namespace csv {
         // Allows for iterator arithmetic
         return CSVRow::iterator::operator+(-n);
     }
+
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator+=(difference_type n) {
+        *this = *this + n;
+        return *this;
+    }
+
+    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator-=(difference_type n) {
+        *this = *this - n;
+        return *this;
+    }
+
+    CSV_INLINE CSVRow::iterator::difference_type CSVRow::iterator::operator-(const iterator& other) const noexcept {
+        return this->i - other.i;
+    }
 #ifdef _MSC_VER
 #pragma endregion CSVRow Iterator
 #endif

@@ -1,6 +1,21 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Keep source, build scripts, and Markdown LF-only in every checkout.
+*.c      text eol=lf
+*.cc     text eol=lf
+*.cpp    text eol=lf
+*.cxx    text eol=lf
+*.h      text eol=lf
+*.hh     text eol=lf
+*.hpp    text eol=lf
+*.hxx    text eol=lf
+*.ipp    text eol=lf
+*.inl    text eol=lf
+*.cmake  text eol=lf
+CMakeLists.txt text eol=lf
+*.md     text eol=lf
+
 # Custom for Visual Studio
 *.cs     diff=csharp
 

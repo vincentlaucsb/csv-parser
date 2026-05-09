@@ -628,6 +628,9 @@ namespace csv {
             iterator& operator--();
             iterator operator+(difference_type n) const;
             iterator operator-(difference_type n) const;
+            iterator& operator+=(difference_type n);
+            iterator& operator-=(difference_type n);
+            difference_type operator-(const iterator& other) const noexcept;
 
             /** Two iterators are equal if they point to the same field */
             CONSTEXPR bool operator==(const iterator& other) const noexcept {

@@ -1,11 +1,12 @@
 #include "bench_common.hpp"
-#include "multi_pass_etl.hpp"
 
 #include <csv.hpp>
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -30,6 +31,46 @@ namespace {
         return rows;
     }
 
+    std::uint64_t run_csv_parser_multi_pass_etl(const std::vector<csv::CSVRow>& rows) {
+        std::uint64_t amount_sum = 0;
+        for (const auto& row : rows) {
+            amount_sum += row[4].get<std::uint64_t>();
+        }
+
+        std::uint64_t quantity_sum = 0;
+        std::uint64_t enabled_count = 0;
+        for (const auto& row : rows) {
+            quantity_sum += row[5].get<std::uint64_t>();
+            enabled_count += row[6].get<csv::string_view>() == std::string_view("Y") ? 1u : 0u;
+        }
+
+        std::unordered_map<std::string_view, std::uint64_t> category_counts;
+        category_counts.reserve(8);
+        for (const auto& row : rows) {
+            ++category_counts[row[3].get<csv::string_view>()];
+        }
+
+        std::uint64_t text_checksum = 0;
+        for (const auto& row : rows) {
+            const auto city = row[1].get<csv::string_view>();
+            const auto note = row[7].get<csv::string_view>();
+            text_checksum += static_cast<std::uint64_t>(city.size() * 3 + note.size());
+            if (!city.empty()) {
+                text_checksum += static_cast<unsigned char>(city.front());
+            }
+            if (!note.empty()) {
+                text_checksum += static_cast<unsigned char>(note.front());
+            }
+        }
+
+        std::uint64_t category_checksum = 0;
+        for (const auto& entry : category_counts) {
+            category_checksum += static_cast<std::uint64_t>(entry.first.size()) * entry.second;
+        }
+
+        return amount_sum + quantity_sum + enabled_count + text_checksum + category_checksum;
+    }
+
     void BM_csv_parser_materialize_csvrow_8col(benchmark::State& state) {
         const auto& path = bench_file();
         const auto bytes = std::filesystem::file_size(path);
@@ -52,9 +93,7 @@ namespace {
         const auto rows = materialize_csv_rows(path);
 
         for (auto _ : state) {
-            const auto checksum = csv_bench::run_multi_pass_etl(rows, [](const csv::CSVRow& row, size_t index) {
-                return row[index].template get<csv::string_view>();
-            });
+            const auto checksum = run_csv_parser_multi_pass_etl(rows);
 
             benchmark::DoNotOptimize(checksum);
             benchmark::ClobberMemory();
@@ -73,9 +112,7 @@ namespace {
             auto materialized = materialize_csv_rows(path);
             rows = materialized.size();
 
-            const auto checksum = csv_bench::run_multi_pass_etl(materialized, [](const csv::CSVRow& row, size_t index) {
-                return row[index].template get<csv::string_view>();
-            });
+            const auto checksum = run_csv_parser_multi_pass_etl(materialized);
 
             benchmark::DoNotOptimize(checksum);
             benchmark::ClobberMemory();
