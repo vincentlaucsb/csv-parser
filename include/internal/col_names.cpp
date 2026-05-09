@@ -36,7 +36,7 @@ namespace csv {
                 return (pos != this->col_pos.end()) ? (int)pos->second : CSV_NOT_FOUND;
             }
 
-            auto pos = this->col_pos.find(col_name.data());
+            auto pos = this->col_pos.find(std::string(col_name));
             return (pos != this->col_pos.end()) ? (int)pos->second : CSV_NOT_FOUND;
         }
 
