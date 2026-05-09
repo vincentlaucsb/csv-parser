@@ -122,16 +122,17 @@ available in the build:
 benchmarks/scripts/run_benchmarks.ps1
 ```
 
-For Python reader comparisons against stdlib `csv.reader` and pandas with the
-Apache Arrow CSV engine/backend when installed, build the Python binding and run:
+For Python reader comparisons against stdlib `csv.reader`, build the Python
+binding and run:
 
 ```powershell
 python python/benchmarks/compare_readers.py path/to/input.csv
 ```
 
 The Python helper prints one tab-separated line per available variant with file
-path, file size, rows, columns, elapsed seconds, MiB/s, and rows/s. Missing
-optional pandas or pyarrow dependencies are reported as explicit skips.
+path, file size, rows, columns, elapsed seconds, MiB/s, and rows/s. The matrix
+compares stdlib `csv.reader`, `csvpy.reader`, stdlib `csv.DictReader`, and
+`csvpy.DictReader`, with separate `csvpy` string-only and `cast=True` runs.
 
 The script writes JSON results to
 `benchmarks/results/<row-count>_rows/<profile>/<benchmark-name>.json` and also

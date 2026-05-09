@@ -61,7 +61,7 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - PermissiveParsePolicy
   - No-op parse policy extension point.
-  - Preserves RawCSVData/CSVRow lazy materialization while keeping the hot path free of virtual row sinks.
+  - Preserves RawCSVData/CSVRow view-based field access while keeping the hot path free of virtual row sinks.
 
 - CSVParserDriverBase
   - Internal source-adapter base that preserves the parser driver API used by CSVReader.
@@ -151,7 +151,7 @@ Notes:
 - RawCSVData lifetime extends until the last referencing CSVRow is destroyed.
 - RawCSVFieldList is contained inside RawCSVData and indexes slices into the backing data payload.
 
-CSVRow -> CSVField lazy materialization:
+CSVRow -> CSVField field access:
 
 ```text
 RawCSVData
@@ -174,14 +174,15 @@ Implication:
 
 ## 3. End-to-End Flow
 
-Source bytes -> parser chunk read -> parse loop -> RawCSVData + RawCSVFieldList -> CSVRow enqueue -> CSVReader read_row / iteration -> CSVField materialization
+Source bytes -> parser chunk read -> parse loop -> RawCSVData + RawCSVFieldList -> CSVRow enqueue -> CSVReader read_row / iteration -> CSVField access/conversion
 
 Operationally:
 
 1. CSVReader starts a read cycle with current chunk size.
 2. Parser next(bytes) ingests one chunk and emits complete rows.
 3. Queue buffers rows for consumer-side retrieval.
-4. CSVRow/CSVField lazily materialize trim/unescape/conversion behavior.
+4. CSVRow applies trim when creating field views, and CSVField lazily performs
+   scalar classification and typed conversion.
 5. CSVReadScheduler signals worker completion and transfers errors back to the
    consumer side. When `CSVFormat::threading(false)` is active, the same parse
    cycle runs synchronously on the caller thread and speculative parsing is
@@ -207,9 +208,11 @@ Fields spanning chunk boundaries must not be split/corrupted.
 
 Mmap and stream parsers must preserve the same externally observable behavior.
 
-### Lazy materialization contract
+### Field storage and conversion contract
 
-Trimming/unescaping/conversion behavior must remain coherent across parser and field-access layers.
+The parser realizes doubled-quote fields into `RawCSVData::quote_arena`; ordinary
+fields remain views into source bytes. `CSVRow` applies trimming when creating a
+field view. `CSVField` owns scalar classification and typed conversion caching.
 
 ### Bounded streaming semantics
 

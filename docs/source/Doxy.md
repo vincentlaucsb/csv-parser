@@ -86,7 +86,7 @@ column extraction, editing, and grouping.
    * csv::DataFrameRow::empty()
    * csv::DataFrameRow::get_col_names()
  * csv::DataFrameOptions: Configuration for DataFrame construction
-   * Duplicate key policy (`OVERWRITE` or `KEEP_FIRST`)
+   * Duplicate key policy (`THROW`, `OVERWRITE`, or `KEEP_FIRST`)
    * `set_key_column()`: Specify which column to use as the key
    * `set_throw_on_missing_key()`: Control exception behavior for missing keys
 

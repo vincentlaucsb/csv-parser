@@ -336,7 +336,7 @@ If you need to get around this, I suggest either loading all rows into an STL co
 ### Memory-Mapped I/O and Streams
 When passing in a file path to `CSVReader`, memory-mapped I/O is used as it is the most performant.
 
-However, most finite steams implementing `std::istream`, such as `std::stringstream` and `std::ifstream` are supported as well as non-seekable streams. `CSVReader` is capable of taking a stream by reference, although it is recommended to pass in an owning `std::unique_ptr<std::istream>` for memory safety.
+However, most finite streams implementing `std::istream`, such as `std::stringstream` and `std::ifstream`, are supported as well as non-seekable streams. `CSVReader` is capable of taking a stream by reference, although it is recommended to pass in an owning `std::unique_ptr<std::istream>` for memory safety.
 
 Both memory-mapped and `std::istream` paths benefit from having a background parsing thread, unless disabled.
 
@@ -346,7 +346,7 @@ CSVFormat format;
 
 CSVReader mmap("some_file.csv", format);
 
-auto infile_ptr = std::unique_ptr(std::ifstream("some_file.csv", std::ios::binary));
+std::unique_ptr<std::istream> infile_ptr(new std::ifstream("some_file.csv", std::ios::binary));
 CSVReader ifstream_reader(std::move(infile_ptr), format);
 
 std::stringstream my_csv;
@@ -481,7 +481,7 @@ for (auto& row: reader) {
 ```
 
 ### Specifying the CSV Format
-Although the CSV parser has a decent guessing mechanism, in some cases it is preferrable to specify the exact parameters of a file.
+Although the CSV parser has a decent guessing mechanism, in some cases it is preferable to specify the exact parameters of a file.
 
 ```cpp
 # include "csv.hpp"
