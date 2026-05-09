@@ -21,10 +21,12 @@ These benchmarks were run on:
 
 The short version:
 
-- `fast-cpp-csv-parser` remains faster for single-thread count/read loops on
-  the supported inputs here.
+- `fast-cpp-csv-parser` remains a strong single-parser-worker baseline,
+  especially on smaller raw read loops.
 - With positional access and 4+ parser workers, `csv-parser` overtakes
-  `fast-cpp-csv-parser` on both clean and quoted read workloads.
+  `fast-cpp-csv-parser` on clean and quoted read workloads.
+- `csv-parser` beats Glaze's CSV reader on the mixed string/numeric/quoted
+  workloads shown below, including the no-background-thread path.
 - `csv-parser` wins the materialization and materialize+aggregation ETL
   benchmarks shown below, while also supporting multiline CSV that
   `fast-cpp-csv-parser` cannot parse.
@@ -37,17 +39,23 @@ All tables below use **median real time** from the Google Benchmark output.
 
 - `csv_parser_read_bench`: read benchmarks for this library, using the filename
   constructor and therefore the native mmap parser where supported.
-- `csv_parser_multi_pass_bench`: single-threaded materialization and multi-pass
-  ETL-style benchmarks using reusable `CSVRow` objects.
+- `csv_parser_multi_pass_bench`: single-parser-worker materialization and
+  multi-pass ETL-style benchmarks using reusable `CSVRow` objects.
 - `csv_parser_fast_cpp_read_bench`: one-binary positional-read comparison
-  between this library and `fast-cpp-csv-parser`, with this library measured at
-  1, 2, 4, and 8 requested parser threads and `fast-cpp-csv-parser` reported
-  once as a single-thread baseline.
+  between this library, `fast-cpp-csv-parser`, and Glaze. It labels scheduling
+  explicitly: `csv-parser` no-background-thread, `csv-parser` SPSC
+  producer/consumer, `csv-parser` speculative parallel parsing, and
+  `fast-cpp-csv-parser` SPSC-style background I/O.
 - `fast_cpp_csv_parser_read_bench`: read-focused benchmarks for
   `fast-cpp-csv-parser`.
-- `fast_cpp_csv_parser_multi_pass_bench`: single-threaded materialization and
-  multi-pass ETL-style benchmarks for `fast-cpp-csv-parser`, materializing into
-  fixed-width STL rows before running repeated passes.
+- `fast_cpp_csv_parser_multi_pass_bench`: single-parser-worker materialization
+  and multi-pass ETL-style benchmarks for `fast-cpp-csv-parser`, materializing
+  into named-field row structs before running repeated passes.
+- `glaze_csv_read_bench`: read-focused benchmarks for Glaze's CSV reader,
+  materializing into reflected row structs through `glz::read<glz::opts_csv>`.
+- `glaze_csv_multi_pass_bench`: single-parser-worker materialization and
+  multi-pass ETL-style benchmarks for Glaze, using reflected row structs with
+  native numeric deserialization for the aggregation fields.
 - `dataframe_rapidcsv_roundtrip_bench`: table/round-trip-oriented benchmarks
   comparing this library's `DataFrame` workflow with `rapidcsv`, including
   load-only and edited full round-trip cases.
@@ -72,8 +80,13 @@ work, provide local include directories instead:
 ```powershell
 cmake -S benchmarks -B build/benchmarks `
   -DFAST_CPP_CSV_PARSER_INCLUDE_DIR=C:/src/fast-cpp-csv-parser `
+  -DGLAZE_INCLUDE_DIR=C:/src/glaze/include `
   -DRAPIDCSV_INCLUDE_DIR=C:/src/rapidcsv/src
 ```
+
+The Glaze benchmark targets are compiled with C++23 flags because current Glaze
+headers use C++23 library facilities. The rest of the benchmark project remains
+configured as C++20.
 
 ## Datasets
 
@@ -111,6 +124,7 @@ build/benchmarks/Release/csv_parser_multi_pass_bench.exe --benchmark_format=json
 build/benchmarks/Release/csv_parser_fast_cpp_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/fast_cpp_csv_parser_read_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/fast_cpp_csv_parser_multi_pass_bench.exe --benchmark_format=json data/bench_8col_500k.csv
+build/benchmarks/Release/glaze_csv_multi_pass_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 build/benchmarks/Release/dataframe_rapidcsv_roundtrip_bench.exe --benchmark_format=json data/bench_8col_500k.csv
 ```
 
@@ -167,7 +181,8 @@ faster on the materialize and materialize+multi-pass workloads shown below, and
 it supports multiline CSV files that `fast-cpp-csv-parser` cannot parse.
 
 One more important point: the materialization and multi-pass ETL comparisons
-below are intentionally single-threaded to stay as apples-to-apples as possible.
+below are intentionally single-parser-worker runs to stay as apples-to-apples
+as possible.
 In real use, `fast-cpp-csv-parser` stops at parsing. The caller owns row
 materialization, repeated-pass analysis, and any thread-pool or chunk-parallel
 orchestration.
@@ -181,25 +196,42 @@ Median real time, 8-column datasets.
 
 | Dataset | csv-parser count | fast-cpp count | csv-parser read | fast-cpp read |
 | --- | ---: | ---: | ---: | ---: |
-| 500K clean | 148.1 ms | 82.2 ms | 154.0 ms | 83.0 ms |
-| 500K quoted | 199.5 ms | 115.7 ms | 219.7 ms | 117.6 ms |
-| 5M clean | 1,507 ms | 889.1 ms | 1,680 ms | 961.1 ms |
-| 5M quoted | 1,961 ms | 1,156 ms | 2,221 ms | 1,152 ms |
+| 500K clean | 146.5 ms | 81.8 ms | 164.9 ms | 82.8 ms |
+| 500K quoted | 197.2 ms | 118.8 ms | 223.5 ms | 136.2 ms |
+| 5M clean | 547.6 ms | 881.5 ms | 1,087 ms | 944.2 ms |
+| 5M quoted | 665.4 ms | 1,153 ms | 1,140 ms | 1,164 ms |
 
-That is the honest "bytes in, rows out" picture: `fast-cpp-csv-parser` wins
-these raw throughput tests on the inputs it supports.
+That is the honest "bytes in, rows out" picture. `fast-cpp-csv-parser` wins
+the smaller raw throughput tests on the inputs it supports, while the mmap path
+is faster on the current 5M-row count runs.
 
 It is also worth noting that `csv-parser` supports a more dynamic row model by
 default. If users choose positional access, which is much closer to the access
-pattern `fast-cpp-csv-parser` effectively pushes users toward, the speculative
-parallel mmap path changes the picture:
+pattern `fast-cpp-csv-parser` effectively pushes users toward, the mmap path
+changes the picture. In this table, `csv-parser SPSC` means one background
+producer/parser worker feeding the foreground consumer through the reader queue;
+`spec-N` means speculative parallel parsing with N parser workers.
+`fast-cpp-csv-parser SPSC` means its default background block reader plus one
+foreground parser.
 
-| Dataset | csv-parser 1 thread | csv-parser 2 threads | csv-parser 4 threads | csv-parser 8 threads | fast-cpp read |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 500K clean | 157.3 ms | 108.6 ms | 75.4 ms | 74.0 ms | 84.3 ms |
-| 500K quoted | 214.9 ms | 117.5 ms | 86.8 ms | 83.6 ms | 119.8 ms |
-| 5M clean | 1,722 ms | 941.9 ms | 743.7 ms | 699.5 ms | 950.4 ms |
-| 5M quoted | 2,059 ms | 1,131 ms | 887.1 ms | 824.2 ms | 1,193 ms |
+New runs of `csv_parser_fast_cpp_read_bench` also include
+`csv_parser_no_background_thread_read_8col`, which disables the background
+`CSVReader` worker at runtime.
+
+The no-background-thread result is useful for constrained environments and
+extremely cheap caller loops. If user code does almost nothing per row, the
+background producer/consumer layer has little downstream work to hide and may
+not improve raw throughput. The SPSC-style mode is still the better default for
+general use because it decouples parser progress from caller-side work, and it
+helps speculative parsing keep the parser side busy while the foreground
+consumer performs conversions, filtering, aggregation, or other row handling.
+
+| Dataset | csv-parser no background | csv-parser SPSC | csv-parser spec-2 | csv-parser spec-4 | csv-parser spec-8 | fast-cpp SPSC read |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 500K clean | 155.4 ms | 154.5 ms | 123.9 ms | 76.6 ms | 77.7 ms | 88.0 ms |
+| 500K quoted | 192.9 ms | 196.3 ms | 117.6 ms | 89.3 ms | 83.1 ms | 119.1 ms |
+| 5M clean | 1,390 ms | 1,442 ms | 975.8 ms | 702.2 ms | 605.0 ms | 915.1 ms |
+| 5M quoted | 1,712 ms | 1,889 ms | 1,331 ms | 977.0 ms | 819.9 ms | 1,320 ms |
 
 That is the core performance story for modern `csv-parser`: positional reads
 scale with worker threads and overtake `fast-cpp-csv-parser` by 4 threads on
@@ -210,44 +242,100 @@ these clean and quoted runs.
 This table compares the one-pass row materialization benchmarks:
 
 - `csv-parser`: `materialize_csvrow_8col`
-- `fast-cpp-csv-parser`: `materialize_array_8col`
+- `fast-cpp-csv-parser`: `materialize_struct_8col`
 
 Lower is better.
 
 | Dataset | csv-parser | fast-cpp-csv-parser | Winner |
 | --- | ---: | ---: | --- |
-| 500K clean | 154.4 ms | 273.0 ms | csv-parser |
-| 500K quoted | 215.6 ms | 310.5 ms | csv-parser |
-| 500K multiline | 204.4 ms | unsupported | csv-parser |
-| 5M clean | 1,839 ms | 2,511 ms | csv-parser |
-| 5M quoted | 2,190 ms | 3,023 ms | csv-parser |
-| 5M multiline | 2,182 ms | unsupported | csv-parser |
+| 500K clean | 156.8 ms | 218.8 ms | csv-parser |
+| 500K quoted | 211.1 ms | 301.9 ms | csv-parser |
+| 500K multiline | 207.4 ms | unsupported | csv-parser |
+| 5M clean | 739.6 ms | 2,105 ms | csv-parser |
+| 5M quoted | 930.6 ms | 2,489 ms | csv-parser |
+| 5M multiline | 827.1 ms | unsupported | csv-parser |
 
 ### Materialize + Aggregation Throughput
 
 This table compares the closest apples-to-apples ETL benchmark:
 
 - `csv-parser`: `materialize_and_multi_pass_csvrow_8col`
-- `fast-cpp-csv-parser`: `materialize_and_multi_pass_array_8col`
+- `fast-cpp-csv-parser`: `materialize_and_multi_pass_struct_8col`
 
 Lower is better.
 
 | Dataset | csv-parser | fast-cpp-csv-parser | Winner |
 | --- | ---: | ---: | --- |
-| 500K clean | 196.3 ms | 298.5 ms | csv-parser |
-| 500K quoted | 261.0 ms | 335.5 ms | csv-parser |
-| 500K multiline | 240.4 ms | unsupported | csv-parser |
-| 5M clean | 2,224 ms | 2,681 ms | csv-parser |
-| 5M quoted | 2,692 ms | 3,230 ms | csv-parser |
-| 5M multiline | 2,689 ms | unsupported | csv-parser |
+| 500K clean | 215.4 ms | 237.1 ms | csv-parser |
+| 500K quoted | 262.9 ms | 280.7 ms | csv-parser |
+| 500K multiline | 287.5 ms | unsupported | csv-parser |
+| 5M clean | 1,251 ms | 2,252 ms | csv-parser |
+| 5M quoted | 1,517 ms | 3,090 ms | csv-parser |
+| 5M multiline | 1,372 ms | unsupported | csv-parser |
 
 ### Takeaway
 
-- `fast-cpp-csv-parser` is still faster for single-thread raw count/read loops.
+- `fast-cpp-csv-parser` is still a strong single-parser-worker raw-read
+  baseline on the inputs it supports.
 - `csv-parser` wins the positional-read comparison once 4 parser workers are
   available.
 - `csv-parser` wins the materialization and ETL-style tables above.
 - `csv-parser` handles quoted line breaks; `fast-cpp-csv-parser` does not.
+
+## csv-parser vs Glaze
+
+Glaze was added because its reflected struct API is a natural comparison point
+for users who want typed CSV deserialization. Its CSV reader is much smaller and
+simpler than csv-parser's parser core, which is a reasonable tradeoff for a
+general serialization library. These results measure a mixed workload with
+strings, quoted fields, numeric fields, and row-oriented access. A dense
+number-heavy CSV may move the relative numbers, but this mixed workload is a
+realistic target for csv-parser.
+
+### Raw Mixed Read Throughput
+
+This table comes from the same `csv_parser_fast_cpp_read_bench` bundle used in
+the fast-cpp comparison. It reports positional string access for csv-parser,
+caller-owned strings for `fast-cpp-csv-parser`, and reflected row structs for
+Glaze.
+
+| Dataset | csv-parser no background | csv-parser SPSC | csv-parser spec-8 | Glaze read |
+| --- | ---: | ---: | ---: | ---: |
+| 500K clean | 155.4 ms | 154.5 ms | 77.7 ms | 243.0 ms |
+| 500K quoted | 192.9 ms | 196.3 ms | 83.1 ms | 302.5 ms |
+| 5M clean | 1,390 ms | 1,442 ms | 605.0 ms | 2,418 ms |
+| 5M quoted | 1,712 ms | 1,889 ms | 819.9 ms | 3,122 ms |
+
+### Materialization Throughput
+
+This table compares one-pass materialization into each library's natural row
+representation:
+
+- `csv-parser`: reusable `CSVRow` objects backed by parser-owned row data
+- Glaze: reflected row structs through `glz::read<glz::opts_csv>`
+
+| Dataset | csv-parser | Glaze | Winner |
+| --- | ---: | ---: | --- |
+| 500K clean | 156.8 ms | 209.8 ms | csv-parser |
+| 500K quoted | 211.1 ms | 267.1 ms | csv-parser |
+| 500K multiline | 207.4 ms | 282.9 ms | csv-parser |
+| 5M clean | 739.6 ms | 1,972 ms | csv-parser |
+| 5M quoted | 930.6 ms | 2,930 ms | csv-parser |
+| 5M multiline | 827.1 ms | 2,492 ms | csv-parser |
+
+### Materialize + Aggregation Throughput
+
+Both libraries use their own numeric conversion/deserialization paths for the
+numeric fields in this benchmark.
+
+| Dataset | csv-parser | Glaze | Winner |
+| --- | ---: | ---: | --- |
+| 500K clean | 215.4 ms | 232.6 ms | csv-parser |
+| 500K quoted | 262.9 ms | 283.1 ms | csv-parser |
+| 500K multiline | 287.5 ms | 287.7 ms | effectively tied |
+| 5M clean | 1,251 ms | 2,084 ms | csv-parser |
+| 5M quoted | 1,517 ms | 3,381 ms | csv-parser |
+| 5M multiline | 1,372 ms | 2,649 ms | csv-parser |
 
 ## csv-parser vs rapidcsv
 
@@ -266,9 +354,9 @@ Median real time, lower is better.
 
 | Dataset | csv-parser load | rapidcsv load | csv-parser load+save | rapidcsv load+save |
 | --- | ---: | ---: | ---: | ---: |
-| clean | 153.6 ms | 249.8 ms | 314.2 ms | 722.6 ms |
-| quoted | 215.6 ms | 320.2 ms | 404.9 ms | 909.7 ms |
-| multiline | 215.6 ms | 319.8 ms | 393.0 ms | 908.4 ms |
+| clean | 156.7 ms | 244.7 ms | 310.5 ms | 683.0 ms |
+| quoted | 211.6 ms | 330.1 ms | 409.8 ms | 890.5 ms |
+| multiline | 220.4 ms | 325.2 ms | 412.7 ms | 905.8 ms |
 
 ### 5M Rows
 
@@ -276,9 +364,9 @@ Median real time, lower is better.
 
 | Dataset | csv-parser load | rapidcsv load | csv-parser load+save | rapidcsv load+save |
 | --- | ---: | ---: | ---: | ---: |
-| clean | 1,837 ms | 2,629 ms | 3,356 ms | 7,503 ms |
-| quoted | 2,270 ms | 3,468 ms | 4,026 ms | 9,596 ms |
-| multiline | 2,225 ms | 3,402 ms | 3,941 ms | 9,498 ms |
+| clean | 666.3 ms | 2,587 ms | 2,070 ms | 7,140 ms |
+| quoted | 951.6 ms | 3,450 ms | 2,910 ms | 10,425 ms |
+| multiline | 771.1 ms | 3,494 ms | 2,515 ms | 8,987 ms |
 
 ### Headline Ratios
 
@@ -286,11 +374,11 @@ Some representative median ratios:
 
 | Workflow | Dataset | Result |
 | --- | --- | ---: |
-| Load | 500K clean | csv-parser 1.63x faster |
-| Load+save | 500K quoted | csv-parser 2.25x faster |
-| Load | 5M multiline | csv-parser 1.53x faster |
-| Load+save | 5M clean | csv-parser 2.24x faster |
-| Load+save | 5M quoted | csv-parser 2.38x faster |
+| Load | 500K clean | csv-parser 1.56x faster |
+| Load+save | 500K quoted | csv-parser 2.17x faster |
+| Load | 5M multiline | csv-parser 4.53x faster |
+| Load+save | 5M clean | csv-parser 3.45x faster |
+| Load+save | 5M quoted | csv-parser 3.58x faster |
 
 ## Notes On Interpretation
 
@@ -326,7 +414,11 @@ Each profile directory may contain:
   git
 - `csv_parser_read_bench.json`
 - `csv_parser_multi_pass_bench.json`
-- `csv_parser_fast_cpp_read_bench.json` where applicable
+- `csv_parser_fast_cpp_read_bench.json` where applicable; includes the
+  side-by-side csv-parser, fast-cpp-csv-parser, and Glaze read comparison when
+  those dependencies are available
 - `fast_cpp_csv_parser_read_bench.json` where applicable
 - `fast_cpp_csv_parser_multi_pass_bench.json` where applicable
+- `glaze_csv_read_bench.json` where applicable
+- `glaze_csv_multi_pass_bench.json` where applicable
 - `dataframe_rapidcsv_roundtrip_bench.json`

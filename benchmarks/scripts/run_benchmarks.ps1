@@ -160,6 +160,7 @@ $benches = @(
     "csv_parser_fast_cpp_read_bench",
     "fast_cpp_csv_parser_read_bench",
     "fast_cpp_csv_parser_multi_pass_bench",
+    "glaze_csv_multi_pass_bench",
     "dataframe_rapidcsv_roundtrip_bench"
 )
 
@@ -179,6 +180,10 @@ foreach ($datasetSpec in $datasetSpecs) {
         "fast_cpp_csv_parser_read_bench.json.tmp",
         "fast_cpp_csv_parser_multi_pass_bench.json",
         "fast_cpp_csv_parser_multi_pass_bench.json.tmp",
+        "glaze_csv_read_bench.json",
+        "glaze_csv_read_bench.json.tmp",
+        "glaze_csv_multi_pass_bench.json",
+        "glaze_csv_multi_pass_bench.json.tmp",
         "dataframe_rapidcsv_roundtrip_bench.json",
         "dataframe_rapidcsv_roundtrip_bench.json.tmp"
     )) {

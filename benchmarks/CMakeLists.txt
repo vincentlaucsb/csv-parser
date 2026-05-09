@@ -8,10 +8,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(CSV_BENCH_FETCH_GOOGLE_BENCHMARK "Fetch Google Benchmark if it is not installed" ON)
 option(CSV_BENCH_FETCH_FAST_CPP_CSV_PARSER "Fetch fast-cpp-csv-parser if no include dir is provided" ON)
 option(CSV_BENCH_FETCH_RAPIDCSV "Fetch rapidcsv if no include dir is provided" ON)
+option(CSV_BENCH_FETCH_GLAZE "Fetch Glaze if no include dir is provided" ON)
 option(CSV_BENCH_SMOKE_ONLY "Build only the csv-parser diagnostic smoke target" OFF)
 
 set(FAST_CPP_CSV_PARSER_INCLUDE_DIR "" CACHE PATH "Path containing fast-cpp-csv-parser csv.h")
 set(RAPIDCSV_INCLUDE_DIR "" CACHE PATH "Path containing rapidcsv.h")
+set(GLAZE_INCLUDE_DIR "" CACHE PATH "Path containing the glaze include directory")
 
 include(FetchContent)
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL "Do not update already-populated benchmark dependencies" FORCE)
@@ -49,6 +51,18 @@ target_link_libraries(csv_parser_read_bench PRIVATE csv benchmark::benchmark)
 add_executable(csv_parser_multi_pass_bench csv_parser_multi_pass_bench.cpp)
 target_link_libraries(csv_parser_multi_pass_bench PRIVATE csv benchmark::benchmark)
 
+function(csv_bench_enable_cxx23 target)
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.20)
+        set_target_properties(${target} PROPERTIES
+            CXX_STANDARD 23
+            CXX_STANDARD_REQUIRED ON
+        )
+    elseif(MSVC)
+        target_compile_options(${target} PRIVATE /std:c++latest)
+    else()
+        target_compile_options(${target} PRIVATE -std=c++23)
+    endif()
+endfunction()
 
 if(NOT FAST_CPP_CSV_PARSER_INCLUDE_DIR)
     set(_FAST_CPP_CSV_PARSER_FETCHED_DIR "${CMAKE_BINARY_DIR}/_deps/fast_cpp_csv_parser-src")
@@ -81,6 +95,43 @@ if(FAST_CPP_CSV_PARSER_INCLUDE_DIR)
     target_link_libraries(csv_parser_fast_cpp_read_bench PRIVATE csv benchmark::benchmark)
 else()
     message(STATUS "Skipping fast-cpp-csv-parser benchmarks; set FAST_CPP_CSV_PARSER_INCLUDE_DIR or enable fetching.")
+endif()
+
+if(NOT GLAZE_INCLUDE_DIR)
+    set(_GLAZE_FETCHED_DIR "${CMAKE_BINARY_DIR}/_deps/glaze-src/include")
+    if(EXISTS "${_GLAZE_FETCHED_DIR}/glaze/csv.hpp")
+        set(GLAZE_INCLUDE_DIR "${_GLAZE_FETCHED_DIR}")
+    endif()
+endif()
+
+if(NOT GLAZE_INCLUDE_DIR AND CSV_BENCH_FETCH_GLAZE)
+    FetchContent_Declare(
+        glaze
+        GIT_REPOSITORY https://github.com/stephenberry/glaze.git
+        GIT_TAG v7.5.0
+    )
+    FetchContent_MakeAvailable(glaze)
+    set(GLAZE_INCLUDE_DIR "${glaze_SOURCE_DIR}/include")
+endif()
+
+if(GLAZE_INCLUDE_DIR)
+    if(TARGET csv_parser_fast_cpp_read_bench)
+        target_include_directories(csv_parser_fast_cpp_read_bench PRIVATE "${GLAZE_INCLUDE_DIR}")
+        target_compile_definitions(csv_parser_fast_cpp_read_bench PRIVATE CSV_BENCH_HAS_GLAZE=1)
+        csv_bench_enable_cxx23(csv_parser_fast_cpp_read_bench)
+    endif()
+
+    add_executable(glaze_csv_read_bench glaze_csv_read_bench.cpp)
+    target_include_directories(glaze_csv_read_bench PRIVATE "${GLAZE_INCLUDE_DIR}")
+    target_link_libraries(glaze_csv_read_bench PRIVATE benchmark::benchmark)
+    csv_bench_enable_cxx23(glaze_csv_read_bench)
+
+    add_executable(glaze_csv_multi_pass_bench glaze_csv_multi_pass_bench.cpp)
+    target_include_directories(glaze_csv_multi_pass_bench PRIVATE "${GLAZE_INCLUDE_DIR}")
+    target_link_libraries(glaze_csv_multi_pass_bench PRIVATE benchmark::benchmark)
+    csv_bench_enable_cxx23(glaze_csv_multi_pass_bench)
+else()
+    message(STATUS "Skipping Glaze CSV benchmarks; set GLAZE_INCLUDE_DIR or enable fetching.")
 endif()
 
 if(NOT RAPIDCSV_INCLUDE_DIR)

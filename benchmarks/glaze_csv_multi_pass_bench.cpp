@@ -1,6 +1,5 @@
 #include "bench_common.hpp"
-
-#include <csv.h>
+#include "glaze_csv_bench_common.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -11,61 +10,11 @@
 #include <vector>
 
 namespace {
-    using quoted_csv_reader = io::CSVReader<
-        8,
-        io::trim_chars<' '>,
-        io::double_quote_escape<',', '"'>
-    >;
-
-    struct materialized_row {
-        std::string id;
-        std::string city;
-        std::string state;
-        std::string category;
-        std::uint64_t amount;
-        std::uint64_t quantity;
-        std::string flag;
-        std::string note;
-    };
-
     const std::string& bench_file() {
         return csv_bench::input_path();
     }
 
-    std::vector<materialized_row> materialize_fast_cpp_rows(const std::string& path) {
-        quoted_csv_reader reader(path.c_str());
-        reader.read_header(
-            io::ignore_extra_column,
-            "id",
-            "city",
-            "state",
-            "category",
-            "amount",
-            "quantity",
-            "flag",
-            "note"
-        );
-
-        std::vector<materialized_row> rows;
-        materialized_row row;
-
-        while (reader.read_row(
-            row.id,
-            row.city,
-            row.state,
-            row.category,
-            row.amount,
-            row.quantity,
-            row.flag,
-            row.note
-        )) {
-            rows.push_back(row);
-        }
-
-        return rows;
-    }
-
-    std::uint64_t run_fast_cpp_multi_pass_etl(const std::vector<materialized_row>& rows) {
+    std::uint64_t run_glaze_multi_pass_etl(const std::vector<csv_bench::glaze_typed_row>& rows) {
         std::uint64_t amount_sum = 0;
         for (const auto& row : rows) {
             amount_sum += row.amount;
@@ -103,13 +52,18 @@ namespace {
         return amount_sum + quantity_sum + enabled_count + text_checksum + category_checksum;
     }
 
-    void BM_fast_cpp_csv_parser_materialize_struct_8col(benchmark::State& state) {
+    void BM_glaze_csv_materialize_struct_8col(benchmark::State& state) {
         const auto& path = bench_file();
         const auto bytes = std::filesystem::file_size(path);
         std::size_t rows = 0;
 
         for (auto _ : state) {
-            auto materialized = materialize_fast_cpp_rows(path);
+            const auto buffer = csv_bench::read_file_to_string(path);
+            std::vector<csv_bench::glaze_typed_row> materialized;
+            const auto error = glz::read<csv_bench::glaze_csv_options>(materialized, buffer);
+            if (error) {
+                throw std::runtime_error("Glaze CSV read failed");
+            }
             rows = materialized.size();
             benchmark::DoNotOptimize(materialized.data());
             benchmark::ClobberMemory();
@@ -119,13 +73,18 @@ namespace {
         csv_bench::set_bytes_processed(state, bytes);
     }
 
-    void BM_fast_cpp_csv_parser_multi_pass_struct_8col(benchmark::State& state) {
+    void BM_glaze_csv_multi_pass_struct_8col(benchmark::State& state) {
         const auto& path = bench_file();
         const auto bytes = std::filesystem::file_size(path);
-        const auto rows = materialize_fast_cpp_rows(path);
+        const auto buffer = csv_bench::read_file_to_string(path);
+        std::vector<csv_bench::glaze_typed_row> rows;
+        const auto error = glz::read<csv_bench::glaze_csv_options>(rows, buffer);
+        if (error) {
+            throw std::runtime_error("Glaze CSV read failed");
+        }
 
         for (auto _ : state) {
-            const auto checksum = run_fast_cpp_multi_pass_etl(rows);
+            const auto checksum = run_glaze_multi_pass_etl(rows);
 
             benchmark::DoNotOptimize(checksum);
             benchmark::ClobberMemory();
@@ -135,16 +94,21 @@ namespace {
         csv_bench::set_bytes_processed(state, bytes);
     }
 
-    void BM_fast_cpp_csv_parser_materialize_and_multi_pass_struct_8col(benchmark::State& state) {
+    void BM_glaze_csv_materialize_and_multi_pass_struct_8col(benchmark::State& state) {
         const auto& path = bench_file();
         const auto bytes = std::filesystem::file_size(path);
         std::size_t rows = 0;
 
         for (auto _ : state) {
-            auto materialized = materialize_fast_cpp_rows(path);
+            const auto buffer = csv_bench::read_file_to_string(path);
+            std::vector<csv_bench::glaze_typed_row> materialized;
+            const auto error = glz::read<csv_bench::glaze_csv_options>(materialized, buffer);
+            if (error) {
+                throw std::runtime_error("Glaze CSV read failed");
+            }
             rows = materialized.size();
 
-            const auto checksum = run_fast_cpp_multi_pass_etl(materialized);
+            const auto checksum = run_glaze_multi_pass_etl(materialized);
 
             benchmark::DoNotOptimize(checksum);
             benchmark::ClobberMemory();
@@ -154,9 +118,9 @@ namespace {
         csv_bench::set_bytes_processed(state, bytes);
     }
 
-    BENCHMARK(BM_fast_cpp_csv_parser_materialize_struct_8col)->UseRealTime()->Unit(benchmark::kMillisecond);
-    BENCHMARK(BM_fast_cpp_csv_parser_multi_pass_struct_8col)->UseRealTime()->Unit(benchmark::kMillisecond);
-    BENCHMARK(BM_fast_cpp_csv_parser_materialize_and_multi_pass_struct_8col)->UseRealTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_glaze_csv_materialize_struct_8col)->UseRealTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_glaze_csv_multi_pass_struct_8col)->UseRealTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_glaze_csv_materialize_and_multi_pass_struct_8col)->UseRealTime()->Unit(benchmark::kMillisecond);
 }
 
 CSV_BENCHMARK_MAIN()

@@ -48,6 +48,20 @@ TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
 
     }
 
+    SECTION("Iterator Compound Arithmetic and Distance") {
+        auto it = row.begin();
+
+        it += 2;
+        REQUIRE(it->get<>() == "345");
+        REQUIRE(it - row.begin() == 2);
+        REQUIRE(row.end() - it == 1);
+
+        it -= 1;
+        REQUIRE(it->get<>() == "234");
+        REQUIRE(it - row.begin() == 1);
+        REQUIRE(row.begin() - it == -1);
+    }
+
     SECTION("Post-Increment Iterator") {
         auto it = row.begin();
 
