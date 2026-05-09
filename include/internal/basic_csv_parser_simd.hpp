@@ -15,6 +15,7 @@
  *  sequences (values > 0x7F) are never misidentified as special.
  */
 #include <array>
+#include <cstdint>
 
 #include "common.hpp"
 
@@ -22,6 +23,8 @@
 #define CSV_SIMD_AVX2 1
 #elif !defined(CSV_NO_SIMD) && (defined(__SSE2__) || (defined(_MSC_VER) && (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2))))
 #define CSV_SIMD_SSE2 1
+#elif !defined(CSV_NO_SIMD) && (defined(__ARM_NEON) || defined(__ARM_NEON__) || defined(__aarch64__) || defined(_M_ARM64))
+#define CSV_SIMD_NEON 1
 #endif
 
 #if defined(CSV_SIMD_AVX2) || defined(CSV_SIMD_SSE2)
@@ -34,6 +37,14 @@
 #    define CSV_TZCNT32(x) _tzcnt_u32(x)
 #  else
 #    define CSV_TZCNT32(x) static_cast<unsigned>(__builtin_ctz(x))
+#  endif
+#endif
+
+#if defined(CSV_SIMD_NEON)
+#  if defined(_MSC_VER)
+#    include <arm64_neon.h>
+#  else
+#    include <arm_neon.h>
 #  endif
 #endif
 
@@ -122,6 +133,34 @@ namespace csv {
 
                 if (mask != 0)
                     return pos + CSV_TZCNT32(static_cast<unsigned>(mask));
+                pos += 16;
+            }
+#elif defined(CSV_SIMD_NEON)
+            const uint8x16_t v_delim = vld1q_u8(reinterpret_cast<const uint8_t*>(sentinels.v_delim.data()));
+            const uint8x16_t v_quote = vld1q_u8(reinterpret_cast<const uint8_t*>(sentinels.v_quote.data()));
+            const uint8x16_t v_lf    = vld1q_u8(reinterpret_cast<const uint8_t*>(sentinels.v_lf.data()));
+            const uint8x16_t v_cr    = vld1q_u8(reinterpret_cast<const uint8_t*>(sentinels.v_cr.data()));
+
+            while (pos + 16 <= data.size()) {
+                const uint8x16_t bytes = vld1q_u8(reinterpret_cast<const uint8_t*>(data.data() + pos));
+                uint8x16_t special     = vceqq_u8(bytes, v_delim);
+                special                = vorrq_u8(special, vceqq_u8(bytes, v_quote));
+                special                = vorrq_u8(special, vceqq_u8(bytes, v_lf));
+                special                = vorrq_u8(special, vceqq_u8(bytes, v_cr));
+
+#if defined(__aarch64__) || defined(_M_ARM64)
+                if (vmaxvq_u8(special) == 0) {
+                    pos += 16;
+                    continue;
+                }
+#endif
+
+                uint8_t lanes[16];
+                vst1q_u8(lanes, special);
+                for (size_t i = 0; i < 16; ++i) {
+                    if (lanes[i] != 0)
+                        return pos + i;
+                }
                 pos += 16;
             }
 #else

@@ -57,7 +57,7 @@ else()
 	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=0)
 endif()
 
-if(MSVC AND NOT CSV_NO_SIMD)
+if(MSVC AND NOT CSV_NO_SIMD AND CSV_TARGET_X86)
 	target_compile_options(csv PUBLIC /arch:AVX2)
 endif()
 
