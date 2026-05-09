@@ -195,3 +195,24 @@ TEST_CASE("ColNames - duplicate column names: last index wins", "[col_names][edg
     REQUIRE(cn.index_of("dup") == 2);
     REQUIRE(cn.index_of("other") == 1);
 }
+
+TEST_CASE("ColNames - index_of accepts non-NUL-terminated string_view", "[col_names][edge_cases]") {
+    // Regression: index_of used to look up via col_name.data(), which is
+    // implicitly converted to std::string by scanning to a NUL byte. When the
+    // string_view is a slice of a larger buffer with no NUL at view.end(),
+    // the lookup reads past the view and resolves to the wrong (or nonexistent)
+    // column.
+    ColNames cn({"Name", "Age"});
+
+    const std::string buf = "NameAge";
+    // sv covers only "Name" (4 bytes), but buf.data() continues into "Age\0".
+    csv::string_view sv(buf.data(), 4);
+    REQUIRE(cn.index_of(sv) == 0);
+
+    // Same construction under the case-insensitive policy is already correct;
+    // pin it so a future refactor cannot regress that branch either.
+    ColNames cn_ci;
+    cn_ci.set_policy(ColumnNamePolicy::CASE_INSENSITIVE);
+    cn_ci.set_col_names({"Name", "Age"});
+    REQUIRE(cn_ci.index_of(sv) == 0);
+}
