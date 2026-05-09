@@ -117,6 +117,31 @@ namespace csv {
         constexpr explicit CSVField(csv::string_view _sv) noexcept
             : sv(_sv.data() ? _sv : csv::string_view("")) {}
 
+        CSVField(csv::string_view _sv, const internals::CSVFieldScalar& scalar) noexcept
+            : sv(_sv.data() ? _sv : csv::string_view("")),
+              type_(scalar.type) {
+            switch (scalar.type) {
+            case DataType::CSV_INT8:
+            case DataType::CSV_INT16:
+            case DataType::CSV_INT32:
+            case DataType::CSV_INT64:
+                this->value_.integer = scalar.integer;
+                break;
+            case DataType::CSV_DOUBLE:
+            case DataType::CSV_BIGINT:
+                this->value_.floating = scalar.floating;
+                break;
+            case DataType::CSV_TIMESTAMP:
+                this->value_.timestamp = scalar.timestamp;
+                break;
+            case DataType::CSV_BOOL:
+                this->value_.boolean = scalar.boolean;
+                break;
+            default:
+                break;
+            }
+        }
+
         operator csv::string_view() const noexcept {
             return this->sv;
         }
@@ -685,6 +710,8 @@ namespace csv {
 
             return field_str;
         }
+
+        CSVField make_field(size_t index, const internals::RawCSVDataPtr& _data) const;
 
         /** Retrieve a string view corresponding to the specified index */
         csv::string_view get_field(size_t index) const;

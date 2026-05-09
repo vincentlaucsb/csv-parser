@@ -173,6 +173,16 @@ namespace csv {
             return *this;
         }
 
+        /** Enable parser-time scalar classification for typed consumers.
+         *
+         *  Disabled by default so normal string-only parsing keeps the historical
+         *  lazy classification cost model.
+         */
+        CONSTEXPR_14 CSVFormat& eager_field_classification(bool enabled = true) {
+            this->_eager_field_classification = enabled;
+            return *this;
+        }
+
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
         char get_delim() const {
             // This error should never be received by end users.
@@ -201,6 +211,7 @@ namespace csv {
         }
         CONSTEXPR size_t get_speculative_parallel_threads() const { return this->_speculative_parallel_threads; }
         CONSTEXPR size_t get_speculative_parallel_min_bytes() const { return this->_speculative_parallel_min_bytes; }
+        CONSTEXPR bool is_eager_field_classification_enabled() const { return this->_eager_field_classification; }
         CONSTEXPR bool should_use_speculative_parallel(size_t source_size, size_t n_threads) const {
 #if CSV_ENABLE_THREADS
             return this->_threading
@@ -281,5 +292,8 @@ namespace csv {
 
         /**< Minimum source size before speculative parallel parsing is considered */
         size_t _speculative_parallel_min_bytes = internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES;
+
+        /**< Whether to precompute field scalar classifications during parsing */
+        bool _eager_field_classification = false;
     };
 }

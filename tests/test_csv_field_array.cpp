@@ -2,6 +2,7 @@
 #include <future>
 
 #include "csv.hpp"
+#include "internal/memory/field_scalar_list.hpp"
 
 using namespace csv;
 using namespace csv::internals;
@@ -28,6 +29,26 @@ TEST_CASE("Test Dynamic RawCSVFieldArray - Emplace Back", "[test_dynamic_array_e
         // Check for potential data corruption
         REQUIRE(arr[i].start == i);
         REQUIRE(arr[i].length == i + offset);
+    }
+}
+
+TEST_CASE("CSVFieldScalarList keeps scalar values stable across block growth", "[test_scalar_list]") {
+    memory::CSVFieldScalarList scalars(3);
+
+    for (size_t i = 0; i < 100; ++i) {
+        CSVFieldScalar scalar;
+        scalar.type = DataType::CSV_INT64;
+        scalar.integer = static_cast<std::int64_t>(i * 10);
+        scalars.emplace_back(scalar);
+
+        REQUIRE(scalars.size() == i + 1);
+        REQUIRE(scalars[i].type == DataType::CSV_INT64);
+        REQUIRE(scalars[i].integer == static_cast<std::int64_t>(i * 10));
+    }
+
+    for (size_t i = 0; i < 100; ++i) {
+        REQUIRE(scalars[i].type == DataType::CSV_INT64);
+        REQUIRE(scalars[i].integer == static_cast<std::int64_t>(i * 10));
     }
 }
 

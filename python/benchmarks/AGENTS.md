@@ -1,11 +1,11 @@
 # Python Benchmark Agent Context
 
 This directory contains Python-side benchmark helpers, including
-`compare_readers.py`.
+`compare_readers.py`, `compare_eda.py`, and `compare_filter.py`.
 
 ## Building `csvpy`
 
-`compare_readers.py` expects the pybind11 `csvpy` extension to be built for the
+`compare_readers.py` expects the nanobind `csvpy` extension to be built for the
 same Python interpreter used to run the script. From the repository root:
 
 ```powershell
@@ -27,9 +27,9 @@ To force a specific interpreter, configure the main build with:
 cmake -S . -B build/x64-Release -DCSVPY_BOOTSTRAP_PYTHON_EXECUTABLE=C:/Python314/python.exe
 ```
 
-The `csvpy` build fetches pybind11 with CMake `FetchContent` only when the
+The `csvpy` build fetches nanobind with CMake `FetchContent` only when the
 Python binding is requested. A normal C++ library/test build does not require
-the pybind11 checkout.
+the nanobind checkout.
 
 If the target is missing, re-run CMake generation for the main build:
 
@@ -46,10 +46,30 @@ built `csvpy` extension and errors clearly if it is missing:
 python python/benchmarks/compare_readers.py path/to/input.csv
 ```
 
-The benchmark matrix compares stdlib `csv.reader`, `csvpy.reader` with strings,
-`csvpy.reader` with `cast=True`, stdlib `csv.DictReader`, and `csvpy.DictReader`
-with both string and casted values. Keep DataFrame/Table libraries out of this
-script unless the benchmark explicitly normalizes outputs first.
+For EDA wall-time and memory comparisons against pandas with the pyarrow CSV
+engine:
+
+```powershell
+python python/benchmarks/compare_eda.py path/to/input.csv
+```
+
+`compare_eda.py` launches each workload in a fresh Python process and samples
+peak resident/working-set memory. The csvpy side uses the bounded approximate
+top-value sketch by default; pass `--csvpy-exact-values` only when exact
+histograms are required.
+
+For a streaming filter/subset comparison against pyarrow, defaulting to the
+Craigslist Used Cars `region == "el paso"` workload:
+
+```powershell
+python python/benchmarks/compare_filter.py path/to/vehicles.csv
+```
+
+The benchmark matrix compares stdlib `csv.reader`, lazy `csvpy.reader` rows with
+strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`, and
+`csvpy.DictReader` with both string and casted values. Keep DataFrame/Table
+libraries out of this script unless the benchmark explicitly normalizes outputs
+first.
 
 Use the same Python version that built `csvpy`. A `cp310` extension, for
 example, will not import under Python 3.14.

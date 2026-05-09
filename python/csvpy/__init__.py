@@ -11,8 +11,9 @@ from .csvpy import (
     get_file_info,
     parse,
     parse_no_header,
+    read_numpy,
 )
-from .compat import DictReader, reader
+from .compat import DictReader, reader, rows
 
 __all__ = [
     "CSVFileInfo",
@@ -28,5 +29,7 @@ __all__ = [
     "get_file_info",
     "parse",
     "parse_no_header",
+    "read_numpy",
     "reader",
+    "rows",
 ]

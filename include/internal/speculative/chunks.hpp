@@ -149,8 +149,9 @@ namespace csv {
             return result;
         }
 
+        template<typename Parser>
         inline std::vector<CSVRow> materialize_row_fragment(
-            CSVParserCore<std::vector<CSVRow>>& parser,
+            Parser& parser,
             const CSVRowFragment& fragment
         ) {
             std::vector<CSVRow> rows;
@@ -168,8 +169,9 @@ namespace csv {
             return rows;
         }
 
+        template<typename Parser>
         inline ParsedChunkRows repair_parsed_chunk_rows(
-            CSVParserCore<std::vector<CSVRow>>& parser,
+            Parser& parser,
             const ParsedChunkRows& chunk,
             ParserDFAState corrected_initial_state
         ) {
@@ -198,19 +200,32 @@ namespace csv {
          *  The SIGMOD-style speculative path treats input sourcing as an
          *  external concern. This parser core only needs delimiter/whitespace state.
          */
-        class ChunkParserCore : public CSVParserCore<std::vector<CSVRow>> {
+        template<bool EagerClassify = false>
+        class ChunkParserCoreT : public CSVParserCore<
+            std::vector<CSVRow>,
+            PermissiveParsePolicy,
+            CSVRowFieldPolicy<EagerClassify>,
+            CSVRowRowPolicy> {
+            using Base = CSVParserCore<
+                std::vector<CSVRow>,
+                PermissiveParsePolicy,
+                CSVRowFieldPolicy<EagerClassify>,
+                CSVRowRowPolicy>;
+
         public:
-            ChunkParserCore(
+            ChunkParserCoreT(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags
-            ) : CSVParserCore<std::vector<CSVRow>>(parse_flags, ws_flags) {}
+            ) : Base(parse_flags, ws_flags) {}
 
-            ChunkParserCore(
+            ChunkParserCoreT(
                 const ParseFlagMap& parse_flags,
                 const WhitespaceMap& ws_flags,
                 const ColNamesPtr& col_names
-            ) : CSVParserCore<std::vector<CSVRow>>(parse_flags, ws_flags, col_names) {}
+            ) : Base(parse_flags, ws_flags, col_names) {}
         };
+
+        using ChunkParserCore = ChunkParserCoreT<false>;
         }
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare csvpy.reader against stdlib csv.reader."""
+"""Compare csvpy lazy row reading against stdlib csv readers."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def measure(name, path, func):
     )
 
 
-def bench_csvpy_strings(path):
+def bench_csvpy_rows_strings(path):
     import csvpy
 
     rows = 0
@@ -128,7 +128,7 @@ def bench_csvpy_strings(path):
     return rows, cols
 
 
-def bench_csvpy_cast(path):
+def bench_csvpy_rows_cast(path):
     import csvpy
 
     rows = 0
@@ -164,6 +164,21 @@ def bench_csvpy_dict_cast(path):
     return rows, cols
 
 
+def bench_csvpy_read_numpy_dataframe(path):
+    import csvpy
+    import pandas as pd
+
+    frame = pd.DataFrame(csvpy.read_numpy(str(path)))
+    return len(frame), len(frame.columns)
+
+
+def bench_pandas_pyarrow(path):
+    import pandas as pd
+
+    frame = pd.read_csv(path, engine="pyarrow")
+    return len(frame), len(frame.columns)
+
+
 def bench_stdlib_strings(path):
     rows = 0
     cols = 0
@@ -192,11 +207,13 @@ def main():
     ensure_csvpy_available()
 
     measure("stdlib_csv_reader_strings", path, bench_stdlib_strings)
-    measure("csvpy_reader_strings", path, bench_csvpy_strings)
-    measure("csvpy_reader_cast", path, bench_csvpy_cast)
+    measure("csvpy_reader_rows_strings", path, bench_csvpy_rows_strings)
+    measure("csvpy_reader_rows_cast", path, bench_csvpy_rows_cast)
     measure("stdlib_dict_reader_strings", path, bench_stdlib_dict_strings)
     measure("csvpy_dict_reader_strings", path, bench_csvpy_dict_strings)
     measure("csvpy_dict_reader_cast", path, bench_csvpy_dict_cast)
+    measure("csvpy_read_numpy_dataframe", path, bench_csvpy_read_numpy_dataframe)
+    measure("pandas_read_csv_pyarrow", path, bench_pandas_pyarrow)
 
 
 if __name__ == "__main__":

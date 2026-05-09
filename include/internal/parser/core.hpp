@@ -180,6 +180,7 @@ namespace csv {
          *  Owns RawCSVData/RawCSVFieldList setup and appends RawCSVField metadata
          *  exactly as the historical parser core did.
          */
+        template<bool EagerClassify = false>
         struct CSVRowFieldPolicy {
             void begin_chunk(
                 RawCSVDataPtr& data_ptr,
@@ -227,10 +228,44 @@ namespace csv {
                     stored_length,
                     is_realized
                 );
+                this->append_scalar(
+                    data,
+                    fields[fields.size() - 1],
+                    row_start,
+                    std::integral_constant<bool, EagerClassify>()
+                );
                 return fields[fields.size() - 1];
             }
 
         private:
+            void append_scalar(
+                RawCSVData&,
+                const RawCSVField&,
+                size_t,
+                std::false_type
+            ) const {}
+
+            void append_scalar(
+                RawCSVData& data,
+                const RawCSVField& field,
+                size_t row_start,
+                std::true_type
+            ) const {
+                csv::string_view field_str;
+                if (field.has_realized_storage()) {
+                    field_str = data.quote_arena.view(field.start, field.length);
+                }
+                else {
+                    field_str = csv::string_view(data.data).substr(row_start + field.start, field.length);
+                }
+
+                if (data.has_ws_trimming) {
+                    field_str = internals::get_trimmed(field_str, data.ws_flags);
+                }
+
+                data.field_scalars.emplace_back(internals::classify_field_scalar(field_str));
+            }
+
             std::uint32_t append_realized_quoted_field(
                 RawCSVData& data,
                 size_t field_start,
@@ -311,7 +346,7 @@ namespace csv {
         template<
             typename RowSink = RowCollection,
             typename ParsePolicy = PermissiveParsePolicy,
-            typename FieldPolicy = CSVRowFieldPolicy,
+            typename FieldPolicy = CSVRowFieldPolicy<false>,
             typename RowPolicy = CSVRowRowPolicy>
         class CSVParserCore {
         public:
@@ -761,6 +796,7 @@ namespace csv {
                 this->data_ptr_->_data = std::move(owner);
                 this->data_ptr_->data = chunk;
                 this->data_ptr_->fields.reserve_for_source_size(chunk.size());
+                this->data_ptr_->field_scalars.reserve_for_source_size(chunk.size());
                 this->data_ptr_->quote_arena.reserve_for_source_size(chunk.size());
                 this->initial_state_ = options.initial_state;
                 this->scan_bom_for_current_chunk_ = options.scan_bom;

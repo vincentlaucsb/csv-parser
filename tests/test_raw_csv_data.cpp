@@ -14,6 +14,18 @@ using namespace csv;
 using namespace csv::internals;
 using namespace csv::internals::parser;
 
+namespace {
+    std::vector<RawCSVDataPtr>* captured_chunks = nullptr;
+
+    struct CaptureChunkPolicy : PermissiveParsePolicy {
+        void begin_chunk(const RawCSVDataPtr& data) noexcept {
+            if (captured_chunks != nullptr) {
+                captured_chunks->push_back(data);
+            }
+        }
+    };
+}
+
 static std::vector<CSVRow> parse_raw_rows(
     const std::string& csv_text,
     const WhitespaceMap& ws_flags = WhitespaceMap()
@@ -29,6 +41,78 @@ static std::vector<CSVRow> parse_raw_rows(
     parser.end_feed();
 
     return rows;
+}
+
+TEST_CASE("CSVParserCore default field policy leaves scalar sidecar empty", "[raw_csv_parse][eager_classification]") {
+    std::vector<RawCSVDataPtr> chunks;
+    captured_chunks = &chunks;
+
+    std::vector<CSVRow> rows;
+    auto chunk = std::make_shared<std::string>("1,true,1970-01-02T00:00:00.123Z\n");
+    CSVParserCore<
+        std::vector<CSVRow>,
+        CaptureChunkPolicy,
+        CSVRowFieldPolicy<false>,
+        CSVRowRowPolicy> parser(
+            internals::make_parse_flags(',', '"'),
+            internals::WhitespaceMap()
+        );
+
+    parser.parse_chunk(*chunk, chunk, rows);
+    parser.end_feed();
+    captured_chunks = nullptr;
+
+    REQUIRE(chunks.size() == 1);
+    REQUIRE(chunks[0]->field_scalars.empty());
+    REQUIRE(rows.size() == 1);
+    REQUIRE(rows[0][0].get<int>() == 1);
+    REQUIRE(rows[0][1].get<bool>());
+    REQUIRE(rows[0][2].is_timestamp());
+}
+
+TEST_CASE("CSVParserCore eager field policy classifies final logical field views", "[raw_csv_parse][eager_classification]") {
+    std::vector<RawCSVDataPtr> chunks;
+    captured_chunks = &chunks;
+
+    std::vector<CSVRow> rows;
+    auto chunk = std::make_shared<std::string>(
+        "plain,\"quoted\",\"a\"\"b\", true ,,123,-4.5,1970-01-02T00:00:00.123Z\n"
+    );
+    CSVParserCore<
+        std::vector<CSVRow>,
+        CaptureChunkPolicy,
+        CSVRowFieldPolicy<true>,
+        CSVRowRowPolicy> parser(
+            internals::make_parse_flags(',', '"'),
+            internals::make_ws_flags({ ' ' })
+        );
+
+    parser.parse_chunk(*chunk, chunk, rows);
+    parser.end_feed();
+    captured_chunks = nullptr;
+
+    REQUIRE(chunks.size() == 1);
+    REQUIRE(chunks[0]->field_scalars.size() == 8);
+    REQUIRE(rows.size() == 1);
+
+    const auto& scalars = chunks[0]->field_scalars;
+    REQUIRE(scalars[0].type == DataType::CSV_STRING);
+    REQUIRE(scalars[1].type == DataType::CSV_STRING);
+    REQUIRE(scalars[2].type == DataType::CSV_STRING);
+    REQUIRE(scalars[3].type == DataType::CSV_BOOL);
+    REQUIRE(scalars[4].type == DataType::CSV_NULL);
+    REQUIRE(scalars[5].type == DataType::CSV_INT8);
+    REQUIRE(scalars[6].type == DataType::CSV_DOUBLE);
+    REQUIRE(scalars[7].type == DataType::CSV_TIMESTAMP);
+
+    REQUIRE(rows[0][0].get<std::string>() == "plain");
+    REQUIRE(rows[0][1].get<std::string>() == "quoted");
+    REQUIRE(rows[0][2].get<std::string>() == "a\"b");
+    REQUIRE(rows[0][3].get<bool>());
+    REQUIRE(rows[0][4].is_null());
+    REQUIRE(rows[0][5].get<int>() == 123);
+    REQUIRE(rows[0][6].get<double>() == Catch::Approx(-4.5));
+    REQUIRE(rows[0][7].is_timestamp());
 }
 
 TEST_CASE("Basic CSV Parse Test", "[raw_csv_parse]") {
