@@ -5,6 +5,8 @@ CMakeLists2.txt
 # Build
 bin/
 build/
+dist/
+wheelhouse/
 downstream/
 
 # Build: Python
@@ -14,6 +16,7 @@ __pycache__/
 
 # Doxygen
 docs/html
+python/docs/_build/
 *.tmp
 
 # Visual Studio

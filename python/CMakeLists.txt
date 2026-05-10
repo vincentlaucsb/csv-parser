@@ -29,6 +29,9 @@ set(CSVPY_SOURCES
 
 nanobind_add_module(csvpy NOMINSIZE ${CSVPY_SOURCES})
 target_link_libraries(csvpy PUBLIC csv)
+install(TARGETS csvpy
+        LIBRARY DESTINATION csvpy
+        RUNTIME DESTINATION csvpy)
 
 get_property(csvpySuffix TARGET csvpy PROPERTY SUFFIX)
 add_custom_command(TARGET csvpy POST_BUILD

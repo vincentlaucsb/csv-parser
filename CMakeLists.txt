@@ -46,6 +46,12 @@ endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
+if(BUILD_PYTHON)
+  # csvpy links the static csv target into a Python extension module, so Linux
+  # builds need the csv objects compiled as position-independent code.
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 if(CSV_ENABLE_THREADS)
   set(THREADS_PREFER_PTHREAD_FLAG TRUE)
   find_package(Threads QUIET)

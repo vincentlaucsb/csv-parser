@@ -1,7 +1,14 @@
 # csvpy Python Bindings
 
+<p align="center">
+  <img src="assets/csvpy-logo.png" alt="csvpy logo" width="240">
+</p>
+
 The optional Python package is named `csvpy`; it does not replace or shadow
 Python's stdlib `csv` module.
+
+Long-form Python documentation lives in `python/docs/` and is written in
+Sphinx/MyST-flavored Markdown so it can be published with Read the Docs later.
 
 `csvpy.reader()` yields lazy, list-like row objects over the nanobind extension.
 Fields are returned as strings unless you explicitly request scalar casting, and

@@ -1,0 +1,73 @@
+name: Python Wheel Dry Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_selector:
+        description: "cibuildwheel selector"
+        required: false
+        default: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+      test_wheels:
+        description: "Run Python tests against each built wheel"
+        required: false
+        default: true
+        type: boolean
+  pull_request:
+    branches: [ "master" ]
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheels:
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'wheel-dry-run')
+      }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    - name: Install wheel tooling
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade cibuildwheel twine
+
+    - name: Build wheels with tests
+      if: ${{ github.event_name == 'pull_request' || inputs.test_wheels }}
+      env:
+        CIBW_BUILD: ${{ github.event_name == 'workflow_dispatch' && inputs.build_selector || 'cp39-* cp310-* cp311-* cp312-* cp313-*' }}
+      run: python -m cibuildwheel --output-dir wheelhouse
+
+    - name: Build wheels without tests
+      if: ${{ github.event_name == 'workflow_dispatch' && !inputs.test_wheels }}
+      env:
+        CIBW_BUILD: ${{ inputs.build_selector }}
+        CIBW_TEST_SKIP: "*"
+      run: python -m cibuildwheel --output-dir wheelhouse
+
+    - name: Check wheel metadata
+      run: python -m twine check wheelhouse/*
+
+    - name: Upload wheel artifacts
+      uses: actions/upload-artifact@v5
+      with:
+        name: csvpy-wheels-${{ matrix.os }}
+        path: wheelhouse/*
+        if-no-files-found: error

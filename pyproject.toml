@@ -1,0 +1,74 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.10",
+    "nanobind>=2.12.0",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "csvpy"
+version = "5.0.0b1"
+description = "Python bindings for Vince's CSV Parser"
+readme = "python/README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Vincent La" },
+]
+keywords = [
+    "csv",
+    "parser",
+    "etl",
+    "dataframe",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+numpy = [
+    "numpy>=2",
+]
+pandas = [
+    "numpy>=2",
+    "pandas",
+]
+
+[project.urls]
+Homepage = "https://github.com/vincentlaucsb/csv-parser"
+Documentation = "https://github.com/vincentlaucsb/csv-parser/tree/master/python/docs"
+Source = "https://github.com/vincentlaucsb/csv-parser"
+Issues = "https://github.com/vincentlaucsb/csv-parser/issues"
+
+[tool.scikit-build]
+cmake.args = [
+    "-DBUILD_PYTHON=ON",
+    "-DCSV_BUILD_TESTS=OFF",
+    "-DCSV_BUILD_PROGRAMS=OFF",
+]
+wheel.packages = [
+    "python/csvpy",
+]
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = "pp* *-musllinux*"
+test-requires = [
+    "numpy>=2",
+    "pandas",
+]
+test-command = "python -m unittest discover -s {project}/python/tests"
+
