@@ -67,6 +67,23 @@ assert rows[0].as_list() == ["id", "amount", "active"]
 assert rows[1].as_list() == [1, 2.5, True]
 ```
 
+Use `csvpy.read_numpy(path, columns=None, cast=True)` when you want eager column
+arrays suitable for pandas:
+
+```python
+import pandas as pd
+
+frame = pd.DataFrame(csvpy.read_numpy("data.csv"))
+```
+
+`read_numpy()` returns a `dict` keyed by column name. String columns use NumPy
+2.x `StringDType`, nullable numeric and boolean columns widen to `float64` with
+`NaN`, and non-null integer, float, and boolean columns use dense NumPy arrays.
+It does not produce object arrays. The C++ export path batches rows through
+`DataFrame` column views and `DataFrameExecutor`; remaining fixed costs are
+mostly NumPy `StringDType` construction for string-heavy data and pandas'
+DataFrame materialization after the arrays have been built.
+
 The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
 `skipinitialspace`, `strict`, and `fieldnames` options. Unsupported dialect
 features intentionally fail fast instead of silently diverging from stdlib
@@ -96,6 +113,12 @@ To compare a streaming `csvpy` filter against pyarrow on the Used Cars-style
 python python/benchmarks/compare_filter.py path/to/vehicles.csv
 ```
 
+To compare selected-column CSV-to-NumPy materialization against pyarrow:
+
+```powershell
+python python/benchmarks/compare_numpy_materialization.py path/to/vehicles.csv
+```
+
 This runs each workload in a fresh Python process and reports wall time,
 throughput, and peak resident/working-set memory.
 
@@ -105,9 +128,10 @@ version that built `csvpy`; a `cp310` extension, for example, will not import
 under Python 3.14.
 
 The benchmark matrix compares stdlib `csv.reader`, lazy `csvpy.reader` rows with
-strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`, and
-`csvpy.DictReader` with both string and casted values. It reports file path,
-size, rows, columns, elapsed seconds, MiB/s, and rows/s.
+strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`,
+`csvpy.DictReader` with both string and casted values, raw `csvpy.read_numpy()`
+array export, and `pandas.DataFrame(csvpy.read_numpy(...))`. It reports file
+path, size, rows, columns, elapsed seconds, MiB/s, and rows/s.
 
 ## Exploratory Summary
 

@@ -172,6 +172,14 @@ def bench_csvpy_read_numpy_dataframe(path):
     return len(frame), len(frame.columns)
 
 
+def bench_csvpy_read_numpy_arrays(path):
+    import csvpy
+
+    arrays = csvpy.read_numpy(str(path))
+    rows = len(next(iter(arrays.values()))) if arrays else 0
+    return rows, len(arrays)
+
+
 def bench_pandas_pyarrow(path):
     import pandas as pd
 
@@ -212,6 +220,7 @@ def main():
     measure("stdlib_dict_reader_strings", path, bench_stdlib_dict_strings)
     measure("csvpy_dict_reader_strings", path, bench_csvpy_dict_strings)
     measure("csvpy_dict_reader_cast", path, bench_csvpy_dict_cast)
+    measure("csvpy_read_numpy_arrays", path, bench_csvpy_read_numpy_arrays)
     measure("csvpy_read_numpy_dataframe", path, bench_csvpy_read_numpy_dataframe)
     measure("pandas_read_csv_pyarrow", path, bench_pandas_pyarrow)
 

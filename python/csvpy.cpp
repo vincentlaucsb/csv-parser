@@ -14,6 +14,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 #include "csv.hpp"
 namespace nb = nanobind;
@@ -35,43 +36,10 @@ struct NumpyColumnPlan {
     bool nullable = false;
 };
 
+static const size_t NUMPY_CHUNK_ROWS = 50000;
+
 inline bool is_integral_type(DataType type) noexcept {
     return type >= DataType::CSV_INT8 && type <= DataType::CSV_INT64;
-}
-
-inline void merge_numpy_column_type(NumpyColumnPlan& column, DataType type) {
-    if (type == DataType::CSV_NULL) {
-        column.nullable = true;
-        return;
-    }
-
-    NumpyColumnKind observed = NumpyColumnKind::STRING;
-    if (is_integral_type(type)) {
-        observed = NumpyColumnKind::INT64;
-    }
-    else if (type == DataType::CSV_DOUBLE) {
-        observed = NumpyColumnKind::FLOAT64;
-    }
-    else if (type == DataType::CSV_BOOL) {
-        observed = NumpyColumnKind::BOOL;
-    }
-
-    if (column.kind == NumpyColumnKind::UNKNOWN) {
-        column.kind = observed;
-        return;
-    }
-
-    if (column.kind == observed) {
-        return;
-    }
-
-    if ((column.kind == NumpyColumnKind::INT64 && observed == NumpyColumnKind::FLOAT64)
-        || (column.kind == NumpyColumnKind::FLOAT64 && observed == NumpyColumnKind::INT64)) {
-        column.kind = NumpyColumnKind::FLOAT64;
-        return;
-    }
-
-    column.kind = NumpyColumnKind::STRING;
 }
 
 inline std::vector<NumpyColumnPlan> make_numpy_column_plan(
@@ -108,6 +76,52 @@ inline std::vector<NumpyColumnPlan> make_numpy_column_plan(
         plan.push_back(column);
     }
     return plan;
+}
+
+inline std::vector<size_t> selected_column_indices(const std::vector<NumpyColumnPlan>& plan) {
+    std::vector<size_t> indices;
+    indices.reserve(plan.size());
+    for (const auto& column : plan) {
+        indices.push_back(column.index);
+    }
+    return indices;
+}
+
+inline size_t numpy_worker_count(size_t selected_columns) noexcept {
+#if CSV_ENABLE_THREADS
+    if (selected_columns < 3) {
+        return 0;
+    }
+
+    const unsigned int hardware_threads = std::thread::hardware_concurrency();
+    const size_t max_workers = selected_columns - 1;
+    if (hardware_threads == 0) {
+        return max_workers;
+    }
+
+    return (std::min)(max_workers, static_cast<size_t>(hardware_threads));
+#else
+    (void)selected_columns;
+    return 0;
+#endif
+}
+
+template<typename State, typename Fn>
+size_t chunk_selected_columns(
+    CSVReader& reader,
+    DataFrameExecutor& executor,
+    const std::vector<size_t>& column_indices,
+    std::vector<State>& states,
+    Fn&& fn
+) {
+    std::vector<CSVRow> rows;
+    size_t row_count = 0;
+    while (reader.read_chunk(rows, NUMPY_CHUNK_ROWS)) {
+        row_count += rows.size();
+        DataFrame<> batch(std::move(rows));
+        batch.column_parallel_apply(executor, column_indices, states, std::forward<Fn>(fn));
+    }
+    return row_count;
 }
 
 template<typename T>
@@ -156,29 +170,31 @@ struct NumpyColumnBuffer {
     std::unique_ptr<std::vector<double>> floats;
     std::unique_ptr<std::vector<std::uint8_t>> bools;
     std::vector<std::string> strings;
+    size_t seen = 0;
+    bool replay_strings = false;
 
     explicit NumpyColumnBuffer(NumpyColumnPlan column)
         : plan(std::move(column)) {}
 
-    void reserve(size_t rows) {
-        switch (this->storage_kind()) {
-        case NumpyColumnKind::INT64:
-            this->ints.reset(new std::vector<std::int64_t>());
-            this->ints->reserve(rows);
-            break;
-        case NumpyColumnKind::BOOL:
-            this->bools.reset(new std::vector<std::uint8_t>());
-            this->bools->reserve(rows);
-            break;
-        case NumpyColumnKind::FLOAT64:
-        case NumpyColumnKind::UNKNOWN:
-            this->floats.reset(new std::vector<double>());
-            this->floats->reserve(rows);
-            break;
-        case NumpyColumnKind::STRING:
-            this->strings.reserve(rows);
-            break;
+    void finalize() {
+        if (this->plan.kind != NumpyColumnKind::UNKNOWN) {
+            return;
         }
+
+        this->plan.kind = NumpyColumnKind::FLOAT64;
+        this->floats.reset(new std::vector<double>());
+        this->floats->assign(this->seen, (std::numeric_limits<double>::quiet_NaN)());
+    }
+
+    void reset_for_string_replay() {
+        this->plan.kind = NumpyColumnKind::STRING;
+        this->plan.nullable = false;
+        this->replay_strings = false;
+        this->ints.reset();
+        this->floats.reset();
+        this->bools.reset();
+        this->strings.clear();
+        this->strings.reserve(this->seen);
     }
 
     NumpyColumnKind storage_kind() const noexcept {
@@ -194,30 +210,59 @@ struct NumpyColumnBuffer {
         return NumpyColumnKind::FLOAT64;
     }
 
-    void append(CSVField field) {
-        switch (this->storage_kind()) {
-        case NumpyColumnKind::INT64:
-            this->ints->push_back(field.get<std::int64_t>());
-            break;
-        case NumpyColumnKind::BOOL:
-            this->bools->push_back(field.get<bool>() ? 1 : 0);
-            break;
-        case NumpyColumnKind::FLOAT64:
-        case NumpyColumnKind::UNKNOWN:
-            if (field.is_null()) {
-                this->floats->push_back((std::numeric_limits<double>::quiet_NaN)());
-            }
-            else if (this->plan.kind == NumpyColumnKind::BOOL) {
-                this->floats->push_back(field.get<bool>() ? 1.0 : 0.0);
-            }
-            else {
-                this->floats->push_back(field.get<double>());
-            }
-            break;
-        case NumpyColumnKind::STRING:
-            this->strings.push_back(field.get<std::string>());
-            break;
+    void append_casted(CSVField field) {
+        if (this->replay_strings) {
+            ++this->seen;
+            return;
         }
+
+        if (this->plan.kind == NumpyColumnKind::STRING) {
+            this->append_replayed_string(field.get_sv());
+            ++this->seen;
+            return;
+        }
+
+        const DataType type = field.type();
+        if (type == DataType::CSV_NULL) {
+            this->append_null();
+            return;
+        }
+
+        const NumpyColumnKind observed = this->kind_for_type(type);
+        if (observed == NumpyColumnKind::STRING) {
+            this->append_stringish(field.get_sv());
+            return;
+        }
+
+        if (this->plan.kind == NumpyColumnKind::UNKNOWN) {
+            this->start_typed_column(observed, field);
+            return;
+        }
+
+        if (this->plan.kind == observed) {
+            this->append_current_kind(field, observed);
+            return;
+        }
+
+        if ((this->plan.kind == NumpyColumnKind::INT64 && observed == NumpyColumnKind::FLOAT64)
+            || (this->plan.kind == NumpyColumnKind::FLOAT64 && observed == NumpyColumnKind::INT64)) {
+            this->promote_to_float();
+            this->plan.kind = NumpyColumnKind::FLOAT64;
+            this->append_float_value(field, observed);
+            return;
+        }
+
+        this->request_string_replay();
+        ++this->seen;
+    }
+
+    void append_string(csv::string_view value) {
+        this->strings.emplace_back(value.data(), value.size());
+        ++this->seen;
+    }
+
+    void append_replayed_string(csv::string_view value) {
+        this->strings.emplace_back(value.data(), value.size());
     }
 
     nb::object into_python() {
@@ -235,7 +280,203 @@ struct NumpyColumnBuffer {
 
         throw std::runtime_error("unreachable read_numpy column kind");
     }
+
+private:
+    static NumpyColumnKind kind_for_type(DataType type) noexcept {
+        if (is_integral_type(type)) {
+            return NumpyColumnKind::INT64;
+        }
+        if (type == DataType::CSV_DOUBLE) {
+            return NumpyColumnKind::FLOAT64;
+        }
+        if (type == DataType::CSV_BOOL) {
+            return NumpyColumnKind::BOOL;
+        }
+        return NumpyColumnKind::STRING;
+    }
+
+    void append_null() {
+        this->plan.nullable = true;
+        if (this->plan.kind == NumpyColumnKind::UNKNOWN) {
+            ++this->seen;
+            return;
+        }
+
+        if (this->plan.kind == NumpyColumnKind::STRING) {
+            this->strings.push_back(std::string());
+            ++this->seen;
+            return;
+        }
+
+        this->promote_to_float();
+        this->floats->push_back((std::numeric_limits<double>::quiet_NaN)());
+        ++this->seen;
+    }
+
+    void append_stringish(csv::string_view text) {
+        if (this->plan.kind == NumpyColumnKind::UNKNOWN) {
+            this->plan.kind = NumpyColumnKind::STRING;
+            this->strings.assign(this->seen, std::string());
+            this->append_string(text);
+            return;
+        }
+
+        if (this->plan.kind == NumpyColumnKind::STRING) {
+            this->append_string(text);
+            return;
+        }
+
+        this->request_string_replay();
+        ++this->seen;
+    }
+
+    void start_typed_column(NumpyColumnKind observed, CSVField field) {
+        this->plan.kind = observed;
+        if (this->plan.nullable || observed == NumpyColumnKind::FLOAT64) {
+            this->floats.reset(new std::vector<double>());
+            this->floats->assign(this->seen, (std::numeric_limits<double>::quiet_NaN)());
+            this->append_float_value(field, observed);
+            return;
+        }
+
+        if (observed == NumpyColumnKind::INT64) {
+            this->ints.reset(new std::vector<std::int64_t>());
+            this->ints->push_back(field.get<std::int64_t>());
+        }
+        else {
+            this->bools.reset(new std::vector<std::uint8_t>());
+            this->bools->push_back(field.get<bool>() ? 1 : 0);
+        }
+        ++this->seen;
+    }
+
+    void append_current_kind(CSVField field, NumpyColumnKind observed) {
+        if (this->storage_kind() == NumpyColumnKind::FLOAT64) {
+            this->append_float_value(field, observed);
+            return;
+        }
+
+        if (observed == NumpyColumnKind::INT64) {
+            this->ints->push_back(field.get<std::int64_t>());
+        }
+        else {
+            this->bools->push_back(field.get<bool>() ? 1 : 0);
+        }
+        ++this->seen;
+    }
+
+    void append_float_value(CSVField field, NumpyColumnKind observed) {
+        if (!this->floats) {
+            this->floats.reset(new std::vector<double>());
+        }
+
+        if (observed == NumpyColumnKind::BOOL) {
+            this->floats->push_back(field.get<bool>() ? 1.0 : 0.0);
+        }
+        else {
+            this->floats->push_back(field.get<double>());
+        }
+        ++this->seen;
+    }
+
+    void promote_to_float() {
+        if (this->floats) {
+            return;
+        }
+
+        std::unique_ptr<std::vector<double>> promoted(new std::vector<double>());
+        promoted->reserve(this->seen + 1);
+        if (this->ints) {
+            for (const auto value : *this->ints) {
+                promoted->push_back(static_cast<double>(value));
+            }
+            this->ints.reset();
+        }
+        else if (this->bools) {
+            for (const auto value : *this->bools) {
+                promoted->push_back(value ? 1.0 : 0.0);
+            }
+            this->bools.reset();
+        }
+        this->floats = std::move(promoted);
+    }
+
+    void request_string_replay() {
+        this->plan.kind = NumpyColumnKind::STRING;
+        this->plan.nullable = false;
+        this->replay_strings = true;
+        this->ints.reset();
+        this->floats.reset();
+        this->bools.reset();
+        this->strings.clear();
+    }
 };
+
+inline void append_numpy_column(DataFrame<>::column_type column, NumpyColumnBuffer& buffer) {
+    for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+        if (buffer.storage_kind() == NumpyColumnKind::STRING && !buffer.replay_strings) {
+            buffer.append_string(column.get_sv(row_index));
+        }
+        else {
+            buffer.append_casted(column[row_index]);
+        }
+    }
+}
+
+inline void replay_numpy_string_column(DataFrame<>::column_type column, NumpyColumnBuffer*& buffer) {
+    for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+        buffer->append_replayed_string(column.get_sv(row_index));
+    }
+}
+
+inline bool needs_string_replay(const std::vector<NumpyColumnBuffer>& buffers) {
+    for (const auto& buffer : buffers) {
+        if (buffer.replay_strings) {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline void replay_string_columns(
+    const std::string& filename,
+    const CSVFormat& format,
+    DataFrameExecutor& executor,
+    std::vector<NumpyColumnBuffer>& buffers
+) {
+    std::vector<size_t> replay_indices;
+    std::vector<NumpyColumnBuffer*> replay_buffers;
+    for (auto& buffer : buffers) {
+        if (buffer.replay_strings) {
+            replay_indices.push_back(buffer.plan.index);
+            buffer.reset_for_string_replay();
+            replay_buffers.push_back(&buffer);
+        }
+    }
+
+    if (replay_indices.empty()) {
+        return;
+    }
+
+    CSVReader replay_reader(filename, format);
+    chunk_selected_columns(replay_reader, executor, replay_indices, replay_buffers, replay_numpy_string_column);
+}
+
+inline void finalize_numpy_buffers(std::vector<NumpyColumnBuffer>& buffers) {
+    for (auto& buffer : buffers) {
+        buffer.finalize();
+    }
+}
+
+inline void append_numpy_strings_only(DataFrame<>::column_type column, NumpyColumnBuffer& buffer) {
+    if (buffer.plan.kind == NumpyColumnKind::UNKNOWN) {
+        buffer.plan.kind = NumpyColumnKind::STRING;
+    }
+
+    for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+        buffer.append_string(column.get_sv(row_index));
+    }
+}
 
 nb::dict read_numpy(const std::string& filename, nb::object columns = nb::none(), bool cast = true) {
     CSVFormat format = CSVFormat::guess_csv();
@@ -243,30 +484,14 @@ nb::dict read_numpy(const std::string& filename, nb::object columns = nb::none()
         format.eager_field_classification();
     }
 
-    CSVReader inference_reader(filename, format);
-    std::vector<NumpyColumnPlan> plan = make_numpy_column_plan(inference_reader.get_col_names(), columns);
-    size_t rows = 0;
-    CSVRow row;
-    while (inference_reader.read_row(row)) {
-        ++rows;
+    CSVReader header_reader(filename, format);
+    std::vector<NumpyColumnPlan> plan = make_numpy_column_plan(header_reader.get_col_names(), columns);
+    const std::vector<size_t> selected_indices = selected_column_indices(plan);
+    DataFrameExecutor executor(numpy_worker_count(selected_indices.size()));
+
+    if (!cast) {
         for (auto& column : plan) {
-            if (column.index >= row.size()) {
-                column.nullable = true;
-                continue;
-            }
-
-            if (!cast) {
-                column.kind = NumpyColumnKind::STRING;
-                continue;
-            }
-
-            merge_numpy_column_type(column, row[column.index].type());
-        }
-    }
-
-    for (auto& column : plan) {
-        if (column.kind == NumpyColumnKind::UNKNOWN) {
-            column.kind = cast ? NumpyColumnKind::FLOAT64 : NumpyColumnKind::STRING;
+            column.kind = NumpyColumnKind::STRING;
         }
     }
 
@@ -274,24 +499,17 @@ nb::dict read_numpy(const std::string& filename, nb::object columns = nb::none()
     buffers.reserve(plan.size());
     for (auto& column : plan) {
         buffers.emplace_back(std::move(column));
-        buffers.back().reserve(rows);
     }
 
-    CSVReader materialize_reader(filename, format);
-    while (materialize_reader.read_row(row)) {
-        for (auto& buffer : buffers) {
-            if (buffer.plan.index >= row.size()) {
-                if (buffer.storage_kind() == NumpyColumnKind::STRING) {
-                    buffer.strings.push_back(std::string());
-                }
-                else {
-                    buffer.floats->push_back((std::numeric_limits<double>::quiet_NaN)());
-                }
-                continue;
-            }
-
-            buffer.append(row[buffer.plan.index]);
+    if (cast) {
+        chunk_selected_columns(header_reader, executor, selected_indices, buffers, append_numpy_column);
+        if (needs_string_replay(buffers)) {
+            replay_string_columns(filename, format, executor, buffers);
         }
+        finalize_numpy_buffers(buffers);
+    }
+    else {
+        chunk_selected_columns(header_reader, executor, selected_indices, buffers, append_numpy_strings_only);
     }
 
     nb::dict out;

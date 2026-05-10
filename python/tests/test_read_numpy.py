@@ -79,6 +79,35 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["text"].tolist(), ["a,b", 'c"d'])
         self.assertEqual(arrays["id"].tolist(), [1, 2])
 
+    def test_read_numpy_preserves_late_string_promotion_text(self):
+        path = _write_temp_csv(
+            "mixed\n"
+            "001\n"
+            "2.50\n"
+            "plain text\n"
+        )
+        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+
+        arrays = csvpy.read_numpy(path)
+
+        self.assertIsInstance(arrays["mixed"].dtype, np.dtypes.StringDType)
+        self.assertEqual(arrays["mixed"].tolist(), ["001", "2.50", "plain text"])
+
+    def test_read_numpy_cast_false_returns_strings(self):
+        path = _write_temp_csv(
+            "id,flag\n"
+            "1,true\n"
+            "2,false\n"
+        )
+        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+
+        arrays = csvpy.read_numpy(path, cast=False)
+
+        self.assertIsInstance(arrays["id"].dtype, np.dtypes.StringDType)
+        self.assertIsInstance(arrays["flag"].dtype, np.dtypes.StringDType)
+        self.assertEqual(arrays["id"].tolist(), ["1", "2"])
+        self.assertEqual(arrays["flag"].tolist(), ["true", "false"])
+
     @unittest.skipIf(pd is None, "pandas is required for DataFrame handoff test")
     def test_read_numpy_result_builds_pandas_dataframe(self):
         path = _write_temp_csv(

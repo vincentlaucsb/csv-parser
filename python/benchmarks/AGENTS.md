@@ -65,6 +65,12 @@ Craigslist Used Cars `region == "el paso"` workload:
 python python/benchmarks/compare_filter.py path/to/vehicles.csv
 ```
 
+For selected-column CSV-to-NumPy materialization against pyarrow:
+
+```powershell
+python python/benchmarks/compare_numpy_materialization.py path/to/vehicles.csv
+```
+
 The benchmark matrix compares stdlib `csv.reader`, lazy `csvpy.reader` rows with
 strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`, and
 `csvpy.DictReader` with both string and casted values. Keep DataFrame/Table
