@@ -18,6 +18,7 @@ import importlib.util
 import json
 import os
 import platform
+import statistics
 import subprocess
 import sys
 import time
@@ -39,6 +40,12 @@ class RunResult:
     peak_rss_bytes: int
     stdout: str
     stderr: str
+
+
+@dataclass(frozen=True)
+class WorkerSpec:
+    worker: str
+    label: str
 
 
 def _extension_suffixes() -> tuple[str, ...]:
@@ -243,6 +250,21 @@ def _worker_payload(stdout: str) -> dict:
         return {}
 
 
+def _median(values: list[float]) -> float:
+    return float(statistics.median(values))
+
+
+def _group_results(results: list[RunResult]) -> list[tuple[str, list[RunResult]]]:
+    grouped: dict[str, list[RunResult]] = {}
+    order: list[str] = []
+    for result in results:
+        if result.name not in grouped:
+            grouped[result.name] = []
+            order.append(result.name)
+        grouped[result.name].append(result)
+    return [(name, grouped[name]) for name in order]
+
+
 def print_results(path: Path, args: argparse.Namespace, results: list[RunResult]) -> None:
     size = path.stat().st_size
     size_mib = size / (1024 * 1024)
@@ -251,15 +273,23 @@ def print_results(path: Path, args: argparse.Namespace, results: list[RunResult]
     print(f"columns={', '.join(args.columns)}")
     if args.filter_column is not None:
         print(f"filter={args.filter_column!r} == {args.filter_value!r}")
+    print(f"warmups={args.warmup_runs} measured_runs={args.runs}")
     print()
-    print("Tool\tStatus\tSeconds\tMiB/s\tPeakRSSMiB\tRows\tColumns\tArrayBytes")
-    for result in results:
-        payload = _worker_payload(result.stdout)
-        status = "ok" if result.returncode == 0 else f"error({result.returncode})"
-        throughput = size_mib / result.wall_seconds if result.wall_seconds > 0 else 0.0
+    print("Tool\tStatus\tMedianSeconds\tMinSeconds\tMaxSeconds\tMiB/s\tPeakRSSMiB\tRows\tColumns\tArrayBytes")
+    for name, group in _group_results(results):
+        ok_results = [result for result in group if result.returncode == 0]
+        status = "ok" if len(ok_results) == len(group) else f"error({len(group) - len(ok_results)}/{len(group)})"
+        seconds = [result.wall_seconds for result in ok_results]
+        median_seconds = _median(seconds) if seconds else 0.0
+        min_seconds = min(seconds) if seconds else 0.0
+        max_seconds = max(seconds) if seconds else 0.0
+        peak_rss = _median([float(result.peak_rss_bytes) for result in ok_results]) if ok_results else 0.0
+        payload = _worker_payload(ok_results[0].stdout) if ok_results else {}
+        throughput = size_mib / median_seconds if median_seconds > 0 else 0.0
         print(
-            f"{result.name}\t{status}\t{result.wall_seconds:.6f}"
-            f"\t{throughput:.3f}\t{mib(result.peak_rss_bytes):.1f}"
+            f"{name}\t{status}\t{median_seconds:.6f}"
+            f"\t{min_seconds:.6f}\t{max_seconds:.6f}"
+            f"\t{throughput:.3f}\t{mib(int(peak_rss)):.1f}"
             f"\t{payload.get('rows', '')}\t{payload.get('columns', '')}"
             f"\t{payload.get('array_bytes', '')}"
         )
@@ -367,6 +397,36 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     )
 
 
+def worker_csvpy_predicate(args: argparse.Namespace) -> None:
+    if args.filter_column is None:
+        raise SystemExit("csvpy predicate worker requires --filter-column")
+
+    ensure_csvpy_available()
+    import csvpy
+
+    arrays = csvpy.read_numpy(
+        str(args.csv_file),
+        columns=args.columns,
+        predicate=csvpy.equal(
+            args.filter_column,
+            args.filter_value,
+            case_sensitive=not args.case_insensitive,
+        ),
+    )
+    rows = len(next(iter(arrays.values()))) if arrays else 0
+    array_bytes = sum(_array_nbytes(array) for array in arrays.values())
+    print(
+        json.dumps(
+            {
+                "array_bytes": array_bytes,
+                "columns": len(arrays),
+                "rows": rows,
+            },
+            sort_keys=True,
+        )
+    )
+
+
 def worker_pyarrow(args: argparse.Namespace) -> None:
     import pyarrow.compute as pc
     import pyarrow.csv as pacsv
@@ -440,7 +500,19 @@ def parse_args() -> argparse.Namespace:
         default=0.05,
         help="seconds between memory samples",
     )
-    parser.add_argument("--worker", choices=("csvpy", "pyarrow"), help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--runs",
+        type=int,
+        default=5,
+        help="measured subprocess runs per tool",
+    )
+    parser.add_argument(
+        "--warmup-runs",
+        type=int,
+        default=1,
+        help="discarded subprocess warmup runs per tool",
+    )
+    parser.add_argument("--worker", choices=("csvpy", "csvpy_predicate", "pyarrow"), help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if not args.columns:
@@ -449,7 +521,32 @@ def parse_args() -> argparse.Namespace:
         raise SystemExit("--delimiter must be a single character")
     if args.filter_column is None and args.filter_value:
         raise SystemExit("--filter-value requires --filter-column")
+    if args.runs < 1:
+        raise SystemExit("--runs must be at least 1")
+    if args.warmup_runs < 0:
+        raise SystemExit("--warmup-runs cannot be negative")
     return args
+
+
+def benchmark_workers(args: argparse.Namespace) -> list[WorkerSpec]:
+    csvpy_label = "csvpy_read_numpy"
+    pyarrow_label = "pyarrow_read_csv_to_numpy"
+    if args.filter_column is not None:
+        csvpy_label = "csvpy_filter_to_numpy"
+        pyarrow_label = "pyarrow_filter_to_numpy"
+
+    workers = [WorkerSpec("csvpy", csvpy_label)]
+    if args.filter_column is not None:
+        workers.append(WorkerSpec("csvpy_predicate", "csvpy_predicate_to_numpy"))
+    workers.append(WorkerSpec("pyarrow", pyarrow_label))
+    return workers
+
+
+def rotated_workers(workers: list[WorkerSpec], offset: int) -> list[WorkerSpec]:
+    if not workers:
+        return []
+    start = offset % len(workers)
+    return workers[start:] + workers[:start]
 
 
 def main() -> None:
@@ -458,20 +555,22 @@ def main() -> None:
     if args.worker == "csvpy":
         worker_csvpy(args)
         return
+    if args.worker == "csvpy_predicate":
+        worker_csvpy_predicate(args)
+        return
     if args.worker == "pyarrow":
         worker_pyarrow(args)
         return
 
-    csvpy_label = "csvpy_read_numpy"
-    pyarrow_label = "pyarrow_read_csv_to_numpy"
-    if args.filter_column is not None:
-        csvpy_label = "csvpy_filter_to_numpy"
-        pyarrow_label = "pyarrow_filter_to_numpy"
+    workers = benchmark_workers(args)
+    for run_index in range(args.warmup_runs):
+        for worker in rotated_workers(workers, run_index):
+            run_worker(worker.worker, worker.label, args)
 
-    results = [
-        run_worker("csvpy", csvpy_label, args),
-        run_worker("pyarrow", pyarrow_label, args),
-    ]
+    results: list[RunResult] = []
+    for run_index in range(args.runs):
+        for worker in rotated_workers(workers, run_index):
+            results.append(run_worker(worker.worker, worker.label, args))
     print_results(args.csv_file, args, results)
 
 

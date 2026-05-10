@@ -127,6 +127,15 @@ handle raises `RuntimeError`; call `materialize_deletes()` to compact storage or
 `discard_deletes()` to clear the marks. `CSVDocument.to_numpy()` excludes
 pending-deleted rows but does not clear or materialize the delete marks.
 
+For simple row filters, create a native equality predicate with `csvpy.equal()`
+and pass it to `read_numpy()`, `CSVDocument.to_numpy()`, or
+`CSVDocument.delete_where()`:
+
+```python
+predicate = csvpy.equal("region", "el paso", case_sensitive=False)
+arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year"], predicate=predicate)
+```
+
 The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
 `skipinitialspace`, `strict`, and `fieldnames` options. Unsupported dialect
 features intentionally fail fast instead of silently diverging from stdlib

@@ -74,6 +74,36 @@ class CSVDocumentTests(unittest.TestCase):
         self.assertEqual(arrays["score"].tolist(), [2.5])
 
     @unittest.skipIf(np is None, "NumPy is required for CSVDocument.to_numpy tests")
+    def test_to_numpy_native_predicate_filters_rows(self):
+        document = csvpy.CSVDocument(io.StringIO(
+            "region,id,value\n"
+            "el paso,1,10\n"
+            "phoenix,2,20\n"
+            "EL PASO,3,30\n"
+        ))
+
+        arrays = document.to_numpy(
+            columns=["id", "value"],
+            predicate=csvpy.equal("region", "el paso", case_sensitive=False),
+        )
+
+        self.assertEqual(arrays["id"].tolist(), [1, 3])
+        self.assertEqual(arrays["value"].tolist(), [10, 30])
+
+    def test_delete_where_marks_matching_rows(self):
+        document = csvpy.CSVDocument(io.StringIO(
+            "region,id\n"
+            "el paso,1\n"
+            "phoenix,2\n"
+            "EL PASO,3\n"
+        ))
+
+        self.assertEqual(document.delete_where(csvpy.equal("region", "el paso", case_sensitive=False)), 2)
+        self.assertTrue(document.pending_deletes)
+        document.materialize_deletes()
+        self.assertEqual([row.as_list() for row in document], [["phoenix", "2"]])
+
+    @unittest.skipIf(np is None, "NumPy is required for CSVDocument.to_numpy tests")
     def test_quoted_escaped_fields_materialize_correctly(self):
         document = csvpy.CSVDocument(io.StringIO('id,text\n1,"a,b"\n2,"c""d"\n3,drop\n'))
 

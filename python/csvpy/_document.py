@@ -59,8 +59,11 @@ class CSVDocument:
     def discard_deletes(self) -> int:
         return self._document.discard_deletes()
 
-    def to_numpy(self, columns=None, cast: bool = True):
-        return self._document.to_numpy(columns=columns, cast=cast)
+    def to_numpy(self, columns=None, cast: bool = True, predicate=None):
+        return self._document.to_numpy(columns=columns, cast=cast, predicate=predicate)
+
+    def delete_where(self, predicate) -> int:
+        return self._document.delete_where(predicate)
 
     def __del__(self):
         source = getattr(self, "_source", None)

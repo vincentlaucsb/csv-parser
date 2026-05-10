@@ -1,0 +1,34 @@
+#pragma once
+
+#include "csvpy_bindings.hpp"
+
+class RowPredicate {
+public:
+    RowPredicate(std::string column, std::string value, bool case_sensitive = true);
+
+    const std::string& column() const noexcept;
+    const std::string& value() const noexcept;
+    bool case_sensitive() const noexcept;
+    bool matches(csv::string_view candidate) const;
+    size_t column_index(const std::vector<std::string>& columns) const;
+
+private:
+    std::string column_;
+    std::string value_;
+    bool case_sensitive_ = true;
+};
+
+const RowPredicate* optional_row_predicate(nb::object predicate);
+std::vector<std::uint8_t> excluded_rows_for_predicate(
+    const DataFrame<>& frame,
+    const std::vector<std::uint8_t>& deleted_rows,
+    const RowPredicate* predicate
+);
+size_t mark_matching_rows(
+    const DataFrame<>& frame,
+    std::vector<std::uint8_t>& deleted_rows,
+    size_t& pending_delete_count,
+    const RowPredicate& predicate
+);
+
+void init_CSVPredicate(nb::module_& m);

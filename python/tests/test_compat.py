@@ -128,12 +128,13 @@ class CompatReaderTests(unittest.TestCase):
         self.assertEqual(row.as_list(), ["a", "b"])
 
     def test_split_modules_preserve_public_imports(self):
-        from csvpy import DictReader, read_numpy, reader, rows
+        from csvpy import DictReader, equal, read_numpy, reader, rows
 
         self.assertIs(reader, csvpy.reader)
         self.assertIs(rows, csvpy.rows)
         self.assertIs(DictReader, csvpy.DictReader)
         self.assertIs(read_numpy, csvpy.read_numpy)
+        self.assertIs(equal, csvpy.equal)
 
         from csvpy.DictReader import DictReader as legacy_dict_reader
         from csvpy.compat import DictReader as compat_dict_reader

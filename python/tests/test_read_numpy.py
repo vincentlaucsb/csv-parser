@@ -95,6 +95,37 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["id"].tolist(), ["1", "2"])
         self.assertEqual(arrays["flag"].tolist(), ["true", "false"])
 
+    def test_read_numpy_native_predicate_filters_rows(self):
+        path = self.enterContext(temp_csv_path(
+            "region,id,value\n"
+            "el paso,1,10\n"
+            "phoenix,2,20\n"
+            "EL PASO,3,30\n"
+        ))
+
+        arrays = csvpy.read_numpy(
+            path,
+            columns=["id", "value"],
+            predicate=csvpy.equal("region", "el paso", case_sensitive=False),
+        )
+
+        self.assertEqual(arrays["id"].tolist(), [1, 3])
+        self.assertEqual(arrays["value"].tolist(), [10, 30])
+
+    def test_read_numpy_native_predicate_preserves_string_replay(self):
+        path = self.enterContext(temp_csv_path(
+            "region,mixed\n"
+            "keep,001\n"
+            "drop,2.50\n"
+            "keep,plain text\n"
+        ))
+
+        arrays = csvpy.read_numpy(path, predicate=csvpy.equal("region", "keep"))
+
+        self.assertIsInstance(arrays["mixed"].dtype, np.dtypes.StringDType)
+        self.assertEqual(arrays["region"].tolist(), ["keep", "keep"])
+        self.assertEqual(arrays["mixed"].tolist(), ["001", "plain text"])
+
     @unittest.skipIf(pd is None, "pandas is required for DataFrame handoff test")
     def test_read_numpy_result_builds_pandas_dataframe(self):
         path = self.enterContext(temp_csv_path(
