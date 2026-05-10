@@ -1,1 +1,1 @@
-from .compat import DictReader
+from ._dict_reader import DictReader

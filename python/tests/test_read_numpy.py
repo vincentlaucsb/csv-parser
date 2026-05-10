@@ -1,9 +1,9 @@
 import math
-import os
-import tempfile
 import unittest
 
 import csvpy
+
+from tempfiles import temp_csv_path
 
 try:
     import numpy as np
@@ -15,23 +15,14 @@ try:
 except Exception:  # pragma: no cover - depends on optional environment
     pd = None
 
-
-def _write_temp_csv(text):
-    handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="", delete=False)
-    with handle:
-        handle.write(text)
-    return handle.name
-
-
 @unittest.skipIf(np is None, "NumPy is required for csvpy.read_numpy tests")
 class ReadNumpyTests(unittest.TestCase):
     def test_read_numpy_materializes_typed_arrays(self):
-        path = _write_temp_csv(
+        path = self.enterContext(temp_csv_path(
             "name,count,ratio,flag\n"
             "alpha,1,1.5,true\n"
             "beta,2,2.25,false\n"
-        )
-        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        ))
 
         arrays = csvpy.read_numpy(path)
 
@@ -46,13 +37,12 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["name"].tolist(), ["alpha", "beta"])
 
     def test_read_numpy_widens_nullable_int_float_and_bool(self):
-        path = _write_temp_csv(
+        path = self.enterContext(temp_csv_path(
             "id,score,enabled\n"
             "1,2.5,true\n"
             ",,false\n"
             "3,4.5,\n"
-        )
-        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        ))
 
         arrays = csvpy.read_numpy(path)
 
@@ -66,12 +56,11 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertTrue(math.isnan(arrays["enabled"][2]))
 
     def test_read_numpy_selected_columns_and_escaped_strings(self):
-        path = _write_temp_csv(
+        path = self.enterContext(temp_csv_path(
             "id,text,skip\n"
             "1,\"a,b\",x\n"
             "2,\"c\"\"d\",y\n"
-        )
-        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        ))
 
         arrays = csvpy.read_numpy(path, columns=["text", "id"])
 
@@ -80,13 +69,12 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["id"].tolist(), [1, 2])
 
     def test_read_numpy_preserves_late_string_promotion_text(self):
-        path = _write_temp_csv(
+        path = self.enterContext(temp_csv_path(
             "mixed\n"
             "001\n"
             "2.50\n"
             "plain text\n"
-        )
-        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        ))
 
         arrays = csvpy.read_numpy(path)
 
@@ -94,12 +82,11 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["mixed"].tolist(), ["001", "2.50", "plain text"])
 
     def test_read_numpy_cast_false_returns_strings(self):
-        path = _write_temp_csv(
+        path = self.enterContext(temp_csv_path(
             "id,flag\n"
             "1,true\n"
             "2,false\n"
-        )
-        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        ))
 
         arrays = csvpy.read_numpy(path, cast=False)
 
@@ -110,12 +97,11 @@ class ReadNumpyTests(unittest.TestCase):
 
     @unittest.skipIf(pd is None, "pandas is required for DataFrame handoff test")
     def test_read_numpy_result_builds_pandas_dataframe(self):
-        path = _write_temp_csv(
+        path = self.enterContext(temp_csv_path(
             "name,value\n"
             "alpha,1\n"
             "beta,2\n"
-        )
-        self.addCleanup(lambda: os.path.exists(path) and os.unlink(path))
+        ))
 
         frame = pd.DataFrame(csvpy.read_numpy(path))
 

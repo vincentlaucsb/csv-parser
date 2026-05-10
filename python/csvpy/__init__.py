@@ -13,10 +13,13 @@ from .csvpy import (
     parse_no_header,
     read_numpy,
 )
-from .compat import DictReader, reader, rows
+from ._dict_reader import DictReader
+from ._document import CSVDocument
+from ._reader import reader, rows
 
 __all__ = [
     "CSVFileInfo",
+    "CSVDocument",
     "DataType",
     "DictReader",
     "Field",

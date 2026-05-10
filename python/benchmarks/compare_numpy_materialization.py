@@ -2,13 +2,16 @@
 """Compare selected-column CSV-to-NumPy materialization.
 
 The benchmark normalizes both tools to a dictionary-like set of NumPy arrays for
-the same selected columns. The parent process launches each tool in a fresh
-Python interpreter and samples wall time plus peak resident/working-set memory.
+the same selected columns. With --filter-column/--filter-value, it first filters
+rows and then materializes the selected columns. The parent process launches
+each tool in a fresh Python interpreter and samples wall time plus peak
+resident/working-set memory.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import ctypes
 import importlib.machinery
 import importlib.util
@@ -196,6 +199,11 @@ def run_worker(worker: str, label: str, args: argparse.Namespace) -> RunResult:
     ]
     for column in args.columns:
         command.extend(["--columns", column])
+    if args.filter_column is not None:
+        command.extend(["--filter-column", args.filter_column])
+        command.extend(["--filter-value", args.filter_value])
+    if args.case_insensitive:
+        command.append("--case-insensitive")
 
     env = os.environ.copy()
     env["PYTHONPATH"] = (
@@ -241,6 +249,8 @@ def print_results(path: Path, args: argparse.Namespace, results: list[RunResult]
     print(f"file={path}")
     print(f"size={size} bytes ({size_mib:.3f} MiB)")
     print(f"columns={', '.join(args.columns)}")
+    if args.filter_column is not None:
+        print(f"filter={args.filter_column!r} == {args.filter_value!r}")
     print()
     print("Tool\tStatus\tSeconds\tMiB/s\tPeakRSSMiB\tRows\tColumns\tArrayBytes")
     for result in results:
@@ -265,11 +275,84 @@ def _array_nbytes(array: object) -> int:
     return int(getattr(array, "nbytes", 0))
 
 
+def _header(path: Path, delimiter: str) -> list[str]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        try:
+            return next(csv.reader(handle, delimiter=delimiter))
+        except StopIteration as exc:
+            raise SystemExit("empty CSV file") from exc
+
+
+def _column_index(columns: list[str], column: str) -> int:
+    try:
+        return columns.index(column)
+    except ValueError as exc:
+        raise SystemExit(f"column not found: {column!r}; available columns: {columns}") from exc
+
+
+def _string_dtype():
+    import numpy as np
+
+    try:
+        return np.dtypes.StringDType()
+    except AttributeError as exc:
+        raise SystemExit("string columns require NumPy 2.x with np.dtypes.StringDType") from exc
+
+
+def _values_to_numpy(values: list[object]):
+    import numpy as np
+
+    non_null = [value for value in values if value is not None]
+    if not non_null:
+        return np.asarray([np.nan] * len(values), dtype=np.float64)
+
+    if all(isinstance(value, bool) for value in non_null):
+        if len(non_null) == len(values):
+            return np.asarray(values, dtype=np.bool_)
+        return np.asarray([np.nan if value is None else float(value) for value in values], dtype=np.float64)
+
+    if all(isinstance(value, int) and not isinstance(value, bool) for value in non_null):
+        if len(non_null) == len(values):
+            return np.asarray(values, dtype=np.int64)
+        return np.asarray([np.nan if value is None else float(value) for value in values], dtype=np.float64)
+
+    if all(
+        (isinstance(value, int) and not isinstance(value, bool)) or isinstance(value, float)
+        for value in non_null
+    ):
+        return np.asarray([np.nan if value is None else float(value) for value in values], dtype=np.float64)
+
+    return np.asarray(["" if value is None else str(value) for value in values], dtype=_string_dtype())
+
+
 def worker_csvpy(args: argparse.Namespace) -> None:
     ensure_csvpy_available()
     import csvpy
 
-    arrays = csvpy.read_numpy(str(args.csv_file), columns=args.columns)
+    if args.filter_column is None:
+        arrays = csvpy.read_numpy(str(args.csv_file), columns=args.columns)
+    else:
+        header = _header(args.csv_file, args.delimiter)
+        selected_indices = [_column_index(header, column) for column in args.columns]
+        filter_index = _column_index(header, args.filter_column)
+        expected = args.filter_value.lower() if args.case_insensitive else args.filter_value
+        collected: dict[str, list[object]] = {column: [] for column in args.columns}
+
+        for row in csvpy.rows(args.csv_file, delimiter=args.delimiter, cast=True):
+            value = row[filter_index]
+            if args.case_insensitive:
+                value = str(value).lower()
+            if value != expected:
+                continue
+
+            for column, index in zip(args.columns, selected_indices):
+                collected[column].append(row[index])
+
+        arrays = {
+            column: _values_to_numpy(values)
+            for column, values in collected.items()
+        }
+
     rows = len(next(iter(arrays.values()))) if arrays else 0
     array_bytes = sum(_array_nbytes(array) for array in arrays.values())
     print(
@@ -285,9 +368,14 @@ def worker_csvpy(args: argparse.Namespace) -> None:
 
 
 def worker_pyarrow(args: argparse.Namespace) -> None:
+    import pyarrow.compute as pc
     import pyarrow.csv as pacsv
 
-    convert_options = pacsv.ConvertOptions(include_columns=args.columns)
+    include_columns = list(args.columns)
+    if args.filter_column is not None and args.filter_column not in include_columns:
+        include_columns.append(args.filter_column)
+
+    convert_options = pacsv.ConvertOptions(include_columns=include_columns)
     parse_options = pacsv.ParseOptions(
         delimiter=args.delimiter,
         newlines_in_values=True,
@@ -299,10 +387,15 @@ def worker_pyarrow(args: argparse.Namespace) -> None:
         parse_options=parse_options,
         convert_options=convert_options,
     )
-    arrays = {
-        name: table[name].to_numpy(zero_copy_only=False)
-        for name in args.columns
-    }
+    if args.filter_column is not None:
+        column = table[args.filter_column]
+        expected = args.filter_value
+        if args.case_insensitive:
+            column = pc.utf8_lower(column)
+            expected = expected.lower()
+        table = table.filter(pc.equal(column, expected))
+
+    arrays = {name: table[name].to_numpy(zero_copy_only=False) for name in args.columns}
     rows = len(next(iter(arrays.values()))) if arrays else 0
     array_bytes = sum(_array_nbytes(array) for array in arrays.values())
     print(
@@ -331,6 +424,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--delimiter", default=",")
     parser.add_argument(
+        "--filter-column",
+        default=None,
+        help="optional column used to filter rows before materializing NumPy arrays",
+    )
+    parser.add_argument(
+        "--filter-value",
+        default="",
+        help="value compared with --filter-column when filtering",
+    )
+    parser.add_argument("--case-insensitive", action="store_true")
+    parser.add_argument(
         "--poll-interval",
         type=float,
         default=0.05,
@@ -343,6 +447,8 @@ def parse_args() -> argparse.Namespace:
         args.columns = list(DEFAULT_COLUMNS)
     if len(args.delimiter) != 1:
         raise SystemExit("--delimiter must be a single character")
+    if args.filter_column is None and args.filter_value:
+        raise SystemExit("--filter-value requires --filter-column")
     return args
 
 
@@ -356,9 +462,15 @@ def main() -> None:
         worker_pyarrow(args)
         return
 
+    csvpy_label = "csvpy_read_numpy"
+    pyarrow_label = "pyarrow_read_csv_to_numpy"
+    if args.filter_column is not None:
+        csvpy_label = "csvpy_filter_to_numpy"
+        pyarrow_label = "pyarrow_filter_to_numpy"
+
     results = [
-        run_worker("csvpy", "csvpy_read_numpy", args),
-        run_worker("pyarrow", "pyarrow_read_csv_to_numpy", args),
+        run_worker("csvpy", csvpy_label, args),
+        run_worker("pyarrow", pyarrow_label, args),
     ]
     print_results(args.csv_file, args, results)
 

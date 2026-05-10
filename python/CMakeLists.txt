@@ -51,5 +51,6 @@ if(BUILD_PYTHON AND CSVPY_TEST_PYTHON_EXECUTABLE)
     )
     set_tests_properties(csvpy_compat_tests PROPERTIES
         ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_LIST_DIR}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
     )
 endif()

@@ -16,6 +16,21 @@ individual fields are materialized only when accessed.
 
 ## Building
 
+Install the local package directly from the repository root:
+
+```powershell
+python -m pip install -e E:\GitHub\csv-parser
+```
+
+For a regular non-editable local install:
+
+```powershell
+python -m pip install E:\GitHub\csv-parser
+```
+
+The package build uses CMake through `scikit-build-core` and builds the native
+`csvpy` extension for the Python interpreter running `pip`.
+
 Build the extension with `BUILD_PYTHON=ON`:
 
 ```powershell
@@ -90,6 +105,27 @@ It does not produce object arrays. The C++ export path batches rows through
 `DataFrame` column views and `DataFrameExecutor`; remaining fixed costs are
 mostly NumPy `StringDType` construction for string-heavy data and pandas'
 DataFrame materialization after the arrays have been built.
+
+Use `csvpy.CSVDocument()` when you need to trim rows before NumPy export without
+round-tripping through Python lists. It eagerly loads rows into C++ `DataFrame`
+storage, yields lightweight row handles, and lets `row.delete()` mark rows for
+later compaction:
+
+```python
+document = csvpy.CSVDocument("data.csv")
+
+for row in document:
+    if row["status"] == "archived":
+        row.delete()
+
+arrays = document.to_numpy(columns=["id", "amount"])
+document.materialize_deletes()
+```
+
+While delete marks are pending, starting a new iteration or fetching a new row
+handle raises `RuntimeError`; call `materialize_deletes()` to compact storage or
+`discard_deletes()` to clear the marks. `CSVDocument.to_numpy()` excludes
+pending-deleted rows but does not clear or materialize the delete marks.
 
 The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
 `skipinitialspace`, `strict`, and `fieldnames` options. Unsupported dialect

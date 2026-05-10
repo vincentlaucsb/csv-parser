@@ -6,6 +6,8 @@ import unittest
 
 import csvpy
 
+from tempfiles import temp_csv_path
+
 
 CASES = [
     "a,b\n1,2\n",
@@ -86,18 +88,8 @@ class CompatReaderTests(unittest.TestCase):
         self.assertEqual(row.as_list(), ["1", "2", "3", "4"])
 
     def test_rows_path_input_and_cast_false_strings(self):
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="", delete=False) as handle:
-            handle.write("a,b,c\n1,2.5,true\n")
-            filename = handle.name
-
-        try:
+        with temp_csv_path("a,b,c\n1,2.5,true\n") as filename:
             row = next(csvpy.rows(filename))
-        finally:
-            try:
-                import os
-                os.unlink(filename)
-            except FileNotFoundError:
-                pass
 
         self.assertEqual(row.as_list(), ["1", "2.5", "true"])
         self.assertTrue(all(isinstance(value, str) for value in row))
@@ -134,6 +126,24 @@ class CompatReaderTests(unittest.TestCase):
         row = next(csvpy.reader(io.StringIO("a,b\n")))
         self.assertNotIsInstance(row, list)
         self.assertEqual(row.as_list(), ["a", "b"])
+
+    def test_split_modules_preserve_public_imports(self):
+        from csvpy import DictReader, read_numpy, reader, rows
+
+        self.assertIs(reader, csvpy.reader)
+        self.assertIs(rows, csvpy.rows)
+        self.assertIs(DictReader, csvpy.DictReader)
+        self.assertIs(read_numpy, csvpy.read_numpy)
+
+        from csvpy.DictReader import DictReader as legacy_dict_reader
+        from csvpy.compat import DictReader as compat_dict_reader
+        from csvpy.compat import reader as compat_reader
+        from csvpy.compat import rows as compat_rows
+
+        self.assertIs(compat_reader, csvpy.reader)
+        self.assertIs(compat_rows, csvpy.rows)
+        self.assertIs(compat_dict_reader, DictReader)
+        self.assertIs(legacy_dict_reader, DictReader)
 
 
 if __name__ == "__main__":
