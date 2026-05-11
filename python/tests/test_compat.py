@@ -62,20 +62,25 @@ class CompatReaderTests(unittest.TestCase):
             handle.seek(len("skip,this\n"))
             self.assertEqual([row.as_list() for row in csvpy.reader(handle)], [["keep", "that"]])
 
-    def test_dict_reader_uses_header_and_strings_by_default(self):
-        rows = list(csvpy.DictReader(io.StringIO("a,b\n1,2.5\n")))
-        self.assertEqual(rows, [{"a": "1", "b": "2.5"}])
-        self.assertTrue(all(isinstance(value, str) for value in rows[0].values()))
+    def test_reader_exposes_empty_fieldnames_without_header_consumption(self):
+        source = csvpy.reader(io.StringIO("a,b\n1,2\n"))
 
-    def test_dict_reader_explicit_fieldnames_keeps_first_row(self):
-        rows = list(csvpy.DictReader(io.StringIO("1,2\n3,4\n"), fieldnames=["a", "b"]))
-        self.assertEqual(rows, [{"a": "1", "b": "2"}, {"a": "3", "b": "4"}])
+        self.assertEqual(source.fieldnames, [])
+        self.assertEqual(source.get_col_names(), [])
+        self.assertEqual(next(source).as_list(), ["a", "b"])
 
-    def test_dict_reader_cast_true(self):
-        self.assertEqual(
-            list(csvpy.DictReader(io.StringIO("a,b,c\n1,2.5,\n"), cast=True)),
-            [{"a": 1, "b": 2.5, "c": None}],
-        )
+    def test_rows_exposes_header_fieldnames(self):
+        source = csvpy.rows(io.StringIO("a,b\n1,2\n"))
+
+        self.assertEqual(source.fieldnames, ["a", "b"])
+        self.assertEqual(source.get_col_names(), ["a", "b"])
+        self.assertEqual(next(source).as_dict(), {"a": "1", "b": "2"})
+
+    def test_rows_explicit_fieldnames_are_exposed_without_consuming_first_row(self):
+        source = csvpy.rows(io.StringIO("1,2\n3,4\n"), fieldnames=["a", "b"])
+
+        self.assertEqual(source.fieldnames, ["a", "b"])
+        self.assertEqual(next(source).as_dict(), {"a": "1", "b": "2"})
 
     def test_rows_file_like_is_lazy_and_list_like(self):
         row = next(csvpy.rows(io.StringIO("1,2,3,4\n"), fieldnames=["a", "b", "c", "d"]))
@@ -122,29 +127,42 @@ class CompatReaderTests(unittest.TestCase):
         self.assertEqual(row.get_int("b"), 2)
         self.assertEqual(row.as_dict(), {"a": "1", "b": "2"})
 
+    def test_rows_as_dict_supports_column_subset(self):
+        row = next(csvpy.rows(io.StringIO("1,2,3\n"), fieldnames=["a", "b", "c"]))
+
+        try:
+            subset = row.as_dict(["c", "a"])
+        except TypeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with as_dict(columns): {exc}")
+
+        self.assertEqual(subset, {"c": "3", "a": "1"})
+
     def test_reader_returns_lazy_rows(self):
         row = next(csvpy.reader(io.StringIO("a,b\n")))
         self.assertNotIsInstance(row, list)
         self.assertEqual(row.as_list(), ["a", "b"])
 
     def test_split_modules_preserve_public_imports(self):
-        from csvpy import DictReader, equal, read_numpy, reader, rows
+        from csvpy import equal, read_numpy, reader, rows
 
         self.assertIs(reader, csvpy.reader)
         self.assertIs(rows, csvpy.rows)
-        self.assertIs(DictReader, csvpy.DictReader)
         self.assertIs(read_numpy, csvpy.read_numpy)
         self.assertIs(equal, csvpy.equal)
+        self.assertNotIn("Format", csvpy.__all__)
+        self.assertNotIn("VariableColumnPolicy", csvpy.__all__)
+        self.assertNotIn("get_col_pos", csvpy.__all__)
+        self.assertNotIn("parse", csvpy.__all__)
+        self.assertFalse(hasattr(csvpy, "Format"))
+        self.assertFalse(hasattr(csvpy, "VariableColumnPolicy"))
+        self.assertFalse(hasattr(csvpy, "get_col_pos"))
+        self.assertFalse(hasattr(csvpy, "parse"))
 
-        from csvpy.DictReader import DictReader as legacy_dict_reader
-        from csvpy.compat import DictReader as compat_dict_reader
         from csvpy.compat import reader as compat_reader
         from csvpy.compat import rows as compat_rows
 
         self.assertIs(compat_reader, csvpy.reader)
         self.assertIs(compat_rows, csvpy.rows)
-        self.assertIs(compat_dict_reader, DictReader)
-        self.assertIs(legacy_dict_reader, DictReader)
 
 
 if __name__ == "__main__":

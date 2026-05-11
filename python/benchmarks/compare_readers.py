@@ -140,30 +140,6 @@ def bench_csvpy_rows_cast(path):
     return rows, cols
 
 
-def bench_csvpy_dict_strings(path):
-    import csvpy
-
-    rows = 0
-    cols = 0
-    with path.open(newline="", encoding="utf-8") as handle:
-        for row in csvpy.DictReader(handle):
-            rows += 1
-            cols = max(cols, len(row))
-    return rows, cols
-
-
-def bench_csvpy_dict_cast(path):
-    import csvpy
-
-    rows = 0
-    cols = 0
-    with path.open(newline="", encoding="utf-8") as handle:
-        for row in csvpy.DictReader(handle, cast=True):
-            rows += 1
-            cols = max(cols, len(row))
-    return rows, cols
-
-
 def bench_csvpy_read_numpy_dataframe(path):
     import csvpy
     import pandas as pd
@@ -218,8 +194,6 @@ def main():
     measure("csvpy_reader_rows_strings", path, bench_csvpy_rows_strings)
     measure("csvpy_reader_rows_cast", path, bench_csvpy_rows_cast)
     measure("stdlib_dict_reader_strings", path, bench_stdlib_dict_strings)
-    measure("csvpy_dict_reader_strings", path, bench_csvpy_dict_strings)
-    measure("csvpy_dict_reader_cast", path, bench_csvpy_dict_cast)
     measure("csvpy_read_numpy_arrays", path, bench_csvpy_read_numpy_arrays)
     measure("csvpy_read_numpy_dataframe", path, bench_csvpy_read_numpy_dataframe)
     measure("pandas_read_csv_pyarrow", path, bench_pandas_pyarrow)

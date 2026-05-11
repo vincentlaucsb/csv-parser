@@ -34,17 +34,10 @@ nb::dict read_numpy(
     bool cast = true,
     nb::object predicate = nb::none()
 );
-nb::dict data_frame_to_numpy(
-    const DataFrame<>& frame,
-    const std::vector<std::uint8_t>& deleted_rows,
-    nb::object columns = nb::none(),
-    bool cast = true,
-    nb::object predicate = nb::none()
-);
+void init_CSVNumpy(nb::module_& m);
 
 void init_CSVFormat(nb::module_& m);
 void init_CSVReader(nb::module_& m);
-void init_CSVDocument(nb::module_& m);
 void init_CSVPredicate(nb::module_& m);
 void init_CSVRow(nb::module_& m);
 void init_DataType(nb::module_& m);

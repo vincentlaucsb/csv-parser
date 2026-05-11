@@ -69,14 +69,17 @@ with open("data.csv", newline="", encoding="utf-8") as handle:
         values = row.as_list()  # Materialize explicitly when needed.
 ```
 
-Use `csvpy.DictReader()` for dictionary rows. The first row is used as headers
-unless `fieldnames` is provided:
+Use `csvpy.rows()` when you want header-aware row access without materializing a
+dictionary for every row:
 
 ```python
 with open("data.csv", newline="", encoding="utf-8") as handle:
-    for row in csvpy.DictReader(handle):
+    for row in csvpy.rows(handle):
         print(row["name"])
 ```
+
+Call `row.as_dict()` only when you explicitly want to materialize a row as a
+plain Python dictionary.
 
 Pass `cast=True` only when you want csv-parser's scalar classification exposed
 as Python values. Empty fields become `None`, boolean fields become `bool`,
@@ -106,38 +109,22 @@ It does not produce object arrays. The C++ export path batches rows through
 mostly NumPy `StringDType` construction for string-heavy data and pandas'
 DataFrame materialization after the arrays have been built.
 
-Use `csvpy.CSVDocument()` when you need to trim rows before NumPy export without
-round-tripping through Python lists. It eagerly loads rows into C++ `DataFrame`
-storage, yields lightweight row handles, and lets `row.delete()` mark rows for
-later compaction:
+Use `csvpy.read_numpy_batches(path, columns=None, predicate=None, cast=True,
+batch_size=50000, schema="sample")` when you want streaming dictionaries of
+NumPy arrays instead of one eager full-file result. `schema="sample"` infers
+dtypes from the first bounded batch and then streams once, `schema="global"`
+does a full pre-scan for stable dtypes matching `read_numpy()`, and
+`schema="batch"` infers each emitted batch independently for true one-pass
+bounded-memory streaming. With `cast=False`, batches are string-only and skip
+schema inference. Explicit `dtypes={column: dtype}` overrides are not implemented
+yet and are tracked as a follow-up.
 
-```python
-document = csvpy.CSVDocument("data.csv")
-
-for row in document:
-    if row["status"] == "archived":
-        row.delete()
-
-arrays = document.to_numpy(columns=["id", "amount"])
-document.materialize_deletes()
-```
-
-While delete marks are pending, starting a new iteration or fetching a new row
-handle raises `RuntimeError`; call `materialize_deletes()` to compact storage or
-`discard_deletes()` to clear the marks. `CSVDocument.to_numpy()` excludes
-pending-deleted rows but does not clear or materialize the delete marks.
-
-For simple row filters, create a native equality predicate with `csvpy.equal()`
-and pass it to `read_numpy()`, `CSVDocument.to_numpy()`, or
-`CSVDocument.delete_where()`:
+For simple row filters, create native predicates and pass them to
+`read_numpy()` or `read_numpy_batches()`:
 
 ```python
 predicate = csvpy.equal("region", "el paso", case_sensitive=False)
 arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year"], predicate=predicate)
-
-document = csvpy.CSVDocument("vehicles.csv")
-el_paso = document.filter(predicate)
-arrays = el_paso.to_numpy(columns=["price", "year"])
 ```
 
 The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
@@ -145,8 +132,9 @@ The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
 features intentionally fail fast instead of silently diverging from stdlib
 behavior.
 
-The lower-level extension API remains available as `csvpy.Reader`, `csvpy.Format`,
-`csvpy.Field`, and related classes.
+Lower-level extension objects remain available where they have a clear Python
+use, but `csvpy` intentionally keeps C++ configuration machinery out of the
+stable Python facade.
 
 ## Benchmarks
 
@@ -175,6 +163,23 @@ To compare selected-column CSV-to-NumPy materialization against pyarrow:
 python python/benchmarks/compare_numpy_materialization.py path/to/vehicles.csv
 ```
 
+To compare ordinary Python object materialization against pyarrow and Polars:
+
+```powershell
+python python/benchmarks/compare_python_materialization.py path/to/vehicles.csv
+```
+
+This compares full CSV and first+last-column subset materialization for
+row-oriented `list[dict]` outputs and column-oriented `dict[str, list]` outputs.
+
+The NumPy benchmark includes pyarrow's direct CSV reader, Dataset/Scanner path,
+streaming CSV reader, and Polars lazy scanning. The Dataset row is pyarrow's
+closest API for parallel predicate/projection work, but it can require explicit
+column types: otherwise pyarrow may infer a narrow integer type from early rows
+and later fail on wider values. The benchmark pins obvious numeric columns such
+as `price`, `year`, and `odometer` so the comparison measures throughput instead
+of schema-inference failure handling.
+
 This runs each workload in a fresh Python process and reports wall time,
 throughput, and peak resident/working-set memory.
 
@@ -184,10 +189,9 @@ version that built `csvpy`; a `cp310` extension, for example, will not import
 under Python 3.14.
 
 The benchmark matrix compares stdlib `csv.reader`, lazy `csvpy.reader` rows with
-strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`,
-`csvpy.DictReader` with both string and casted values, raw `csvpy.read_numpy()`
-array export, and `pandas.DataFrame(csvpy.read_numpy(...))`. It reports file
-path, size, rows, columns, elapsed seconds, MiB/s, and rows/s.
+strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`, raw
+`csvpy.read_numpy()` array export, and `pandas.DataFrame(csvpy.read_numpy(...))`.
+It reports file path, size, rows, columns, elapsed seconds, MiB/s, and rows/s.
 
 ## Exploratory Summary
 

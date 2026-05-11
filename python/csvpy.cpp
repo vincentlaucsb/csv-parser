@@ -5,8 +5,8 @@ NB_MODULE(csvpy, m) {
     m.doc() = "A modern C++ library for reading, writing, and analyzing CSV (and similar) files.";
     init_CSVFormat(m);
     init_CSVReader(m);
-    init_CSVDocument(m);
     init_CSVPredicate(m);
+    init_CSVNumpy(m);
     init_CSVRow(m);
     init_DataType(m);
     init_CSVField(m);

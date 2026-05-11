@@ -6,6 +6,11 @@
 namespace {
     const size_t PREDICATE_PARALLEL_MIN_ROWS = 4096;
 
+    struct PredicateClause {
+        const RowPredicate* predicate;
+        DataFrame<>::column_type column;
+    };
+
     char ascii_lower(char value) {
         return static_cast<char>(std::tolower(static_cast<unsigned char>(value)));
     }
@@ -53,6 +58,32 @@ namespace {
         return (std::min)(row_count, worker_count * 4);
     }
 
+    void append_predicate_clauses(
+        const DataFrame<>& frame,
+        const RowPredicate& predicate,
+        std::vector<PredicateClause>& clauses
+    ) {
+        if (predicate.is_all_of()) {
+            for (const auto& child : predicate.children()) {
+                append_predicate_clauses(frame, child, clauses);
+            }
+            return;
+        }
+
+        const size_t column_index = predicate.column_index(frame.columns());
+        clauses.push_back(PredicateClause { &predicate, frame.column_view(column_index) });
+    }
+
+    bool predicate_matches_row(const std::vector<PredicateClause>& clauses, size_t row_index) {
+        for (const auto& clause : clauses) {
+            if (!clause.predicate->matches(clause.column.get_sv(row_index))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     void evaluate_predicate_matches(
         const DataFrame<>& frame,
         const RowPredicate& predicate,
@@ -63,18 +94,18 @@ namespace {
             return;
         }
 
-        const size_t column_index = predicate.column_index(frame.columns());
-        const auto column = frame.column_view(column_index);
+        std::vector<PredicateClause> clauses;
+        append_predicate_clauses(frame, predicate, clauses);
         const size_t worker_count = predicate_worker_count(frame.size());
         const size_t chunk_count = predicate_chunk_count(frame.size(), worker_count);
         DataFrameExecutor executor(worker_count);
 
-        executor.parallel_for(chunk_count, [&column, &matches, &predicate, chunk_count](size_t chunk_index) {
+        executor.parallel_for(chunk_count, [&clauses, &matches, chunk_count](size_t chunk_index) {
             const size_t row_count = matches.size();
             const size_t begin = (row_count * chunk_index) / chunk_count;
             const size_t end = (row_count * (chunk_index + 1)) / chunk_count;
             for (size_t row_index = begin; row_index < end; ++row_index) {
-                matches[row_index] = predicate.matches(column.get_sv(row_index)) ? 1 : 0;
+                matches[row_index] = predicate_matches_row(clauses, row_index) ? 1 : 0;
             }
         });
     }
@@ -94,6 +125,13 @@ RowPredicate::RowPredicate(std::string column, std::string value, RowPredicateOp
     }
 }
 
+RowPredicate::RowPredicate(std::vector<RowPredicate> predicates)
+    : children_(std::move(predicates)) {
+    if (this->children_.empty()) {
+        throw std::invalid_argument("all_of() requires at least one predicate");
+    }
+}
+
 const std::string& RowPredicate::column() const noexcept {
     return this->column_;
 }
@@ -110,7 +148,19 @@ RowPredicateOp RowPredicate::op() const noexcept {
     return this->op_;
 }
 
+bool RowPredicate::is_all_of() const noexcept {
+    return !this->children_.empty();
+}
+
+const std::vector<RowPredicate>& RowPredicate::children() const noexcept {
+    return this->children_;
+}
+
 bool RowPredicate::matches(csv::string_view candidate) const {
+    if (this->is_all_of()) {
+        throw std::logic_error("compound predicates require row-aware evaluation");
+    }
+
     if (this->op_ != RowPredicateOp::EQUAL) {
         long double candidate_value = 0;
         CSVField field(candidate);
@@ -153,12 +203,27 @@ bool RowPredicate::matches(csv::string_view candidate) const {
 }
 
 size_t RowPredicate::column_index(const std::vector<std::string>& columns) const {
+    if (this->is_all_of()) {
+        throw std::logic_error("compound predicates do not have a single column");
+    }
+
     const auto it = std::find(columns.begin(), columns.end(), this->column_);
     if (it == columns.end()) {
         throw std::runtime_error("predicate column not found: " + this->column_);
     }
 
     return static_cast<size_t>(it - columns.begin());
+}
+
+void RowPredicate::validate_columns(const std::vector<std::string>& columns) const {
+    if (this->is_all_of()) {
+        for (const auto& child : this->children_) {
+            child.validate_columns(columns);
+        }
+        return;
+    }
+
+    (void)this->column_index(columns);
 }
 
 const RowPredicate* optional_row_predicate(nb::object predicate) {
@@ -290,5 +355,26 @@ void init_CSVPredicate(nb::module_& m) {
         "Create a native numeric greater-than-or-equal predicate for row filtering.",
         nb::arg("column"),
         nb::arg("value")
+    );
+    m.def(
+        "all_of",
+        [](const nb::args& args) {
+            if (args.size() == 0) {
+                throw nb::type_error("all_of() requires at least one predicate");
+            }
+
+            std::vector<RowPredicate> predicates;
+            predicates.reserve(args.size());
+            for (nb::handle arg : args) {
+                if (!nb::isinstance<RowPredicate>(arg)) {
+                    throw nb::type_error("all_of() arguments must be predicates created by csvpy predicate factories");
+                }
+
+                predicates.push_back(*nb::cast<RowPredicate*>(arg));
+            }
+
+            return RowPredicate(std::move(predicates));
+        },
+        "Create a native conjunction predicate for row filtering."
     );
 }

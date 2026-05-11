@@ -26,7 +26,6 @@ endif()
 set(CSVPY_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/csvpy.cpp
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_core.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/csvpy_document.cpp
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_format.cpp
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_numpy.cpp
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_predicate.cpp

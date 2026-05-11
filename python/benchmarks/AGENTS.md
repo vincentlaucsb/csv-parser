@@ -71,11 +71,19 @@ For selected-column CSV-to-NumPy materialization against pyarrow:
 python python/benchmarks/compare_numpy_materialization.py path/to/vehicles.csv
 ```
 
+For Python object materialization against pyarrow and Polars:
+
+```powershell
+python python/benchmarks/compare_python_materialization.py path/to/vehicles.csv
+```
+
+This compares full CSV and first+last-column subset materialization for
+row-oriented `list[dict]` outputs and column-oriented `dict[str, list]` outputs.
+
 The benchmark matrix compares stdlib `csv.reader`, lazy `csvpy.reader` rows with
-strings, lazy `csvpy.reader` rows with `cast=True`, stdlib `csv.DictReader`, and
-`csvpy.DictReader` with both string and casted values. Keep DataFrame/Table
-libraries out of this script unless the benchmark explicitly normalizes outputs
-first.
+strings, lazy `csvpy.reader` rows with `cast=True`, and stdlib
+`csv.DictReader`. Keep DataFrame/Table libraries out of this script unless the
+benchmark explicitly normalizes outputs first.
 
 Use the same Python version that built `csvpy`. A `cp310` extension, for
 example, will not import under Python 3.14.

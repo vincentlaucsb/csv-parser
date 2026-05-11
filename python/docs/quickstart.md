@@ -43,16 +43,18 @@ with open("data.csv", newline="", encoding="utf-8") as handle:
         rows.append(row.as_list())
 ```
 
-## Read Dictionaries
+## Header-Aware Rows
 
-`csvpy.DictReader()` uses the first row as headers unless `fieldnames` is
-provided.
+`csvpy.rows()` uses the first row as headers unless `fieldnames` is provided.
+Rows support column-name indexing without materializing a dictionary for every
+row.
 
 ```python
 import csvpy
 
 with open("data.csv", newline="", encoding="utf-8") as handle:
-    for row in csvpy.DictReader(handle):
+    for row in csvpy.rows(handle):
         print(row["name"])
 ```
 
+Use `row.as_dict()` only when you explicitly need a plain Python dictionary.

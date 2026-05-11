@@ -34,46 +34,38 @@ _native = _load_native_module()
 CSVFileInfo = _native.CSVFileInfo
 DataType = _native.DataType
 Field = _native.Field
-Format = _native.Format
 Reader = _native.Reader
 Row = _native.Row
-VariableColumnPolicy = _native.VariableColumnPolicy
 csv_data_types = _native.csv_data_types
+all_of = _native.all_of
 equal = _native.equal
 greater = _native.greater
 greater_equal = _native.greater_equal
-get_col_pos = _native.get_col_pos
 get_file_info = _native.get_file_info
 less = _native.less
 less_equal = _native.less_equal
-parse = _native.parse
 parse_no_header = _native.parse_no_header
 read_numpy = _native.read_numpy
-from ._dict_reader import DictReader
-from ._document import CSVDocument
+read_numpy_batches = _native.read_numpy_batches
 from ._reader import reader, rows
 
 __all__ = [
     "CSVFileInfo",
-    "CSVDocument",
     "DataType",
-    "DictReader",
     "Field",
-    "Format",
     "Reader",
     "Row",
-    "VariableColumnPolicy",
+    "all_of",
     "csv_data_types",
     "equal",
     "greater",
     "greater_equal",
-    "get_col_pos",
     "get_file_info",
     "less",
     "less_equal",
-    "parse",
     "parse_no_header",
     "read_numpy",
+    "read_numpy_batches",
     "reader",
     "rows",
 ]

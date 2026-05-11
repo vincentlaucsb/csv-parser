@@ -1,4 +1,4 @@
-"""Lazy stdlib-like reader facade over the native csvpy extension."""
+"""Lazy stdlib-adjacent reader facade over the native csvpy extension."""
 
 from __future__ import annotations
 
@@ -64,6 +64,13 @@ class _BaseReader:
     def _init_reader(self, csvfile, fmt, cast: bool, batch_size: int) -> None:
         self._source = _CSVSource(csvfile)
         self._iterator = iter(_RowsReader(self._source.name, fmt, cast, batch_size))
+
+    @property
+    def fieldnames(self):
+        return list(self._iterator.fieldnames)
+
+    def get_col_names(self):
+        return self.fieldnames
 
     def __iter__(self):
         return self

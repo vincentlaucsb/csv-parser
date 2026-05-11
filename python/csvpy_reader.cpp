@@ -44,12 +44,21 @@ public:
         return out;
     }
 
-    nb::dict as_dict() const {
+    nb::dict as_dict(nb::object selected = nb::none()) const {
         const std::vector<std::string>& columns = this->columns_or_throw();
         nb::dict out;
-        const size_t n = (std::min)(columns.size(), this->row_.size());
-        for (size_t i = 0; i < n; ++i) {
-            out[nb::str(columns[i].data(), columns[i].size())] = this->field_to_python(this->row_[i]);
+
+        if (selected.is_none()) {
+            const size_t n = (std::min)(columns.size(), this->row_.size());
+            for (size_t i = 0; i < n; ++i) {
+                out[nb::str(columns[i].data(), columns[i].size())] = this->field_to_python(this->row_[i]);
+            }
+            return out;
+        }
+
+        const std::vector<std::string> selected_columns = nb::cast<std::vector<std::string>>(selected);
+        for (const auto& column : selected_columns) {
+            out[nb::str(column.data(), column.size())] = this->field_to_python(this->field_at(this->index_of(column)));
         }
         return out;
     }
@@ -209,6 +218,10 @@ public:
         return *this;
     }
 
+    const std::vector<std::string>& get_col_names() const {
+        return this->reader_.get_col_names();
+    }
+
     LazyCSVRow next() {
         CSVRow row;
         if (!this->reader_.read_row(row)) {
@@ -254,7 +267,7 @@ void init_CSVReader(nb::module_& m){
     .def("__getitem__", &LazyCSVRow::get_item, nb::is_operator())
     .def("__iter__", &LazyCSVRow::iter, nb::keep_alive<0, 1>())
     .def("as_list", &LazyCSVRow::as_list)
-    .def("as_dict", &LazyCSVRow::as_dict)
+    .def("as_dict", &LazyCSVRow::as_dict, "columns"_a = nb::none())
     .def("get_col_names", &LazyCSVRow::get_col_names)
     .def("get_str", &LazyCSVRow::get_str)
     .def("get_int", &LazyCSVRow::get_int)
@@ -271,6 +284,6 @@ void init_CSVReader(nb::module_& m){
     .def("__iter__",
         &LazyCSVRowReader::iter,
         nb::rv_policy::reference_internal)
+    .def_prop_ro("fieldnames", &LazyCSVRowReader::get_col_names)
     .def("__next__", &LazyCSVRowReader::next);
 }
-

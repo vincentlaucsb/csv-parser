@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from .csvpy import Format, VariableColumnPolicy
+from .csvpy import Format as _NativeFormat
+from .csvpy import VariableColumnPolicy as _NativeVariableColumnPolicy
 
 
 def _make_format(
@@ -15,7 +16,7 @@ def _make_format(
     strict: bool = False,
     fieldnames: Optional[Sequence[str]] = None,
     no_header: bool = True,
-) -> Format:
+) -> _NativeFormat:
     if len(delimiter) != 1:
         raise TypeError("delimiter must be a one-character string")
     if quotechar is not None and len(quotechar) != 1:
@@ -23,7 +24,7 @@ def _make_format(
     if not doublequote:
         raise NotImplementedError("csvpy.reader does not support doublequote=False")
 
-    fmt = Format().delimiter(delimiter)
+    fmt = _NativeFormat().delimiter(delimiter)
     if no_header:
         fmt.no_header()
     if quotechar is None:
@@ -33,7 +34,7 @@ def _make_format(
     if skipinitialspace:
         fmt.trim([" "])
     if strict:
-        fmt.variable_columns(VariableColumnPolicy.THROW)
+        fmt.variable_columns(_NativeVariableColumnPolicy.THROW)
     if fieldnames is not None:
         fmt.column_names(list(fieldnames))
     return fmt

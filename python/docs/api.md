@@ -2,11 +2,14 @@
 
 This page covers the stable Python-facing API. The lower-level extension types
 remain available for advanced users, but most code should start with the
-stdlib-like facade.
+stdlib-adjacent facade.
 
 ## `csvpy.reader(csvfile, dialect="excel", **fmtparams)`
 
 Returns an iterator over lazy row objects.
+
+`reader.fieldnames` and `reader.get_col_names()` return an empty list because
+`reader()` mirrors stdlib `csv.reader` and does not consume a header row.
 
 Supported formatting options:
 
@@ -27,13 +30,9 @@ features fail fast instead of silently diverging from stdlib behavior.
 Like `reader()`, but supports `fieldnames` for attaching column names to lazy
 rows without consuming a header row from the input.
 
-## `csvpy.DictReader(csvfile, fieldnames=None, **fmtparams)`
-
-Returns dictionaries keyed by column name. If `fieldnames` is omitted, the first
-row is consumed as the header.
-
-The facade supports `restkey` and `restval` for rows with more or fewer fields
-than the header list.
+When `fieldnames` is omitted, `rows()` consumes the first row as column names.
+Use `rows.fieldnames` or `rows.get_col_names()` to retrieve those names before
+or during iteration.
 
 ## Lazy Row Objects
 
@@ -43,7 +42,7 @@ Rows returned by `reader()` and `rows()` support:
 - iteration: `list(row)`
 - `len(row)`
 - `row.as_list()`
-- `row.as_dict()`
+- `row.as_dict(columns=None)`; pass column names to materialize a subset
 - typed access helpers: `get_str`, `get_int`, `get_float`, `get_bool`
 - `row.type(index)` for native scalar classification
 
@@ -51,17 +50,15 @@ Rows returned by `reader()` and `rows()` support:
 
 The extension also exposes:
 
-- `csvpy.Format`
 - `csvpy.Reader`
 - `csvpy.Row`
 - `csvpy.Field`
 - `csvpy.DataType`
-- `csvpy.VariableColumnPolicy`
 - `csvpy.get_file_info()`
 - `csvpy.csv_data_types()`
-- `csvpy.parse()`
 - `csvpy.parse_no_header()`
 
-These are useful when you want direct access to the underlying parser concepts
-instead of the stdlib-like facade.
-
+These are useful when you want direct access to underlying parser concepts that
+still have a clear Python use. C++ configuration machinery such as `CSVFormat`
+and `VariableColumnPolicy` is used internally by the facade, but is intentionally
+kept out of the stable Python surface.
