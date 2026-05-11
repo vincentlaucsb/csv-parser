@@ -40,8 +40,12 @@ Row = _native.Row
 VariableColumnPolicy = _native.VariableColumnPolicy
 csv_data_types = _native.csv_data_types
 equal = _native.equal
+greater = _native.greater
+greater_equal = _native.greater_equal
 get_col_pos = _native.get_col_pos
 get_file_info = _native.get_file_info
+less = _native.less
+less_equal = _native.less_equal
 parse = _native.parse
 parse_no_header = _native.parse_no_header
 read_numpy = _native.read_numpy
@@ -61,8 +65,12 @@ __all__ = [
     "VariableColumnPolicy",
     "csv_data_types",
     "equal",
+    "greater",
+    "greater_equal",
     "get_col_pos",
     "get_file_info",
+    "less",
+    "less_equal",
     "parse",
     "parse_no_header",
     "read_numpy",

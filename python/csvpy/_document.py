@@ -12,6 +12,13 @@ from .csvpy import _CSVDocument
 class CSVDocument:
     """C++-owned CSV rows with deferred row deletion and NumPy export."""
 
+    @classmethod
+    def _from_native(cls, native):
+        document = cls.__new__(cls)
+        document._source = None
+        document._document = native
+        return document
+
     def __init__(
         self,
         path_or_rows,
@@ -64,6 +71,9 @@ class CSVDocument:
 
     def delete_where(self, predicate) -> int:
         return self._document.delete_where(predicate)
+
+    def filter(self, predicate) -> "CSVDocument":
+        return CSVDocument._from_native(self._document.filter(predicate))
 
     def __del__(self):
         source = getattr(self, "_source", None)

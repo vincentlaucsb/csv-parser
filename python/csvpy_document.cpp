@@ -92,6 +92,11 @@ public:
         this->deleted_rows_.assign(this->frame_.size(), 0);
     }
 
+    CSVDocumentNative(DataFrame<> frame, bool cast)
+        : frame_(std::move(frame)),
+          deleted_rows_(this->frame_.size(), 0),
+          cast_(cast) {}
+
     CSVDocumentIterator iter() {
         this->require_no_pending_deletes();
         return CSVDocumentIterator(this, 0, this->generation_);
@@ -152,6 +157,16 @@ public:
         }
 
         return mark_matching_rows(this->frame_, this->deleted_rows_, this->pending_delete_count_, *row_predicate);
+    }
+
+    CSVDocumentNative filter(nb::object predicate) const {
+        const RowPredicate* row_predicate = optional_row_predicate(predicate);
+        if (!row_predicate) {
+            throw nb::type_error("filter() requires a predicate created by csvpy.equal()");
+        }
+
+        std::vector<std::uint8_t> include_rows = included_rows_for_predicate(this->frame_, this->deleted_rows_, *row_predicate);
+        return CSVDocumentNative(this->frame_.selected_rows(include_rows), this->cast_);
     }
 
     void validate_generation(size_t generation) const {
@@ -416,5 +431,8 @@ void init_CSVDocument(nb::module_& m) {
         "predicate"_a = nb::none())
     .def("delete_where",
         &CSVDocumentNative::delete_where,
+        "predicate"_a)
+    .def("filter",
+        &CSVDocumentNative::filter,
         "predicate"_a);
 }

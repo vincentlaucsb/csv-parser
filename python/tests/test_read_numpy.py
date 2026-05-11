@@ -126,6 +126,36 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["region"].tolist(), ["keep", "keep"])
         self.assertEqual(arrays["mixed"].tolist(), ["001", "plain text"])
 
+    def test_read_numpy_native_predicate_parallel_sized_input(self):
+        rows = ["group,id\n"]
+        expected = []
+        for index in range(10000):
+            group = "keep" if index % 10 == 0 else "drop"
+            rows.append(f"{group},{index}\n")
+            if group == "keep":
+                expected.append(index)
+        path = self.enterContext(temp_csv_path("".join(rows)))
+
+        arrays = csvpy.read_numpy(path, columns=["id"], predicate=csvpy.equal("group", "keep"))
+
+        self.assertEqual(arrays["id"].tolist(), expected)
+
+    def test_read_numpy_native_numeric_comparison_predicates(self):
+        path = self.enterContext(temp_csv_path(
+            "region,price,year\n"
+            "a,5000,2018\n"
+            "b,15000,2020\n"
+            "c,25000,2024\n"
+        ))
+
+        arrays = csvpy.read_numpy(path, columns=["region"], predicate=csvpy.greater("price", "10000"))
+
+        self.assertEqual(arrays["region"].tolist(), ["b", "c"])
+
+        arrays = csvpy.read_numpy(path, columns=["region"], predicate=csvpy.less_equal("year", "2020"))
+
+        self.assertEqual(arrays["region"].tolist(), ["a", "b"])
+
     @unittest.skipIf(pd is None, "pandas is required for DataFrame handoff test")
     def test_read_numpy_result_builds_pandas_dataframe(self):
         path = self.enterContext(temp_csv_path(

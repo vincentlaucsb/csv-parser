@@ -1,17 +1,98 @@
 #include "csvpy_predicate.hpp"
 
 #include <cctype>
+#include <cstdlib>
 
 namespace {
+    const size_t PREDICATE_PARALLEL_MIN_ROWS = 4096;
+
     char ascii_lower(char value) {
         return static_cast<char>(std::tolower(static_cast<unsigned char>(value)));
+    }
+
+    long double parse_predicate_numeric_value(const std::string& value) {
+        long double parsed = 0;
+        CSVField field(csv::string_view(value.data(), value.size()));
+        if (!field.try_get(parsed)) {
+            throw std::runtime_error("numeric predicate value is not numeric: " + value);
+        }
+        return parsed;
+    }
+
+    bool predicate_parallel_enabled() {
+        const char* value = std::getenv("CSVPY_PREDICATE_PARALLEL");
+        return !value || std::string(value) != "0";
+    }
+
+    size_t predicate_worker_count(size_t row_count) {
+#if CSV_ENABLE_THREADS
+        if (!predicate_parallel_enabled() || row_count < PREDICATE_PARALLEL_MIN_ROWS) {
+            return 0;
+        }
+
+        const unsigned int hardware_threads = std::thread::hardware_concurrency();
+        if (hardware_threads == 0) {
+            return 1;
+        }
+
+        return (std::min)(static_cast<size_t>(hardware_threads), row_count / PREDICATE_PARALLEL_MIN_ROWS);
+#else
+        (void)row_count;
+        return 0;
+#endif
+    }
+
+    size_t predicate_chunk_count(size_t row_count, size_t worker_count) {
+        if (row_count == 0) {
+            return 0;
+        }
+        if (worker_count == 0) {
+            return 1;
+        }
+
+        return (std::min)(row_count, worker_count * 4);
+    }
+
+    void evaluate_predicate_matches(
+        const DataFrame<>& frame,
+        const RowPredicate& predicate,
+        std::vector<std::uint8_t>& matches
+    ) {
+        matches.assign(frame.size(), 0);
+        if (frame.empty()) {
+            return;
+        }
+
+        const size_t column_index = predicate.column_index(frame.columns());
+        const auto column = frame.column_view(column_index);
+        const size_t worker_count = predicate_worker_count(frame.size());
+        const size_t chunk_count = predicate_chunk_count(frame.size(), worker_count);
+        DataFrameExecutor executor(worker_count);
+
+        executor.parallel_for(chunk_count, [&column, &matches, &predicate, chunk_count](size_t chunk_index) {
+            const size_t row_count = matches.size();
+            const size_t begin = (row_count * chunk_index) / chunk_count;
+            const size_t end = (row_count * (chunk_index + 1)) / chunk_count;
+            for (size_t row_index = begin; row_index < end; ++row_index) {
+                matches[row_index] = predicate.matches(column.get_sv(row_index)) ? 1 : 0;
+            }
+        });
     }
 }
 
 RowPredicate::RowPredicate(std::string column, std::string value, bool case_sensitive)
+    : RowPredicate(std::move(column), std::move(value), RowPredicateOp::EQUAL, case_sensitive) {}
+
+RowPredicate::RowPredicate(std::string column, std::string value, RowPredicateOp op, bool case_sensitive)
     : column_(std::move(column)),
       value_(std::move(value)),
-      case_sensitive_(case_sensitive) {}
+      op_(op),
+      case_sensitive_(case_sensitive),
+      has_numeric_value_(op != RowPredicateOp::EQUAL) {
+    if (this->has_numeric_value_) {
+        this->numeric_value_ = parse_predicate_numeric_value(this->value_);
+    }
+}
 
 const std::string& RowPredicate::column() const noexcept {
     return this->column_;
@@ -25,7 +106,32 @@ bool RowPredicate::case_sensitive() const noexcept {
     return this->case_sensitive_;
 }
 
+RowPredicateOp RowPredicate::op() const noexcept {
+    return this->op_;
+}
+
 bool RowPredicate::matches(csv::string_view candidate) const {
+    if (this->op_ != RowPredicateOp::EQUAL) {
+        long double candidate_value = 0;
+        CSVField field(candidate);
+        if (!field.try_get(candidate_value)) {
+            return false;
+        }
+
+        switch (this->op_) {
+        case RowPredicateOp::LESS:
+            return candidate_value < this->numeric_value_;
+        case RowPredicateOp::LESS_EQUAL:
+            return candidate_value <= this->numeric_value_;
+        case RowPredicateOp::GREATER:
+            return candidate_value > this->numeric_value_;
+        case RowPredicateOp::GREATER_EQUAL:
+            return candidate_value >= this->numeric_value_;
+        case RowPredicateOp::EQUAL:
+            break;
+        }
+    }
+
     if (candidate.size() != this->value_.size()) {
         return false;
     }
@@ -61,7 +167,7 @@ const RowPredicate* optional_row_predicate(nb::object predicate) {
     }
 
     if (!nb::isinstance<RowPredicate>(predicate)) {
-        throw nb::type_error("predicate must be created by csvpy.equal()");
+        throw nb::type_error("predicate must be created by a csvpy predicate factory");
     }
 
     return nb::cast<RowPredicate*>(predicate);
@@ -83,15 +189,30 @@ std::vector<std::uint8_t> excluded_rows_for_predicate(
         return excluded;
     }
 
-    const size_t column_index = predicate->column_index(frame.columns());
-    const auto column = frame.column_view(column_index);
+    std::vector<std::uint8_t> matches;
+    evaluate_predicate_matches(frame, *predicate, matches);
     for (size_t row_index = 0; row_index < frame.size(); ++row_index) {
-        if (!excluded[row_index] && !predicate->matches(column.get_sv(row_index))) {
+        if (!excluded[row_index] && !matches[row_index]) {
             excluded[row_index] = 1;
         }
     }
 
     return excluded;
+}
+
+std::vector<std::uint8_t> included_rows_for_predicate(
+    const DataFrame<>& frame,
+    const std::vector<std::uint8_t>& deleted_rows,
+    const RowPredicate& predicate
+) {
+    std::vector<std::uint8_t> matches;
+    evaluate_predicate_matches(frame, predicate, matches);
+    for (size_t row_index = 0; row_index < frame.size(); ++row_index) {
+        if (row_index < deleted_rows.size() && deleted_rows[row_index]) {
+            matches[row_index] = 0;
+        }
+    }
+    return matches;
 }
 
 size_t mark_matching_rows(
@@ -104,11 +225,11 @@ size_t mark_matching_rows(
         deleted_rows.resize(frame.size(), 0);
     }
 
-    const size_t column_index = predicate.column_index(frame.columns());
-    const auto column = frame.column_view(column_index);
+    std::vector<std::uint8_t> matches;
+    evaluate_predicate_matches(frame, predicate, matches);
     size_t marked = 0;
     for (size_t row_index = 0; row_index < frame.size(); ++row_index) {
-        if (!deleted_rows[row_index] && predicate.matches(column.get_sv(row_index))) {
+        if (!deleted_rows[row_index] && matches[row_index]) {
             deleted_rows[row_index] = 1;
             ++pending_delete_count;
             ++marked;
@@ -133,5 +254,41 @@ void init_CSVPredicate(nb::module_& m) {
         nb::arg("column"),
         nb::arg("value"),
         nb::arg("case_sensitive") = true
+    );
+    m.def(
+        "less",
+        [](std::string column, std::string value) {
+            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::LESS);
+        },
+        "Create a native numeric less-than predicate for row filtering.",
+        nb::arg("column"),
+        nb::arg("value")
+    );
+    m.def(
+        "less_equal",
+        [](std::string column, std::string value) {
+            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::LESS_EQUAL);
+        },
+        "Create a native numeric less-than-or-equal predicate for row filtering.",
+        nb::arg("column"),
+        nb::arg("value")
+    );
+    m.def(
+        "greater",
+        [](std::string column, std::string value) {
+            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::GREATER);
+        },
+        "Create a native numeric greater-than predicate for row filtering.",
+        nb::arg("column"),
+        nb::arg("value")
+    );
+    m.def(
+        "greater_equal",
+        [](std::string column, std::string value) {
+            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::GREATER_EQUAL);
+        },
+        "Create a native numeric greater-than-or-equal predicate for row filtering.",
+        nb::arg("column"),
+        nb::arg("value")
     );
 }

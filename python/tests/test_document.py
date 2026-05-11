@@ -90,6 +90,22 @@ class CSVDocumentTests(unittest.TestCase):
         self.assertEqual(arrays["id"].tolist(), [1, 3])
         self.assertEqual(arrays["value"].tolist(), [10, 30])
 
+    @unittest.skipIf(np is None, "NumPy is required for CSVDocument.to_numpy tests")
+    def test_to_numpy_native_predicate_is_case_sensitive_by_default(self):
+        predicate = csvpy.equal("region", "el paso")
+        document = csvpy.CSVDocument(io.StringIO(
+            "region,id\n"
+            "el paso,1\n"
+            "EL PASO,2\n"
+        ))
+
+        arrays = document.to_numpy(columns=["id"], predicate=predicate)
+
+        self.assertEqual(predicate.column, "region")
+        self.assertEqual(predicate.value, "el paso")
+        self.assertTrue(predicate.case_sensitive)
+        self.assertEqual(arrays["id"].tolist(), [1])
+
     def test_delete_where_marks_matching_rows(self):
         document = csvpy.CSVDocument(io.StringIO(
             "region,id\n"
@@ -102,6 +118,56 @@ class CSVDocumentTests(unittest.TestCase):
         self.assertTrue(document.pending_deletes)
         document.materialize_deletes()
         self.assertEqual([row.as_list() for row in document], [["phoenix", "2"]])
+
+    def test_filter_returns_new_document_and_leaves_original_unchanged(self):
+        document = csvpy.CSVDocument(io.StringIO(
+            "region,id\n"
+            "el paso,1\n"
+            "phoenix,2\n"
+            "EL PASO,3\n"
+        ))
+
+        filtered = document.filter(csvpy.equal("region", "el paso", case_sensitive=False))
+
+        self.assertIsInstance(filtered, csvpy.CSVDocument)
+        self.assertEqual([row.as_list() for row in filtered], [["el paso", "1"], ["EL PASO", "3"]])
+        self.assertEqual(
+            [row.as_list() for row in document],
+            [["el paso", "1"], ["phoenix", "2"], ["EL PASO", "3"]],
+        )
+
+    @unittest.skipIf(np is None, "NumPy is required for CSVDocument.to_numpy tests")
+    def test_filtered_document_to_numpy_selected_columns(self):
+        document = csvpy.CSVDocument(io.StringIO(
+            "region,id,value\n"
+            "el paso,1,10\n"
+            "phoenix,2,20\n"
+            "EL PASO,3,30\n"
+        ))
+
+        filtered = document.filter(csvpy.equal("region", "el paso", case_sensitive=False))
+        arrays = filtered.to_numpy(columns=["value", "id"])
+
+        self.assertEqual(list(arrays), ["value", "id"])
+        self.assertEqual(arrays["value"].tolist(), [10, 30])
+        self.assertEqual(arrays["id"].tolist(), [1, 3])
+
+    def test_filter_excludes_pending_deletes_without_mutating_original(self):
+        document = csvpy.CSVDocument(io.StringIO(
+            "region,id\n"
+            "el paso,1\n"
+            "el paso,2\n"
+            "phoenix,3\n"
+        ))
+        first = next(iter(document))
+        first.delete()
+
+        filtered = document.filter(csvpy.equal("region", "el paso"))
+
+        self.assertTrue(document.pending_deletes)
+        self.assertEqual([row.as_list() for row in filtered], [["el paso", "2"]])
+        with self.assertRaisesRegex(RuntimeError, "pending row deletions"):
+            list(document)
 
     @unittest.skipIf(np is None, "NumPy is required for CSVDocument.to_numpy tests")
     def test_quoted_escaped_fields_materialize_correctly(self):

@@ -134,6 +134,10 @@ and pass it to `read_numpy()`, `CSVDocument.to_numpy()`, or
 ```python
 predicate = csvpy.equal("region", "el paso", case_sensitive=False)
 arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year"], predicate=predicate)
+
+document = csvpy.CSVDocument("vehicles.csv")
+el_paso = document.filter(predicate)
+arrays = el_paso.to_numpy(columns=["price", "year"])
 ```
 
 The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,

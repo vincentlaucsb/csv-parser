@@ -5,7 +5,9 @@ The benchmark normalizes both tools to a dictionary-like set of NumPy arrays for
 the same selected columns. With --filter-column/--filter-value, it first filters
 rows and then materializes the selected columns. The parent process launches
 each tool in a fresh Python interpreter and samples wall time plus peak
-resident/working-set memory.
+resident/working-set memory. Filtered runs compare the Python row-loop path,
+native predicate materialization in serial mode, native predicate materialization
+in parallel mode, and pyarrow.
 """
 
 from __future__ import annotations
@@ -46,6 +48,13 @@ class RunResult:
 class WorkerSpec:
     worker: str
     label: str
+
+
+@dataclass(frozen=True)
+class FilterSpec:
+    column: str
+    op: str
+    value: str
 
 
 def _extension_suffixes() -> tuple[str, ...]:
@@ -209,6 +218,8 @@ def run_worker(worker: str, label: str, args: argparse.Namespace) -> RunResult:
     if args.filter_column is not None:
         command.extend(["--filter-column", args.filter_column])
         command.extend(["--filter-value", args.filter_value])
+    for spec in args.filters:
+        command.extend(["--filter", f"{spec.column}{spec.op}{spec.value}"])
     if args.case_insensitive:
         command.append("--case-insensitive")
 
@@ -265,14 +276,22 @@ def _group_results(results: list[RunResult]) -> list[tuple[str, list[RunResult]]
     return [(name, grouped[name]) for name in order]
 
 
+def active_filters(args: argparse.Namespace) -> list[FilterSpec]:
+    filters = list(args.filters)
+    if args.filter_column is not None:
+        filters.insert(0, FilterSpec(args.filter_column, "=", args.filter_value))
+    return filters
+
+
 def print_results(path: Path, args: argparse.Namespace, results: list[RunResult]) -> None:
     size = path.stat().st_size
     size_mib = size / (1024 * 1024)
     print(f"file={path}")
     print(f"size={size} bytes ({size_mib:.3f} MiB)")
     print(f"columns={', '.join(args.columns)}")
-    if args.filter_column is not None:
-        print(f"filter={args.filter_column!r} == {args.filter_value!r}")
+    filters = active_filters(args)
+    if filters:
+        print("filters=" + " AND ".join(f"{spec.column!r} {spec.op} {spec.value!r}" for spec in filters))
     print(f"warmups={args.warmup_runs} measured_runs={args.runs}")
     print()
     print("Tool\tStatus\tMedianSeconds\tMinSeconds\tMaxSeconds\tMiB/s\tPeakRSSMiB\tRows\tColumns\tArrayBytes")
@@ -320,6 +339,56 @@ def _column_index(columns: list[str], column: str) -> int:
         raise SystemExit(f"column not found: {column!r}; available columns: {columns}") from exc
 
 
+def _parse_filter(text: str) -> FilterSpec:
+    for op in ("<=", ">=", "<", ">", "="):
+        column, separator, value = text.partition(op)
+        if separator:
+            if not column:
+                raise argparse.ArgumentTypeError("--filter must include a column name")
+            return FilterSpec(column, op, value)
+    raise argparse.ArgumentTypeError("--filter must be in COLUMN=VALUE, COLUMN<VALUE, COLUMN<=VALUE, COLUMN>VALUE, or COLUMN>=VALUE form")
+
+
+def _compare_filter_value(value: object, spec: FilterSpec, case_insensitive: bool) -> bool:
+    if spec.op == "=":
+        text = str(value)
+        expected = spec.value
+        if case_insensitive:
+            text = text.lower()
+            expected = expected.lower()
+        return text == expected
+
+    try:
+        left = float(value)
+        right = float(spec.value)
+    except (TypeError, ValueError):
+        return False
+
+    if spec.op == "<":
+        return left < right
+    if spec.op == "<=":
+        return left <= right
+    if spec.op == ">":
+        return left > right
+    if spec.op == ">=":
+        return left >= right
+    raise AssertionError(f"unexpected filter operator: {spec.op}")
+
+
+def _native_predicate(csvpy, spec: FilterSpec, case_insensitive: bool):
+    if spec.op == "=":
+        return csvpy.equal(spec.column, spec.value, case_sensitive=not case_insensitive)
+    if spec.op == "<":
+        return csvpy.less(spec.column, spec.value)
+    if spec.op == "<=":
+        return csvpy.less_equal(spec.column, spec.value)
+    if spec.op == ">":
+        return csvpy.greater(spec.column, spec.value)
+    if spec.op == ">=":
+        return csvpy.greater_equal(spec.column, spec.value)
+    raise AssertionError(f"unexpected filter operator: {spec.op}")
+
+
 def _string_dtype():
     import numpy as np
 
@@ -359,20 +428,22 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     ensure_csvpy_available()
     import csvpy
 
-    if args.filter_column is None:
+    filters = active_filters(args)
+    if not filters:
         arrays = csvpy.read_numpy(str(args.csv_file), columns=args.columns)
     else:
         header = _header(args.csv_file, args.delimiter)
         selected_indices = [_column_index(header, column) for column in args.columns]
-        filter_index = _column_index(header, args.filter_column)
-        expected = args.filter_value.lower() if args.case_insensitive else args.filter_value
+        filter_indices = [_column_index(header, spec.column) for spec in filters]
         collected: dict[str, list[object]] = {column: [] for column in args.columns}
 
         for row in csvpy.rows(args.csv_file, delimiter=args.delimiter, cast=True):
-            value = row[filter_index]
-            if args.case_insensitive:
-                value = str(value).lower()
-            if value != expected:
+            row_matches = True
+            for filter_index, spec in zip(filter_indices, filters):
+                if not _compare_filter_value(row[filter_index], spec, args.case_insensitive):
+                    row_matches = False
+                    break
+            if not row_matches:
                 continue
 
             for column, index in zip(args.columns, selected_indices):
@@ -397,22 +468,35 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     )
 
 
-def worker_csvpy_predicate(args: argparse.Namespace) -> None:
-    if args.filter_column is None:
+def worker_csvpy_predicate(args: argparse.Namespace, *, parallel: bool) -> None:
+    filters = active_filters(args)
+    if not filters:
         raise SystemExit("csvpy predicate worker requires --filter-column")
 
     ensure_csvpy_available()
     import csvpy
 
-    arrays = csvpy.read_numpy(
-        str(args.csv_file),
-        columns=args.columns,
-        predicate=csvpy.equal(
-            args.filter_column,
-            args.filter_value,
-            case_sensitive=not args.case_insensitive,
-        ),
-    )
+    previous_parallel = os.environ.get("CSVPY_PREDICATE_PARALLEL")
+    os.environ["CSVPY_PREDICATE_PARALLEL"] = "1" if parallel else "0"
+    try:
+        if len(filters) == 1:
+            spec = filters[0]
+            arrays = csvpy.read_numpy(
+                str(args.csv_file),
+                columns=args.columns,
+                predicate=_native_predicate(csvpy, spec, args.case_insensitive),
+            )
+        else:
+            document = csvpy.CSVDocument(str(args.csv_file), delimiter=args.delimiter)
+            for spec in filters:
+                document = document.filter(_native_predicate(csvpy, spec, args.case_insensitive))
+            arrays = document.to_numpy(columns=args.columns)
+    finally:
+        if previous_parallel is None:
+            os.environ.pop("CSVPY_PREDICATE_PARALLEL", None)
+        else:
+            os.environ["CSVPY_PREDICATE_PARALLEL"] = previous_parallel
+
     rows = len(next(iter(arrays.values()))) if arrays else 0
     array_bytes = sum(_array_nbytes(array) for array in arrays.values())
     print(
@@ -431,9 +515,11 @@ def worker_pyarrow(args: argparse.Namespace) -> None:
     import pyarrow.compute as pc
     import pyarrow.csv as pacsv
 
+    filters = active_filters(args)
     include_columns = list(args.columns)
-    if args.filter_column is not None and args.filter_column not in include_columns:
-        include_columns.append(args.filter_column)
+    for spec in filters:
+        if spec.column not in include_columns:
+            include_columns.append(spec.column)
 
     convert_options = pacsv.ConvertOptions(include_columns=include_columns)
     parse_options = pacsv.ParseOptions(
@@ -447,13 +533,28 @@ def worker_pyarrow(args: argparse.Namespace) -> None:
         parse_options=parse_options,
         convert_options=convert_options,
     )
-    if args.filter_column is not None:
-        column = table[args.filter_column]
-        expected = args.filter_value
-        if args.case_insensitive:
+    mask = None
+    for spec in filters:
+        column = table[spec.column]
+        expected = spec.value
+        if spec.op == "=" and args.case_insensitive:
             column = pc.utf8_lower(column)
             expected = expected.lower()
-        table = table.filter(pc.equal(column, expected))
+        if spec.op == "=":
+            next_mask = pc.equal(column, expected)
+        elif spec.op == "<":
+            next_mask = pc.less(column, float(expected))
+        elif spec.op == "<=":
+            next_mask = pc.less_equal(column, float(expected))
+        elif spec.op == ">":
+            next_mask = pc.greater(column, float(expected))
+        elif spec.op == ">=":
+            next_mask = pc.greater_equal(column, float(expected))
+        else:
+            raise AssertionError(f"unexpected filter operator: {spec.op}")
+        mask = next_mask if mask is None else pc.and_(mask, next_mask)
+    if mask is not None:
+        table = table.filter(mask)
 
     arrays = {name: table[name].to_numpy(zero_copy_only=False) for name in args.columns}
     rows = len(next(iter(arrays.values()))) if arrays else 0
@@ -493,6 +594,14 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="value compared with --filter-column when filtering",
     )
+    parser.add_argument(
+        "--filter",
+        dest="filters",
+        action="append",
+        default=[],
+        type=_parse_filter,
+        help="additional filter in COLUMN=VALUE, COLUMN<VALUE, COLUMN<=VALUE, COLUMN>VALUE, or COLUMN>=VALUE form; repeat to AND filters",
+    )
     parser.add_argument("--case-insensitive", action="store_true")
     parser.add_argument(
         "--poll-interval",
@@ -512,7 +621,11 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="discarded subprocess warmup runs per tool",
     )
-    parser.add_argument("--worker", choices=("csvpy", "csvpy_predicate", "pyarrow"), help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--worker",
+        choices=("csvpy", "csvpy_predicate_serial", "csvpy_predicate_parallel", "pyarrow"),
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
 
     if not args.columns:
@@ -531,13 +644,14 @@ def parse_args() -> argparse.Namespace:
 def benchmark_workers(args: argparse.Namespace) -> list[WorkerSpec]:
     csvpy_label = "csvpy_read_numpy"
     pyarrow_label = "pyarrow_read_csv_to_numpy"
-    if args.filter_column is not None:
+    if active_filters(args):
         csvpy_label = "csvpy_filter_to_numpy"
         pyarrow_label = "pyarrow_filter_to_numpy"
 
     workers = [WorkerSpec("csvpy", csvpy_label)]
-    if args.filter_column is not None:
-        workers.append(WorkerSpec("csvpy_predicate", "csvpy_predicate_to_numpy"))
+    if active_filters(args):
+        workers.append(WorkerSpec("csvpy_predicate_serial", "csvpy_serial_predicate_to_numpy"))
+        workers.append(WorkerSpec("csvpy_predicate_parallel", "csvpy_parallel_predicate_to_numpy"))
     workers.append(WorkerSpec("pyarrow", pyarrow_label))
     return workers
 
@@ -555,8 +669,11 @@ def main() -> None:
     if args.worker == "csvpy":
         worker_csvpy(args)
         return
-    if args.worker == "csvpy_predicate":
-        worker_csvpy_predicate(args)
+    if args.worker == "csvpy_predicate_serial":
+        worker_csvpy_predicate(args, parallel=False)
+        return
+    if args.worker == "csvpy_predicate_parallel":
+        worker_csvpy_predicate(args, parallel=True)
         return
     if args.worker == "pyarrow":
         worker_pyarrow(args)
