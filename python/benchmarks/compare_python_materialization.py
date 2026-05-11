@@ -388,7 +388,7 @@ def worker_csvpy_row_dicts(args: argparse.Namespace, *, subset: bool) -> None:
     import csvpy
 
     with open(args.csv_file, newline="", encoding="utf-8") as handle:
-        reader = csvpy.rows(handle, delimiter=args.delimiter)
+        reader = csvpy.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
         data = [row.as_dict(selected) for row in reader]
@@ -400,7 +400,7 @@ def worker_csvpy_column_dict(args: argparse.Namespace, *, subset: bool) -> None:
     import csvpy
 
     with open(args.csv_file, newline="", encoding="utf-8") as handle:
-        reader = csvpy.rows(handle, delimiter=args.delimiter)
+        reader = csvpy.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
         data = {name: [] for name in selected}

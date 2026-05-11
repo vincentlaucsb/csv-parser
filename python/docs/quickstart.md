@@ -24,14 +24,15 @@ cmake -S . -B build/x64-Release -DCSVPY_BOOTSTRAP_PYTHON_EXECUTABLE=C:/Python314
 ## Read Rows
 
 `csvpy.reader()` behaves like a lightweight standard-library reader facade.
-Rows are lazy, list-like objects backed by the native extension.
+By default, it consumes the first row as column names. Rows are lazy, list-like
+objects backed by the native extension.
 
 ```python
 import csvpy
 
 with open("data.csv", newline="", encoding="utf-8") as handle:
     for row in csvpy.reader(handle):
-        print(row[0])
+        print(row["name"])
 ```
 
 Use `row.as_list()` when you want a regular Python list:
@@ -43,17 +44,22 @@ with open("data.csv", newline="", encoding="utf-8") as handle:
         rows.append(row.as_list())
 ```
 
-## Header-Aware Rows
+Pass `consume_header=False` when the first input row should be emitted as data:
 
-`csvpy.rows()` uses the first row as headers unless `fieldnames` is provided.
-Rows support column-name indexing without materializing a dictionary for every
-row.
+```python
+with open("headerless.csv", newline="", encoding="utf-8") as handle:
+    for row in csvpy.reader(handle, consume_header=False):
+        print(row[0])
+```
+
+Pass `fieldnames=[...]` when a file has no header row but you still want
+column-name indexing:
 
 ```python
 import csvpy
 
 with open("data.csv", newline="", encoding="utf-8") as handle:
-    for row in csvpy.rows(handle):
+    for row in csvpy.reader(handle, fieldnames=["name", "age"]):
         print(row["name"])
 ```
 

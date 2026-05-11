@@ -296,9 +296,9 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     )
     expected = args.value.lower() if args.case_insensitive else args.value
     reader = (
-        csvpy.reader(args.csv_file, delimiter=args.delimiter)
+        csvpy.reader(args.csv_file, delimiter=args.delimiter, consume_header=False)
         if args.no_header
-        else csvpy.rows(args.csv_file, delimiter=args.delimiter)
+        else csvpy.reader(args.csv_file, delimiter=args.delimiter)
     )
 
     for row in reader:

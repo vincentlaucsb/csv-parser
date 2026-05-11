@@ -116,7 +116,7 @@ def measure(name, path, func):
     )
 
 
-def bench_csvpy_rows_strings(path):
+def bench_csvpy_reader_strings(path):
     import csvpy
 
     rows = 0
@@ -128,7 +128,7 @@ def bench_csvpy_rows_strings(path):
     return rows, cols
 
 
-def bench_csvpy_rows_cast(path):
+def bench_csvpy_reader_cast(path):
     import csvpy
 
     rows = 0
@@ -191,8 +191,8 @@ def main():
     ensure_csvpy_available()
 
     measure("stdlib_csv_reader_strings", path, bench_stdlib_strings)
-    measure("csvpy_reader_rows_strings", path, bench_csvpy_rows_strings)
-    measure("csvpy_reader_rows_cast", path, bench_csvpy_rows_cast)
+    measure("csvpy_reader_strings", path, bench_csvpy_reader_strings)
+    measure("csvpy_reader_cast", path, bench_csvpy_reader_cast)
     measure("stdlib_dict_reader_strings", path, bench_stdlib_dict_strings)
     measure("csvpy_read_numpy_arrays", path, bench_csvpy_read_numpy_arrays)
     measure("csvpy_read_numpy_dataframe", path, bench_csvpy_read_numpy_dataframe)

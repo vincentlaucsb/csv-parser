@@ -511,7 +511,7 @@ def worker_csvpy(args: argparse.Namespace) -> None:
         filter_indices = [_column_index(header, spec.column) for spec in filters]
         collected: dict[str, list[object]] = {column: [] for column in args.columns}
 
-        for row in csvpy.rows(args.csv_file, delimiter=args.delimiter, cast=True):
+        for row in csvpy.reader(args.csv_file, delimiter=args.delimiter, cast=True):
             row_matches = True
             for filter_index, spec in zip(filter_indices, filters):
                 if not _compare_filter_value(row[filter_index], spec, args.case_insensitive):

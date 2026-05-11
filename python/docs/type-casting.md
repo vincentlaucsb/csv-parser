@@ -9,10 +9,11 @@ Python values:
 ```python
 import csvpy
 
-rows = list(csvpy.reader(["id,amount,active\n", "1,2.5,true\n"], cast=True))
+reader = csvpy.reader(["id,amount,active\n", "1,2.5,true\n"], cast=True)
+rows = list(reader)
 
-assert rows[0].as_list() == ["id", "amount", "active"]
-assert rows[1].as_list() == [1, 2.5, True]
+assert reader.fieldnames == ["id", "amount", "active"]
+assert rows[0].as_list() == [1, 2.5, True]
 ```
 
 The mapping is:
@@ -29,4 +30,3 @@ The mapping is:
 Use casting for exploratory data work and ETL scripts where Python values are
 more useful than raw strings. Keep the default string mode when exact textual
 round-tripping matters.
-

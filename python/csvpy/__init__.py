@@ -47,7 +47,7 @@ less_equal = _native.less_equal
 parse_no_header = _native.parse_no_header
 read_numpy = _native.read_numpy
 read_numpy_batches = _native.read_numpy_batches
-from ._reader import reader, rows
+from ._reader import reader
 
 __all__ = [
     "CSVFileInfo",
@@ -67,5 +67,4 @@ __all__ = [
     "read_numpy",
     "read_numpy_batches",
     "reader",
-    "rows",
 ]

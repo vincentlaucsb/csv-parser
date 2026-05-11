@@ -101,32 +101,7 @@ class _Reader(_BaseReader):
         strict: bool = False,
         cast: bool = False,
         typed: Optional[bool] = None,
-        batch_size: int = 8192,
-    ):
-        if typed is not None:
-            cast = typed
-        fmt = _make_format(delimiter, quotechar, doublequote, skipinitialspace, strict)
-        self._init_reader(csvfile, fmt, cast, batch_size)
-
-
-def reader(csvfile, dialect="excel", **fmtparams) -> _Reader:
-    if dialect != "excel":
-        raise NotImplementedError("csvpy.reader currently supports only the default excel dialect")
-    return _Reader(csvfile, **fmtparams)
-
-
-class _Rows(_BaseReader):
-    def __init__(
-        self,
-        csvfile,
-        *,
-        delimiter: str = ",",
-        quotechar: Optional[str] = '"',
-        doublequote: bool = True,
-        skipinitialspace: bool = False,
-        strict: bool = False,
-        cast: bool = False,
-        typed: Optional[bool] = None,
+        consume_header: bool = True,
         fieldnames: Optional[Sequence[str]] = None,
         batch_size: int = 8192,
     ):
@@ -139,12 +114,12 @@ class _Rows(_BaseReader):
             skipinitialspace,
             strict,
             fieldnames=fieldnames,
-            no_header=fieldnames is not None,
+            no_header=(not consume_header) or fieldnames is not None,
         )
         self._init_reader(csvfile, fmt, cast, batch_size)
 
 
-def rows(csvfile, dialect="excel", **fmtparams) -> _Rows:
+def reader(csvfile, dialect="excel", **fmtparams) -> _Reader:
     if dialect != "excel":
-        raise NotImplementedError("csvpy.rows currently supports only the default excel dialect")
-    return _Rows(csvfile, **fmtparams)
+        raise NotImplementedError("csvpy.reader currently supports only the default excel dialect")
+    return _Reader(csvfile, **fmtparams)

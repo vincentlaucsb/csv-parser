@@ -1,5 +1,5 @@
 """Compatibility imports for the split csvpy Python facade."""
 
-from ._reader import reader, rows
+from ._reader import reader
 
-__all__ = ["reader", "rows"]
+__all__ = ["reader"]

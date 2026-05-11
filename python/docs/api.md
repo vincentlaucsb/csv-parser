@@ -8,8 +8,13 @@ stdlib-adjacent facade.
 
 Returns an iterator over lazy row objects.
 
-`reader.fieldnames` and `reader.get_col_names()` return an empty list because
-`reader()` mirrors stdlib `csv.reader` and does not consume a header row.
+By default, `reader()` consumes the first row as column names. Use
+`reader.fieldnames` or `reader.get_col_names()` to retrieve those names before
+or during iteration.
+
+Pass `consume_header=False` for raw stdlib-style row iteration where the first
+input row is emitted as data. Pass `fieldnames=[...]` to attach explicit column
+names without consuming the first input row.
 
 Supported formatting options:
 
@@ -20,25 +25,20 @@ Supported formatting options:
 - `strict`: throw on variable-width rows.
 - `cast`: return Python scalar values instead of strings.
 - `typed`: alias for `cast`.
+- `consume_header`: consume the first row as column names. Defaults to `True`.
+- `fieldnames`: explicit column names. When provided, the first row is not
+  consumed.
 - `batch_size`: row batch size used by the native reader.
 
 Only the default `excel` dialect is currently supported. Unsupported dialect
 features fail fast instead of silently diverging from stdlib behavior.
 
-## `csvpy.rows(csvfile, dialect="excel", **fmtparams)`
-
-Like `reader()`, but supports `fieldnames` for attaching column names to lazy
-rows without consuming a header row from the input.
-
-When `fieldnames` is omitted, `rows()` consumes the first row as column names.
-Use `rows.fieldnames` or `rows.get_col_names()` to retrieve those names before
-or during iteration.
-
 ## Lazy Row Objects
 
-Rows returned by `reader()` and `rows()` support:
+Rows returned by `reader()` support:
 
 - integer indexing: `row[0]`
+- column-name indexing when headers are available: `row["name"]`
 - iteration: `list(row)`
 - `len(row)`
 - `row.as_list()`

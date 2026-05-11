@@ -223,9 +223,9 @@ def analyze(
     summaries: list[ColumnSummary] = []
     header_names = _header_names(path, delimiter) if header else None
     row_iter = (
-        csvpy.rows(path, cast=True, delimiter=delimiter)
+        csvpy.reader(path, cast=True, delimiter=delimiter)
         if header
-        else csvpy.reader(path, cast=True, delimiter=delimiter)
+        else csvpy.reader(path, cast=True, delimiter=delimiter, consume_header=False)
     )
 
     for row in row_iter:

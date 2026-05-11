@@ -58,24 +58,24 @@ the nanobind checkout.
 
 ## Reader API
 
-Use `csvpy.reader()` for lazy row objects:
+Use `csvpy.reader()` for lazy row objects. By default, it consumes the first row
+as column names:
 
 ```python
 import csvpy
 
 with open("data.csv", newline="", encoding="utf-8") as handle:
     for row in csvpy.reader(handle):
-        assert isinstance(row[0], str)
+        assert isinstance(row["name"], str)
         values = row.as_list()  # Materialize explicitly when needed.
 ```
 
-Use `csvpy.rows()` when you want header-aware row access without materializing a
-dictionary for every row:
+Pass `consume_header=False` when the first input row should be emitted as data:
 
 ```python
-with open("data.csv", newline="", encoding="utf-8") as handle:
-    for row in csvpy.rows(handle):
-        print(row["name"])
+with open("headerless.csv", newline="", encoding="utf-8") as handle:
+    for row in csvpy.reader(handle, consume_header=False):
+        print(row[0])
 ```
 
 Call `row.as_dict()` only when you explicitly want to materialize a row as a
@@ -87,9 +87,10 @@ integral fields become `int`, floating point fields become `float`, timestamp
 fields become `datetime.datetime`, and all other fields remain `str`.
 
 ```python
-rows = list(csvpy.reader(["id,amount,active\n", "1,2.5,true\n"], cast=True))
-assert rows[0].as_list() == ["id", "amount", "active"]
-assert rows[1].as_list() == [1, 2.5, True]
+reader = csvpy.reader(["id,amount,active\n", "1,2.5,true\n"], cast=True)
+rows = list(reader)
+assert reader.fieldnames == ["id", "amount", "active"]
+assert rows[0].as_list() == [1, 2.5, True]
 ```
 
 Use `csvpy.read_numpy(path, columns=None, cast=True)` when you want eager column
@@ -128,9 +129,9 @@ arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year"], predicate=p
 ```
 
 The facade supports the common `delimiter`, `quotechar`, `doublequote=True`,
-`skipinitialspace`, `strict`, and `fieldnames` options. Unsupported dialect
-features intentionally fail fast instead of silently diverging from stdlib
-behavior.
+`skipinitialspace`, `strict`, `consume_header`, and `fieldnames` options.
+Unsupported dialect features intentionally fail fast instead of silently
+diverging from stdlib behavior.
 
 Lower-level extension objects remain available where they have a clear Python
 use, but `csvpy` intentionally keeps C++ configuration machinery out of the
