@@ -203,7 +203,9 @@ void init_CSVUtility(nb::module_& m){
     nb::arg("filename"),
     nb::arg("format"))
     .def("read_numpy",
-    &read_numpy,
+    [](const std::string& filename, nb::object columns, bool cast, nb::object predicate) {
+        return read_numpy(filename, columns, cast, predicate, CSVFormat::guess_csv());
+    },
     "Parse a CSV file into a dict of NumPy arrays keyed by column name.",
     nb::arg("path"),
     nb::arg("columns") = nb::none(),

@@ -120,6 +120,8 @@ class _BaseReader:
         return row
 
     def filter(self, predicate, *, append: bool = True):
+        if predicate is None:
+            raise TypeError("reader.filter() expects a csvpy predicate; create a fresh reader for an unfiltered pass")
         self._iterator.filter(predicate, append)
         return self
 

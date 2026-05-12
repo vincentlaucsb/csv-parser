@@ -96,11 +96,82 @@ Each materialized iterator also supports:
 - `.chunks(size)`, yielding `list` batches of materialized rows
 - `.all()`, consuming the remaining rows into one Python `list`
 
+```python
+import csvpy
+
+reader = csvpy.reader("vehicles.csv")
+
+for row in reader.lists(["id", "price"]):
+    assert isinstance(row, list)
+    send_to_api(row)
+```
+
+```python
+rows = csvpy.reader("vehicles.csv").tuples(["id", "year"]).all()
+
+# [('1', '2021'), ('2', '2020'), ...]
+```
+
+```python
+rows = csvpy.reader("vehicles.csv").dicts(["id", "price"]).all()
+
+# [{'id': '1', 'price': '9000'}, {'id': '2', 'price': '12000'}, ...]
+```
+
+```python
+for batch in csvpy.reader("vehicles.csv").dicts(["id", "price"]).chunks(50_000):
+    assert isinstance(batch, list)
+    bulk_insert(batch)
+```
+
+```python
+predicate = csvpy.all_of(
+    csvpy.equal("region", "el paso", case_sensitive=False),
+    csvpy.less("price", 10_000),
+)
+
+for batch in (
+    csvpy.reader("vehicles.csv")
+    .filter(predicate)
+    .dicts(["id", "price", "region"])
+    .chunks(10_000)
+):
+    send_to_api(batch)
+```
+
+Column selection controls both order and shape:
+
+```python
+reader = csvpy.reader("vehicles.csv")
+
+reader.lists(["price", "id"]).all()
+# [['9000', '1'], ['12000', '2'], ...]
+
+reader.tuples(["price", "id"]).all()
+# [('9000', '1'), ('12000', '2'), ...]
+
+reader.dicts(["price", "id"]).all()
+# [{'price': '9000', 'id': '1'}, {'price': '12000', 'id': '2'}, ...]
+```
+
 The older convenience methods `reader.to_lists(columns=None)`,
 `reader.to_tuples(columns=None)`, and `reader.to_dicts(columns=None)` are
 equivalent to calling `.all()` on the corresponding materialized iterator.
 
-## `csvpy.read_numpy(path, columns=None, cast=True, predicate=None)`
+```python
+reader = csvpy.reader("vehicles.csv")
+
+reader.to_lists(["id", "price"])
+# reader.lists(["id", "price"]).all()
+
+reader.to_tuples(["id", "price"])
+# reader.tuples(["id", "price"]).all()
+
+reader.to_dicts(["id", "price"])
+# reader.dicts(["id", "price"]).all()
+```
+
+## `csvpy.read_numpy(path, columns=None, *, cast=True, predicate=None, **fmtparams)`
 
 Parses selected columns into NumPy arrays keyed by column name.
 
@@ -114,9 +185,13 @@ arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
 `all_of()`. With `cast=True`, csvpy classifies scalar fields and maps them to
 NumPy-friendly column types.
 
+`read_numpy()` accepts the same CSV format keywords as `reader()`, including
+`delimiter`, `quotechar`, `skipinitialspace`, `strict`, `consume_header`, and
+`fieldnames`.
+
 See [NumPy and pandas](numpy.md) for dtype behavior and batching details.
 
-## `csvpy.read_numpy_batches(path, columns=None, predicate=None, cast=True, batch_size=50000, schema="sample")`
+## `csvpy.read_numpy_batches(path, columns=None, *, predicate=None, cast=True, batch_size=50000, schema="sample", **fmtparams)`
 
 Streams dictionaries of NumPy arrays. This is the bounded-memory version of
 `read_numpy()`.
@@ -131,6 +206,12 @@ for arrays in csvpy.read_numpy_batches("vehicles.csv", columns=["price", "year"]
 - `"sample"`: infer once from the first bounded batch, then stream once.
 - `"global"`: pre-scan the file for stable full-file dtypes.
 - `"batch"`: infer each emitted batch independently.
+
+`read_numpy_batches()` accepts the same CSV format keywords as `reader()` and
+`read_numpy()`.
+
+For both NumPy readers, `path` and `columns` may be positional. Filtering,
+casting, batching, schema, and CSV format options are keyword-only.
 
 ## `csvpy.write_csv(csvfile, rows, **options)`
 

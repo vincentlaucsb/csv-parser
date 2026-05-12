@@ -4,8 +4,8 @@
 than row objects. This is the right API when the next step is pandas, NumPy,
 scientific code, or a model input pipeline.
 
-Use `csvpy.read_numpy(path, columns=None, cast=True, predicate=None)` for eager
-column arrays:
+Use `csvpy.read_numpy(path, columns=None, *, cast=True, predicate=None)` for
+eager column arrays:
 
 ```python
 import csvpy

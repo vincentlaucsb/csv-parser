@@ -45,8 +45,7 @@ get_file_info = _native.get_file_info
 less = _native.less
 less_equal = _native.less_equal
 parse_no_header = _native.parse_no_header
-read_numpy = _native.read_numpy
-read_numpy_batches = _native.read_numpy_batches
+from ._numpy import read_numpy, read_numpy_batches
 from ._reader import reader
 from ._writer import write_csv
 

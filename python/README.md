@@ -146,8 +146,8 @@ assert reader.fieldnames == ["id", "amount", "active"]
 assert rows[0].as_list() == [1, 2.5, True]
 ```
 
-Use `csvpy.read_numpy(path, columns=None, cast=True)` when you want eager column
-arrays suitable for pandas:
+Use `csvpy.read_numpy(path, columns=None, *, cast=True, predicate=None)` when
+you want eager column arrays suitable for pandas:
 
 ```python
 import pandas as pd
@@ -163,7 +163,7 @@ It does not produce object arrays. The C++ export path batches rows through
 mostly NumPy `StringDType` construction for string-heavy data and pandas'
 DataFrame materialization after the arrays have been built.
 
-Use `csvpy.read_numpy_batches(path, columns=None, predicate=None, cast=True,
+Use `csvpy.read_numpy_batches(path, columns=None, *, predicate=None, cast=True,
 batch_size=50000, schema="sample")` when you want streaming dictionaries of
 NumPy arrays instead of one eager full-file result. `schema="sample"` infers
 dtypes from the first bounded batch and then streams once, `schema="global"`

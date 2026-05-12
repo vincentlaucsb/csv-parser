@@ -32,7 +32,8 @@ nb::dict read_numpy(
     const std::string& filename,
     nb::object columns = nb::none(),
     bool cast = true,
-    nb::object predicate = nb::none()
+    nb::object predicate = nb::none(),
+    CSVFormat format = CSVFormat::guess_csv()
 );
 void init_CSVNumpy(nb::module_& m);
 void init_CSVWriter(nb::module_& m);

@@ -77,6 +77,33 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["text"].tolist(), ["a,b", 'c"d'])
         self.assertEqual(arrays["id"].tolist(), [1, 2])
 
+    def test_numpy_readers_honor_reader_format_options(self):
+        path = self.enterContext(temp_csv_path(
+            "id; name; score\n"
+            "1; alpha; 1.5\n"
+            "2; beta; 2.5\n"
+        ))
+
+        arrays = csvpy.read_numpy(
+            path,
+            columns=["name", "score"],
+            delimiter=";",
+            skipinitialspace=True,
+        )
+        batches = list(csvpy.read_numpy_batches(
+            path,
+            columns=["name", "score"],
+            delimiter=";",
+            skipinitialspace=True,
+            batch_size=1,
+            schema="global",
+        ))
+
+        self.assertEqual(arrays["name"].tolist(), ["alpha", "beta"])
+        self.assertEqual(arrays["score"].tolist(), [1.5, 2.5])
+        self.assertEqual(concatenate_batches(batches)["name"].tolist(), ["alpha", "beta"])
+        self.assertEqual(concatenate_batches(batches)["score"].tolist(), [1.5, 2.5])
+
     def test_read_numpy_preserves_late_string_promotion_text(self):
         path = self.enterContext(temp_csv_path(
             "mixed\n"
@@ -254,13 +281,39 @@ class ReadNumpyTests(unittest.TestCase):
         batches = list(csvpy.read_numpy_batches(
             path,
             ["id"],
-            csvpy.equal("region", "el paso", case_sensitive=False),
-            True,
-            2,
+            predicate=csvpy.equal("region", "el paso", case_sensitive=False),
+            cast=True,
+            batch_size=2,
         ))
 
         self.assertEqual(len(batches), 2)
         self.assertEqual(concatenate_batches(batches)["id"].tolist(), [1, 3])
+
+    def test_numpy_reader_behavior_options_are_keyword_only(self):
+        path = self.enterContext(temp_csv_path("id,value\n1,10\n"))
+        predicate = csvpy.equal("id", 1)
+
+        with self.assertRaises(TypeError):
+            csvpy.read_numpy(path, ["value"], False)
+
+        with self.assertRaises(TypeError):
+            csvpy.read_numpy(path, ["value"], True, predicate)
+
+        with self.assertRaises(TypeError):
+            list(csvpy.read_numpy_batches(path, ["value"], predicate))
+
+        with self.assertRaises(TypeError):
+            list(csvpy.read_numpy_batches(path, ["value"], predicate, True, 10))
+
+        self.assertEqual(csvpy.read_numpy(path, ["value"], cast=False)["value"].tolist(), ["10"])
+        batches = list(csvpy.read_numpy_batches(
+            path,
+            ["value"],
+            predicate=predicate,
+            cast=False,
+            batch_size=1,
+        ))
+        self.assertEqual(concatenate_batches(batches)["value"].tolist(), ["10"])
 
     def test_read_numpy_batches_numeric_comparison_predicate(self):
         path = self.enterContext(temp_csv_path(

@@ -297,6 +297,12 @@ class CompatReaderTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "predicate column not found: missing"):
             source.filter(csvpy.equal("missing", "x"))
 
+    def test_reader_filter_rejects_none(self):
+        source = csvpy.reader(io.StringIO("id,value\n1,10\n"))
+
+        with self.assertRaisesRegex(TypeError, "reader.filter"):
+            source.filter(None)
+
     def test_reader_unfiltered_behavior_unchanged_after_filter_addition(self):
         data = "a,b\n1,2\n3,4\n"
 

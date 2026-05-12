@@ -904,10 +904,11 @@ public:
         bool cast,
         nb::object predicate,
         size_t batch_size,
-        std::string schema
+        std::string schema,
+        CSVFormat format
     )
         : filename_(std::move(filename)),
-          format_(CSVFormat::guess_csv()),
+          format_(std::move(format)),
           cast_(cast),
           batch_size_(batch_size),
           schema_mode_(parse_numpy_batch_schema(std::move(schema))) {
@@ -1053,9 +1054,7 @@ private:
     bool done_ = false;
 };
 
-nb::dict read_numpy(const std::string& filename, nb::object columns, bool cast, nb::object predicate) {
-    CSVFormat format = CSVFormat::guess_csv();
-
+nb::dict read_numpy(const std::string& filename, nb::object columns, bool cast, nb::object predicate, CSVFormat format) {
     CSVReader header_reader(filename, format);
     const std::vector<std::string> column_names = header_reader.get_col_names();
     std::vector<NumpyColumnPlan> plan = make_numpy_column_plan(column_names, columns);
@@ -1136,9 +1135,37 @@ void init_CSVNumpy(nb::module_& m) {
     .def("__next__", &NumpyBatchReader::next);
 
     m.def(
+        "_read_numpy",
+        [](const std::string& path, CSVFormat format, nb::object columns, bool cast, nb::object predicate) {
+            return read_numpy(path, columns, cast, predicate, std::move(format));
+        },
+        "Parse a CSV file into a dict of NumPy arrays keyed by column name using an explicit native format.",
+        nb::arg("path"),
+        nb::arg("format"),
+        nb::arg("columns") = nb::none(),
+        nb::arg("cast") = true,
+        nb::arg("predicate") = nb::none()
+    );
+
+    m.def(
+        "_read_numpy_batches",
+        [](std::string path, CSVFormat format, nb::object columns, nb::object predicate, bool cast, size_t batch_size, std::string schema) {
+            return NumpyBatchReader(std::move(path), columns, cast, predicate, batch_size, std::move(schema), std::move(format));
+        },
+        "Parse a CSV file into streaming NumPy array batches keyed by column name using an explicit native format.",
+        nb::arg("path"),
+        nb::arg("format"),
+        nb::arg("columns") = nb::none(),
+        nb::arg("predicate") = nb::none(),
+        nb::arg("cast") = true,
+        nb::arg("batch_size") = NUMPY_CHUNK_ROWS,
+        nb::arg("schema") = "sample"
+    );
+
+    m.def(
         "read_numpy_batches",
         [](std::string path, nb::object columns, nb::object predicate, bool cast, size_t batch_size, std::string schema) {
-            return NumpyBatchReader(std::move(path), columns, cast, predicate, batch_size, std::move(schema));
+            return NumpyBatchReader(std::move(path), columns, cast, predicate, batch_size, std::move(schema), CSVFormat::guess_csv());
         },
         "Parse a CSV file into streaming NumPy array batches keyed by column name.",
         nb::arg("path"),
