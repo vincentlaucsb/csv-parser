@@ -35,6 +35,7 @@ nb::dict read_numpy(
     nb::object predicate = nb::none()
 );
 void init_CSVNumpy(nb::module_& m);
+void init_CSVWriter(nb::module_& m);
 
 void init_CSVFormat(nb::module_& m);
 void init_CSVReader(nb::module_& m);

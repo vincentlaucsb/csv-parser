@@ -30,6 +30,7 @@ set(CSVPY_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_numpy.cpp
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_predicate.cpp
     ${CMAKE_CURRENT_LIST_DIR}/csvpy_reader.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/csvpy_writer.cpp
 )
 
 nanobind_add_module(csvpy NOMINSIZE ${CSVPY_SOURCES})

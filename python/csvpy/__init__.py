@@ -48,6 +48,7 @@ parse_no_header = _native.parse_no_header
 read_numpy = _native.read_numpy
 read_numpy_batches = _native.read_numpy_batches
 from ._reader import reader
+from ._writer import write_csv
 
 __all__ = [
     "CSVFileInfo",
@@ -67,4 +68,5 @@ __all__ = [
     "read_numpy",
     "read_numpy_batches",
     "reader",
+    "write_csv",
 ]

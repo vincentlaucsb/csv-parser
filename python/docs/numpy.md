@@ -1,7 +1,11 @@
 # NumPy and pandas
 
-Use `csvpy.read_numpy(path, columns=None, cast=True)` for eager column arrays
-suitable for pandas:
+`csvpy` has a native column export path for workflows that need arrays rather
+than row objects. This is the right API when the next step is pandas, NumPy,
+scientific code, or a model input pipeline.
+
+Use `csvpy.read_numpy(path, columns=None, cast=True, predicate=None)` for eager
+column arrays:
 
 ```python
 import csvpy
@@ -24,6 +28,21 @@ Selected-column reads keep the Python handoff smaller:
 
 ```python
 arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
+```
+
+Native predicates can filter before arrays are materialized:
+
+```python
+predicate = csvpy.all_of(
+    csvpy.equal("region", "el paso", case_sensitive=False),
+    csvpy.less("price", 10_000),
+)
+
+arrays = csvpy.read_numpy(
+    "vehicles.csv",
+    columns=["price", "year", "odometer"],
+    predicate=predicate,
+)
 ```
 
 Use `csvpy.read_numpy_batches()` for streaming dictionaries of NumPy arrays:

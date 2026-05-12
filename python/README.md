@@ -1,18 +1,28 @@
-# csvpy Python Bindings
+# csvpy
 
 <p align="center">
   <img src="assets/csvpy-logo.png" alt="csvpy logo" width="240">
 </p>
 
-The optional Python package is named `csvpy`; it does not replace or shadow
-Python's stdlib `csv` module.
+`csvpy` is a fast Python CSV toolkit backed by Vince's CSV Parser. It is built
+for ETL-style workflows where users need to scan large CSV files, filter rows,
+extract selected columns, materialize NumPy arrays, or write cleaned CSV output
+without routing every job through pandas or pyarrow.
+
+The package is named `csvpy`; it does not replace or shadow Python's stdlib
+`csv` module.
 
 Long-form Python documentation lives in `python/docs/` and is written in
 Sphinx/MyST-flavored Markdown so it can be published with Read the Docs later.
 
-`csvpy.reader()` yields lazy, list-like row objects over the nanobind extension.
-Fields are returned as strings unless you explicitly request scalar casting, and
-individual fields are materialized only when accessed.
+Main API:
+
+- `csvpy.reader()` yields lazy, list-like row objects over the native parser.
+- `csvpy.read_numpy()` exports selected columns as eager NumPy arrays.
+- `csvpy.read_numpy_batches()` streams selected columns as bounded-memory NumPy
+  batches.
+- `csvpy.write_csv()` streams lazy rows or Python iterables through the native
+  CSV writer.
 
 ## Building
 
@@ -80,6 +90,42 @@ with open("headerless.csv", newline="", encoding="utf-8") as handle:
 
 Call `row.as_dict()` only when you explicitly want to materialize a row as a
 plain Python dictionary.
+
+When plain Python row objects are the desired output, use the materialized row
+iterators instead of converting each lazy row manually:
+
+```python
+reader = csvpy.reader("data.csv")
+
+for row in reader.lists(["id", "amount"]):
+    ...
+
+for batch in csvpy.reader("data.csv").dicts(["id", "amount"]).chunks(50_000):
+    ...
+
+rows = csvpy.reader("data.csv").tuples(["id", "amount"]).all()
+```
+
+The `.lists()`, `.tuples()`, and `.dicts()` iterators stream one row at a time.
+Their `.chunks(size)` methods keep memory bounded while amortizing native
+conversion overhead, and `.all()` is the eager bulk-export path.
+
+Use `csvpy.write_csv()` to stream lazy rows or ordinary Python iterables back
+out through csv-parser's native writer:
+
+```python
+reader = csvpy.reader("vehicles.csv")
+
+csvpy.write_csv(
+    "cheap_el_paso_fords.csv",
+    (row for row in reader if row["region"] == "el paso" and row["manufacturer"] == "ford"),
+    fieldnames=["id", "price", "year", "region"],
+)
+```
+
+Dictionary rows infer their header from the first row when `fieldnames` is not
+provided. `None` is written as an empty field; all other Python field values are
+stringified.
 
 Pass `cast=True` only when you want csv-parser's scalar classification exposed
 as Python values. Empty fields become `None`, boolean fields become `bool`,

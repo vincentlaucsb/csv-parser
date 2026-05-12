@@ -60,6 +60,42 @@ class _CSVSource:
         return self._temp.name
 
 
+class _MaterializedRows:
+    def __init__(self, parent: "_BaseReader", iterator):
+        self._parent = parent
+        self._iterator = iterator
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            self._parent._source.cleanup()
+            raise
+
+    def all(self):
+        try:
+            return self._iterator.all()
+        finally:
+            self._parent._source.cleanup()
+
+    def chunks(self, size: int):
+        if size <= 0:
+            raise ValueError("chunk size must be greater than zero")
+
+        def chunk_iterator():
+            while True:
+                batch = self._iterator.read_chunk(size)
+                if not batch:
+                    self._parent._source.cleanup()
+                    return
+                yield batch
+
+        return chunk_iterator()
+
+
 class _BaseReader:
     def _init_reader(self, csvfile, fmt, cast: bool, batch_size: int) -> None:
         self._source = _CSVSource(csvfile)
@@ -82,6 +118,24 @@ class _BaseReader:
             self._source.cleanup()
             raise
         return row
+
+    def lists(self, columns=None):
+        return _MaterializedRows(self, self._iterator.lists(columns))
+
+    def tuples(self, columns=None):
+        return _MaterializedRows(self, self._iterator.tuples(columns))
+
+    def dicts(self, columns=None):
+        return _MaterializedRows(self, self._iterator.dicts(columns))
+
+    def to_lists(self, columns=None):
+        return self.lists(columns).all()
+
+    def to_tuples(self, columns=None):
+        return self.tuples(columns).all()
+
+    def to_dicts(self, columns=None):
+        return self.dicts(columns).all()
 
     def __del__(self):
         source = getattr(self, "_source", None)

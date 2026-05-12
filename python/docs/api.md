@@ -1,8 +1,18 @@
 # API Reference
 
-This page covers the stable Python-facing API. The lower-level extension types
-remain available for advanced users, but most code should start with the
-stdlib-adjacent facade.
+This page documents the stable Python-facing API. `reader()`, `read_numpy()`,
+`read_numpy_batches()`, and `write_csv()` are the primary surface area. The
+lower-level extension objects exist for users who need direct access to parser
+concepts, but ordinary ETL code should not start there.
+
+## Primary API
+
+| Function | Use it when |
+| --- | --- |
+| `csvpy.reader()` | You want fast lazy row iteration and Pythonic row filtering. |
+| `csvpy.read_numpy()` | You want selected CSV columns as eager NumPy arrays. |
+| `csvpy.read_numpy_batches()` | You want selected CSV columns as bounded-memory NumPy batches. |
+| `csvpy.write_csv()` | You want to stream lazy rows or Python iterables back to CSV. |
 
 ## `csvpy.reader(csvfile, dialect="excel", **fmtparams)`
 
@@ -42,13 +52,93 @@ Rows returned by `reader()` support:
 - iteration: `list(row)`
 - `len(row)`
 - `row.as_list()`
+- `row.as_tuple(columns=None)`; pass column names to materialize a subset
 - `row.as_dict(columns=None)`; pass column names to materialize a subset
 - typed access helpers: `get_str`, `get_int`, `get_float`, `get_bool`
 - `row.type(index)` for native scalar classification
 
+## Materialized Row Iterators
+
+Use these when you want plain Python row objects but still want bounded-memory
+streaming:
+
+- `reader.lists(columns=None)` yields `list` rows
+- `reader.tuples(columns=None)` yields `tuple` rows
+- `reader.dicts(columns=None)` yields `dict` rows keyed by column name
+
+Each materialized iterator also supports:
+
+- `.chunks(size)`, yielding `list` batches of materialized rows
+- `.all()`, consuming the remaining rows into one Python `list`
+
+The older convenience methods `reader.to_lists(columns=None)`,
+`reader.to_tuples(columns=None)`, and `reader.to_dicts(columns=None)` are
+equivalent to calling `.all()` on the corresponding materialized iterator.
+
+## `csvpy.read_numpy(path, columns=None, cast=True, predicate=None)`
+
+Parses selected columns into NumPy arrays keyed by column name.
+
+Use this when the target is pandas, NumPy, or another column-oriented consumer:
+
+```python
+arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
+```
+
+`predicate` may be a native csvpy predicate such as `equal()`, `less()`, or
+`all_of()`. With `cast=True`, csvpy classifies scalar fields and maps them to
+NumPy-friendly column types.
+
+See [NumPy and pandas](numpy.md) for dtype behavior and batching details.
+
+## `csvpy.read_numpy_batches(path, columns=None, predicate=None, cast=True, batch_size=50000, schema="sample")`
+
+Streams dictionaries of NumPy arrays. This is the bounded-memory version of
+`read_numpy()`.
+
+```python
+for arrays in csvpy.read_numpy_batches("vehicles.csv", columns=["price", "year"]):
+    consume(arrays)
+```
+
+`schema` controls dtype inference:
+
+- `"sample"`: infer once from the first bounded batch, then stream once.
+- `"global"`: pre-scan the file for stable full-file dtypes.
+- `"batch"`: infer each emitted batch independently.
+
+## `csvpy.write_csv(csvfile, rows, **options)`
+
+Writes CSV rows to a path-like output file.
+
+`rows` may contain lazy `csvpy` rows, dictionaries, lists, tuples, or other
+Python iterables. Fields are stringified before writing; `None` becomes an empty
+field.
+
+Supported options:
+
+- `fieldnames`: optional output column names. When writing dictionaries, this
+  controls output order and selection. When omitted for dictionary rows, names
+  are inferred from the first row.
+- `write_header`: write `fieldnames` as the first output row. Defaults to
+  `True`.
+- `quote_minimal`: quote only fields that require escaping. Defaults to `True`.
+
+Example:
+
+```python
+reader = csvpy.reader("vehicles.csv")
+csvpy.write_csv(
+    "subset.csv",
+    (row for row in reader if row["region"] == "el paso"),
+    fieldnames=["id", "price", "region"],
+)
+```
+
 ## Low-Level Types
 
-The extension also exposes:
+Most users do not need these. They are exposed for compatibility and specialized
+inspection:
 
 - `csvpy.Reader`
 - `csvpy.Row`

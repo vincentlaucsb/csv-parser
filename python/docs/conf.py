@@ -17,8 +17,7 @@ exclude_patterns = [
     ".DS_Store",
 ]
 
-html_theme = "alabaster"
+html_theme = "furo"
 html_title = "csvpy Python Bindings"
 
 myst_heading_anchors = 3
-

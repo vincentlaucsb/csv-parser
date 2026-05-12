@@ -2,8 +2,9 @@
 """Compare Python object materialization paths.
 
 This benchmark intentionally leaves each library's optimized columnar world and
-asks for ordinary Python containers. By default, it compares row-oriented
-materialization (`list[dict]`) and column-oriented materialization
+asks for ordinary Python containers. By default, it compares row-list
+materialization (`list[list]`), row-tuple materialization (`list[tuple]`),
+row-dict materialization (`list[dict]`), and column-oriented materialization
 (`dict[str, list]`) for a projected first+last-column subset. Pass
 `--include-full` to also run the much heavier full-CSV materialization cases.
 """
@@ -391,7 +392,31 @@ def worker_csvpy_row_dicts(args: argparse.Namespace, *, subset: bool) -> None:
         reader = csvpy.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
-        data = [row.as_dict(selected) for row in reader]
+        data = reader.to_dicts(selected if subset else None)
+    _emit(len(data), len(selected), len(data))
+
+
+def worker_csvpy_row_lists(args: argparse.Namespace, *, subset: bool) -> None:
+    ensure_csvpy_available()
+    import csvpy
+
+    with open(args.csv_file, newline="", encoding="utf-8") as handle:
+        reader = csvpy.reader(handle, delimiter=args.delimiter)
+        fieldnames = reader.fieldnames
+        selected = _subset_names(fieldnames) if subset else fieldnames
+        data = reader.to_lists(selected if subset else None)
+    _emit(len(data), len(selected), len(data))
+
+
+def worker_csvpy_row_tuples(args: argparse.Namespace, *, subset: bool) -> None:
+    ensure_csvpy_available()
+    import csvpy
+
+    with open(args.csv_file, newline="", encoding="utf-8") as handle:
+        reader = csvpy.reader(handle, delimiter=args.delimiter)
+        fieldnames = reader.fieldnames
+        selected = _subset_names(fieldnames) if subset else fieldnames
+        data = reader.to_tuples(selected if subset else None)
     _emit(len(data), len(selected), len(data))
 
 
@@ -417,6 +442,14 @@ def worker_pyarrow_row_dicts(args: argparse.Namespace, *, subset: bool, multilin
     _emit(len(data), table.num_columns, len(data))
 
 
+def worker_pyarrow_row_lists(args: argparse.Namespace, *, subset: bool, multiline: bool) -> None:
+    table = _pyarrow_read_csv(args, subset=subset, multiline=multiline)
+    columns = table.to_pydict()
+    values = list(columns.values())
+    data = [list(row) for row in zip(*values)] if values else []
+    _emit(len(data), table.num_columns, len(data))
+
+
 def worker_pyarrow_column_dict(args: argparse.Namespace, *, subset: bool, multiline: bool) -> None:
     table = _pyarrow_read_csv(args, subset=subset, multiline=multiline)
     data = table.to_pydict()
@@ -433,6 +466,24 @@ def worker_polars_row_dicts(args: argparse.Namespace, *, subset: bool) -> None:
     _emit(len(data), len(frame.columns), len(data))
 
 
+def worker_polars_row_lists(args: argparse.Namespace, *, subset: bool) -> None:
+    import polars as pl
+
+    columns = _selected_columns_from_header(args) if subset else None
+    frame = pl.read_csv(args.csv_file, separator=args.delimiter, columns=columns)
+    data = [list(row) for row in frame.rows()]
+    _emit(len(data), len(frame.columns), len(data))
+
+
+def worker_polars_row_tuples(args: argparse.Namespace, *, subset: bool) -> None:
+    import polars as pl
+
+    columns = _selected_columns_from_header(args) if subset else None
+    frame = pl.read_csv(args.csv_file, separator=args.delimiter, columns=columns)
+    data = frame.rows()
+    _emit(len(data), len(frame.columns), len(data))
+
+
 def worker_polars_column_dict(args: argparse.Namespace, *, subset: bool) -> None:
     import polars as pl
 
@@ -445,27 +496,39 @@ def worker_polars_column_dict(args: argparse.Namespace, *, subset: bool) -> None
 
 def full_benchmark_workers() -> list[WorkerSpec]:
     return [
-        WorkerSpec("csvpy_row_dicts", "csvpy_rows_to_list_of_dicts"),
-        WorkerSpec("pyarrow_row_dicts", "pyarrow_table_to_pylist"),
-        WorkerSpec("pyarrow_row_dicts_multiline", "pyarrow_table_to_pylist_multiline"),
-        WorkerSpec("polars_row_dicts", "polars_frame_to_dicts"),
-        WorkerSpec("csvpy_column_dict", "csvpy_rows_to_dict_of_lists"),
-        WorkerSpec("pyarrow_column_dict", "pyarrow_table_to_pydict"),
-        WorkerSpec("pyarrow_column_dict_multiline", "pyarrow_table_to_pydict_multiline"),
-        WorkerSpec("polars_column_dict", "polars_frame_to_dict"),
+        WorkerSpec("csvpy_row_lists", "csvpy_to_list_of_lists"),
+        WorkerSpec("pyarrow_row_lists", "pyarrow_to_list_of_lists"),
+        WorkerSpec("pyarrow_row_lists_multiline", "pyarrow_to_list_of_lists_multiline"),
+        WorkerSpec("polars_row_lists", "polars_to_list_of_lists"),
+        WorkerSpec("csvpy_row_tuples", "csvpy_to_list_of_tuples"),
+        WorkerSpec("polars_row_tuples", "polars_to_list_of_tuples"),
+        WorkerSpec("csvpy_row_dicts", "csvpy_to_list_of_dicts"),
+        WorkerSpec("pyarrow_row_dicts", "pyarrow_to_list_of_dicts"),
+        WorkerSpec("pyarrow_row_dicts_multiline", "pyarrow_to_list_of_dicts_multiline"),
+        WorkerSpec("polars_row_dicts", "polars_to_list_of_dicts"),
+        WorkerSpec("csvpy_column_dict", "csvpy_to_dict_of_lists"),
+        WorkerSpec("pyarrow_column_dict", "pyarrow_to_dict_of_lists"),
+        WorkerSpec("pyarrow_column_dict_multiline", "pyarrow_to_dict_of_lists_multiline"),
+        WorkerSpec("polars_column_dict", "polars_to_dict_of_lists"),
     ]
 
 
 def subset_benchmark_workers() -> list[WorkerSpec]:
     return [
+        WorkerSpec("csvpy_row_lists_subset", "csvpy_subset_to_list_of_lists"),
+        WorkerSpec("pyarrow_row_lists_subset", "pyarrow_subset_to_list_of_lists"),
+        WorkerSpec("pyarrow_row_lists_subset_multiline", "pyarrow_subset_to_list_of_lists_multiline"),
+        WorkerSpec("polars_row_lists_subset", "polars_subset_to_list_of_lists"),
+        WorkerSpec("csvpy_row_tuples_subset", "csvpy_subset_to_list_of_tuples"),
+        WorkerSpec("polars_row_tuples_subset", "polars_subset_to_list_of_tuples"),
         WorkerSpec("csvpy_row_dicts_subset", "csvpy_subset_to_list_of_dicts"),
-        WorkerSpec("pyarrow_row_dicts_subset", "pyarrow_subset_to_pylist"),
-        WorkerSpec("pyarrow_row_dicts_subset_multiline", "pyarrow_subset_to_pylist_multiline"),
-        WorkerSpec("polars_row_dicts_subset", "polars_subset_to_dicts"),
+        WorkerSpec("pyarrow_row_dicts_subset", "pyarrow_subset_to_list_of_dicts"),
+        WorkerSpec("pyarrow_row_dicts_subset_multiline", "pyarrow_subset_to_list_of_dicts_multiline"),
+        WorkerSpec("polars_row_dicts_subset", "polars_subset_to_list_of_dicts"),
         WorkerSpec("csvpy_column_dict_subset", "csvpy_subset_to_dict_of_lists"),
-        WorkerSpec("pyarrow_column_dict_subset", "pyarrow_subset_to_pydict"),
-        WorkerSpec("pyarrow_column_dict_subset_multiline", "pyarrow_subset_to_pydict_multiline"),
-        WorkerSpec("polars_column_dict_subset", "polars_subset_to_dict"),
+        WorkerSpec("pyarrow_column_dict_subset", "pyarrow_subset_to_dict_of_lists"),
+        WorkerSpec("pyarrow_column_dict_subset_multiline", "pyarrow_subset_to_dict_of_lists_multiline"),
+        WorkerSpec("polars_column_dict_subset", "polars_subset_to_dict_of_lists"),
     ]
 
 
@@ -533,6 +596,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    if args.worker == "csvpy_row_lists":
+        worker_csvpy_row_lists(args, subset=False)
+        return
+    if args.worker == "pyarrow_row_lists":
+        worker_pyarrow_row_lists(args, subset=False, multiline=False)
+        return
+    if args.worker == "pyarrow_row_lists_multiline":
+        worker_pyarrow_row_lists(args, subset=False, multiline=True)
+        return
+    if args.worker == "polars_row_lists":
+        worker_polars_row_lists(args, subset=False)
+        return
+    if args.worker == "csvpy_row_tuples":
+        worker_csvpy_row_tuples(args, subset=False)
+        return
+    if args.worker == "polars_row_tuples":
+        worker_polars_row_tuples(args, subset=False)
+        return
     if args.worker == "csvpy_row_dicts":
         worker_csvpy_row_dicts(args, subset=False)
         return
@@ -556,6 +637,24 @@ def main() -> None:
         return
     if args.worker == "polars_column_dict":
         worker_polars_column_dict(args, subset=False)
+        return
+    if args.worker == "csvpy_row_lists_subset":
+        worker_csvpy_row_lists(args, subset=True)
+        return
+    if args.worker == "pyarrow_row_lists_subset":
+        worker_pyarrow_row_lists(args, subset=True, multiline=False)
+        return
+    if args.worker == "pyarrow_row_lists_subset_multiline":
+        worker_pyarrow_row_lists(args, subset=True, multiline=True)
+        return
+    if args.worker == "polars_row_lists_subset":
+        worker_polars_row_lists(args, subset=True)
+        return
+    if args.worker == "csvpy_row_tuples_subset":
+        worker_csvpy_row_tuples(args, subset=True)
+        return
+    if args.worker == "polars_row_tuples_subset":
+        worker_polars_row_tuples(args, subset=True)
         return
     if args.worker == "csvpy_row_dicts_subset":
         worker_csvpy_row_dicts(args, subset=True)

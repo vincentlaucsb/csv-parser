@@ -1,6 +1,7 @@
 import csv
 import datetime
 import io
+import os
 import tempfile
 import unittest
 
@@ -138,17 +139,69 @@ class CompatReaderTests(unittest.TestCase):
 
         self.assertEqual(subset, {"c": "3", "a": "1"})
 
+    def test_reader_as_tuple_supports_column_subset(self):
+        row = next(csvpy.reader(io.StringIO("1,2,3\n"), fieldnames=["a", "b", "c"]))
+
+        try:
+            self.assertEqual(row.as_tuple(), ("1", "2", "3"))
+            subset = row.as_tuple(["c", "a"])
+        except AttributeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with as_tuple(columns): {exc}")
+        except TypeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with as_tuple(columns): {exc}")
+
+        self.assertEqual(subset, ("3", "1"))
+
+    def test_reader_bulk_materializers_consume_remaining_rows(self):
+        source = csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n"))
+
+        try:
+            self.assertEqual(source.to_lists(["c", "a"]), [["3", "1"], ["6", "4"]])
+        except AttributeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with bulk materializers: {exc}")
+
+        self.assertEqual(
+            csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n")).to_tuples(["c", "a"]),
+            [("3", "1"), ("6", "4")],
+        )
+        self.assertEqual(
+            csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n")).to_dicts(["c", "a"]),
+            [{"c": "3", "a": "1"}, {"c": "6", "a": "4"}],
+        )
+
+    def test_reader_materialized_iterators_stream_and_chunk(self):
+        try:
+            rows = csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n7,8,9\n")).lists(["c", "a"])
+        except AttributeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with materialized iterators: {exc}")
+
+        self.assertEqual(next(rows), ["3", "1"])
+        self.assertEqual(list(rows), [["6", "4"], ["9", "7"]])
+
+        self.assertEqual(
+            csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n7,8,9\n")).tuples(["b"]).all(),
+            [("2",), ("5",), ("8",)],
+        )
+        self.assertEqual(
+            list(csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n7,8,9\n")).dicts(["a", "c"]).chunks(2)),
+            [[{"a": "1", "c": "3"}, {"a": "4", "c": "6"}], [{"a": "7", "c": "9"}]],
+        )
+
+        with self.assertRaises(ValueError):
+            csvpy.reader(io.StringIO("a,b\n1,2\n")).lists().chunks(0)
+
     def test_reader_returns_lazy_rows(self):
         row = next(csvpy.reader(io.StringIO("a,b\n"), consume_header=False))
         self.assertNotIsInstance(row, list)
         self.assertEqual(row.as_list(), ["a", "b"])
 
     def test_split_modules_preserve_public_imports(self):
-        from csvpy import equal, read_numpy, reader
+        from csvpy import equal, read_numpy, reader, write_csv
 
         self.assertIs(reader, csvpy.reader)
         self.assertIs(read_numpy, csvpy.read_numpy)
         self.assertIs(equal, csvpy.equal)
+        self.assertIs(write_csv, csvpy.write_csv)
         self.assertNotIn("rows", csvpy.__all__)
         self.assertNotIn("Format", csvpy.__all__)
         self.assertNotIn("VariableColumnPolicy", csvpy.__all__)
@@ -162,6 +215,59 @@ class CompatReaderTests(unittest.TestCase):
         from csvpy.compat import reader as compat_reader
 
         self.assertIs(compat_reader, csvpy.reader)
+
+    def test_write_csv_accepts_python_iterables(self):
+        with tempfile.NamedTemporaryFile("r+", encoding="utf-8", newline="", delete=False) as handle:
+            filename = handle.name
+
+        try:
+            try:
+                csvpy.write_csv(
+                    filename,
+                    [["name", "note"], ["Alice", "hello, world"], ["Bob", None], ("Eve", 'quote "me"')],
+                    write_header=False,
+                )
+            except AttributeError as exc:
+                self.skipTest(f"csvpy native extension has not been rebuilt with write_csv: {exc}")
+
+            with open(filename, encoding="utf-8", newline="") as handle:
+                self.assertEqual(
+                    handle.read(),
+                    'name,note\nAlice,"hello, world"\nBob,\nEve,"quote ""me"""\n',
+                )
+        finally:
+            os.unlink(filename)
+
+    def test_write_csv_accepts_dict_rows_and_lazy_rows(self):
+        with tempfile.NamedTemporaryFile("r+", encoding="utf-8", newline="", delete=False) as handle:
+            dict_filename = handle.name
+        with tempfile.NamedTemporaryFile("r+", encoding="utf-8", newline="", delete=False) as handle:
+            lazy_filename = handle.name
+        with tempfile.NamedTemporaryFile("r+", encoding="utf-8", newline="", delete=False) as handle:
+            empty_filename = handle.name
+
+        try:
+            try:
+                csvpy.write_csv(dict_filename, [{"a": 1, "b": None}, {"a": "x,y", "b": True}])
+                csvpy.write_csv(
+                    lazy_filename,
+                    csvpy.reader(io.StringIO("a,b,c\n1,2,3\n4,5,6\n")),
+                    fieldnames=["c", "a"],
+                )
+                csvpy.write_csv(empty_filename, [], fieldnames=["a", "b"])
+            except AttributeError as exc:
+                self.skipTest(f"csvpy native extension has not been rebuilt with write_csv: {exc}")
+
+            with open(dict_filename, encoding="utf-8", newline="") as handle:
+                self.assertEqual(handle.read(), "a,b\n1,\n\"x,y\",True\n")
+            with open(lazy_filename, encoding="utf-8", newline="") as handle:
+                self.assertEqual(handle.read(), "c,a\n3,1\n6,4\n")
+            with open(empty_filename, encoding="utf-8", newline="") as handle:
+                self.assertEqual(handle.read(), "a,b\n")
+        finally:
+            os.unlink(dict_filename)
+            os.unlink(lazy_filename)
+            os.unlink(empty_filename)
 
 
 if __name__ == "__main__":

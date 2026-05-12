@@ -7,6 +7,7 @@ NB_MODULE(csvpy, m) {
     init_CSVReader(m);
     init_CSVPredicate(m);
     init_CSVNumpy(m);
+    init_CSVWriter(m);
     init_CSVRow(m);
     init_DataType(m);
     init_CSVField(m);
