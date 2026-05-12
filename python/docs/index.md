@@ -8,6 +8,8 @@ without dragging every workflow through a heavyweight DataFrame engine.
 The package is named `csvpy`; it does not replace or shadow Python's standard
 library `csv` module.
 
+For the native C++ API, see the <a href="../index.html">Vince's CSV Parser documentation</a>.
+
 ## Main API
 
 Most users should start with these functions:
@@ -71,7 +73,8 @@ From the repository root:
 
 ```powershell
 python -m pip install -r python/docs/requirements.txt
-python -m sphinx -b html python/docs python/docs/_build/html
+python -m sphinx -b html python/docs docs/html/python
 ```
 
-The generated HTML lands in `python/docs/_build/html`.
+The generated HTML lands in `docs/html/python`, matching the GitHub Pages
+layout used by the documentation workflow.

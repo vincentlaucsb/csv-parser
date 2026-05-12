@@ -38,10 +38,26 @@ Supported formatting options:
 - `consume_header`: consume the first row as column names. Defaults to `True`.
 - `fieldnames`: explicit column names. When provided, the first row is not
   consumed.
-- `batch_size`: row batch size used by the native reader.
+- `batch_size`: advanced performance hint for filtered or projected exports.
+  Most users can ignore it.
 
 Only the default `excel` dialect is currently supported. Unsupported dialect
 features fail fast instead of silently diverging from stdlib behavior.
+
+`batch_size` is not the same thing as `.chunks(size)`. For ordinary lazy
+iteration, `reader()` yields one row at a time no matter what `batch_size` is:
+
+```python
+for row in csvpy.reader("vehicles.csv", batch_size=100_000):
+    consume(row)  # still one row at a time
+```
+
+Use `.chunks(size)` on `reader.lists()`, `reader.tuples()`, or `reader.dicts()`
+when you want Python lists of rows. `batch_size` only controls how many rows
+csvpy asks the native parser to process at once while doing filtered or
+projected materialization, such as `.filter(...).dicts(...).all()`. The default
+is a good starting point; tune it only after benchmarking a large filtered
+export.
 
 Use `reader.filter(predicate)` to apply native row filtering before lazy or
 materialized rows are emitted:
@@ -87,24 +103,27 @@ Rows returned by `reader()` support:
 Use these when you want plain Python row objects but still want bounded-memory
 streaming:
 
-- `reader.lists(columns=None)` yields `list` rows
-- `reader.tuples(columns=None)` yields `tuple` rows
-- `reader.dicts(columns=None)` yields `dict` rows keyed by column name
+Each materialized iterator supports:
 
-Each materialized iterator also supports:
-
+- normal iteration, yielding one materialized row at a time
 - `.chunks(size)`, yielding `list` batches of materialized rows
 - `.all()`, consuming the remaining rows into one Python `list`
+
+### `reader.lists(columns=None)`
+
+Use this when the downstream API expects mutable row lists.
 
 ```python
 import csvpy
 
-reader = csvpy.reader("vehicles.csv")
-
-for row in reader.lists(["id", "price"]):
+for row in csvpy.reader("vehicles.csv").lists(["id", "price"]):
     assert isinstance(row, list)
     send_to_api(row)
 ```
+
+### `reader.tuples(columns=None)`
+
+Use this when the downstream API expects fixed-shape rows.
 
 ```python
 rows = csvpy.reader("vehicles.csv").tuples(["id", "year"]).all()
@@ -112,17 +131,30 @@ rows = csvpy.reader("vehicles.csv").tuples(["id", "year"]).all()
 # [('1', '2021'), ('2', '2020'), ...]
 ```
 
+### `reader.dicts(columns=None)`
+
+Use this when the downstream API wants named fields per row.
+
 ```python
 rows = csvpy.reader("vehicles.csv").dicts(["id", "price"]).all()
 
 # [{'id': '1', 'price': '9000'}, {'id': '2', 'price': '12000'}, ...]
 ```
 
+### `.chunks(size)`
+
+Use chunks when you want plain Python objects but need bounded peak memory.
+
 ```python
 for batch in csvpy.reader("vehicles.csv").dicts(["id", "price"]).chunks(50_000):
     assert isinstance(batch, list)
     bulk_insert(batch)
 ```
+
+### Filtering Before Materialization
+
+Native predicates compose with materialized row iterators, so filtering can stay
+in C++ before rows become Python objects.
 
 ```python
 predicate = csvpy.all_of(
@@ -139,7 +171,9 @@ for batch in (
     send_to_api(batch)
 ```
 
-Column selection controls both order and shape:
+### Column Selection
+
+Column selection controls both output order and shape.
 
 ```python
 reader = csvpy.reader("vehicles.csv")
@@ -153,6 +187,8 @@ reader.tuples(["price", "id"]).all()
 reader.dicts(["price", "id"]).all()
 # [{'price': '9000', 'id': '1'}, {'price': '12000', 'id': '2'}, ...]
 ```
+
+### Bulk Convenience Methods
 
 The older convenience methods `reader.to_lists(columns=None)`,
 `reader.to_tuples(columns=None)`, and `reader.to_dicts(columns=None)` are

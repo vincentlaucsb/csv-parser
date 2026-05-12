@@ -117,6 +117,20 @@ conversion overhead, and `.all()` is the eager bulk-export path. Native
 and `all_of()` predicate objects as the NumPy APIs, and validates predicate
 column names before rows are consumed.
 
+Most users can ignore `reader(batch_size=...)`. It does not make ordinary
+iteration return batches:
+
+```python
+for row in csvpy.reader("data.csv"):
+    ...  # one row at a time
+```
+
+Use `.chunks(size)` when you want Python lists of rows. `batch_size` only tunes
+how many rows csvpy asks the native parser to process at once while doing
+filtered or projected materialization, such as `.filter(...).dicts(...).all()`.
+The default is a good starting point; change it only after benchmarking a large
+filtered export.
+
 Use `csvpy.write_csv()` to stream lazy rows or ordinary Python iterables back
 out through csv-parser's native writer:
 

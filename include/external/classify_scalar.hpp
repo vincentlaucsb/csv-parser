@@ -1,5 +1,5 @@
 /*
-classify_scalar, version 1.0.0
+classify_scalar, version 1.1.0
 https://github.com/vincentlaucsb/classify_scalar
 
 MIT License
@@ -28,16 +28,16 @@ SOFTWARE.
 #pragma once
 
 #if defined(CLASSIFY_SCALAR_VERSION)
-#if CLASSIFY_SCALAR_VERSION >= 10000
+#if CLASSIFY_SCALAR_VERSION >= 10100
 #define CLASSIFY_SCALAR_SKIP_HEADER
 #else
 #error "A newer classify_scalar.hpp was included after an older copy. Include the newest copy first."
 #endif
 #else
 #define CLASSIFY_SCALAR_VERSION_MAJOR 1
-#define CLASSIFY_SCALAR_VERSION_MINOR 0
+#define CLASSIFY_SCALAR_VERSION_MINOR 1
 #define CLASSIFY_SCALAR_VERSION_PATCH 0
-#define CLASSIFY_SCALAR_VERSION 10000
+#define CLASSIFY_SCALAR_VERSION 10100
 #endif
 
 #ifndef CLASSIFY_SCALAR_SKIP_HEADER
@@ -90,7 +90,7 @@ SOFTWARE.
 #define CLASSIFY_SCALAR_CONST
 #endif
 
-#if defined(CSV_CODE_COVERAGE) || defined(CLASSIFY_SCALAR_CODE_COVERAGE)
+#if defined(CLASSIFY_SCALAR_DISABLE_FORCE_INLINE)
 #define CLASSIFY_SCALAR_FORCE_INLINE inline
 #elif defined(_MSC_VER)
 #define CLASSIFY_SCALAR_FORCE_INLINE __forceinline
@@ -164,9 +164,9 @@ enum ScalarKind : int {
     scalar_uint64 = 10,
     /// Well-formed decimal integer outside the int64 range.
     scalar_bigint = 11,
-    /// Floating-point literal parsed as double.
+    /// Floating-point literal parsed as finite double.
     scalar_float = 12,
-	/// High precision floating-point literal (reserved for future use, not currently returned by classify_scalar).
+    /// Well-formed floating-point literal outside the built-in finite double conversion envelope.
     scalar_bigfloat = 13,
     /// Conservative ISO date/date-time value, stored as UTC unix milliseconds when parsed.
     scalar_timestamp = 14,
@@ -688,9 +688,9 @@ CLASSIFY_SCALAR_FORCE_INLINE const char* apply_leading_sign(parse_state& state) 
     const parse_state::Sign sign = parse_sign(first_char);
     if (sign != parse_state::no_sign) {
         state.sign = sign;
-        state.numeric_first = state.sign == parse_state::negative_sign
-            ? state.first
-            : state.first + 1;
+        // Keep '-' visible to floating parsers, but skip '+' because from_chars
+        // implementations commonly reject a leading plus for floating input.
+        state.numeric_first = state.first + (sign == parse_state::positive_sign ? 1 : 0);
         return state.first + 1;
     }
 
@@ -1006,14 +1006,60 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_bare_hex_integer(
     return parse_integer_digits(state, current, last, 16U, out) == integer_parse_valid;
 }
 
-CLASSIFY_SCALAR_FORCE_INLINE long double pow10_integer(const int exponent) noexcept {
-    long double value = 1.0L;
-    const long double factor = exponent >= 0 ? 10.0L : 0.1L;
-    const int iterations = exponent >= 0 ? exponent : -exponent;
-    for (int i = 0; i < iterations; ++i)
-        value *= factor;
+template<typename Output>
+CLASSIFY_SCALAR_FORCE_INLINE ScalarKind finish_integer(
+    const std::int64_t parsed_integer,
+    Output& output) noexcept {
+    output.template set<scalar_int64>(parsed_integer);
+    return integer::classify_integer_kind(parsed_integer);
+}
+
+} // namespace parsing
+
+namespace floating {
+
+enum { powers_of_10_count = 19 };
+
+// 10^0..10^18 are exact on common x86 extended long double and cover the
+// precision envelope where the C++11 fallback parser tries to match legacy
+// csv-parser data_type() / from_chars-style double results.
+CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 std::array<long double, powers_of_10_count> POWERS_OF_10 = {{
+    1.0L,
+    10.0L,
+    100.0L,
+    1000.0L,
+    10000.0L,
+    100000.0L,
+    1000000.0L,
+    10000000.0L,
+    100000000.0L,
+    1000000000.0L,
+    10000000000.0L,
+    100000000000.0L,
+    1000000000000.0L,
+    10000000000000.0L,
+    100000000000000.0L,
+    1000000000000000.0L,
+    10000000000000000.0L,
+    100000000000000000.0L,
+    1000000000000000000.0L,
+}};
+
+CLASSIFY_SCALAR_FORCE_INLINE long double pow10_positive_integer(const int exponent) noexcept {
+    if (exponent < powers_of_10_count)
+        return POWERS_OF_10[static_cast<std::size_t>(exponent)];
+
+    long double value = POWERS_OF_10[powers_of_10_count - 1];
+    for (int i = powers_of_10_count - 1; i < exponent; ++i)
+        value *= 10.0L;
 
     return value;
+}
+
+CLASSIFY_SCALAR_FORCE_INLINE long double pow10_integer(const int exponent) noexcept {
+    const int abs_exponent = exponent >= 0 ? exponent : -exponent;
+    const long double value = pow10_positive_integer(abs_exponent);
+    return exponent >= 0 ? value : 1.0L / value;
 }
 
 enum class floating_parse_status {
@@ -1021,6 +1067,44 @@ enum class floating_parse_status {
     parsed,
     bigfloat
 };
+
+CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_exponent(
+    const char*& current,
+    const char* last,
+    int* out) noexcept {
+    assert(current != last);
+    assert(*current == 'e' || *current == 'E');
+
+    ++current;
+    if (current == last)
+        return floating_parse_status::invalid;
+
+    bool exponent_negative = false;
+    const parse_state::Sign exponent_sign = parsing::parse_sign(static_cast<unsigned char>(*current));
+    if (exponent_sign != parse_state::no_sign) {
+        exponent_negative = exponent_sign == parse_state::negative_sign;
+        ++current;
+        if (current == last)
+            return floating_parse_status::invalid;
+    }
+
+    int exponent = 0;
+    while (current != last && ascii_digits[static_cast<unsigned char>(*current)]) {
+        if (exponent <= 500)
+            exponent = (exponent * 10) + (*current - '0');
+
+        ++current;
+    }
+
+    if (current != last)
+        return floating_parse_status::invalid;
+
+    if (exponent > 500)
+        return floating_parse_status::bigfloat;
+
+    *out = exponent_negative ? -exponent : exponent;
+    return floating_parse_status::parsed;
+}
 
 template<char DecimalSymbol>
 CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_ascii(
@@ -1033,83 +1117,50 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_ascii(
     if (state.sign == parse_state::negative_sign)
         ++current;
 
-    const std::uint64_t max_exact_double_integer = UINT64_C(9007199254740991);
-    std::uint64_t mantissa = 0;
-    int fractional_digits = 0;
+    long double integral_part = 0;
+    long double decimal_part = 0;
+    unsigned places_after_decimal = 0;
     int exponent = 0;
-    bool mantissa_is_exact = true;
     bool has_digit = false;
 
-#define CLASSIFY_SCALAR_ACCUMULATE_FLOAT_DIGIT(digit_value) do { \
-        const unsigned char digit__ = static_cast<unsigned char>(digit_value); \
-        if (mantissa_is_exact) { \
-            if (mantissa > (max_exact_double_integer - digit__) / 10U) { \
-                mantissa_is_exact = false; \
-            } else { \
-                mantissa = (mantissa * 10U) + digit__; \
-            } \
-        } \
-        has_digit = true; \
-    } while (false)
+    // Keep this split integral/fractional accumulation shape. A simpler
+    // mantissa * pow10(exponent) implementation is mathematically equivalent,
+    // but it can round to the neighboring double for user-visible CHECK_EQ
+    // cases that legacy csv-parser data_type() handled exactly.
 
     while (current != last && ascii_digits[static_cast<unsigned char>(*current)]) {
-        CLASSIFY_SCALAR_ACCUMULATE_FLOAT_DIGIT(*current - '0');
+        const unsigned char digit = static_cast<unsigned char>(*current - '0');
+        integral_part = (integral_part * 10.0L) + digit;
+        has_digit = true;
         ++current;
     }
 
     if (current != last && static_cast<unsigned char>(*current) == static_cast<unsigned char>(DecimalSymbol)) {
         ++current;
         while (current != last && ascii_digits[static_cast<unsigned char>(*current)]) {
-            CLASSIFY_SCALAR_ACCUMULATE_FLOAT_DIGIT(*current - '0');
-            ++fractional_digits;
+            const unsigned char digit = static_cast<unsigned char>(*current - '0');
+            decimal_part += digit / pow10_integer(static_cast<int>(++places_after_decimal));
+            has_digit = true;
             ++current;
         }
     }
-
-#undef CLASSIFY_SCALAR_ACCUMULATE_FLOAT_DIGIT
 
     if (!has_digit)
         return floating_parse_status::invalid;
 
     if (current != last && (*current == 'e' || *current == 'E')) {
-        ++current;
-        if (current == last)
-            return floating_parse_status::invalid;
-
-        bool exponent_negative = false;
-        const parse_state::Sign exponent_sign = parse_sign(static_cast<unsigned char>(*current));
-        if (exponent_sign != parse_state::no_sign) {
-            exponent_negative = exponent_sign == parse_state::negative_sign;
-            ++current;
-            if (current == last)
-                return floating_parse_status::invalid;
-        }
-
-        while (current != last && ascii_digits[static_cast<unsigned char>(*current)]) {
-            if (exponent <= 500)
-                exponent = (exponent * 10) + (*current - '0');
-
-            ++current;
-        }
-
-        if (current != last)
-            return floating_parse_status::invalid;
-
-        if (exponent > 500)
-            return floating_parse_status::bigfloat;
-
-        if (exponent_negative)
-            exponent = -exponent;
+        const floating_parse_status exponent_status = parse_floating_exponent(current, last, &exponent);
+        if (exponent_status != floating_parse_status::parsed)
+            return exponent_status;
     }
 
     if (current != last)
         return floating_parse_status::invalid;
 
-    const int effective_exponent = exponent - fractional_digits;
-    if (!mantissa_is_exact || effective_exponent > 308 || effective_exponent < -308)
+    if (exponent > 308 || exponent < -308)
         return floating_parse_status::bigfloat;
 
-    long double parsed = static_cast<long double>(mantissa) * pow10_integer(effective_exponent);
+    long double parsed = (integral_part + decimal_part) * pow10_integer(exponent);
     if (state.sign == parse_state::negative_sign)
         parsed = -parsed;
 
@@ -1152,6 +1203,28 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_dot(
 #endif
 }
 
+#ifdef CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
+template<char DecimalSymbol>
+CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status normalize_floating_point_separator(
+    const char* first,
+    const char* last,
+    char* buffer) noexcept {
+    std::size_t i = 0;
+    for (const char* current = first; current != last; ++current, ++i) {
+        const unsigned char c = static_cast<unsigned char>(*current);
+        if (is_ascii_space(static_cast<char>(c)))
+            return floating_parse_status::invalid;
+        if (c == '.')
+            return floating_parse_status::invalid;
+
+        buffer[i] = c == static_cast<unsigned char>(DecimalSymbol) ? '.' : static_cast<char>(c);
+    }
+
+    buffer[static_cast<std::size_t>(last - first)] = '\0';
+    return floating_parse_status::parsed;
+}
+#endif
+
 template<char DecimalSymbol>
 CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_with_decimal(
     const parse_state& state,
@@ -1165,17 +1238,10 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_with_decimal(
 
 #ifdef CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
     char buffer[4097];
-    std::size_t i = 0;
-    for (const char* current = first; current != last; ++current, ++i) {
-        const unsigned char c = static_cast<unsigned char>(*current);
-        if (is_ascii_space(static_cast<char>(c)))
-            return floating_parse_status::invalid;
-        if (DecimalSymbol != '.' && c == '.')
-            return floating_parse_status::invalid;
-
-        buffer[i] = c == static_cast<unsigned char>(DecimalSymbol) ? '.' : static_cast<char>(c);
-    }
-    buffer[size] = '\0';
+    const floating_parse_status normalize_status =
+        normalize_floating_point_separator<DecimalSymbol>(first, last, buffer);
+    if (normalize_status != floating_parse_status::parsed)
+        return normalize_status;
 
     double parsed = 0;
     const std::from_chars_result result = std::from_chars(buffer, buffer + size, parsed);
@@ -1196,12 +1262,28 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_with_decimal(
 }
 
 template<char DecimalSymbol>
+struct floating_parser {
+    CLASSIFY_SCALAR_FORCE_INLINE static floating_parse_status parse(
+        const parse_state& state,
+        double* out) noexcept {
+        return parse_floating_with_decimal<DecimalSymbol>(state, out);
+    }
+};
+
+template<>
+struct floating_parser<'.'> {
+    CLASSIFY_SCALAR_FORCE_INLINE static floating_parse_status parse(
+        const parse_state& state,
+        double* out) noexcept {
+        return parse_floating_dot(state, out);
+    }
+};
+
+template<char DecimalSymbol>
 CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating(
     const parse_state& state,
     double* out) noexcept {
-    return DecimalSymbol == '.'
-        ? parse_floating_dot(state, out)
-        : parse_floating_with_decimal<DecimalSymbol>(state, out);
+    return floating_parser<DecimalSymbol>::parse(state, out);
 }
 
 CLASSIFY_SCALAR_FORCE_INLINE bool floating_is_integral(const double value, std::int64_t* out) noexcept {
@@ -1218,14 +1300,6 @@ CLASSIFY_SCALAR_FORCE_INLINE bool floating_is_integral(const double value, std::
         *out = integer;
 
     return true;
-}
-
-template<typename Output>
-CLASSIFY_SCALAR_FORCE_INLINE ScalarKind finish_integer(
-    const std::int64_t parsed_integer,
-    Output& output) noexcept {
-    output.template set<scalar_int64>(parsed_integer);
-    return integer::classify_integer_kind(parsed_integer);
 }
 
 CLASSIFY_SCALAR_FORCE_INLINE ScalarKind finish_floating(
@@ -1246,7 +1320,7 @@ CLASSIFY_SCALAR_FORCE_INLINE ScalarKind finish_floating(
     Output& output) noexcept {
     std::int64_t parsed_integer = 0;
     if (floating_is_integral(parsed_float, &parsed_integer))
-        return finish_integer(parsed_integer, output);
+        return parsing::finish_integer(parsed_integer, output);
 
     output.template set<scalar_float>(parsed_float);
     return scalar_float;
@@ -1264,7 +1338,7 @@ CLASSIFY_SCALAR_FORCE_INLINE ScalarKind finish_floating(
     }
 }
 
-} // namespace parsing
+} // namespace floating
 
 template<char DecimalSymbol = '.', bool IntegralFloatingAsInteger = true>
 struct builtin_numeric_policy {
@@ -1288,11 +1362,11 @@ struct builtin_numeric_policy {
         parse_state& state,
         Output& output) const noexcept {
         double parsed_float = 0;
-        const parsing::floating_parse_status status = parsing::parse_floating<DecimalSymbol>(state, &parsed_float);
-        if (status == parsing::floating_parse_status::parsed)
-            return parsing::finish_floating<IntegralFloatingAsInteger>(parsed_float, output);
+        const floating::floating_parse_status status = floating::parse_floating<DecimalSymbol>(state, &parsed_float);
+        if (status == floating::floating_parse_status::parsed)
+            return floating::finish_floating<IntegralFloatingAsInteger>(parsed_float, output);
 
-        return status == parsing::floating_parse_status::bigfloat
+        return status == floating::floating_parse_status::bigfloat
             ? scalar_bigfloat
             : scalar_string;
     }
@@ -1380,7 +1454,7 @@ struct builtin_numeric_policy {
         parse_state& state,
         const char* value_first,
         Output& output) const noexcept {
-		// Use overflow checks for numbers with 19 or more digits, which can exceed 64-bit limits.
+        // Use overflow checks for numbers with 19 or more digits, which can exceed 64-bit limits.
         // Shorter numbers are common enough that it's worth skipping the checks for them.
         // Testing note: yes this was a significant optimization.
         return state.last - value_first < 19
@@ -1523,7 +1597,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_float_with_decimal(
     if (value_first == state.last)
         return false;
 
-    return parsing::parse_floating<DecimalSymbol>(state, &out) == parsing::floating_parse_status::parsed;
+    return floating::parse_floating<DecimalSymbol>(state, &out) == floating::floating_parse_status::parsed;
 }
 
 } // namespace detail
@@ -1647,6 +1721,9 @@ CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
 
     std::int64_t parsed = 0;
     if (current + 2 <= state.last && current[0] == '0' && (current[1] == 'x' || current[1] == 'X')) {
+        if (current + 2 == state.last)
+            return false;
+
         state.current = current + 1;
         if (!detail::parsing::parse_hex_integer(state, &parsed))
             return false;
@@ -1717,6 +1794,14 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_scalar(
     return true;
 }
 
+/// String-literal overload for built-in scalar parse_scalar().
+template<ScalarKind Kind, bool TrimAsciiWhitespace = true, std::size_t Size>
+CLASSIFY_SCALAR_FORCE_INLINE bool parse_scalar(
+    const char (&value)[Size],
+    typename detail::scalar_home<Kind>::type& out) noexcept {
+    return parse_scalar<Kind, TrimAsciiWhitespace>(value, value + Size - 1, out);
+}
+
 /// Parse a signed integer directly into the requested C++ integer type.
 template<typename IntegerType, bool TrimAsciiWhitespace = true>
 CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
@@ -1745,6 +1830,18 @@ CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
 
     out = static_cast<IntegerType>(integer);
     return true;
+}
+
+/// String-literal overload for signed integer parse_scalar<T>().
+template<typename IntegerType, bool TrimAsciiWhitespace = true, std::size_t Size>
+CLASSIFY_SCALAR_FORCE_INLINE typename std::enable_if<
+    std::is_integral<IntegerType>::value
+        && std::is_signed<IntegerType>::value
+        && !std::is_same<IntegerType, bool>::value,
+    bool>::type parse_scalar(
+    const char (&value)[Size],
+    IntegerType& out) noexcept {
+    return parse_scalar<IntegerType, TrimAsciiWhitespace>(value, value + Size - 1, out);
 }
 
 #ifdef CLASSIFY_SCALAR_HAS_CXX17

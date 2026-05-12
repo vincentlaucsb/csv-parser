@@ -39,6 +39,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Database",
     "Topic :: Scientific/Engineering",
@@ -56,7 +57,7 @@ pandas = [
 
 [project.urls]
 Homepage = "https://github.com/vincentlaucsb/csv-parser"
-Documentation = "https://github.com/vincentlaucsb/csv-parser/tree/master/python/docs"
+Documentation = "https://vincentlaucsb.github.io/csv-parser/python/"
 Source = "https://github.com/vincentlaucsb/csv-parser"
 Issues = "https://github.com/vincentlaucsb/csv-parser/issues"
 
@@ -71,7 +72,7 @@ wheel.packages = [
 ]
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "pp* *-musllinux*"
 test-requires = [
     "numpy>=2",

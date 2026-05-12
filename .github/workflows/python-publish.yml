@@ -81,6 +81,8 @@ jobs:
         python -m pip install --upgrade cibuildwheel twine
 
     - name: Build wheels
+      env:
+        CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
       run: python -m cibuildwheel --output-dir wheelhouse
 
     - name: Check wheel metadata

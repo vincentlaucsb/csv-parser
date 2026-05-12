@@ -1,5 +1,6 @@
 #include <catch2/catch_all.hpp>
 #include <future>
+#include <utility>
 
 #include "csv.hpp"
 #include "internal/memory/field_scalar_list.hpp"
@@ -30,6 +31,78 @@ TEST_CASE("Test Dynamic RawCSVFieldArray - Emplace Back", "[test_dynamic_array_e
         REQUIRE(arr[i].start == i);
         REQUIRE(arr[i].length == i + offset);
     }
+}
+
+TEST_CASE("RawCSVFieldList preserves metadata across small block boundaries", "[raw_csv_field_list]") {
+    RawCSVFieldList fields(3);
+
+    for (size_t i = 0; i < 10; ++i) {
+        fields.emplace_back(i * 10, i + 1, i % 2 == 0);
+    }
+
+    REQUIRE(fields.size() == 10);
+
+    for (size_t i = 0; i < fields.size(); ++i) {
+        const auto& field = fields[i];
+        REQUIRE(field.start == i * 10);
+        REQUIRE(field.length == i + 1);
+        REQUIRE(field.has_realized_storage() == (i % 2 == 0));
+    }
+}
+
+TEST_CASE("RawCSVFieldList treats zero block capacity as one", "[raw_csv_field_list]") {
+    RawCSVFieldList fields(0);
+
+    fields.emplace_back(7, 11, false);
+    fields.emplace_back(13, 17, true);
+    fields.emplace_back(19, 23, false);
+
+    REQUIRE(fields.size() == 3);
+    REQUIRE(fields[0].start == 7);
+    REQUIRE(fields[0].length == 11);
+    REQUIRE_FALSE(fields[0].has_realized_storage());
+    REQUIRE(fields[1].start == 13);
+    REQUIRE(fields[1].length == 17);
+    REQUIRE(fields[1].has_realized_storage());
+    REQUIRE(fields[2].start == 19);
+    REQUIRE(fields[2].length == 23);
+    REQUIRE_FALSE(fields[2].has_realized_storage());
+}
+
+TEST_CASE("RawCSVFieldList move keeps allocated field blocks stable", "[raw_csv_field_list]") {
+    RawCSVFieldList original(2);
+
+    for (size_t i = 0; i < 7; ++i) {
+        original.emplace_back(i + 100, i + 200, i == 3);
+    }
+
+    RawCSVFieldList moved(std::move(original));
+
+    REQUIRE(original.size() == 0);
+    REQUIRE(moved.size() == 7);
+
+    for (size_t i = 0; i < moved.size(); ++i) {
+        const auto& field = moved[i];
+        REQUIRE(field.start == i + 100);
+        REQUIRE(field.length == i + 200);
+        REQUIRE(field.has_realized_storage() == (i == 3));
+    }
+}
+
+TEST_CASE("RawCSVFieldList reserve_for_source_size can grow pointer table without changing size", "[raw_csv_field_list]") {
+    const size_t large_block_capacity = internals::CSV_CHUNK_SIZE_DEFAULT + 2;
+    RawCSVFieldList fields(large_block_capacity);
+
+    fields.reserve_for_source_size(large_block_capacity * 2);
+
+    REQUIRE(fields.size() == 0);
+
+    fields.emplace_back(1, 2, true);
+
+    REQUIRE(fields.size() == 1);
+    REQUIRE(fields[0].start == 1);
+    REQUIRE(fields[0].length == 2);
+    REQUIRE(fields[0].has_realized_storage());
 }
 
 TEST_CASE("CSVFieldScalarList keeps scalar values stable across block growth", "[test_scalar_list]") {
