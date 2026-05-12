@@ -7,13 +7,13 @@ __path__ = [_os.path.dirname(__file__)]
 
 
 def _load_native_module():
-    module_name = __name__ + ".csvpy"
+    module_name = __name__ + ".fastpycsv"
     existing = _sys.modules.get(module_name)
     if existing is not None:
         return existing
 
     for suffix in _machinery.EXTENSION_SUFFIXES:
-        path = _os.path.join(__path__[0], "csvpy" + suffix)
+        path = _os.path.join(__path__[0], "fastpycsv" + suffix)
         if not _os.path.exists(path):
             continue
 
@@ -26,7 +26,7 @@ def _load_native_module():
         spec.loader.exec_module(module)
         return module
 
-    raise ImportError("cannot find the csvpy native extension next to the Python package")
+    raise ImportError("cannot find the fastpycsv native extension next to the Python package")
 
 
 _native = _load_native_module()

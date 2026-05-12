@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Stream basic exploratory summaries with csvpy.
+"""Stream basic exploratory summaries with fastpycsv.
 
 Reports per-column row counts, null counts, numeric mean/stdev, and the top
 observed values. This intentionally stays small and dependency-free so it can be
-used as a quick smoke test for csvpy's lazy row API.
+used as a quick smoke test for fastpycsv's lazy row API.
 """
 
 from __future__ import annotations
@@ -41,16 +41,16 @@ def _is_compatible_extension_name(name: str) -> bool:
     return False
 
 
-def _find_built_csvpy_extension() -> Path | None:
+def _find_built_fastpycsv_extension() -> Path | None:
     candidates: list[Path] = []
     for build_root in BUILD_ROOTS:
         if not build_root.exists():
             continue
 
-        for candidate in build_root.rglob("csvpy*"):
+        for candidate in build_root.rglob("fastpycsv*"):
             if (
                 candidate.is_file()
-                and candidate.name.startswith("csvpy")
+                and candidate.name.startswith("fastpycsv")
                 and _is_compatible_extension_name(candidate.name)
             ):
                 candidates.append(candidate)
@@ -61,38 +61,38 @@ def _find_built_csvpy_extension() -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def _load_csvpy_extension_from_build(extension_path: Path) -> None:
-    spec = importlib.util.spec_from_file_location("csvpy.csvpy", extension_path)
+def _load_fastpycsv_extension_from_build(extension_path: Path) -> None:
+    spec = importlib.util.spec_from_file_location("fastpycsv.fastpycsv", extension_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load csvpy extension from {extension_path}")
+        raise ImportError(f"cannot load fastpycsv extension from {extension_path}")
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules["csvpy.csvpy"] = module
+    sys.modules["fastpycsv.fastpycsv"] = module
     spec.loader.exec_module(module)
 
 
-def ensure_csvpy_available() -> None:
+def ensure_fastpycsv_available() -> None:
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
 
     try:
-        import csvpy  # noqa: F401
+        import fastpycsv  # noqa: F401
         return
     except ImportError:
-        sys.modules.pop("csvpy", None)
-        sys.modules.pop("csvpy.csvpy", None)
+        sys.modules.pop("fastpycsv", None)
+        sys.modules.pop("fastpycsv.fastpycsv", None)
 
-    extension_path = _find_built_csvpy_extension()
+    extension_path = _find_built_fastpycsv_extension()
     if extension_path is None:
         suffixes = ", ".join(_extension_suffixes())
         raise SystemExit(
-            "csvpy is not built for this Python interpreter. "
-            f"Expected a csvpy extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
+            "fastpycsv is not built for this Python interpreter. "
+            f"Expected a fastpycsv extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
             f"with suffix: {suffixes}"
         )
 
-    _load_csvpy_extension_from_build(extension_path)
-    import csvpy  # noqa: F401
+    _load_fastpycsv_extension_from_build(extension_path)
+    import fastpycsv  # noqa: F401
 
 
 class NumericStats:
@@ -217,15 +217,15 @@ def analyze(
     exact_values: bool,
     top_capacity: int,
 ) -> list[ColumnSummary]:
-    import csvpy
+    import fastpycsv
 
     value_counts_type = ExactValueCounts if exact_values else BoundedValueCounts
     summaries: list[ColumnSummary] = []
     header_names = _header_names(path, delimiter) if header else None
     row_iter = (
-        csvpy.reader(path, cast=True, delimiter=delimiter)
+        fastpycsv.reader(path, cast=True, delimiter=delimiter)
         if header
-        else csvpy.reader(path, cast=True, delimiter=delimiter, consume_header=False)
+        else fastpycsv.reader(path, cast=True, delimiter=delimiter, consume_header=False)
     )
 
     for row in row_iter:
@@ -298,7 +298,7 @@ def main() -> None:
     if len(args.delimiter) != 1:
         raise SystemExit("--delimiter must be a single character")
 
-    ensure_csvpy_available()
+    ensure_fastpycsv_available()
     summaries = analyze(
         args.csv_file,
         args.top_n,

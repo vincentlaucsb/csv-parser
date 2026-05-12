@@ -1,4 +1,4 @@
-"""Lazy stdlib-adjacent reader facade over the native csvpy extension."""
+"""Lazy stdlib-adjacent reader facade over the native fastpycsv extension."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import tempfile
 from typing import Iterable, Optional, Sequence
 
 from ._format import _make_format
-from .csvpy import _RowsReader
+from .fastpycsv import _RowsReader
 
 
 def _is_path(value: object) -> bool:
@@ -121,7 +121,7 @@ class _BaseReader:
 
     def filter(self, predicate, *, append: bool = True):
         if predicate is None:
-            raise TypeError("reader.filter() expects a csvpy predicate; create a fresh reader for an unfiltered pass")
+            raise TypeError("reader.filter() expects a fastpycsv predicate; create a fresh reader for an unfiltered pass")
         self._iterator.filter(predicate, append)
         return self
 
@@ -181,5 +181,5 @@ class _Reader(_BaseReader):
 
 def reader(csvfile, dialect="excel", **fmtparams) -> _Reader:
     if dialect != "excel":
-        raise NotImplementedError("csvpy.reader currently supports only the default excel dialect")
+        raise NotImplementedError("fastpycsv.reader currently supports only the default excel dialect")
     return _Reader(csvfile, **fmtparams)

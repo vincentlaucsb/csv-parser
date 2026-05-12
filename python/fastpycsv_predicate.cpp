@@ -1,4 +1,4 @@
-#include "csvpy_predicate.hpp"
+#include "fastpycsv_predicate.hpp"
 
 #include <cctype>
 #include <cstdlib>
@@ -55,7 +55,7 @@ namespace {
     }
 
     bool predicate_parallel_enabled() {
-        const char* value = std::getenv("CSVPY_PREDICATE_PARALLEL");
+        const char* value = std::getenv("FASTPYCSV_PREDICATE_PARALLEL");
         return !value || std::string(value) != "0";
     }
 
@@ -262,7 +262,7 @@ const RowPredicate* optional_row_predicate(nb::object predicate) {
     }
 
     if (!nb::isinstance<RowPredicate>(predicate)) {
-        throw nb::type_error("predicate must be created by a csvpy predicate factory");
+        throw nb::type_error("predicate must be created by a fastpycsv predicate factory");
     }
 
     return nb::cast<RowPredicate*>(predicate);
@@ -397,7 +397,7 @@ void init_CSVPredicate(nb::module_& m) {
             predicates.reserve(args.size());
             for (nb::handle arg : args) {
                 if (!nb::isinstance<RowPredicate>(arg)) {
-                    throw nb::type_error("all_of() arguments must be predicates created by csvpy predicate factories");
+                    throw nb::type_error("all_of() arguments must be predicates created by fastpycsv predicate factories");
                 }
 
                 predicates.push_back(*nb::cast<RowPredicate*>(arg));

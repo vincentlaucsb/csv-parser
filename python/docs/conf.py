@@ -1,4 +1,4 @@
-project = "csvpy"
+project = "fastpycsv"
 author = "Vincent La"
 copyright = "2026, Vincent La"
 
@@ -18,6 +18,6 @@ exclude_patterns = [
 ]
 
 html_theme = "furo"
-html_title = "csvpy Python Bindings"
+html_title = "fastpycsv Python Bindings"
 
 myst_heading_anchors = 3

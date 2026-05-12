@@ -91,7 +91,7 @@ jobs:
     - name: Upload wheel artifacts
       uses: actions/upload-artifact@v5
       with:
-        name: csvpy-wheels-${{ matrix.os }}
+        name: fastpycsv-wheels-${{ matrix.os }}
         path: wheelhouse/*
         if-no-files-found: error
 
@@ -122,7 +122,7 @@ jobs:
     - name: Upload source artifact
       uses: actions/upload-artifact@v5
       with:
-        name: csvpy-sdist
+        name: fastpycsv-sdist
         path: dist/*
         if-no-files-found: error
 
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/csvpy
+      url: https://pypi.org/p/fastpycsv
     permissions:
       contents: read
       id-token: write
@@ -141,7 +141,7 @@ jobs:
     - name: Download distributions
       uses: actions/download-artifact@v5
       with:
-        pattern: csvpy-*
+        pattern: fastpycsv-*
         path: dist
         merge-multiple: true
 

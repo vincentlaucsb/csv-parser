@@ -14,7 +14,7 @@ Compare the streaming EDA example against pandas with the pyarrow CSV engine:
 python python/benchmarks/compare_eda.py path/to/input.csv
 ```
 
-Compare a streaming `csvpy` filter against pyarrow on a Used Cars-style
+Compare a streaming `fastpycsv` filter against pyarrow on a Used Cars-style
 `region == "el paso"` workload:
 
 ```powershell
@@ -48,5 +48,5 @@ The benchmark pins obvious numeric columns such as `price`, `year`, and
 The helpers run workloads in fresh Python processes and report wall time,
 throughput, and peak resident or working-set memory.
 
-Use the same Python version that built `csvpy`; for example, a `cp310`
+Use the same Python version that built `fastpycsv`; for example, a `cp310`
 extension will not import under Python 3.14.

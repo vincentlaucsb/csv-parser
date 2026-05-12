@@ -65,16 +65,16 @@ def _is_compatible_extension_name(name: str) -> bool:
     return False
 
 
-def _find_built_csvpy_extension() -> Path | None:
+def _find_built_fastpycsv_extension() -> Path | None:
     candidates: list[Path] = []
     for build_root in BUILD_ROOTS:
         if not build_root.exists():
             continue
 
-        for candidate in build_root.rglob("csvpy*"):
+        for candidate in build_root.rglob("fastpycsv*"):
             if (
                 candidate.is_file()
-                and candidate.name.startswith("csvpy")
+                and candidate.name.startswith("fastpycsv")
                 and _is_compatible_extension_name(candidate.name)
             ):
                 candidates.append(candidate)
@@ -85,38 +85,38 @@ def _find_built_csvpy_extension() -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def _load_csvpy_extension_from_build(extension_path: Path) -> None:
-    spec = importlib.util.spec_from_file_location("csvpy.csvpy", extension_path)
+def _load_fastpycsv_extension_from_build(extension_path: Path) -> None:
+    spec = importlib.util.spec_from_file_location("fastpycsv.fastpycsv", extension_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load csvpy extension from {extension_path}")
+        raise ImportError(f"cannot load fastpycsv extension from {extension_path}")
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules["csvpy.csvpy"] = module
+    sys.modules["fastpycsv.fastpycsv"] = module
     spec.loader.exec_module(module)
 
 
-def ensure_csvpy_available() -> None:
+def ensure_fastpycsv_available() -> None:
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
 
     try:
-        import csvpy  # noqa: F401
+        import fastpycsv  # noqa: F401
         return
     except ImportError:
-        sys.modules.pop("csvpy", None)
-        sys.modules.pop("csvpy.csvpy", None)
+        sys.modules.pop("fastpycsv", None)
+        sys.modules.pop("fastpycsv.fastpycsv", None)
 
-    extension_path = _find_built_csvpy_extension()
+    extension_path = _find_built_fastpycsv_extension()
     if extension_path is None:
         suffixes = ", ".join(_extension_suffixes())
         raise SystemExit(
-            "csvpy is not built for this Python interpreter. "
-            f"Expected a csvpy extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
+            "fastpycsv is not built for this Python interpreter. "
+            f"Expected a fastpycsv extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
             f"with suffix: {suffixes}"
         )
 
-    _load_csvpy_extension_from_build(extension_path)
-    import csvpy  # noqa: F401
+    _load_fastpycsv_extension_from_build(extension_path)
+    import fastpycsv  # noqa: F401
 
 
 def _windows_memory_bytes(pid: int) -> int:
@@ -384,48 +384,48 @@ def _emit(rows: int, columns: int, objects: int) -> None:
     print(json.dumps({"rows": rows, "columns": columns, "objects": objects}, sort_keys=True))
 
 
-def worker_csvpy_row_dicts(args: argparse.Namespace, *, subset: bool) -> None:
-    ensure_csvpy_available()
-    import csvpy
+def worker_fastpycsv_row_dicts(args: argparse.Namespace, *, subset: bool) -> None:
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     with open(args.csv_file, newline="", encoding="utf-8") as handle:
-        reader = csvpy.reader(handle, delimiter=args.delimiter)
+        reader = fastpycsv.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
         data = reader.to_dicts(selected if subset else None)
     _emit(len(data), len(selected), len(data))
 
 
-def worker_csvpy_row_lists(args: argparse.Namespace, *, subset: bool) -> None:
-    ensure_csvpy_available()
-    import csvpy
+def worker_fastpycsv_row_lists(args: argparse.Namespace, *, subset: bool) -> None:
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     with open(args.csv_file, newline="", encoding="utf-8") as handle:
-        reader = csvpy.reader(handle, delimiter=args.delimiter)
+        reader = fastpycsv.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
         data = reader.to_lists(selected if subset else None)
     _emit(len(data), len(selected), len(data))
 
 
-def worker_csvpy_row_tuples(args: argparse.Namespace, *, subset: bool) -> None:
-    ensure_csvpy_available()
-    import csvpy
+def worker_fastpycsv_row_tuples(args: argparse.Namespace, *, subset: bool) -> None:
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     with open(args.csv_file, newline="", encoding="utf-8") as handle:
-        reader = csvpy.reader(handle, delimiter=args.delimiter)
+        reader = fastpycsv.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
         data = reader.to_tuples(selected if subset else None)
     _emit(len(data), len(selected), len(data))
 
 
-def worker_csvpy_column_dict(args: argparse.Namespace, *, subset: bool) -> None:
-    ensure_csvpy_available()
-    import csvpy
+def worker_fastpycsv_column_dict(args: argparse.Namespace, *, subset: bool) -> None:
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     with open(args.csv_file, newline="", encoding="utf-8") as handle:
-        reader = csvpy.reader(handle, delimiter=args.delimiter)
+        reader = fastpycsv.reader(handle, delimiter=args.delimiter)
         fieldnames = reader.fieldnames
         selected = _subset_names(fieldnames) if subset else fieldnames
         data = {name: [] for name in selected}
@@ -496,17 +496,17 @@ def worker_polars_column_dict(args: argparse.Namespace, *, subset: bool) -> None
 
 def full_benchmark_workers() -> list[WorkerSpec]:
     return [
-        WorkerSpec("csvpy_row_lists", "csvpy_to_list_of_lists"),
+        WorkerSpec("fastpycsv_row_lists", "fastpycsv_to_list_of_lists"),
         WorkerSpec("pyarrow_row_lists", "pyarrow_to_list_of_lists"),
         WorkerSpec("pyarrow_row_lists_multiline", "pyarrow_to_list_of_lists_multiline"),
         WorkerSpec("polars_row_lists", "polars_to_list_of_lists"),
-        WorkerSpec("csvpy_row_tuples", "csvpy_to_list_of_tuples"),
+        WorkerSpec("fastpycsv_row_tuples", "fastpycsv_to_list_of_tuples"),
         WorkerSpec("polars_row_tuples", "polars_to_list_of_tuples"),
-        WorkerSpec("csvpy_row_dicts", "csvpy_to_list_of_dicts"),
+        WorkerSpec("fastpycsv_row_dicts", "fastpycsv_to_list_of_dicts"),
         WorkerSpec("pyarrow_row_dicts", "pyarrow_to_list_of_dicts"),
         WorkerSpec("pyarrow_row_dicts_multiline", "pyarrow_to_list_of_dicts_multiline"),
         WorkerSpec("polars_row_dicts", "polars_to_list_of_dicts"),
-        WorkerSpec("csvpy_column_dict", "csvpy_to_dict_of_lists"),
+        WorkerSpec("fastpycsv_column_dict", "fastpycsv_to_dict_of_lists"),
         WorkerSpec("pyarrow_column_dict", "pyarrow_to_dict_of_lists"),
         WorkerSpec("pyarrow_column_dict_multiline", "pyarrow_to_dict_of_lists_multiline"),
         WorkerSpec("polars_column_dict", "polars_to_dict_of_lists"),
@@ -515,17 +515,17 @@ def full_benchmark_workers() -> list[WorkerSpec]:
 
 def subset_benchmark_workers() -> list[WorkerSpec]:
     return [
-        WorkerSpec("csvpy_row_lists_subset", "csvpy_subset_to_list_of_lists"),
+        WorkerSpec("fastpycsv_row_lists_subset", "fastpycsv_subset_to_list_of_lists"),
         WorkerSpec("pyarrow_row_lists_subset", "pyarrow_subset_to_list_of_lists"),
         WorkerSpec("pyarrow_row_lists_subset_multiline", "pyarrow_subset_to_list_of_lists_multiline"),
         WorkerSpec("polars_row_lists_subset", "polars_subset_to_list_of_lists"),
-        WorkerSpec("csvpy_row_tuples_subset", "csvpy_subset_to_list_of_tuples"),
+        WorkerSpec("fastpycsv_row_tuples_subset", "fastpycsv_subset_to_list_of_tuples"),
         WorkerSpec("polars_row_tuples_subset", "polars_subset_to_list_of_tuples"),
-        WorkerSpec("csvpy_row_dicts_subset", "csvpy_subset_to_list_of_dicts"),
+        WorkerSpec("fastpycsv_row_dicts_subset", "fastpycsv_subset_to_list_of_dicts"),
         WorkerSpec("pyarrow_row_dicts_subset", "pyarrow_subset_to_list_of_dicts"),
         WorkerSpec("pyarrow_row_dicts_subset_multiline", "pyarrow_subset_to_list_of_dicts_multiline"),
         WorkerSpec("polars_row_dicts_subset", "polars_subset_to_list_of_dicts"),
-        WorkerSpec("csvpy_column_dict_subset", "csvpy_subset_to_dict_of_lists"),
+        WorkerSpec("fastpycsv_column_dict_subset", "fastpycsv_subset_to_dict_of_lists"),
         WorkerSpec("pyarrow_column_dict_subset", "pyarrow_subset_to_dict_of_lists"),
         WorkerSpec("pyarrow_column_dict_subset_multiline", "pyarrow_subset_to_dict_of_lists_multiline"),
         WorkerSpec("polars_column_dict_subset", "polars_subset_to_dict_of_lists"),
@@ -596,8 +596,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    if args.worker == "csvpy_row_lists":
-        worker_csvpy_row_lists(args, subset=False)
+    if args.worker == "fastpycsv_row_lists":
+        worker_fastpycsv_row_lists(args, subset=False)
         return
     if args.worker == "pyarrow_row_lists":
         worker_pyarrow_row_lists(args, subset=False, multiline=False)
@@ -608,14 +608,14 @@ def main() -> None:
     if args.worker == "polars_row_lists":
         worker_polars_row_lists(args, subset=False)
         return
-    if args.worker == "csvpy_row_tuples":
-        worker_csvpy_row_tuples(args, subset=False)
+    if args.worker == "fastpycsv_row_tuples":
+        worker_fastpycsv_row_tuples(args, subset=False)
         return
     if args.worker == "polars_row_tuples":
         worker_polars_row_tuples(args, subset=False)
         return
-    if args.worker == "csvpy_row_dicts":
-        worker_csvpy_row_dicts(args, subset=False)
+    if args.worker == "fastpycsv_row_dicts":
+        worker_fastpycsv_row_dicts(args, subset=False)
         return
     if args.worker == "pyarrow_row_dicts":
         worker_pyarrow_row_dicts(args, subset=False, multiline=False)
@@ -626,8 +626,8 @@ def main() -> None:
     if args.worker == "polars_row_dicts":
         worker_polars_row_dicts(args, subset=False)
         return
-    if args.worker == "csvpy_column_dict":
-        worker_csvpy_column_dict(args, subset=False)
+    if args.worker == "fastpycsv_column_dict":
+        worker_fastpycsv_column_dict(args, subset=False)
         return
     if args.worker == "pyarrow_column_dict":
         worker_pyarrow_column_dict(args, subset=False, multiline=False)
@@ -638,8 +638,8 @@ def main() -> None:
     if args.worker == "polars_column_dict":
         worker_polars_column_dict(args, subset=False)
         return
-    if args.worker == "csvpy_row_lists_subset":
-        worker_csvpy_row_lists(args, subset=True)
+    if args.worker == "fastpycsv_row_lists_subset":
+        worker_fastpycsv_row_lists(args, subset=True)
         return
     if args.worker == "pyarrow_row_lists_subset":
         worker_pyarrow_row_lists(args, subset=True, multiline=False)
@@ -650,14 +650,14 @@ def main() -> None:
     if args.worker == "polars_row_lists_subset":
         worker_polars_row_lists(args, subset=True)
         return
-    if args.worker == "csvpy_row_tuples_subset":
-        worker_csvpy_row_tuples(args, subset=True)
+    if args.worker == "fastpycsv_row_tuples_subset":
+        worker_fastpycsv_row_tuples(args, subset=True)
         return
     if args.worker == "polars_row_tuples_subset":
         worker_polars_row_tuples(args, subset=True)
         return
-    if args.worker == "csvpy_row_dicts_subset":
-        worker_csvpy_row_dicts(args, subset=True)
+    if args.worker == "fastpycsv_row_dicts_subset":
+        worker_fastpycsv_row_dicts(args, subset=True)
         return
     if args.worker == "pyarrow_row_dicts_subset":
         worker_pyarrow_row_dicts(args, subset=True, multiline=False)
@@ -668,8 +668,8 @@ def main() -> None:
     if args.worker == "polars_row_dicts_subset":
         worker_polars_row_dicts(args, subset=True)
         return
-    if args.worker == "csvpy_column_dict_subset":
-        worker_csvpy_column_dict(args, subset=True)
+    if args.worker == "fastpycsv_column_dict_subset":
+        worker_fastpycsv_column_dict(args, subset=True)
         return
     if args.worker == "pyarrow_column_dict_subset":
         worker_pyarrow_column_dict(args, subset=True, multiline=False)

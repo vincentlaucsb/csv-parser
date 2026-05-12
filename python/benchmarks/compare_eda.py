@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Compare csvpy EDA against pandas with the pyarrow CSV engine.
+"""Compare fastpycsv EDA against pandas with the pyarrow CSV engine.
 
 The parent process launches each workload in a fresh Python interpreter and
-samples wall time plus peak resident/working-set memory. The csvpy workload uses
+samples wall time plus peak resident/working-set memory. The fastpycsv workload uses
 the streaming EDA implementation from python/examples/eda_summary.py. The pandas
 workload materializes a DataFrame with engine="pyarrow" and then computes a
 similar per-column summary.
@@ -135,8 +135,8 @@ def run_worker(worker: str, label: str, args: argparse.Namespace) -> RunResult:
     ]
     if args.no_header:
         command.append("--no-header")
-    if args.csvpy_exact_values:
-        command.append("--csvpy-exact-values")
+    if args.fastpycsv_exact_values:
+        command.append("--fastpycsv-exact-values")
 
     env = os.environ.copy()
     env["PYTHONPATH"] = (
@@ -203,7 +203,7 @@ def _load_eda_summary():
     return module
 
 
-def _finish_csvpy_summary(summaries, top_n: int) -> dict[str, int]:
+def _finish_fastpycsv_summary(summaries, top_n: int) -> dict[str, int]:
     value_count = 0
     numeric_count = 0
     for summary in summaries:
@@ -214,18 +214,18 @@ def _finish_csvpy_summary(summaries, top_n: int) -> dict[str, int]:
     return {"columns": len(summaries), "numeric_values": numeric_count, "reported_values": value_count}
 
 
-def worker_csvpy(args: argparse.Namespace) -> None:
+def worker_fastpycsv(args: argparse.Namespace) -> None:
     eda_summary = _load_eda_summary()
-    eda_summary.ensure_csvpy_available()
+    eda_summary.ensure_fastpycsv_available()
     summaries = eda_summary.analyze(
         args.csv_file,
         args.top_n,
         not args.no_header,
         args.delimiter,
-        args.csvpy_exact_values,
+        args.fastpycsv_exact_values,
         args.top_capacity,
     )
-    print(json.dumps(_finish_csvpy_summary(summaries, args.top_n), sort_keys=True))
+    print(json.dumps(_finish_fastpycsv_summary(summaries, args.top_n), sort_keys=True))
 
 
 def worker_pandas_pyarrow(args: argparse.Namespace) -> None:
@@ -265,9 +265,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--delimiter", default=",")
     parser.add_argument("--no-header", action="store_true")
     parser.add_argument(
-        "--csvpy-exact-values",
+        "--fastpycsv-exact-values",
         action="store_true",
-        help="make csvpy use exact value counts instead of bounded approximate counts",
+        help="make fastpycsv use exact value counts instead of bounded approximate counts",
     )
     parser.add_argument(
         "--poll-interval",
@@ -275,7 +275,7 @@ def parse_args() -> argparse.Namespace:
         default=0.05,
         help="seconds between memory samples",
     )
-    parser.add_argument("--worker", choices=("csvpy", "pandas_pyarrow"), help=argparse.SUPPRESS)
+    parser.add_argument("--worker", choices=("fastpycsv", "pandas_pyarrow"), help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if args.top_n < 1:
@@ -290,8 +290,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    if args.worker == "csvpy":
-        worker_csvpy(args)
+    if args.worker == "fastpycsv":
+        worker_fastpycsv(args)
         return
     if args.worker == "pandas_pyarrow":
         worker_pandas_pyarrow(args)
@@ -299,8 +299,8 @@ def main() -> None:
 
     results = [
         run_worker(
-            "csvpy",
-            "csvpy_eda_approx" if not args.csvpy_exact_values else "csvpy_eda_exact",
+            "fastpycsv",
+            "fastpycsv_eda_approx" if not args.fastpycsv_exact_values else "fastpycsv_eda_exact",
             args,
         ),
         run_worker("pandas_pyarrow", "pandas_pyarrow_eda", args),

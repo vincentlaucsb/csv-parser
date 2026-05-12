@@ -76,16 +76,16 @@ def _is_compatible_extension_name(name: str) -> bool:
     return False
 
 
-def _find_built_csvpy_extension() -> Path | None:
+def _find_built_fastpycsv_extension() -> Path | None:
     candidates: list[Path] = []
     for build_root in BUILD_ROOTS:
         if not build_root.exists():
             continue
 
-        for candidate in build_root.rglob("csvpy*"):
+        for candidate in build_root.rglob("fastpycsv*"):
             if (
                 candidate.is_file()
-                and candidate.name.startswith("csvpy")
+                and candidate.name.startswith("fastpycsv")
                 and _is_compatible_extension_name(candidate.name)
             ):
                 candidates.append(candidate)
@@ -96,38 +96,38 @@ def _find_built_csvpy_extension() -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def _load_csvpy_extension_from_build(extension_path: Path) -> None:
-    spec = importlib.util.spec_from_file_location("csvpy.csvpy", extension_path)
+def _load_fastpycsv_extension_from_build(extension_path: Path) -> None:
+    spec = importlib.util.spec_from_file_location("fastpycsv.fastpycsv", extension_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load csvpy extension from {extension_path}")
+        raise ImportError(f"cannot load fastpycsv extension from {extension_path}")
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules["csvpy.csvpy"] = module
+    sys.modules["fastpycsv.fastpycsv"] = module
     spec.loader.exec_module(module)
 
 
-def ensure_csvpy_available() -> None:
+def ensure_fastpycsv_available() -> None:
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
 
     try:
-        import csvpy  # noqa: F401
+        import fastpycsv  # noqa: F401
         return
     except ImportError:
-        sys.modules.pop("csvpy", None)
-        sys.modules.pop("csvpy.csvpy", None)
+        sys.modules.pop("fastpycsv", None)
+        sys.modules.pop("fastpycsv.fastpycsv", None)
 
-    extension_path = _find_built_csvpy_extension()
+    extension_path = _find_built_fastpycsv_extension()
     if extension_path is None:
         suffixes = ", ".join(_extension_suffixes())
         raise SystemExit(
-            "csvpy is not built for this Python interpreter. "
-            f"Expected a csvpy extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
+            "fastpycsv is not built for this Python interpreter. "
+            f"Expected a fastpycsv extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
             f"with suffix: {suffixes}"
         )
 
-    _load_csvpy_extension_from_build(extension_path)
-    import csvpy  # noqa: F401
+    _load_fastpycsv_extension_from_build(extension_path)
+    import fastpycsv  # noqa: F401
 
 
 def _windows_memory_bytes(pid: int) -> int:
@@ -226,8 +226,8 @@ def run_worker(worker: WorkerSpec, args: argparse.Namespace) -> RunResult:
         command.append("--case-insensitive")
     command.extend(["--batch-size", str(args.batch_size)])
     command.extend(["--arrow-block-size", str(args.arrow_block_size)])
-    if args.csvpy_batch_schema is not None:
-        command.extend(["--csvpy-batch-schema", args.csvpy_batch_schema])
+    if args.fastpycsv_batch_schema is not None:
+        command.extend(["--fastpycsv-batch-schema", args.fastpycsv_batch_schema])
     command.extend(worker.extra_args)
 
     env = os.environ.copy()
@@ -449,17 +449,17 @@ def _numpy_filter_mask(array: object, spec: FilterSpec, case_insensitive: bool):
     )
 
 
-def _native_predicate(csvpy, spec: FilterSpec, case_insensitive: bool):
+def _native_predicate(fastpycsv, spec: FilterSpec, case_insensitive: bool):
     if spec.op == "=":
-        return csvpy.equal(spec.column, spec.value, case_sensitive=not case_insensitive)
+        return fastpycsv.equal(spec.column, spec.value, case_sensitive=not case_insensitive)
     if spec.op == "<":
-        return csvpy.less(spec.column, spec.value)
+        return fastpycsv.less(spec.column, spec.value)
     if spec.op == "<=":
-        return csvpy.less_equal(spec.column, spec.value)
+        return fastpycsv.less_equal(spec.column, spec.value)
     if spec.op == ">":
-        return csvpy.greater(spec.column, spec.value)
+        return fastpycsv.greater(spec.column, spec.value)
     if spec.op == ">=":
-        return csvpy.greater_equal(spec.column, spec.value)
+        return fastpycsv.greater_equal(spec.column, spec.value)
     raise AssertionError(f"unexpected filter operator: {spec.op}")
 
 
@@ -498,20 +498,20 @@ def _values_to_numpy(values: list[object]):
     return np.asarray(["" if value is None else str(value) for value in values], dtype=_string_dtype())
 
 
-def worker_csvpy(args: argparse.Namespace) -> None:
-    ensure_csvpy_available()
-    import csvpy
+def worker_fastpycsv(args: argparse.Namespace) -> None:
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     filters = active_filters(args)
     if not filters:
-        arrays = csvpy.read_numpy(str(args.csv_file), columns=args.columns)
+        arrays = fastpycsv.read_numpy(str(args.csv_file), columns=args.columns)
     else:
         header = _header(args.csv_file, args.delimiter)
         selected_indices = [_column_index(header, column) for column in args.columns]
         filter_indices = [_column_index(header, spec.column) for spec in filters]
         collected: dict[str, list[object]] = {column: [] for column in args.columns}
 
-        for row in csvpy.reader(args.csv_file, delimiter=args.delimiter, cast=True):
+        for row in fastpycsv.reader(args.csv_file, delimiter=args.delimiter, cast=True):
             row_matches = True
             for filter_index, spec in zip(filter_indices, filters):
                 if not _compare_filter_value(row[filter_index], spec, args.case_insensitive):
@@ -542,29 +542,29 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     )
 
 
-def worker_csvpy_predicate(args: argparse.Namespace, *, parallel: bool) -> None:
+def worker_fastpycsv_predicate(args: argparse.Namespace, *, parallel: bool) -> None:
     filters = active_filters(args)
     if not filters:
-        raise SystemExit("csvpy predicate worker requires --filter-column")
+        raise SystemExit("fastpycsv predicate worker requires --filter-column")
 
-    ensure_csvpy_available()
-    import csvpy
+    ensure_fastpycsv_available()
+    import fastpycsv
 
-    previous_parallel = os.environ.get("CSVPY_PREDICATE_PARALLEL")
-    os.environ["CSVPY_PREDICATE_PARALLEL"] = "1" if parallel else "0"
+    previous_parallel = os.environ.get("FASTPYCSV_PREDICATE_PARALLEL")
+    os.environ["FASTPYCSV_PREDICATE_PARALLEL"] = "1" if parallel else "0"
     try:
-        predicates = [_native_predicate(csvpy, spec, args.case_insensitive) for spec in filters]
-        predicate = predicates[0] if len(predicates) == 1 else csvpy.all_of(*predicates)
-        arrays = csvpy.read_numpy(
+        predicates = [_native_predicate(fastpycsv, spec, args.case_insensitive) for spec in filters]
+        predicate = predicates[0] if len(predicates) == 1 else fastpycsv.all_of(*predicates)
+        arrays = fastpycsv.read_numpy(
             str(args.csv_file),
             columns=args.columns,
             predicate=predicate,
         )
     finally:
         if previous_parallel is None:
-            os.environ.pop("CSVPY_PREDICATE_PARALLEL", None)
+            os.environ.pop("FASTPYCSV_PREDICATE_PARALLEL", None)
         else:
-            os.environ["CSVPY_PREDICATE_PARALLEL"] = previous_parallel
+            os.environ["FASTPYCSV_PREDICATE_PARALLEL"] = previous_parallel
 
     rows = len(next(iter(arrays.values()))) if arrays else 0
     array_bytes = sum(_array_nbytes(array) for array in arrays.values())
@@ -580,31 +580,31 @@ def worker_csvpy_predicate(args: argparse.Namespace, *, parallel: bool) -> None:
     )
 
 
-def worker_csvpy_batches(args: argparse.Namespace, *, parallel: bool | None = None) -> None:
+def worker_fastpycsv_batches(args: argparse.Namespace, *, parallel: bool | None = None) -> None:
     filters = active_filters(args)
 
-    ensure_csvpy_available()
-    import csvpy
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     predicate = None
     if filters:
-        predicates = [_native_predicate(csvpy, spec, args.case_insensitive) for spec in filters]
-        predicate = predicates[0] if len(predicates) == 1 else csvpy.all_of(*predicates)
+        predicates = [_native_predicate(fastpycsv, spec, args.case_insensitive) for spec in filters]
+        predicate = predicates[0] if len(predicates) == 1 else fastpycsv.all_of(*predicates)
 
-    previous_parallel = os.environ.get("CSVPY_PREDICATE_PARALLEL")
+    previous_parallel = os.environ.get("FASTPYCSV_PREDICATE_PARALLEL")
     if parallel is not None:
-        os.environ["CSVPY_PREDICATE_PARALLEL"] = "1" if parallel else "0"
+        os.environ["FASTPYCSV_PREDICATE_PARALLEL"] = "1" if parallel else "0"
 
     try:
         rows = 0
         array_bytes = 0
         columns = 0
-        for batch in csvpy.read_numpy_batches(
+        for batch in fastpycsv.read_numpy_batches(
             str(args.csv_file),
             columns=args.columns,
             predicate=predicate,
             batch_size=args.batch_size,
-            schema=args.csvpy_batch_schema,
+            schema=args.fastpycsv_batch_schema,
         ):
             if not batch:
                 continue
@@ -616,9 +616,9 @@ def worker_csvpy_batches(args: argparse.Namespace, *, parallel: bool | None = No
     finally:
         if parallel is not None:
             if previous_parallel is None:
-                os.environ.pop("CSVPY_PREDICATE_PARALLEL", None)
+                os.environ.pop("FASTPYCSV_PREDICATE_PARALLEL", None)
             else:
-                os.environ["CSVPY_PREDICATE_PARALLEL"] = previous_parallel
+                os.environ["FASTPYCSV_PREDICATE_PARALLEL"] = previous_parallel
 
     print(
         json.dumps(
@@ -973,13 +973,13 @@ def parse_args() -> argparse.Namespace:
         "--batch-size",
         type=int,
         default=50000,
-        help="row count per csvpy and Polars streaming batch",
+        help="row count per fastpycsv and Polars streaming batch",
     )
     parser.add_argument(
-        "--csvpy-batch-schema",
+        "--fastpycsv-batch-schema",
         choices=("sample", "batch", "global"),
         default="sample",
-        help="schema inference mode for csvpy.read_numpy_batches() workers",
+        help="schema inference mode for fastpycsv.read_numpy_batches() workers",
     )
     parser.add_argument(
         "--arrow-block-size",
@@ -990,12 +990,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--worker",
         choices=(
-            "csvpy",
-            "csvpy_batches",
-            "csvpy_batches_serial",
-            "csvpy_batches_parallel",
-            "csvpy_predicate_serial",
-            "csvpy_predicate_parallel",
+            "fastpycsv",
+            "fastpycsv_batches",
+            "fastpycsv_batches_serial",
+            "fastpycsv_batches_parallel",
+            "fastpycsv_predicate_serial",
+            "fastpycsv_predicate_parallel",
             "pyarrow",
             "pyarrow_batches",
             "pyarrow_dataset",
@@ -1026,25 +1026,25 @@ def parse_args() -> argparse.Namespace:
 
 
 def benchmark_workers(args: argparse.Namespace) -> list[WorkerSpec]:
-    csvpy_label = "csvpy_read_numpy"
+    fastpycsv_label = "fastpycsv_read_numpy"
     pyarrow_label = "pyarrow_read_csv_to_numpy"
     polars_label = "polars_scan_csv_to_numpy"
     if active_filters(args):
-        csvpy_label = "csvpy_python_filter_to_numpy"
+        fastpycsv_label = "fastpycsv_python_filter_to_numpy"
         pyarrow_label = "pyarrow_filter_to_numpy"
         polars_label = "polars_filter_to_numpy"
 
-    workers = [WorkerSpec("csvpy", csvpy_label)]
+    workers = [WorkerSpec("fastpycsv", fastpycsv_label)]
     if not active_filters(args):
-        workers.append(WorkerSpec("csvpy_batches", "csvpy_read_numpy_batches_sample", ("--csvpy-batch-schema", "sample")))
-        workers.append(WorkerSpec("csvpy_batches", "csvpy_read_numpy_batches_global", ("--csvpy-batch-schema", "global")))
+        workers.append(WorkerSpec("fastpycsv_batches", "fastpycsv_read_numpy_batches_sample", ("--fastpycsv-batch-schema", "sample")))
+        workers.append(WorkerSpec("fastpycsv_batches", "fastpycsv_read_numpy_batches_global", ("--fastpycsv-batch-schema", "global")))
     else:
-        workers.append(WorkerSpec("csvpy_batches_serial", "csvpy_serial_predicate_batches_sample_to_numpy", ("--csvpy-batch-schema", "sample")))
-        workers.append(WorkerSpec("csvpy_batches_parallel", "csvpy_parallel_predicate_batches_sample_to_numpy", ("--csvpy-batch-schema", "sample")))
-        workers.append(WorkerSpec("csvpy_batches_parallel", "csvpy_parallel_predicate_batches_global_to_numpy", ("--csvpy-batch-schema", "global")))
+        workers.append(WorkerSpec("fastpycsv_batches_serial", "fastpycsv_serial_predicate_batches_sample_to_numpy", ("--fastpycsv-batch-schema", "sample")))
+        workers.append(WorkerSpec("fastpycsv_batches_parallel", "fastpycsv_parallel_predicate_batches_sample_to_numpy", ("--fastpycsv-batch-schema", "sample")))
+        workers.append(WorkerSpec("fastpycsv_batches_parallel", "fastpycsv_parallel_predicate_batches_global_to_numpy", ("--fastpycsv-batch-schema", "global")))
     if active_filters(args):
-        workers.append(WorkerSpec("csvpy_predicate_serial", "csvpy_serial_predicate_to_numpy"))
-        workers.append(WorkerSpec("csvpy_predicate_parallel", "csvpy_parallel_predicate_to_numpy"))
+        workers.append(WorkerSpec("fastpycsv_predicate_serial", "fastpycsv_serial_predicate_to_numpy"))
+        workers.append(WorkerSpec("fastpycsv_predicate_parallel", "fastpycsv_parallel_predicate_to_numpy"))
     workers.append(WorkerSpec("pyarrow", pyarrow_label))
     if active_filters(args):
         workers.append(WorkerSpec("pyarrow_dataset", "pyarrow_dataset_filter_to_numpy"))
@@ -1064,23 +1064,23 @@ def rotated_workers(workers: list[WorkerSpec], offset: int) -> list[WorkerSpec]:
 def main() -> None:
     args = parse_args()
 
-    if args.worker == "csvpy":
-        worker_csvpy(args)
+    if args.worker == "fastpycsv":
+        worker_fastpycsv(args)
         return
-    if args.worker == "csvpy_batches":
-        worker_csvpy_batches(args)
+    if args.worker == "fastpycsv_batches":
+        worker_fastpycsv_batches(args)
         return
-    if args.worker == "csvpy_batches_serial":
-        worker_csvpy_batches(args, parallel=False)
+    if args.worker == "fastpycsv_batches_serial":
+        worker_fastpycsv_batches(args, parallel=False)
         return
-    if args.worker == "csvpy_batches_parallel":
-        worker_csvpy_batches(args, parallel=True)
+    if args.worker == "fastpycsv_batches_parallel":
+        worker_fastpycsv_batches(args, parallel=True)
         return
-    if args.worker == "csvpy_predicate_serial":
-        worker_csvpy_predicate(args, parallel=False)
+    if args.worker == "fastpycsv_predicate_serial":
+        worker_fastpycsv_predicate(args, parallel=False)
         return
-    if args.worker == "csvpy_predicate_parallel":
-        worker_csvpy_predicate(args, parallel=True)
+    if args.worker == "fastpycsv_predicate_parallel":
+        worker_fastpycsv_predicate(args, parallel=True)
         return
     if args.worker == "pyarrow":
         worker_pyarrow(args)

@@ -49,15 +49,15 @@ jobs:
         -DPYTHON_EXECUTABLE="$(python -c 'import sys; print(sys.executable)')"
         -S ${{ github.workspace }}
 
-    - name: Build csvpy
-      run: cmake --build build-python --config Release --target csvpy
+    - name: Build fastpycsv
+      run: cmake --build build-python --config Release --target fastpycsv
 
     - name: Run Python tests with coverage
       env:
         PYTHONPATH: ${{ github.workspace }}/python
       run: >
         python -m coverage run
-        --source=python/csvpy
+        --source=python/fastpycsv
         -m unittest discover
         -s python/tests
 

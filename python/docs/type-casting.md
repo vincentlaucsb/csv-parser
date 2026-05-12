@@ -1,15 +1,15 @@
 # Type Casting
 
-By default, `csvpy.reader()` returns strings. This matches Python's standard
+By default, `fastpycsv.reader()` returns strings. This matches Python's standard
 library `csv.reader()` behavior and keeps parsing predictable.
 
 Pass `cast=True` when you want csv-parser's scalar classification surfaced as
 Python values:
 
 ```python
-import csvpy
+import fastpycsv
 
-reader = csvpy.reader(["id,amount,active\n", "1,2.5,true\n"], cast=True)
+reader = fastpycsv.reader(["id,amount,active\n", "1,2.5,true\n"], cast=True)
 rows = list(reader)
 
 assert reader.fieldnames == ["id", "amount", "active"]

@@ -68,7 +68,7 @@ jobs:
     - name: Upload wheel artifacts
       uses: actions/upload-artifact@v5
       with:
-        name: csvpy-wheels-${{ matrix.os }}
+        name: fastpycsv-wheels-${{ matrix.os }}
         path: wheelhouse/*
         if-no-files-found: error
 
@@ -102,6 +102,6 @@ jobs:
     - name: Upload source artifact
       uses: actions/upload-artifact@v5
       with:
-        name: csvpy-sdist
+        name: fastpycsv-sdist
         path: dist/*
         if-no-files-found: error

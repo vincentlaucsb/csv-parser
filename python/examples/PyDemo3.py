@@ -1,8 +1,8 @@
 from pathlib import Path
-import csvpy
+import fastpycsv
 
 path = Path(__file__).parent.parent / 'data' / '2015_StateDepartment.csv'
-reader = csvpy.Reader(str(path))
+reader = fastpycsv.Reader(str(path))
 
 for row in reader:
     if row['Year'].is_int():

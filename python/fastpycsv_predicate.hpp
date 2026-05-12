@@ -1,6 +1,6 @@
 #pragma once
 
-#include "csvpy_bindings.hpp"
+#include "fastpycsv_bindings.hpp"
 
 enum class RowPredicateOp {
     EQUAL,

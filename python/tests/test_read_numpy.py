@@ -1,7 +1,7 @@
 import math
 import unittest
 
-import csvpy
+import fastpycsv
 
 from tempfiles import temp_csv_path
 
@@ -24,7 +24,7 @@ def concatenate_batches(batches):
     }
 
 
-@unittest.skipIf(np is None, "NumPy is required for csvpy.read_numpy tests")
+@unittest.skipIf(np is None, "NumPy is required for fastpycsv.read_numpy tests")
 class ReadNumpyTests(unittest.TestCase):
     def test_read_numpy_materializes_typed_arrays(self):
         path = self.enterContext(temp_csv_path(
@@ -33,7 +33,7 @@ class ReadNumpyTests(unittest.TestCase):
             "beta,2,2.25,false\n"
         ))
 
-        arrays = csvpy.read_numpy(path)
+        arrays = fastpycsv.read_numpy(path)
 
         self.assertEqual(set(arrays), {"name", "count", "ratio", "flag"})
         self.assertEqual(arrays["count"].dtype, np.dtype("int64"))
@@ -53,7 +53,7 @@ class ReadNumpyTests(unittest.TestCase):
             "3,4.5,\n"
         ))
 
-        arrays = csvpy.read_numpy(path)
+        arrays = fastpycsv.read_numpy(path)
 
         self.assertEqual(arrays["id"].dtype, np.dtype("float64"))
         self.assertEqual(arrays["score"].dtype, np.dtype("float64"))
@@ -71,7 +71,7 @@ class ReadNumpyTests(unittest.TestCase):
             "2,\"c\"\"d\",y\n"
         ))
 
-        arrays = csvpy.read_numpy(path, columns=["text", "id"])
+        arrays = fastpycsv.read_numpy(path, columns=["text", "id"])
 
         self.assertEqual(list(arrays), ["text", "id"])
         self.assertEqual(arrays["text"].tolist(), ["a,b", 'c"d'])
@@ -84,13 +84,13 @@ class ReadNumpyTests(unittest.TestCase):
             "2; beta; 2.5\n"
         ))
 
-        arrays = csvpy.read_numpy(
+        arrays = fastpycsv.read_numpy(
             path,
             columns=["name", "score"],
             delimiter=";",
             skipinitialspace=True,
         )
-        batches = list(csvpy.read_numpy_batches(
+        batches = list(fastpycsv.read_numpy_batches(
             path,
             columns=["name", "score"],
             delimiter=";",
@@ -112,7 +112,7 @@ class ReadNumpyTests(unittest.TestCase):
             "plain text\n"
         ))
 
-        arrays = csvpy.read_numpy(path)
+        arrays = fastpycsv.read_numpy(path)
 
         self.assertIsInstance(arrays["mixed"].dtype, np.dtypes.StringDType)
         self.assertEqual(arrays["mixed"].tolist(), ["001", "2.50", "plain text"])
@@ -124,7 +124,7 @@ class ReadNumpyTests(unittest.TestCase):
             "2,false\n"
         ))
 
-        arrays = csvpy.read_numpy(path, cast=False)
+        arrays = fastpycsv.read_numpy(path, cast=False)
 
         self.assertIsInstance(arrays["id"].dtype, np.dtypes.StringDType)
         self.assertIsInstance(arrays["flag"].dtype, np.dtypes.StringDType)
@@ -139,10 +139,10 @@ class ReadNumpyTests(unittest.TestCase):
             "EL PASO,3,30\n"
         ))
 
-        arrays = csvpy.read_numpy(
+        arrays = fastpycsv.read_numpy(
             path,
             columns=["id", "value"],
-            predicate=csvpy.equal("region", "el paso", case_sensitive=False),
+            predicate=fastpycsv.equal("region", "el paso", case_sensitive=False),
         )
 
         self.assertEqual(arrays["id"].tolist(), [1, 3])
@@ -156,7 +156,7 @@ class ReadNumpyTests(unittest.TestCase):
             "keep,plain text\n"
         ))
 
-        arrays = csvpy.read_numpy(path, predicate=csvpy.equal("region", "keep"))
+        arrays = fastpycsv.read_numpy(path, predicate=fastpycsv.equal("region", "keep"))
 
         self.assertIsInstance(arrays["mixed"].dtype, np.dtypes.StringDType)
         self.assertEqual(arrays["region"].tolist(), ["keep", "keep"])
@@ -172,7 +172,7 @@ class ReadNumpyTests(unittest.TestCase):
                 expected.append(index)
         path = self.enterContext(temp_csv_path("".join(rows)))
 
-        arrays = csvpy.read_numpy(path, columns=["id"], predicate=csvpy.equal("group", "keep"))
+        arrays = fastpycsv.read_numpy(path, columns=["id"], predicate=fastpycsv.equal("group", "keep"))
 
         self.assertEqual(arrays["id"].tolist(), expected)
 
@@ -184,11 +184,11 @@ class ReadNumpyTests(unittest.TestCase):
             "c,25000,2024\n"
         ))
 
-        arrays = csvpy.read_numpy(path, columns=["region"], predicate=csvpy.greater("price", "10000"))
+        arrays = fastpycsv.read_numpy(path, columns=["region"], predicate=fastpycsv.greater("price", "10000"))
 
         self.assertEqual(arrays["region"].tolist(), ["b", "c"])
 
-        arrays = csvpy.read_numpy(path, columns=["region"], predicate=csvpy.less_equal("year", "2020"))
+        arrays = fastpycsv.read_numpy(path, columns=["region"], predicate=fastpycsv.less_equal("year", "2020"))
 
         self.assertEqual(arrays["region"].tolist(), ["a", "b"])
 
@@ -200,14 +200,14 @@ class ReadNumpyTests(unittest.TestCase):
             "keep,3,25000,2024\n"
             "keep,4,9000,2019\n"
         ))
-        predicate = csvpy.all_of(
-            csvpy.equal("region", "keep"),
-            csvpy.greater("price", "10000"),
-            csvpy.less_equal("year", "2021"),
+        predicate = fastpycsv.all_of(
+            fastpycsv.equal("region", "keep"),
+            fastpycsv.greater("price", "10000"),
+            fastpycsv.less_equal("year", "2021"),
         )
 
-        arrays = csvpy.read_numpy(path, columns=["id"], predicate=predicate)
-        batches = list(csvpy.read_numpy_batches(
+        arrays = fastpycsv.read_numpy(path, columns=["id"], predicate=predicate)
+        batches = list(fastpycsv.read_numpy_batches(
             path,
             columns=["id"],
             predicate=predicate,
@@ -220,10 +220,10 @@ class ReadNumpyTests(unittest.TestCase):
 
     def test_all_of_rejects_invalid_children(self):
         with self.assertRaisesRegex(TypeError, "all_of"):
-            csvpy.all_of(csvpy.equal("region", "keep"), object())
+            fastpycsv.all_of(fastpycsv.equal("region", "keep"), object())
 
         with self.assertRaisesRegex(TypeError, "all_of"):
-            csvpy.all_of()
+            fastpycsv.all_of()
 
     @unittest.skipIf(pd is None, "pandas is required for DataFrame handoff test")
     def test_read_numpy_result_builds_pandas_dataframe(self):
@@ -233,7 +233,7 @@ class ReadNumpyTests(unittest.TestCase):
             "beta,2\n"
         ))
 
-        frame = pd.DataFrame(csvpy.read_numpy(path))
+        frame = pd.DataFrame(fastpycsv.read_numpy(path))
 
         self.assertEqual(list(frame.columns), ["name", "value"])
         self.assertEqual(frame["name"].tolist(), ["alpha", "beta"])
@@ -249,7 +249,7 @@ class ReadNumpyTests(unittest.TestCase):
             "5,50\n"
         ))
 
-        batches = list(csvpy.read_numpy_batches(path, batch_size=2))
+        batches = list(fastpycsv.read_numpy_batches(path, batch_size=2))
 
         self.assertEqual(len(batches), 3)
         self.assertEqual([batch["id"].tolist() for batch in batches], [[1, 2], [3, 4], [5]])
@@ -263,7 +263,7 @@ class ReadNumpyTests(unittest.TestCase):
             "3,gamma,30\n"
         ))
 
-        batches = list(csvpy.read_numpy_batches(path, columns=["name", "id"], batch_size=2))
+        batches = list(fastpycsv.read_numpy_batches(path, columns=["name", "id"], batch_size=2))
 
         self.assertEqual([list(batch) for batch in batches], [["name", "id"], ["name", "id"]])
         self.assertEqual(concatenate_batches(batches)["name"].tolist(), ["alpha", "beta", "gamma"])
@@ -278,10 +278,10 @@ class ReadNumpyTests(unittest.TestCase):
             "tucson,4\n"
         ))
 
-        batches = list(csvpy.read_numpy_batches(
+        batches = list(fastpycsv.read_numpy_batches(
             path,
             ["id"],
-            predicate=csvpy.equal("region", "el paso", case_sensitive=False),
+            predicate=fastpycsv.equal("region", "el paso", case_sensitive=False),
             cast=True,
             batch_size=2,
         ))
@@ -291,22 +291,22 @@ class ReadNumpyTests(unittest.TestCase):
 
     def test_numpy_reader_behavior_options_are_keyword_only(self):
         path = self.enterContext(temp_csv_path("id,value\n1,10\n"))
-        predicate = csvpy.equal("id", 1)
+        predicate = fastpycsv.equal("id", 1)
 
         with self.assertRaises(TypeError):
-            csvpy.read_numpy(path, ["value"], False)
+            fastpycsv.read_numpy(path, ["value"], False)
 
         with self.assertRaises(TypeError):
-            csvpy.read_numpy(path, ["value"], True, predicate)
+            fastpycsv.read_numpy(path, ["value"], True, predicate)
 
         with self.assertRaises(TypeError):
-            list(csvpy.read_numpy_batches(path, ["value"], predicate))
+            list(fastpycsv.read_numpy_batches(path, ["value"], predicate))
 
         with self.assertRaises(TypeError):
-            list(csvpy.read_numpy_batches(path, ["value"], predicate, True, 10))
+            list(fastpycsv.read_numpy_batches(path, ["value"], predicate, True, 10))
 
-        self.assertEqual(csvpy.read_numpy(path, ["value"], cast=False)["value"].tolist(), ["10"])
-        batches = list(csvpy.read_numpy_batches(
+        self.assertEqual(fastpycsv.read_numpy(path, ["value"], cast=False)["value"].tolist(), ["10"])
+        batches = list(fastpycsv.read_numpy_batches(
             path,
             ["value"],
             predicate=predicate,
@@ -324,14 +324,14 @@ class ReadNumpyTests(unittest.TestCase):
         ))
 
         cases = [
-            (csvpy.less("price", "15000"), ["a"]),
-            (csvpy.less_equal("price", "15000"), ["a", "b"]),
-            (csvpy.greater("price", "15000"), ["c"]),
-            (csvpy.greater_equal("price", "15000"), ["b", "c"]),
+            (fastpycsv.less("price", "15000"), ["a"]),
+            (fastpycsv.less_equal("price", "15000"), ["a", "b"]),
+            (fastpycsv.greater("price", "15000"), ["c"]),
+            (fastpycsv.greater_equal("price", "15000"), ["b", "c"]),
         ]
         for predicate, expected in cases:
             with self.subTest(predicate=predicate):
-                batches = list(csvpy.read_numpy_batches(
+                batches = list(fastpycsv.read_numpy_batches(
                     path,
                     columns=["region"],
                     predicate=predicate,
@@ -349,38 +349,38 @@ class ReadNumpyTests(unittest.TestCase):
         ))
 
         cases = [
-            (csvpy.less, "15000", ["a"]),
-            (csvpy.less, 15000, ["a"]),
-            (csvpy.less, 15000.0, ["a"]),
-            (csvpy.less_equal, "15000", ["a", "b"]),
-            (csvpy.less_equal, 15000, ["a", "b"]),
-            (csvpy.less_equal, 15000.0, ["a", "b"]),
-            (csvpy.greater, "15000", ["c"]),
-            (csvpy.greater, 15000, ["c"]),
-            (csvpy.greater, 15000.0, ["c"]),
-            (csvpy.greater_equal, "15000", ["b", "c"]),
-            (csvpy.greater_equal, 15000, ["b", "c"]),
-            (csvpy.greater_equal, 15000.0, ["b", "c"]),
+            (fastpycsv.less, "15000", ["a"]),
+            (fastpycsv.less, 15000, ["a"]),
+            (fastpycsv.less, 15000.0, ["a"]),
+            (fastpycsv.less_equal, "15000", ["a", "b"]),
+            (fastpycsv.less_equal, 15000, ["a", "b"]),
+            (fastpycsv.less_equal, 15000.0, ["a", "b"]),
+            (fastpycsv.greater, "15000", ["c"]),
+            (fastpycsv.greater, 15000, ["c"]),
+            (fastpycsv.greater, 15000.0, ["c"]),
+            (fastpycsv.greater_equal, "15000", ["b", "c"]),
+            (fastpycsv.greater_equal, 15000, ["b", "c"]),
+            (fastpycsv.greater_equal, 15000.0, ["b", "c"]),
         ]
         for factory, value, expected in cases:
             with self.subTest(factory=factory.__name__, value=value):
-                arrays = csvpy.read_numpy(path, columns=["region"], predicate=factory("price", value))
+                arrays = fastpycsv.read_numpy(path, columns=["region"], predicate=factory("price", value))
 
                 self.assertEqual(arrays["region"].tolist(), expected)
 
     def test_predicate_factory_scalar_normalization_and_errors(self):
-        self.assertEqual(csvpy.equal("id", "7").value, "7")
-        self.assertEqual(csvpy.equal("id", 7).value, "7")
-        self.assertEqual(csvpy.equal("ratio", 7.5).value, "7.5")
-        self.assertEqual(csvpy.less("price", 15000).value, "15000")
-        self.assertEqual(csvpy.greater_equal("price", 15000.5).value, "15000.5")
+        self.assertEqual(fastpycsv.equal("id", "7").value, "7")
+        self.assertEqual(fastpycsv.equal("id", 7).value, "7")
+        self.assertEqual(fastpycsv.equal("ratio", 7.5).value, "7.5")
+        self.assertEqual(fastpycsv.less("price", 15000).value, "15000")
+        self.assertEqual(fastpycsv.greater_equal("price", 15000.5).value, "15000.5")
 
         factories = [
-            csvpy.equal,
-            csvpy.less,
-            csvpy.less_equal,
-            csvpy.greater,
-            csvpy.greater_equal,
+            fastpycsv.equal,
+            fastpycsv.less,
+            fastpycsv.less_equal,
+            fastpycsv.greater,
+            fastpycsv.greater_equal,
         ]
         invalid_values = [None, True, object(), ["15000"]]
         for factory in factories:
@@ -390,7 +390,7 @@ class ReadNumpyTests(unittest.TestCase):
                         factory("price", value)
 
         with self.assertRaisesRegex(RuntimeError, "numeric predicate value is not numeric"):
-            csvpy.less("price", "not numeric")
+            fastpycsv.less("price", "not numeric")
 
     def test_read_numpy_batches_batch_schema_infers_each_batch(self):
         path = self.enterContext(temp_csv_path(
@@ -400,7 +400,7 @@ class ReadNumpyTests(unittest.TestCase):
             "plain text\n"
         ))
 
-        batches = list(csvpy.read_numpy_batches(path, batch_size=1, schema="batch"))
+        batches = list(fastpycsv.read_numpy_batches(path, batch_size=1, schema="batch"))
 
         self.assertEqual(batches[0]["mixed"].dtype, np.dtype("int64"))
         self.assertEqual(batches[0]["mixed"].tolist(), [1])
@@ -416,8 +416,8 @@ class ReadNumpyTests(unittest.TestCase):
             "plain text\n"
         ))
 
-        sample_first = next(csvpy.read_numpy_batches(path, batch_size=1, schema="sample"))
-        global_first = next(csvpy.read_numpy_batches(path, batch_size=1, schema="global"))
+        sample_first = next(fastpycsv.read_numpy_batches(path, batch_size=1, schema="sample"))
+        global_first = next(fastpycsv.read_numpy_batches(path, batch_size=1, schema="global"))
 
         self.assertEqual(sample_first["mixed"].dtype, np.dtype("int64"))
         self.assertEqual(sample_first["mixed"].tolist(), [1])
@@ -431,7 +431,7 @@ class ReadNumpyTests(unittest.TestCase):
             "2,false\n"
         ))
 
-        batches = list(csvpy.read_numpy_batches(path, cast=False, batch_size=1, schema="global"))
+        batches = list(fastpycsv.read_numpy_batches(path, cast=False, batch_size=1, schema="global"))
         arrays = concatenate_batches(batches)
 
         self.assertIsInstance(arrays["id"].dtype, np.dtypes.StringDType)
@@ -443,7 +443,7 @@ class ReadNumpyTests(unittest.TestCase):
         path = self.enterContext(temp_csv_path("id\n1\n"))
 
         with self.assertRaisesRegex(ValueError, "schema must be 'sample', 'batch', or 'global'"):
-            list(csvpy.read_numpy_batches(path, schema="wide"))
+            list(fastpycsv.read_numpy_batches(path, schema="wide"))
 
     def test_read_numpy_batches_empty_result_emits_schema_batch(self):
         path = self.enterContext(temp_csv_path(
@@ -452,15 +452,15 @@ class ReadNumpyTests(unittest.TestCase):
             "b,2,20\n"
         ))
 
-        expected = csvpy.read_numpy(
+        expected = fastpycsv.read_numpy(
             path,
             columns=["id", "value"],
-            predicate=csvpy.equal("region", "missing"),
+            predicate=fastpycsv.equal("region", "missing"),
         )
-        batches = list(csvpy.read_numpy_batches(
+        batches = list(fastpycsv.read_numpy_batches(
             path,
             columns=["id", "value"],
-            predicate=csvpy.equal("region", "missing"),
+            predicate=fastpycsv.equal("region", "missing"),
             batch_size=1,
         ))
 
@@ -478,7 +478,7 @@ class ReadNumpyTests(unittest.TestCase):
             "3,\"line one\"\n"
         ))
 
-        batches = list(csvpy.read_numpy_batches(path, columns=["text"], batch_size=1))
+        batches = list(fastpycsv.read_numpy_batches(path, columns=["text"], batch_size=1))
 
         self.assertEqual(concatenate_batches(batches)["text"].tolist(), ["a,b", 'c"d', "line one"])
 
@@ -491,15 +491,15 @@ class ReadNumpyTests(unittest.TestCase):
             "keep,004,,4\n"
         ))
 
-        expected = csvpy.read_numpy(
+        expected = fastpycsv.read_numpy(
             path,
             columns=["mixed", "enabled", "score"],
-            predicate=csvpy.equal("group", "keep"),
+            predicate=fastpycsv.equal("group", "keep"),
         )
-        batches = list(csvpy.read_numpy_batches(
+        batches = list(fastpycsv.read_numpy_batches(
             path,
             columns=["mixed", "enabled", "score"],
-            predicate=csvpy.equal("group", "keep"),
+            predicate=fastpycsv.equal("group", "keep"),
             batch_size=2,
             schema="global",
         ))

@@ -1,4 +1,4 @@
-#include "csvpy_bindings.hpp"
+#include "fastpycsv_bindings.hpp"
 
 void init_CSVFormat(nb::module_& m){
     nb::class_<CSVFormat>(m, "Format")

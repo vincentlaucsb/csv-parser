@@ -1,17 +1,17 @@
 # NumPy and pandas
 
-`csvpy` has a native column export path for workflows that need arrays rather
+`fastpycsv` has a native column export path for workflows that need arrays rather
 than row objects. This is the right API when the next step is pandas, NumPy,
 scientific code, or a model input pipeline.
 
-Use `csvpy.read_numpy(path, columns=None, *, cast=True, predicate=None)` for
+Use `fastpycsv.read_numpy(path, columns=None, *, cast=True, predicate=None)` for
 eager column arrays:
 
 ```python
-import csvpy
+import fastpycsv
 import pandas as pd
 
-arrays = csvpy.read_numpy("data.csv")
+arrays = fastpycsv.read_numpy("data.csv")
 frame = pd.DataFrame(arrays)
 ```
 
@@ -27,28 +27,28 @@ Column behavior:
 Selected-column reads keep the Python handoff smaller:
 
 ```python
-arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
+arrays = fastpycsv.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
 ```
 
 Native predicates can filter before arrays are materialized:
 
 ```python
-predicate = csvpy.all_of(
-    csvpy.equal("region", "el paso", case_sensitive=False),
-    csvpy.less("price", 10_000),
+predicate = fastpycsv.all_of(
+    fastpycsv.equal("region", "el paso", case_sensitive=False),
+    fastpycsv.less("price", 10_000),
 )
 
-arrays = csvpy.read_numpy(
+arrays = fastpycsv.read_numpy(
     "vehicles.csv",
     columns=["price", "year", "odometer"],
     predicate=predicate,
 )
 ```
 
-Use `csvpy.read_numpy_batches()` for streaming dictionaries of NumPy arrays:
+Use `fastpycsv.read_numpy_batches()` for streaming dictionaries of NumPy arrays:
 
 ```python
-for arrays in csvpy.read_numpy_batches(
+for arrays in fastpycsv.read_numpy_batches(
     "vehicles.csv",
     columns=["price", "year"],
     schema="sample",

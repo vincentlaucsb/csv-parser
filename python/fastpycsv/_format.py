@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from .csvpy import Format as _NativeFormat
-from .csvpy import VariableColumnPolicy as _NativeVariableColumnPolicy
+from .fastpycsv import Format as _NativeFormat
+from .fastpycsv import VariableColumnPolicy as _NativeVariableColumnPolicy
 
 
 def _make_format(
@@ -22,7 +22,7 @@ def _make_format(
     if quotechar is not None and len(quotechar) != 1:
         raise TypeError("quotechar must be a one-character string or None")
     if not doublequote:
-        raise NotImplementedError("csvpy.reader does not support doublequote=False")
+        raise NotImplementedError("fastpycsv.reader does not support doublequote=False")
 
     fmt = _NativeFormat().delimiter(delimiter)
     if no_header:

@@ -1,6 +1,6 @@
-#include "csvpy_bindings.hpp"
+#include "fastpycsv_bindings.hpp"
 
-NB_MODULE(csvpy, m) {
+NB_MODULE(fastpycsv, m) {
     init_python_datetime_api();
     m.doc() = "A modern C++ library for reading, writing, and analyzing CSV (and similar) files.";
     init_CSVFormat(m);

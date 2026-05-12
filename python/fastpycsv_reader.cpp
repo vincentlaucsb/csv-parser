@@ -1,5 +1,5 @@
-#include "csvpy_bindings.hpp"
-#include "csvpy_predicate.hpp"
+#include "fastpycsv_bindings.hpp"
+#include "fastpycsv_predicate.hpp"
 
 class LazyCSVRow {
 public:

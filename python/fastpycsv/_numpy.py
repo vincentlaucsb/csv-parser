@@ -6,8 +6,8 @@ from typing import Optional, Sequence
 
 from ._format import _make_format
 from ._reader import _CSVSource
-from .csvpy import _read_numpy as _native_read_numpy
-from .csvpy import _read_numpy_batches as _native_read_numpy_batches
+from .fastpycsv import _read_numpy as _native_read_numpy
+from .fastpycsv import _read_numpy_batches as _native_read_numpy_batches
 
 
 def _numpy_format(

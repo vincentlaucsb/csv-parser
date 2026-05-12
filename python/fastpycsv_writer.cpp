@@ -1,4 +1,4 @@
-#include "csvpy_bindings.hpp"
+#include "fastpycsv_bindings.hpp"
 
 #include <fstream>
 

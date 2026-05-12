@@ -9,12 +9,12 @@ concepts, but ordinary ETL code should not start there.
 
 | Function | Use it when |
 | --- | --- |
-| `csvpy.reader()` | You want fast lazy row iteration and Pythonic row filtering. |
-| `csvpy.read_numpy()` | You want selected CSV columns as eager NumPy arrays. |
-| `csvpy.read_numpy_batches()` | You want selected CSV columns as bounded-memory NumPy batches. |
-| `csvpy.write_csv()` | You want to stream lazy rows or Python iterables back to CSV. |
+| `fastpycsv.reader()` | You want fast lazy row iteration and Pythonic row filtering. |
+| `fastpycsv.read_numpy()` | You want selected CSV columns as eager NumPy arrays. |
+| `fastpycsv.read_numpy_batches()` | You want selected CSV columns as bounded-memory NumPy batches. |
+| `fastpycsv.write_csv()` | You want to stream lazy rows or Python iterables back to CSV. |
 
-## `csvpy.reader(csvfile, dialect="excel", **fmtparams)`
+## `fastpycsv.reader(csvfile, dialect="excel", **fmtparams)`
 
 Returns an iterator over lazy row objects.
 
@@ -48,13 +48,13 @@ features fail fast instead of silently diverging from stdlib behavior.
 iteration, `reader()` yields one row at a time no matter what `batch_size` is:
 
 ```python
-for row in csvpy.reader("vehicles.csv", batch_size=100_000):
+for row in fastpycsv.reader("vehicles.csv", batch_size=100_000):
     consume(row)  # still one row at a time
 ```
 
 Use `.chunks(size)` on `reader.lists()`, `reader.tuples()`, or `reader.dicts()`
 when you want Python lists of rows. `batch_size` only controls how many rows
-csvpy asks the native parser to process at once while doing filtered or
+fastpycsv asks the native parser to process at once while doing filtered or
 projected materialization, such as `.filter(...).dicts(...).all()`. The default
 is a good starting point; tune it only after benchmarking a large filtered
 export.
@@ -63,18 +63,18 @@ Use `reader.filter(predicate)` to apply native row filtering before lazy or
 materialized rows are emitted:
 
 ```python
-predicate = csvpy.all_of(
-    csvpy.equal("region", "el paso", case_sensitive=False),
-    csvpy.less("price", "15000"),
+predicate = fastpycsv.all_of(
+    fastpycsv.equal("region", "el paso", case_sensitive=False),
+    fastpycsv.less("price", "15000"),
 )
 
-for row in csvpy.reader("vehicles.csv").filter(predicate):
+for row in fastpycsv.reader("vehicles.csv").filter(predicate):
     consume(row)
 
-batches = csvpy.reader("vehicles.csv").filter(predicate).dicts(["id", "price"]).chunks(50_000)
+batches = fastpycsv.reader("vehicles.csv").filter(predicate).dicts(["id", "price"]).chunks(50_000)
 ```
 
-Predicates are created with `csvpy.equal()`, `less()`, `less_equal()`,
+Predicates are created with `fastpycsv.equal()`, `less()`, `less_equal()`,
 `greater()`, `greater_equal()`, and `all_of()`. Predicate column names are
 validated once against the reader's column names before iteration continues.
 Calling `filter()` more than once combines predicates with `all_of()` by
@@ -114,9 +114,9 @@ Each materialized iterator supports:
 Use this when the downstream API expects mutable row lists.
 
 ```python
-import csvpy
+import fastpycsv
 
-for row in csvpy.reader("vehicles.csv").lists(["id", "price"]):
+for row in fastpycsv.reader("vehicles.csv").lists(["id", "price"]):
     assert isinstance(row, list)
     send_to_api(row)
 ```
@@ -126,7 +126,7 @@ for row in csvpy.reader("vehicles.csv").lists(["id", "price"]):
 Use this when the downstream API expects fixed-shape rows.
 
 ```python
-rows = csvpy.reader("vehicles.csv").tuples(["id", "year"]).all()
+rows = fastpycsv.reader("vehicles.csv").tuples(["id", "year"]).all()
 
 # [('1', '2021'), ('2', '2020'), ...]
 ```
@@ -136,7 +136,7 @@ rows = csvpy.reader("vehicles.csv").tuples(["id", "year"]).all()
 Use this when the downstream API wants named fields per row.
 
 ```python
-rows = csvpy.reader("vehicles.csv").dicts(["id", "price"]).all()
+rows = fastpycsv.reader("vehicles.csv").dicts(["id", "price"]).all()
 
 # [{'id': '1', 'price': '9000'}, {'id': '2', 'price': '12000'}, ...]
 ```
@@ -146,7 +146,7 @@ rows = csvpy.reader("vehicles.csv").dicts(["id", "price"]).all()
 Use chunks when you want plain Python objects but need bounded peak memory.
 
 ```python
-for batch in csvpy.reader("vehicles.csv").dicts(["id", "price"]).chunks(50_000):
+for batch in fastpycsv.reader("vehicles.csv").dicts(["id", "price"]).chunks(50_000):
     assert isinstance(batch, list)
     bulk_insert(batch)
 ```
@@ -157,13 +157,13 @@ Native predicates compose with materialized row iterators, so filtering can stay
 in C++ before rows become Python objects.
 
 ```python
-predicate = csvpy.all_of(
-    csvpy.equal("region", "el paso", case_sensitive=False),
-    csvpy.less("price", 10_000),
+predicate = fastpycsv.all_of(
+    fastpycsv.equal("region", "el paso", case_sensitive=False),
+    fastpycsv.less("price", 10_000),
 )
 
 for batch in (
-    csvpy.reader("vehicles.csv")
+    fastpycsv.reader("vehicles.csv")
     .filter(predicate)
     .dicts(["id", "price", "region"])
     .chunks(10_000)
@@ -176,7 +176,7 @@ for batch in (
 Column selection controls both output order and shape.
 
 ```python
-reader = csvpy.reader("vehicles.csv")
+reader = fastpycsv.reader("vehicles.csv")
 
 reader.lists(["price", "id"]).all()
 # [['9000', '1'], ['12000', '2'], ...]
@@ -195,7 +195,7 @@ The older convenience methods `reader.to_lists(columns=None)`,
 equivalent to calling `.all()` on the corresponding materialized iterator.
 
 ```python
-reader = csvpy.reader("vehicles.csv")
+reader = fastpycsv.reader("vehicles.csv")
 
 reader.to_lists(["id", "price"])
 # reader.lists(["id", "price"]).all()
@@ -207,18 +207,18 @@ reader.to_dicts(["id", "price"])
 # reader.dicts(["id", "price"]).all()
 ```
 
-## `csvpy.read_numpy(path, columns=None, *, cast=True, predicate=None, **fmtparams)`
+## `fastpycsv.read_numpy(path, columns=None, *, cast=True, predicate=None, **fmtparams)`
 
 Parses selected columns into NumPy arrays keyed by column name.
 
 Use this when the target is pandas, NumPy, or another column-oriented consumer:
 
 ```python
-arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
+arrays = fastpycsv.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
 ```
 
-`predicate` may be a native csvpy predicate such as `equal()`, `less()`, or
-`all_of()`. With `cast=True`, csvpy classifies scalar fields and maps them to
+`predicate` may be a native fastpycsv predicate such as `equal()`, `less()`, or
+`all_of()`. With `cast=True`, fastpycsv classifies scalar fields and maps them to
 NumPy-friendly column types.
 
 `read_numpy()` accepts the same CSV format keywords as `reader()`, including
@@ -227,13 +227,13 @@ NumPy-friendly column types.
 
 See [NumPy and pandas](numpy.md) for dtype behavior and batching details.
 
-## `csvpy.read_numpy_batches(path, columns=None, *, predicate=None, cast=True, batch_size=50000, schema="sample", **fmtparams)`
+## `fastpycsv.read_numpy_batches(path, columns=None, *, predicate=None, cast=True, batch_size=50000, schema="sample", **fmtparams)`
 
 Streams dictionaries of NumPy arrays. This is the bounded-memory version of
 `read_numpy()`.
 
 ```python
-for arrays in csvpy.read_numpy_batches("vehicles.csv", columns=["price", "year"]):
+for arrays in fastpycsv.read_numpy_batches("vehicles.csv", columns=["price", "year"]):
     consume(arrays)
 ```
 
@@ -249,12 +249,12 @@ for arrays in csvpy.read_numpy_batches("vehicles.csv", columns=["price", "year"]
 For both NumPy readers, `path` and `columns` may be positional. Filtering,
 casting, batching, schema, and CSV format options are keyword-only.
 
-## `csvpy.write_csv(csvfile, rows, **options)`
+## `fastpycsv.write_csv(csvfile, rows, **options)`
 
 Writes CSV rows to a path-like output file or text file-like object with a
 `write()` method.
 
-`rows` may contain lazy `csvpy` rows, dictionaries, lists, tuples, or other
+`rows` may contain lazy `fastpycsv` rows, dictionaries, lists, tuples, or other
 Python iterables. Fields are stringified before writing; `None` becomes an empty
 field.
 
@@ -270,15 +270,15 @@ Supported options:
 Example:
 
 ```python
-reader = csvpy.reader("vehicles.csv")
-csvpy.write_csv(
+reader = fastpycsv.reader("vehicles.csv")
+fastpycsv.write_csv(
     "subset.csv",
     (row for row in reader if row["region"] == "el paso"),
     fieldnames=["id", "price", "region"],
 )
 
 with open("subset.csv", "w", newline="", encoding="utf-8") as out:
-    csvpy.write_csv(out, [["id", "price"], [1, 9000]], write_header=False)
+    fastpycsv.write_csv(out, [["id", "price"], [1, 9000]], write_header=False)
 ```
 
 ## Low-Level Types
@@ -286,13 +286,13 @@ with open("subset.csv", "w", newline="", encoding="utf-8") as out:
 Most users do not need these. They are exposed for compatibility and specialized
 inspection:
 
-- `csvpy.Reader`
-- `csvpy.Row`
-- `csvpy.Field`
-- `csvpy.DataType`
-- `csvpy.get_file_info()`
-- `csvpy.csv_data_types()`
-- `csvpy.parse_no_header()`
+- `fastpycsv.Reader`
+- `fastpycsv.Row`
+- `fastpycsv.Field`
+- `fastpycsv.DataType`
+- `fastpycsv.get_file_info()`
+- `fastpycsv.csv_data_types()`
+- `fastpycsv.parse_no_header()`
 
 These are useful when you want direct access to underlying parser concepts that
 still have a clear Python use. C++ configuration machinery such as `CSVFormat`

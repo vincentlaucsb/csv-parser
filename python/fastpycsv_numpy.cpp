@@ -1,5 +1,5 @@
-#include "csvpy_bindings.hpp"
-#include "csvpy_predicate.hpp"
+#include "fastpycsv_bindings.hpp"
+#include "fastpycsv_predicate.hpp"
 
 enum class NumpyColumnKind {
     UNKNOWN,
@@ -47,7 +47,7 @@ inline std::vector<NumpyColumnPlan> make_numpy_column_plan(
     nb::object columns
 ) {
     if (names.empty()) {
-        throw std::runtime_error("csvpy.read_numpy requires a header row or selected column names");
+        throw std::runtime_error("fastpycsv.read_numpy requires a header row or selected column names");
     }
 
     std::vector<NumpyColumnPlan> plan;
@@ -165,7 +165,7 @@ nb::object string_vector_to_numpy_array(const std::vector<std::string>& values) 
         string_dtype = np.attr("dtypes").attr("StringDType")();
     }
     catch (const nb::python_error&) {
-        throw std::runtime_error("csvpy.read_numpy string columns require NumPy 2.x with np.dtypes.StringDType");
+        throw std::runtime_error("fastpycsv.read_numpy string columns require NumPy 2.x with np.dtypes.StringDType");
     }
 
     PyObject* raw_list = PyList_New(static_cast<Py_ssize_t>(values.size()));

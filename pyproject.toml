@@ -6,7 +6,7 @@ requires = [
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "csvpy"
+name = "fastpycsv"
 version = "5.2.0"
 description = "Fast ETL-focused CSV parsing for Python, backed by Vince's CSV Parser"
 readme = "python/README.md"
@@ -68,7 +68,7 @@ cmake.args = [
     "-DCSV_BUILD_PROGRAMS=OFF",
 ]
 wheel.packages = [
-    "python/csvpy",
+    "python/fastpycsv",
 ]
 
 [tool.cibuildwheel]

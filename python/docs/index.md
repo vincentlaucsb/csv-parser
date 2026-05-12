@@ -1,11 +1,11 @@
-# csvpy
+# fastpycsv
 
-`csvpy` is a fast Python CSV toolkit backed by Vince's CSV Parser. It is built
+`fastpycsv` is a fast Python CSV toolkit backed by Vince's CSV Parser. It is built
 for ETL-style workflows where users need to scan large CSV files, filter rows,
 extract a few columns, materialize NumPy arrays, or write cleaned CSV output
 without dragging every workflow through a heavyweight DataFrame engine.
 
-The package is named `csvpy`; it does not replace or shadow Python's standard
+The package is named `fastpycsv`; it does not replace or shadow Python's standard
 library `csv` module.
 
 For the native C++ API, see the <a href="../index.html">Vince's CSV Parser documentation</a>.
@@ -15,36 +15,36 @@ For the native C++ API, see the <a href="../index.html">Vince's CSV Parser docum
 Most users should start with these functions:
 
 ```python
-import csvpy
+import fastpycsv
 
 # Lazy, list-like row objects over the native parser.
-for row in csvpy.reader("vehicles.csv"):
+for row in fastpycsv.reader("vehicles.csv"):
     if row["region"] == "el paso":
         print(row["price"])
 
 # Materialized Python row objects when another API needs them.
-reader = csvpy.reader("vehicles.csv")
+reader = fastpycsv.reader("vehicles.csv")
 list_rows = reader.lists(["id", "price"]).all()
 
-tuple_rows = csvpy.reader("vehicles.csv").tuples(["id", "price"]).all()
-dict_rows = csvpy.reader("vehicles.csv").dicts(["id", "price"]).all()
+tuple_rows = fastpycsv.reader("vehicles.csv").tuples(["id", "price"]).all()
+dict_rows = fastpycsv.reader("vehicles.csv").dicts(["id", "price"]).all()
 
 # Column-oriented NumPy arrays for pandas/scientific workflows.
-arrays = csvpy.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
+arrays = fastpycsv.read_numpy("vehicles.csv", columns=["price", "year", "odometer"])
 
 # Bounded-memory NumPy batches for large files.
-for batch in csvpy.read_numpy_batches("vehicles.csv", columns=["price", "year"]):
+for batch in fastpycsv.read_numpy_batches("vehicles.csv", columns=["price", "year"]):
     consume(batch)
 
 # Native CSV output from lazy rows or ordinary Python iterables.
-csvpy.write_csv(
+fastpycsv.write_csv(
     "subset.csv",
-    (row for row in csvpy.reader("vehicles.csv") if row["region"] == "el paso"),
+    (row for row in fastpycsv.reader("vehicles.csv") if row["region"] == "el paso"),
     fieldnames=["id", "price", "year", "region"],
 )
 ```
 
-## Why csvpy?
+## Why fastpycsv?
 
 - **Fast lazy rows:** iterate massive CSV files without eagerly building Python
   lists or dictionaries for every row.

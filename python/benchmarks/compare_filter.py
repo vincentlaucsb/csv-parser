@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare csvpy and pyarrow on a simple CSV filter.
+"""Compare fastpycsv and pyarrow on a simple CSV filter.
 
 Default workload: count rows where region == "el paso", matching the Craigslist
 Used Cars dataset. The parent process launches each tool in a fresh Python
@@ -55,16 +55,16 @@ def _is_compatible_extension_name(name: str) -> bool:
     return False
 
 
-def _find_built_csvpy_extension() -> Path | None:
+def _find_built_fastpycsv_extension() -> Path | None:
     candidates: list[Path] = []
     for build_root in BUILD_ROOTS:
         if not build_root.exists():
             continue
 
-        for candidate in build_root.rglob("csvpy*"):
+        for candidate in build_root.rglob("fastpycsv*"):
             if (
                 candidate.is_file()
-                and candidate.name.startswith("csvpy")
+                and candidate.name.startswith("fastpycsv")
                 and _is_compatible_extension_name(candidate.name)
             ):
                 candidates.append(candidate)
@@ -75,38 +75,38 @@ def _find_built_csvpy_extension() -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def _load_csvpy_extension_from_build(extension_path: Path) -> None:
-    spec = importlib.util.spec_from_file_location("csvpy.csvpy", extension_path)
+def _load_fastpycsv_extension_from_build(extension_path: Path) -> None:
+    spec = importlib.util.spec_from_file_location("fastpycsv.fastpycsv", extension_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load csvpy extension from {extension_path}")
+        raise ImportError(f"cannot load fastpycsv extension from {extension_path}")
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules["csvpy.csvpy"] = module
+    sys.modules["fastpycsv.fastpycsv"] = module
     spec.loader.exec_module(module)
 
 
-def ensure_csvpy_available() -> None:
+def ensure_fastpycsv_available() -> None:
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
 
     try:
-        import csvpy  # noqa: F401
+        import fastpycsv  # noqa: F401
         return
     except ImportError:
-        sys.modules.pop("csvpy", None)
-        sys.modules.pop("csvpy.csvpy", None)
+        sys.modules.pop("fastpycsv", None)
+        sys.modules.pop("fastpycsv.fastpycsv", None)
 
-    extension_path = _find_built_csvpy_extension()
+    extension_path = _find_built_fastpycsv_extension()
     if extension_path is None:
         suffixes = ", ".join(_extension_suffixes())
         raise SystemExit(
-            "csvpy is not built for this Python interpreter. "
-            f"Expected a csvpy extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
+            "fastpycsv is not built for this Python interpreter. "
+            f"Expected a fastpycsv extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
             f"with suffix: {suffixes}"
         )
 
-    _load_csvpy_extension_from_build(extension_path)
-    import csvpy  # noqa: F401
+    _load_fastpycsv_extension_from_build(extension_path)
+    import fastpycsv  # noqa: F401
 
 
 def _windows_memory_bytes(pid: int) -> int:
@@ -283,9 +283,9 @@ def _header_column_index(path: Path, delimiter: str, column: str) -> int:
     return _column_index(header, column)
 
 
-def worker_csvpy(args: argparse.Namespace) -> None:
-    ensure_csvpy_available()
-    import csvpy
+def worker_fastpycsv(args: argparse.Namespace) -> None:
+    ensure_fastpycsv_available()
+    import fastpycsv
 
     rows = 0
     matches = 0
@@ -296,9 +296,9 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     )
     expected = args.value.lower() if args.case_insensitive else args.value
     reader = (
-        csvpy.reader(args.csv_file, delimiter=args.delimiter, consume_header=False)
+        fastpycsv.reader(args.csv_file, delimiter=args.delimiter, consume_header=False)
         if args.no_header
-        else csvpy.reader(args.csv_file, delimiter=args.delimiter)
+        else fastpycsv.reader(args.csv_file, delimiter=args.delimiter)
     )
 
     for row in reader:
@@ -312,15 +312,15 @@ def worker_csvpy(args: argparse.Namespace) -> None:
     print(json.dumps({"rows": rows, "matches": matches}, sort_keys=True))
 
 
-def worker_csvpy_numpy_dataframe(args: argparse.Namespace) -> None:
+def worker_fastpycsv_numpy_dataframe(args: argparse.Namespace) -> None:
     if args.no_header:
-        raise SystemExit("csvpy_numpy_dataframe requires a header row")
+        raise SystemExit("fastpycsv_numpy_dataframe requires a header row")
 
-    ensure_csvpy_available()
-    import csvpy
+    ensure_fastpycsv_available()
+    import fastpycsv
     import pandas as pd
 
-    frame = pd.DataFrame(csvpy.read_numpy(str(args.csv_file)))
+    frame = pd.DataFrame(fastpycsv.read_numpy(str(args.csv_file)))
     if args.column not in frame.columns:
         raise SystemExit(
             f"column not found: {args.column!r}; available columns: {list(frame.columns)}"
@@ -387,7 +387,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--worker",
-        choices=("csvpy", "csvpy_numpy_dataframe", "pyarrow"),
+        choices=("fastpycsv", "fastpycsv_numpy_dataframe", "pyarrow"),
         help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
@@ -405,19 +405,19 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    if args.worker == "csvpy":
-        worker_csvpy(args)
+    if args.worker == "fastpycsv":
+        worker_fastpycsv(args)
         return
-    if args.worker == "csvpy_numpy_dataframe":
-        worker_csvpy_numpy_dataframe(args)
+    if args.worker == "fastpycsv_numpy_dataframe":
+        worker_fastpycsv_numpy_dataframe(args)
         return
     if args.worker == "pyarrow":
         worker_pyarrow(args)
         return
 
     results = [
-        run_worker("csvpy", "csvpy_filter", args),
-        run_worker("csvpy_numpy_dataframe", "csvpy_numpy_dataframe_filter", args),
+        run_worker("fastpycsv", "fastpycsv_filter", args),
+        run_worker("fastpycsv_numpy_dataframe", "fastpycsv_numpy_dataframe_filter", args),
         run_worker("pyarrow", "pyarrow_filter", args),
     ]
     print_results(args.csv_file, args, results)
