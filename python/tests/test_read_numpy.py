@@ -287,6 +287,58 @@ class ReadNumpyTests(unittest.TestCase):
 
                 self.assertEqual(concatenate_batches(batches)["region"].tolist(), expected)
 
+    def test_numeric_predicates_accept_python_scalar_values(self):
+        path = self.enterContext(temp_csv_path(
+            "region,price\n"
+            "a,5000\n"
+            "b,15000\n"
+            "c,25000\n"
+        ))
+
+        cases = [
+            (csvpy.less, "15000", ["a"]),
+            (csvpy.less, 15000, ["a"]),
+            (csvpy.less, 15000.0, ["a"]),
+            (csvpy.less_equal, "15000", ["a", "b"]),
+            (csvpy.less_equal, 15000, ["a", "b"]),
+            (csvpy.less_equal, 15000.0, ["a", "b"]),
+            (csvpy.greater, "15000", ["c"]),
+            (csvpy.greater, 15000, ["c"]),
+            (csvpy.greater, 15000.0, ["c"]),
+            (csvpy.greater_equal, "15000", ["b", "c"]),
+            (csvpy.greater_equal, 15000, ["b", "c"]),
+            (csvpy.greater_equal, 15000.0, ["b", "c"]),
+        ]
+        for factory, value, expected in cases:
+            with self.subTest(factory=factory.__name__, value=value):
+                arrays = csvpy.read_numpy(path, columns=["region"], predicate=factory("price", value))
+
+                self.assertEqual(arrays["region"].tolist(), expected)
+
+    def test_predicate_factory_scalar_normalization_and_errors(self):
+        self.assertEqual(csvpy.equal("id", "7").value, "7")
+        self.assertEqual(csvpy.equal("id", 7).value, "7")
+        self.assertEqual(csvpy.equal("ratio", 7.5).value, "7.5")
+        self.assertEqual(csvpy.less("price", 15000).value, "15000")
+        self.assertEqual(csvpy.greater_equal("price", 15000.5).value, "15000.5")
+
+        factories = [
+            csvpy.equal,
+            csvpy.less,
+            csvpy.less_equal,
+            csvpy.greater,
+            csvpy.greater_equal,
+        ]
+        invalid_values = [None, True, object(), ["15000"]]
+        for factory in factories:
+            for value in invalid_values:
+                with self.subTest(factory=factory.__name__, value=repr(value)):
+                    with self.assertRaisesRegex(TypeError, "predicate value"):
+                        factory("price", value)
+
+        with self.assertRaisesRegex(RuntimeError, "numeric predicate value is not numeric"):
+            csvpy.less("price", "not numeric")
+
     def test_read_numpy_batches_batch_schema_infers_each_batch(self):
         path = self.enterContext(temp_csv_path(
             "mixed\n"

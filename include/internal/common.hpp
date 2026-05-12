@@ -39,7 +39,13 @@
 #endif
 
 // Minimal portability macros (Hedley subset) with CSV_ prefix.
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(CSV_CODE_COVERAGE)
+    #define CSV_CONST
+    #define CSV_PURE
+    #define CSV_FORCE_INLINE inline
+    #define CSV_PRIVATE
+    #define CSV_NON_NULL(...)
+#elif defined(__clang__) || defined(__GNUC__)
     #define CSV_CONST __attribute__((__const__))
     #define CSV_PURE __attribute__((__pure__))
     #define CSV_FORCE_INLINE inline __attribute__((__always_inline__))

@@ -139,6 +139,17 @@ class CompatReaderTests(unittest.TestCase):
 
         self.assertEqual(subset, {"c": "3", "a": "1"})
 
+    def test_reader_as_list_supports_column_subset(self):
+        row = next(csvpy.reader(io.StringIO("1,2,3\n"), fieldnames=["a", "b", "c"]))
+
+        try:
+            self.assertEqual(row.as_list(), ["1", "2", "3"])
+            subset = row.as_list(["c", "a"])
+        except TypeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with as_list(columns): {exc}")
+
+        self.assertEqual(subset, ["3", "1"])
+
     def test_reader_as_tuple_supports_column_subset(self):
         row = next(csvpy.reader(io.StringIO("1,2,3\n"), fieldnames=["a", "b", "c"]))
 
@@ -202,6 +213,16 @@ class CompatReaderTests(unittest.TestCase):
             ["el paso", "1", "9000"],
             ["EL PASO", "3", "15000"],
         ])
+
+    def test_reader_filter_accepts_scalar_predicate_values(self):
+        source = csvpy.reader(io.StringIO(
+            "region,id,price\n"
+            "el paso,1,9000\n"
+            "phoenix,2,12000\n"
+            "tucson,3,15000\n"
+        )).filter(csvpy.greater("price", 10000))
+
+        self.assertEqual([row.as_list(["id"]) for row in source], [["2"], ["3"]])
 
     def test_reader_filter_materialized_rows(self):
         data = (
@@ -333,6 +354,30 @@ class CompatReaderTests(unittest.TestCase):
                     handle.read(),
                     'name,note\nAlice,"hello, world"\nBob,\nEve,"quote ""me"""\n',
                 )
+        finally:
+            os.unlink(filename)
+
+    def test_write_csv_accepts_text_file_like_objects(self):
+        string_output = io.StringIO()
+
+        try:
+            csvpy.write_csv(
+                string_output,
+                [["name", "note"], ["Alice", "hello, world"], ["Bob", None]],
+                write_header=False,
+            )
+        except AttributeError as exc:
+            self.skipTest(f"csvpy native extension has not been rebuilt with file-like write_csv: {exc}")
+
+        self.assertEqual(string_output.getvalue(), 'name,note\nAlice,"hello, world"\nBob,\n')
+
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", newline="", delete=False) as handle:
+            filename = handle.name
+            csvpy.write_csv(handle, [{"a": 1, "b": None}, {"a": "x,y", "b": True}])
+
+        try:
+            with open(filename, encoding="utf-8", newline="") as handle:
+                self.assertEqual(handle.read(), "a,b\n1,\n\"x,y\",True\n")
         finally:
             os.unlink(filename)
 

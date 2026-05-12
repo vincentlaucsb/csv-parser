@@ -76,7 +76,7 @@ Rows returned by `reader()` support:
 - column-name indexing when headers are available: `row["name"]`
 - iteration: `list(row)`
 - `len(row)`
-- `row.as_list()`
+- `row.as_list(columns=None)`; pass column names to materialize a subset
 - `row.as_tuple(columns=None)`; pass column names to materialize a subset
 - `row.as_dict(columns=None)`; pass column names to materialize a subset
 - typed access helpers: `get_str`, `get_int`, `get_float`, `get_bool`
@@ -134,7 +134,8 @@ for arrays in csvpy.read_numpy_batches("vehicles.csv", columns=["price", "year"]
 
 ## `csvpy.write_csv(csvfile, rows, **options)`
 
-Writes CSV rows to a path-like output file.
+Writes CSV rows to a path-like output file or text file-like object with a
+`write()` method.
 
 `rows` may contain lazy `csvpy` rows, dictionaries, lists, tuples, or other
 Python iterables. Fields are stringified before writing; `None` becomes an empty
@@ -158,6 +159,9 @@ csvpy.write_csv(
     (row for row in reader if row["region"] == "el paso"),
     fieldnames=["id", "price", "region"],
 )
+
+with open("subset.csv", "w", newline="", encoding="utf-8") as out:
+    csvpy.write_csv(out, [["id", "price"], [1, 9000]], write_header=False)
 ```
 
 ## Low-Level Types

@@ -24,6 +24,36 @@ namespace {
         return parsed;
     }
 
+    std::string python_scalar_to_string(nb::handle value) {
+        auto unicode_to_string = [](PyObject* object) {
+            Py_ssize_t size = 0;
+            const char* data = PyUnicode_AsUTF8AndSize(object, &size);
+            if (data == nullptr) {
+                throw nb::python_error();
+            }
+            return std::string(data, static_cast<size_t>(size));
+        };
+
+        if (PyUnicode_Check(value.ptr())) {
+            return unicode_to_string(value.ptr());
+        }
+
+        if (PyBool_Check(value.ptr())) {
+            throw nb::type_error("predicate value must be a str, int, or float");
+        }
+
+        if (PyLong_Check(value.ptr()) || PyFloat_Check(value.ptr())) {
+            PyObject* raw_text = PyObject_Str(value.ptr());
+            if (raw_text == nullptr) {
+                throw nb::python_error();
+            }
+            nb::object text = nb::steal<nb::object>(raw_text);
+            return unicode_to_string(text.ptr());
+        }
+
+        throw nb::type_error("predicate value must be a str, int, or float");
+    }
+
     bool predicate_parallel_enabled() {
         const char* value = std::getenv("CSVPY_PREDICATE_PARALLEL");
         return !value || std::string(value) != "0";
@@ -312,49 +342,49 @@ void init_CSVPredicate(nb::module_& m) {
 
     m.def(
         "equal",
-        [](std::string column, std::string value, bool case_sensitive) {
-            return RowPredicate(std::move(column), std::move(value), case_sensitive);
+        [](std::string column, nb::object value, bool case_sensitive) {
+            return RowPredicate(std::move(column), python_scalar_to_string(value), case_sensitive);
         },
         "Create a native equality predicate for row filtering.",
         nb::arg("column"),
-        nb::arg("value"),
+        nb::arg("value").none(),
         nb::arg("case_sensitive") = true
     );
     m.def(
         "less",
-        [](std::string column, std::string value) {
-            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::LESS);
+        [](std::string column, nb::object value) {
+            return RowPredicate(std::move(column), python_scalar_to_string(value), RowPredicateOp::LESS);
         },
         "Create a native numeric less-than predicate for row filtering.",
         nb::arg("column"),
-        nb::arg("value")
+        nb::arg("value").none()
     );
     m.def(
         "less_equal",
-        [](std::string column, std::string value) {
-            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::LESS_EQUAL);
+        [](std::string column, nb::object value) {
+            return RowPredicate(std::move(column), python_scalar_to_string(value), RowPredicateOp::LESS_EQUAL);
         },
         "Create a native numeric less-than-or-equal predicate for row filtering.",
         nb::arg("column"),
-        nb::arg("value")
+        nb::arg("value").none()
     );
     m.def(
         "greater",
-        [](std::string column, std::string value) {
-            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::GREATER);
+        [](std::string column, nb::object value) {
+            return RowPredicate(std::move(column), python_scalar_to_string(value), RowPredicateOp::GREATER);
         },
         "Create a native numeric greater-than predicate for row filtering.",
         nb::arg("column"),
-        nb::arg("value")
+        nb::arg("value").none()
     );
     m.def(
         "greater_equal",
-        [](std::string column, std::string value) {
-            return RowPredicate(std::move(column), std::move(value), RowPredicateOp::GREATER_EQUAL);
+        [](std::string column, nb::object value) {
+            return RowPredicate(std::move(column), python_scalar_to_string(value), RowPredicateOp::GREATER_EQUAL);
         },
         "Create a native numeric greater-than-or-equal predicate for row filtering.",
         nb::arg("column"),
-        nb::arg("value")
+        nb::arg("value").none()
     );
     m.def(
         "all_of",

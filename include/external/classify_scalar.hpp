@@ -90,7 +90,9 @@ SOFTWARE.
 #define CLASSIFY_SCALAR_CONST
 #endif
 
-#if defined(_MSC_VER)
+#if defined(CSV_CODE_COVERAGE) || defined(CLASSIFY_SCALAR_CODE_COVERAGE)
+#define CLASSIFY_SCALAR_FORCE_INLINE inline
+#elif defined(_MSC_VER)
 #define CLASSIFY_SCALAR_FORCE_INLINE __forceinline
 #elif defined(__clang__) || defined(__GNUC__)
 #define CLASSIFY_SCALAR_FORCE_INLINE inline __attribute__((__always_inline__))

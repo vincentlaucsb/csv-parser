@@ -31,16 +31,34 @@ public:
         return nb::make_iterator(nb::type<LazyCSVRow>(), "iterator", FieldIterator(this, 0), FieldIterator(this, this->row_.size()));
     }
 
-    nb::list as_list() const {
-        PyObject* raw_out = PyList_New(static_cast<Py_ssize_t>(this->row_.size()));
+    nb::list as_list(nb::object selected = nb::none()) const {
+        if (selected.is_none()) {
+            PyObject* raw_out = PyList_New(static_cast<Py_ssize_t>(this->row_.size()));
+            if (raw_out == nullptr) {
+                throw nb::python_error();
+            }
+
+            nb::list out = nb::steal<nb::list>(raw_out);
+            for (size_t i = 0; i < this->row_.size(); ++i) {
+                nb::object value = this->field_to_python(this->row_[i]);
+                PyList_SET_ITEM(out.ptr(), static_cast<Py_ssize_t>(i), value.release().ptr());
+            }
+            return out;
+        }
+
+        nb::object selected_columns = this->selected_column_sequence(selected);
+        const Py_ssize_t selected_size = PySequence_Fast_GET_SIZE(selected_columns.ptr());
+        PyObject* raw_out = PyList_New(selected_size);
         if (raw_out == nullptr) {
             throw nb::python_error();
         }
 
         nb::list out = nb::steal<nb::list>(raw_out);
-        for (size_t i = 0; i < this->row_.size(); ++i) {
-            nb::object value = this->field_to_python(this->row_[i]);
-            PyList_SET_ITEM(out.ptr(), static_cast<Py_ssize_t>(i), value.release().ptr());
+        PyObject** items = PySequence_Fast_ITEMS(selected_columns.ptr());
+        for (Py_ssize_t i = 0; i < selected_size; ++i) {
+            const ColumnView column = this->column_view(items[i]);
+            nb::object value = this->field_to_python(this->field_named(column));
+            PyList_SET_ITEM(out.ptr(), i, value.release().ptr());
         }
         return out;
     }
@@ -687,7 +705,7 @@ void init_CSVReader(nb::module_& m){
     .def("__len__", &LazyCSVRow::size)
     .def("__getitem__", &LazyCSVRow::get_item, nb::is_operator())
     .def("__iter__", &LazyCSVRow::iter, nb::keep_alive<0, 1>())
-    .def("as_list", &LazyCSVRow::as_list)
+    .def("as_list", &LazyCSVRow::as_list, "columns"_a = nb::none())
     .def("as_tuple", &LazyCSVRow::as_tuple, "columns"_a = nb::none())
     .def("as_dict", &LazyCSVRow::as_dict, "columns"_a = nb::none())
     .def("get_col_names", &LazyCSVRow::get_col_names)

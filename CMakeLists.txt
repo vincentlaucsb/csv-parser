@@ -46,6 +46,11 @@ endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
+if(ENABLE_CODE_COVERAGE)
+	message("Code coverage instrumentation enabled")
+	add_compile_definitions(CSV_CODE_COVERAGE=1)
+endif()
+
 if(BUILD_PYTHON)
   # csvpy links the static csv target into a Python extension module, so Linux
   # builds need the csv objects compiled as position-independent code.
@@ -71,10 +76,9 @@ else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
 	
 	if(ENABLE_CODE_COVERAGE)
-		message("Code coverage instrumentation enabled")
 		# -fprofile-update=atomic prevents negative counter corruption when
 		# background reader threads write to the same .gcda file concurrently.
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og -fprofile-update=atomic")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -O0 -fprofile-update=atomic")
 	endif()
 endif(MSVC)
 

@@ -23,6 +23,14 @@ def write_csv(
     CSV field.
     """
 
+    if hasattr(csvfile, "write"):
+        write = getattr(_native, "_write_csv_filelike", None)
+        if write is None:
+            raise AttributeError("csvpy native extension has not been rebuilt with file-like write_csv support")
+
+        write(csvfile, rows, fieldnames, write_header, quote_minimal)
+        return
+
     write = getattr(_native, "_write_csv", None)
     if write is None:
         raise AttributeError("csvpy native extension has not been rebuilt with write_csv support")

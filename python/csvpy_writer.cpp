@@ -3,14 +3,34 @@
 #include <fstream>
 
 namespace {
+    struct PythonTextOutput {
+        nb::object file;
+
+        explicit PythonTextOutput(nb::object output)
+            : file(std::move(output)) {}
+
+        void write(const char* data, std::streamsize size) {
+            nb::object result = this->file.attr("write")(nb::str(data, static_cast<size_t>(size)));
+            (void)result;
+        }
+
+        void flush() {
+            if (PyObject_HasAttrString(this->file.ptr(), "flush")) {
+                nb::object result = this->file.attr("flush")();
+                (void)result;
+            }
+        }
+    };
+
+    template<class OutputStream>
     struct PythonRowWriter {
-        csv::CSVWriter<std::ofstream> writer;
+        csv::CSVWriter<OutputStream> writer;
         nb::object fieldnames;
         bool wrote_header = false;
         bool write_header = true;
 
         PythonRowWriter(
-            std::ofstream& out,
+            OutputStream& out,
             nb::object selected_fieldnames,
             bool should_write_header,
             bool quote_minimal
@@ -182,6 +202,22 @@ namespace {
         PythonRowWriter writer(out, std::move(fieldnames), write_header, quote_minimal);
         writer.write_all(rows);
     }
+
+    void write_csv_filelike(
+        nb::object output,
+        nb::handle rows,
+        nb::object fieldnames,
+        bool write_header,
+        bool quote_minimal
+    ) {
+        if (!PyObject_HasAttrString(output.ptr(), "write")) {
+            throw nb::type_error("csvfile must be path-like or have a write() method");
+        }
+
+        PythonTextOutput out(std::move(output));
+        PythonRowWriter<PythonTextOutput> writer(out, std::move(fieldnames), write_header, quote_minimal);
+        writer.write_all(rows);
+    }
 }
 
 void init_CSVWriter(nb::module_& m) {
@@ -190,6 +226,16 @@ void init_CSVWriter(nb::module_& m) {
         &write_csv_file,
         "Write Python row iterables to a CSV file.",
         "filename"_a,
+        "rows"_a,
+        "fieldnames"_a = nb::none(),
+        "write_header"_a = true,
+        "quote_minimal"_a = true
+    );
+    m.def(
+        "_write_csv_filelike",
+        &write_csv_filelike,
+        "Write Python row iterables to a text file-like object.",
+        "csvfile"_a,
         "rows"_a,
         "fieldnames"_a = nb::none(),
         "write_header"_a = true,

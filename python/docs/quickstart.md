@@ -94,9 +94,9 @@ default. Use `append=False` when a later filter should replace the earlier one.
 
 ## Write CSV Output
 
-`write_csv()` accepts lazy rows, dictionaries, lists, tuples, and other Python
-iterables. Fields are stringified before writing; `None` becomes an empty CSV
-field.
+`write_csv()` accepts a path or text file-like object plus lazy rows,
+dictionaries, lists, tuples, and other Python iterables. Fields are stringified
+before writing; `None` becomes an empty CSV field.
 
 ```python
 reader = csvpy.reader("vehicles.csv")
@@ -106,6 +106,9 @@ csvpy.write_csv(
     (row for row in reader if row["region"] == "el paso" and row["manufacturer"] == "ford"),
     fieldnames=["id", "price", "year", "region"],
 )
+
+with open("cheap_el_paso_fords.csv", "w", newline="", encoding="utf-8") as out:
+    csvpy.write_csv(out, [["id", "price"], [1, 9000]], write_header=False)
 ```
 
 ## Installation And Local Builds
