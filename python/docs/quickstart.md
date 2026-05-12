@@ -89,6 +89,9 @@ arrays = csvpy.read_numpy(
 )
 ```
 
+Chaining `reader.filter(...)` combines native predicates with `all_of()` by
+default. Use `append=False` when a later filter should replace the earlier one.
+
 ## Write CSV Output
 
 `write_csv()` accepts lazy rows, dictionaries, lists, tuples, and other Python

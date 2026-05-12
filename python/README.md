@@ -95,20 +95,27 @@ When plain Python row objects are the desired output, use the materialized row
 iterators instead of converting each lazy row manually:
 
 ```python
-reader = csvpy.reader("data.csv")
+predicate = csvpy.all_of(
+    csvpy.equal("region", "el paso", case_sensitive=False),
+    csvpy.less("price", "15000"),
+)
+reader = csvpy.reader("data.csv").filter(predicate)
 
-for row in reader.lists(["id", "amount"]):
+for row in reader.lists(["id", "price"]):
     ...
 
-for batch in csvpy.reader("data.csv").dicts(["id", "amount"]).chunks(50_000):
+for batch in csvpy.reader("data.csv").dicts(["id", "price"]).chunks(50_000):
     ...
 
-rows = csvpy.reader("data.csv").tuples(["id", "amount"]).all()
+rows = csvpy.reader("data.csv").tuples(["id", "price"]).all()
 ```
 
 The `.lists()`, `.tuples()`, and `.dicts()` iterators stream one row at a time.
 Their `.chunks(size)` methods keep memory bounded while amortizing native
-conversion overhead, and `.all()` is the eager bulk-export path.
+conversion overhead, and `.all()` is the eager bulk-export path. Native
+`reader.filter(predicate)` uses the same `csvpy.equal()`, `less()`, `greater()`,
+and `all_of()` predicate objects as the NumPy APIs, and validates predicate
+column names before rows are consumed.
 
 Use `csvpy.write_csv()` to stream lazy rows or ordinary Python iterables back
 out through csv-parser's native writer:

@@ -119,6 +119,10 @@ class _BaseReader:
             raise
         return row
 
+    def filter(self, predicate, *, append: bool = True):
+        self._iterator.filter(predicate, append)
+        return self
+
     def lists(self, columns=None):
         return _MaterializedRows(self, self._iterator.lists(columns))
 

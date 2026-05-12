@@ -43,6 +43,31 @@ Supported formatting options:
 Only the default `excel` dialect is currently supported. Unsupported dialect
 features fail fast instead of silently diverging from stdlib behavior.
 
+Use `reader.filter(predicate)` to apply native row filtering before lazy or
+materialized rows are emitted:
+
+```python
+predicate = csvpy.all_of(
+    csvpy.equal("region", "el paso", case_sensitive=False),
+    csvpy.less("price", "15000"),
+)
+
+for row in csvpy.reader("vehicles.csv").filter(predicate):
+    consume(row)
+
+batches = csvpy.reader("vehicles.csv").filter(predicate).dicts(["id", "price"]).chunks(50_000)
+```
+
+Predicates are created with `csvpy.equal()`, `less()`, `less_equal()`,
+`greater()`, `greater_equal()`, and `all_of()`. Predicate column names are
+validated once against the reader's column names before iteration continues.
+Calling `filter()` more than once combines predicates with `all_of()` by
+default. Pass `append=False` to replace the current predicate:
+
+```python
+reader = reader.filter(new_predicate, append=False)
+```
+
 ## Lazy Row Objects
 
 Rows returned by `reader()` support:

@@ -190,6 +190,104 @@ class CompatReaderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             csvpy.reader(io.StringIO("a,b\n1,2\n")).lists().chunks(0)
 
+    def test_reader_filter_lazy_rows(self):
+        source = csvpy.reader(io.StringIO(
+            "region,id,price\n"
+            "el paso,1,9000\n"
+            "phoenix,2,12000\n"
+            "EL PASO,3,15000\n"
+        )).filter(csvpy.equal("region", "el paso", case_sensitive=False))
+
+        self.assertEqual([row.as_list() for row in source], [
+            ["el paso", "1", "9000"],
+            ["EL PASO", "3", "15000"],
+        ])
+
+    def test_reader_filter_materialized_rows(self):
+        data = (
+            "region,id,price,year\n"
+            "drop,1,5000,2021\n"
+            "keep,2,15000,2020\n"
+            "keep,3,25000,2024\n"
+            "keep,4,9000,2019\n"
+        )
+        predicate = csvpy.all_of(
+            csvpy.equal("region", "keep"),
+            csvpy.greater("price", "10000"),
+            csvpy.less("year", "2022"),
+        )
+
+        self.assertEqual(
+            csvpy.reader(io.StringIO(data)).filter(predicate).lists(["id", "price"]).all(),
+            [["2", "15000"]],
+        )
+        self.assertEqual(
+            csvpy.reader(io.StringIO(data)).filter(predicate).tuples(["id", "year"]).all(),
+            [("2", "2020")],
+        )
+        self.assertEqual(
+            csvpy.reader(io.StringIO(data)).filter(predicate).dicts(["id", "region"]).all(),
+            [{"id": "2", "region": "keep"}],
+        )
+
+    def test_reader_filter_materialized_chunks(self):
+        data = (
+            "group,id\n"
+            "keep,1\n"
+            "drop,2\n"
+            "keep,3\n"
+            "keep,4\n"
+            "drop,5\n"
+        )
+
+        chunks = csvpy.reader(io.StringIO(data)).filter(csvpy.equal("group", "keep")).lists(["id"]).chunks(2)
+
+        self.assertEqual(list(chunks), [[["1"], ["3"]], [["4"]]])
+
+    def test_reader_filter_chains_by_default_and_can_replace(self):
+        data = (
+            "region,id,price\n"
+            "el paso,1,9000\n"
+            "el paso,2,20000\n"
+            "phoenix,3,9000\n"
+        )
+
+        chained = (
+            csvpy.reader(io.StringIO(data))
+            .filter(csvpy.equal("region", "el paso"))
+            .filter(csvpy.less("price", "10000"))
+            .lists(["id"])
+            .all()
+        )
+        replaced = (
+            csvpy.reader(io.StringIO(data))
+            .filter(csvpy.equal("region", "el paso"))
+            .filter(csvpy.less("price", "10000"), append=False)
+            .lists(["id"])
+            .all()
+        )
+
+        self.assertEqual(chained, [["1"]])
+        self.assertEqual(replaced, [["1"], ["3"]])
+
+    def test_reader_filter_missing_column_fails_clearly(self):
+        source = csvpy.reader(io.StringIO("id,value\n1,10\n"))
+
+        with self.assertRaisesRegex(RuntimeError, "predicate column not found: missing"):
+            source.filter(csvpy.equal("missing", "x"))
+
+    def test_reader_unfiltered_behavior_unchanged_after_filter_addition(self):
+        data = "a,b\n1,2\n3,4\n"
+
+        self.assertEqual(
+            [row.as_list() for row in csvpy.reader(io.StringIO(data))],
+            [["1", "2"], ["3", "4"]],
+        )
+        self.assertEqual(
+            csvpy.reader(io.StringIO(data)).lists(["b"]).all(),
+            [["2"], ["4"]],
+        )
+
     def test_reader_returns_lazy_rows(self):
         row = next(csvpy.reader(io.StringIO("a,b\n"), consume_header=False))
         self.assertNotIsInstance(row, list)

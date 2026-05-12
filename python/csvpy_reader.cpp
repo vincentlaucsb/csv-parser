@@ -1,4 +1,5 @@
 #include "csvpy_bindings.hpp"
+#include "csvpy_predicate.hpp"
 
 class LazyCSVRow {
 public:
@@ -347,9 +348,8 @@ public:
         bool cast,
         size_t batch_size = 8192
     ) : reader_(filename, cast ? format.eager_field_classification() : format),
-        cast_(cast) {
-        (void)batch_size;
-    }
+        cast_(cast),
+        batch_size_(batch_size == 0 ? 1 : batch_size) {}
 
     LazyCSVRowReader& iter() {
         return *this;
@@ -361,11 +361,39 @@ public:
 
     LazyCSVRow next() {
         CSVRow row;
-        if (!this->reader_.read_row(row)) {
+        if (!this->read_next_row(row)) {
             throw nb::stop_iteration();
         }
 
         return LazyCSVRow(std::move(row), this->cast_);
+    }
+
+    LazyCSVRowReader& filter(nb::object predicate, bool append = true) {
+        const RowPredicate* row_predicate = optional_row_predicate(predicate);
+        if (row_predicate == nullptr) {
+            this->predicate_.reset();
+            this->pending_rows_.clear();
+            this->pending_index_ = 0;
+            return *this;
+        }
+
+        const auto& column_names = this->reader_.get_col_names();
+        row_predicate->validate_columns(column_names);
+
+        if (append && this->predicate_) {
+            std::vector<RowPredicate> predicates;
+            predicates.reserve(2);
+            predicates.push_back(*this->predicate_);
+            predicates.push_back(*row_predicate);
+            this->predicate_.reset(new RowPredicate(std::move(predicates)));
+        }
+        else {
+            this->predicate_.reset(new RowPredicate(*row_predicate));
+        }
+
+        this->pending_rows_.clear();
+        this->pending_index_ = 0;
+        return *this;
     }
 
     MaterializedRows lists(nb::object selected = nb::none()) {
@@ -398,6 +426,56 @@ public:
 private:
     CSVReader reader_;
     bool cast_ = false;
+    size_t batch_size_ = 8192;
+    std::unique_ptr<RowPredicate> predicate_;
+    std::vector<CSVRow> pending_rows_;
+    size_t pending_index_ = 0;
+
+    bool read_next_row(CSVRow& row) {
+        if (!this->predicate_) {
+            return this->reader_.read_row(row);
+        }
+
+        while (true) {
+            if (this->pending_index_ < this->pending_rows_.size()) {
+                row = std::move(this->pending_rows_[this->pending_index_]);
+                ++this->pending_index_;
+                if (this->pending_index_ == this->pending_rows_.size()) {
+                    this->pending_rows_.clear();
+                    this->pending_index_ = 0;
+                }
+                return true;
+            }
+
+            if (!this->read_filtered_chunk()) {
+                return false;
+            }
+        }
+    }
+
+    bool read_filtered_chunk() {
+        std::vector<CSVRow> rows;
+        while (this->reader_.read_chunk(rows, this->batch_size_)) {
+            DataFrame<> batch(rows);
+            const std::vector<std::uint8_t> included_rows =
+                included_rows_for_predicate(batch, {}, *this->predicate_);
+
+            this->pending_rows_.clear();
+            this->pending_rows_.reserve(rows.size());
+            for (size_t row_index = 0; row_index < rows.size(); ++row_index) {
+                if (included_rows[row_index]) {
+                    this->pending_rows_.push_back(std::move(rows[row_index]));
+                }
+            }
+            this->pending_index_ = 0;
+
+            if (!this->pending_rows_.empty()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     nb::object materialize_row(
         const CSVRow& row,
@@ -418,7 +496,7 @@ private:
 
     nb::object next_materialized(MaterializationKind kind, const ColumnSelection& columns) {
         CSVRow row;
-        if (!this->reader_.read_row(row)) {
+        if (!this->read_next_row(row)) {
             throw nb::stop_iteration();
         }
         return this->materialize_row(row, kind, columns);
@@ -432,7 +510,7 @@ private:
         nb::list out = this->empty_list();
         CSVRow row;
         size_t rows_read = 0;
-        while (rows_read < max_rows && this->reader_.read_row(row)) {
+        while (rows_read < max_rows && this->read_next_row(row)) {
             nb::object materialized = this->materialize_row(row, kind, columns);
             this->append_list(out, materialized);
             ++rows_read;
@@ -443,7 +521,7 @@ private:
     nb::list materialized_all(MaterializationKind kind, const ColumnSelection& columns) {
         nb::list out = this->empty_list();
         CSVRow row;
-        while (this->reader_.read_row(row)) {
+        while (this->read_next_row(row)) {
             nb::object materialized = this->materialize_row(row, kind, columns);
             this->append_list(out, materialized);
         }
@@ -638,6 +716,11 @@ void init_CSVReader(nb::module_& m){
         nb::rv_policy::reference_internal)
     .def_prop_ro("fieldnames", &LazyCSVRowReader::get_col_names)
     .def("__next__", &LazyCSVRowReader::next)
+    .def("filter",
+        &LazyCSVRowReader::filter,
+        nb::rv_policy::reference_internal,
+        "predicate"_a,
+        "append"_a = true)
     .def("lists", &LazyCSVRowReader::lists, "columns"_a = nb::none())
     .def("tuples", &LazyCSVRowReader::tuples, "columns"_a = nb::none())
     .def("dicts", &LazyCSVRowReader::dicts, "columns"_a = nb::none())
