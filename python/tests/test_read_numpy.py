@@ -1,3 +1,4 @@
+import contextlib
 import math
 import unittest
 
@@ -26,8 +27,17 @@ def concatenate_batches(batches):
 
 @unittest.skipIf(np is None, "NumPy is required for fastpycsv.read_numpy tests")
 class ReadNumpyTests(unittest.TestCase):
+    def enter_context(self, context_manager):
+        stack = getattr(self, "_exit_stack", None)
+        if stack is None:
+            stack = contextlib.ExitStack()
+            self.addCleanup(stack.close)
+            self._exit_stack = stack
+
+        return stack.enter_context(context_manager)
+
     def test_read_numpy_materializes_typed_arrays(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "name,count,ratio,flag\n"
             "alpha,1,1.5,true\n"
             "beta,2,2.25,false\n"
@@ -46,7 +56,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["name"].tolist(), ["alpha", "beta"])
 
     def test_read_numpy_widens_nullable_int_float_and_bool(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,score,enabled\n"
             "1,2.5,true\n"
             ",,false\n"
@@ -65,7 +75,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertTrue(math.isnan(arrays["enabled"][2]))
 
     def test_read_numpy_selected_columns_and_escaped_strings(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,text,skip\n"
             "1,\"a,b\",x\n"
             "2,\"c\"\"d\",y\n"
@@ -78,7 +88,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["id"].tolist(), [1, 2])
 
     def test_numpy_readers_honor_reader_format_options(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id; name; score\n"
             "1; alpha; 1.5\n"
             "2; beta; 2.5\n"
@@ -105,7 +115,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(concatenate_batches(batches)["score"].tolist(), [1.5, 2.5])
 
     def test_read_numpy_preserves_late_string_promotion_text(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "mixed\n"
             "001\n"
             "2.50\n"
@@ -118,7 +128,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["mixed"].tolist(), ["001", "2.50", "plain text"])
 
     def test_read_numpy_cast_false_returns_strings(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,flag\n"
             "1,true\n"
             "2,false\n"
@@ -132,7 +142,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["flag"].tolist(), ["true", "false"])
 
     def test_read_numpy_native_predicate_filters_rows(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,id,value\n"
             "el paso,1,10\n"
             "phoenix,2,20\n"
@@ -149,7 +159,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["value"].tolist(), [10, 30])
 
     def test_read_numpy_native_predicate_preserves_string_replay(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,mixed\n"
             "keep,001\n"
             "drop,2.50\n"
@@ -170,14 +180,14 @@ class ReadNumpyTests(unittest.TestCase):
             rows.append(f"{group},{index}\n")
             if group == "keep":
                 expected.append(index)
-        path = self.enterContext(temp_csv_path("".join(rows)))
+        path = self.enter_context(temp_csv_path("".join(rows)))
 
         arrays = fastpycsv.read_numpy(path, columns=["id"], predicate=fastpycsv.equal("group", "keep"))
 
         self.assertEqual(arrays["id"].tolist(), expected)
 
     def test_read_numpy_native_numeric_comparison_predicates(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,price,year\n"
             "a,5000,2018\n"
             "b,15000,2020\n"
@@ -193,7 +203,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["region"].tolist(), ["a", "b"])
 
     def test_all_of_native_predicate_filters_read_numpy_and_batches(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,id,price,year\n"
             "drop,1,5000,2021\n"
             "keep,2,15000,2020\n"
@@ -227,7 +237,7 @@ class ReadNumpyTests(unittest.TestCase):
 
     @unittest.skipIf(pd is None, "pandas is required for DataFrame handoff test")
     def test_read_numpy_result_builds_pandas_dataframe(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "name,value\n"
             "alpha,1\n"
             "beta,2\n"
@@ -240,7 +250,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(frame["value"].tolist(), [1, 2])
 
     def test_read_numpy_batches_emits_multiple_batches_without_predicate(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,value\n"
             "1,10\n"
             "2,20\n"
@@ -256,7 +266,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual([batch["value"].tolist() for batch in batches], [[10, 20], [30, 40], [50]])
 
     def test_read_numpy_batches_selected_columns(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,name,value\n"
             "1,alpha,10\n"
             "2,beta,20\n"
@@ -270,7 +280,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(concatenate_batches(batches)["id"].tolist(), [1, 2, 3])
 
     def test_read_numpy_batches_equality_predicate(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,id\n"
             "el paso,1\n"
             "phoenix,2\n"
@@ -290,7 +300,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(concatenate_batches(batches)["id"].tolist(), [1, 3])
 
     def test_numpy_reader_behavior_options_are_keyword_only(self):
-        path = self.enterContext(temp_csv_path("id,value\n1,10\n"))
+        path = self.enter_context(temp_csv_path("id,value\n1,10\n"))
         predicate = fastpycsv.equal("id", 1)
 
         with self.assertRaises(TypeError):
@@ -316,7 +326,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(concatenate_batches(batches)["value"].tolist(), ["10"])
 
     def test_read_numpy_batches_numeric_comparison_predicate(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,price\n"
             "a,5000\n"
             "b,15000\n"
@@ -341,7 +351,7 @@ class ReadNumpyTests(unittest.TestCase):
                 self.assertEqual(concatenate_batches(batches)["region"].tolist(), expected)
 
     def test_numeric_predicates_accept_python_scalar_values(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,price\n"
             "a,5000\n"
             "b,15000\n"
@@ -393,7 +403,7 @@ class ReadNumpyTests(unittest.TestCase):
             fastpycsv.less("price", "not numeric")
 
     def test_read_numpy_batches_batch_schema_infers_each_batch(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "mixed\n"
             "1\n"
             "2.5\n"
@@ -410,7 +420,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(batches[2]["mixed"].tolist(), ["plain text"])
 
     def test_read_numpy_batches_sample_schema_avoids_full_prescan(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "mixed\n"
             "1\n"
             "plain text\n"
@@ -425,7 +435,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(global_first["mixed"].tolist(), ["1"])
 
     def test_read_numpy_batches_cast_false_returns_strings_with_schema_option(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,flag\n"
             "1,true\n"
             "2,false\n"
@@ -440,13 +450,13 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["flag"].tolist(), ["true", "false"])
 
     def test_read_numpy_batches_invalid_schema_raises_clear_error(self):
-        path = self.enterContext(temp_csv_path("id\n1\n"))
+        path = self.enter_context(temp_csv_path("id\n1\n"))
 
         with self.assertRaisesRegex(ValueError, "schema must be 'sample', 'batch', or 'global'"):
             list(fastpycsv.read_numpy_batches(path, schema="wide"))
 
     def test_read_numpy_batches_empty_result_emits_schema_batch(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "region,id,value\n"
             "a,1,10\n"
             "b,2,20\n"
@@ -471,7 +481,7 @@ class ReadNumpyTests(unittest.TestCase):
             self.assertEqual(batches[0][column].tolist(), expected[column].tolist())
 
     def test_read_numpy_batches_handles_escaped_quoted_strings(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "id,text\n"
             "1,\"a,b\"\n"
             "2,\"c\"\"d\"\n"
@@ -483,7 +493,7 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(concatenate_batches(batches)["text"].tolist(), ["a,b", 'c"d', "line one"])
 
     def test_read_numpy_batches_concatenate_matches_read_numpy(self):
-        path = self.enterContext(temp_csv_path(
+        path = self.enter_context(temp_csv_path(
             "group,mixed,enabled,score\n"
             "keep,001,true,1\n"
             "drop,2.5,false,\n"
