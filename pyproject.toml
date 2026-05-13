@@ -73,7 +73,7 @@ wheel.packages = [
 
 [tool.cibuildwheel]
 build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
-skip = "pp* *-musllinux*"
+skip = "pp* *-musllinux* *-win32"
 test-requires = [
     "numpy>=2",
     "pandas",
