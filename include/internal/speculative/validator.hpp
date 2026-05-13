@@ -7,11 +7,11 @@
 namespace csv {
     namespace internals {
         namespace speculative {
-        template<typename RowSink>
+        template<typename RowSink, typename Parser = CSVParserCore<std::vector<CSVRow>>>
         class SpeculativeParseValidator {
         public:
             SpeculativeParseValidator(
-                CSVParserCore<std::vector<CSVRow>>& repair_parser,
+                Parser& repair_parser,
                 RowSink& output,
                 ParserDFAState initial_state = ParserDFAState()
             ) : repair_parser_(repair_parser),
@@ -93,7 +93,7 @@ namespace csv {
                 this->pending_suffix_ = CSVRowFragment();
             }
 
-            CSVParserCore<std::vector<CSVRow>>& repair_parser_;
+            Parser& repair_parser_;
             RowSink& output_;
             ParserDFAState expected_start_state_;
             CSVRowFragment pending_suffix_;

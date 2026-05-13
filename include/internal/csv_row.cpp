@@ -36,7 +36,7 @@ namespace csv {
      *
      */
     CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
-        return CSVField(this->get_field(n));
+        return this->make_field(n, this->data);
     }
 
     /** Retrieve a value by its associated column name. If the column
@@ -115,6 +115,17 @@ namespace csv {
     CSV_INLINE csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
     {
         return this->get_field_impl(index, _data);
+    }
+
+    CSV_INLINE CSVField CSVRow::make_field(size_t index, const internals::RawCSVDataPtr& _data) const
+    {
+        const csv::string_view field = this->get_field_impl(index, _data);
+        const size_t field_index = this->fields_start + index;
+        if (_data->has_field_scalars() && field_index < _data->field_scalars.size()) {
+            return CSVField(field, _data->field_scalars[field_index]);
+        }
+
+        return CSVField(field);
     }
 
     CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
@@ -198,7 +209,7 @@ namespace csv {
         : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                CSVField(this->daddy->get_field_safe(_i, this->data)));
+                this->daddy->make_field(_i, this->data));
         else
             this->field = nullptr;
     }
@@ -216,7 +227,7 @@ namespace csv {
         this->i++;
         if (this->i < (int)this->daddy->size())
             this->field = std::make_shared<CSVField>(
-                CSVField(this->daddy->get_field_safe(i, this->data)));
+                this->daddy->make_field(i, this->data));
         else // Reached the end of row
             this->field = nullptr;
         return *this;
@@ -233,7 +244,7 @@ namespace csv {
         // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
-            CSVField(this->daddy->get_field_safe(this->i, this->data)));
+            this->daddy->make_field(this->i, this->data));
         return *this;
     }
 

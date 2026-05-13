@@ -63,7 +63,7 @@ private:
  *  @tparam Func Callable that takes no arguments and returns void
  *  @tparam Duration std::chrono duration type (default: seconds)
  *  @param fn Test function to execute (should NOT contain REQUIRE/CHECK calls)
- *  @param timeout Maximum time to wait before failing (default: 20 seconds)
+ *  @param timeout Maximum time to wait before failing (default: 60 seconds)
  *  
  *  @note On timeout, this helper fails the test via REQUIRE and does not join
  *        the worker thread. This avoids deadlocking the test thread while
@@ -71,7 +71,7 @@ private:
  *  @rethrows any exception thrown by fn (re-raised on the caller thread)
  */
 template<typename Func, typename Duration = std::chrono::seconds>
-void test_with_timeout(Func fn, Duration timeout = std::chrono::seconds(20)) {
+void test_with_timeout(Func fn, Duration timeout = std::chrono::seconds(60)) {
     auto completion = std::make_shared<std::promise<void>>();
     auto future = completion->get_future();
     auto worker_exception = std::make_shared<std::exception_ptr>();

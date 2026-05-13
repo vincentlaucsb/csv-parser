@@ -14,6 +14,7 @@
 #include "col_names.hpp"
 #include "common.hpp"
 #include "memory/constants.hpp"
+#include "memory/field_scalar_list.hpp"
 #include "memory/quote_arena.hpp"
 #include "memory/raw_csv_field.hpp"
 #include "memory/raw_csv_field_list.hpp"
@@ -23,6 +24,7 @@ namespace csv {
         class JsonConverter;
 
         using memory::INVALID_REALIZED_OFFSET;
+        using memory::CSVFieldScalarList;
         using memory::RawCSVField;
         using memory::RawCSVFieldList;
         using memory::RawCSVQuoteArena;
@@ -38,6 +40,9 @@ namespace csv {
 
             internals::RawCSVFieldList fields;
 
+            /** Optional parser-time scalar sidecar; empty unless eager classification is enabled. */
+            internals::CSVFieldScalarList field_scalars;
+
             /** Parser-time sidecar bytes for fields whose quoted contents contained doubled quotes. */
             internals::RawCSVQuoteArena quote_arena;
 
@@ -52,6 +57,10 @@ namespace csv {
              *  Used by get_field_impl() to skip trim work in the common no-trim case.
              */
             bool has_ws_trimming = false;
+
+            bool has_field_scalars() const noexcept {
+                return !this->field_scalars.empty();
+            }
         };
 
         using RawCSVDataPtr = std::shared_ptr<RawCSVData>;

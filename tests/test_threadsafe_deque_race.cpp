@@ -16,6 +16,20 @@
 
 using namespace csv;
 
+namespace {
+#ifndef __has_feature
+#define CSV_TEST_HAS_FEATURE(x) 0
+#else
+#define CSV_TEST_HAS_FEATURE(x) __has_feature(x)
+#endif
+
+#if defined(__SANITIZE_THREAD__) || CSV_TEST_HAS_FEATURE(thread_sanitizer)
+    constexpr int RAPID_SMALL_CSV_ITERATIONS = 150;
+#else
+    constexpr int RAPID_SMALL_CSV_ITERATIONS = 500;
+#endif
+}
+
 TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
           "[threading][race_condition]") {
     // This test reproduces a race condition in ThreadSafeDeque where:
@@ -104,7 +118,10 @@ TEST_CASE("ThreadSafeDeque concurrent stress test",
     SECTION("Rapid sequential small CSV parsing") {
         auto errors = std::make_shared<ThreadSafeErrorCollector>();
         test_with_timeout([errors]() {
-            for (int i = 0; i < 500; i++) {
+            // ThreadSanitizer makes this tiny-reader loop dramatically slower.
+            // Fewer iterations still exercise the race window while keeping CI
+            // focused on actual race reports instead of instrumentation cost.
+            for (int i = 0; i < RAPID_SMALL_CSV_ITERATIONS; i++) {
                 auto rows = "X,Y\n1,2\n"_csv;
                 CSVRow row;
                 if (!rows.read_row(row)) errors->add_error("Failed to read first row");

@@ -129,6 +129,7 @@ TEST_CASE("CSVFormat - speculative parallel parsing options", "[csv_format]") {
 #endif
     REQUIRE(format.get_speculative_parallel_threads() == 0);
     REQUIRE(format.get_speculative_parallel_min_bytes() == internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES);
+    REQUIRE_FALSE(format.is_eager_field_classification_enabled());
 #if CSV_ENABLE_THREADS
     REQUIRE(format.should_use_speculative_parallel(
         internals::CSV_SPECULATIVE_PARALLEL_MIN_BYTES,
@@ -152,6 +153,56 @@ TEST_CASE("CSVFormat - speculative parallel parsing options", "[csv_format]") {
     REQUIRE(format.should_use_speculative_parallel(1024, 2));
 #else
     REQUIRE_FALSE(format.should_use_speculative_parallel(1024, 2));
+#endif
+}
+
+TEST_CASE("CSVReader eager field classification preserves typed behavior", "[csv_format][csv_reader][eager_classification]") {
+    const std::string data = "plain,\"a\"\"b\", true ,,123,-4.5,1970-01-02T00:00:00.123Z\n";
+
+    auto check_row = [](CSVRow& row) {
+        REQUIRE(row.size() == 7);
+        REQUIRE(row[0].get<std::string>() == "plain");
+        REQUIRE(row[1].get<std::string>() == "a\"b");
+        REQUIRE(row[2].get<bool>());
+        REQUIRE(row[3].is_null());
+        REQUIRE(row[4].get<int>() == 123);
+        REQUIRE(row[5].get<double>() == Catch::Approx(-4.5));
+        REQUIRE(row[6].is_timestamp());
+    };
+
+    SECTION("stream path") {
+        std::stringstream input(data);
+        CSVFormat format;
+        format.no_header()
+            .trim({ ' ' })
+            .eager_field_classification();
+        CSVReader reader(input, format);
+
+        CSVRow row;
+        REQUIRE(reader.read_row(row));
+        check_row(row);
+        REQUIRE_FALSE(reader.read_row(row));
+    }
+
+#ifndef __EMSCRIPTEN__
+    SECTION("mmap path") {
+        FileGuard cleanup("./tests/data/tmp_eager_classification.csv");
+        {
+            std::ofstream out(cleanup.filename, std::ios::binary);
+            out << data;
+        }
+
+        CSVFormat format;
+        format.no_header()
+            .trim({ ' ' })
+            .eager_field_classification();
+        CSVReader reader(cleanup.filename, format);
+
+        CSVRow row;
+        REQUIRE(reader.read_row(row));
+        check_row(row);
+        REQUIRE_FALSE(reader.read_row(row));
+    }
 #endif
 }
 

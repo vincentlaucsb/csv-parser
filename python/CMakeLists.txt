@@ -1,57 +1,62 @@
 include(FetchContent)
 
-set(CSVPY_PYBIND11_GIT_REPOSITORY "https://github.com/pybind/pybind11.git" CACHE STRING
-    "pybind11 Git repository used when building csvpy")
-set(CSVPY_PYBIND11_GIT_TAG "v3.0.3" CACHE STRING
-    "pybind11 Git tag used when building csvpy")
+set(FASTPYCSV_NANOBIND_GIT_REPOSITORY "https://github.com/wjakob/nanobind.git" CACHE STRING
+    "nanobind Git repository used when building fastpycsv")
+set(FASTPYCSV_NANOBIND_GIT_TAG "v2.12.0" CACHE STRING
+    "nanobind Git tag used when building fastpycsv")
 
-set(PYBIND11_FINDPYTHON ON CACHE BOOL "Use CMake FindPython for pybind11" FORCE)
-set(PYBIND11_INSTALL OFF CACHE BOOL "Disable pybind11 install rules" FORCE)
-set(PYBIND11_TEST OFF CACHE BOOL "Disable pybind11 tests" FORCE)
-
-find_package(pybind11 CONFIG QUIET)
-if(NOT pybind11_FOUND)
-    FetchContent_Declare(
-        pybind11
-        GIT_REPOSITORY ${CSVPY_PYBIND11_GIT_REPOSITORY}
-        GIT_TAG ${CSVPY_PYBIND11_GIT_TAG}
-    )
-    FetchContent_MakeAvailable(pybind11)
-endif()
-
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    set(PYBIND11_CPP_STANDARD /std:c++17)
+if(CMAKE_VERSION VERSION_LESS 3.18)
+    set(FASTPYCSV_PYTHON_DEV_MODULE Development)
 else()
-    set(PYBIND11_CPP_STANDARD -std=c++1z)
+    set(FASTPYCSV_PYTHON_DEV_MODULE Development.Module)
 endif()
 
-set(CSVPY_SOURCES
-    ${CMAKE_CURRENT_LIST_DIR}/csvpy.cpp
+find_package(Python 3.9 COMPONENTS Interpreter ${FASTPYCSV_PYTHON_DEV_MODULE} REQUIRED)
+
+find_package(nanobind CONFIG QUIET)
+if(NOT nanobind_FOUND)
+    FetchContent_Declare(
+        nanobind
+        GIT_REPOSITORY ${FASTPYCSV_NANOBIND_GIT_REPOSITORY}
+        GIT_TAG ${FASTPYCSV_NANOBIND_GIT_TAG}
+    )
+    FetchContent_MakeAvailable(nanobind)
+endif()
+
+set(FASTPYCSV_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_core.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_format.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_numpy.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_predicate.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_reader.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_writer.cpp
 )
 
-pybind11_add_module(csvpy ${CSVPY_SOURCES})
-target_link_libraries(csvpy PUBLIC csv)
+nanobind_add_module(fastpycsv NOMINSIZE ${FASTPYCSV_SOURCES})
+target_link_libraries(fastpycsv PUBLIC csv)
+install(TARGETS fastpycsv
+        LIBRARY DESTINATION fastpycsv
+        RUNTIME DESTINATION fastpycsv)
 
-get_property(csvpySuffix TARGET csvpy PROPERTY SUFFIX)
-add_custom_command(TARGET csvpy POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:csvpy>
-                   ${CMAKE_CURRENT_LIST_DIR}/csvpy/csvpy${csvpySuffix})
+get_property(fastpycsvSuffix TARGET fastpycsv PROPERTY SUFFIX)
+add_custom_command(TARGET fastpycsv POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:fastpycsv>
+                   ${CMAKE_CURRENT_LIST_DIR}/fastpycsv/fastpycsv${fastpycsvSuffix})
 
 if(DEFINED PYTHON_EXECUTABLE)
-    set(CSVPY_TEST_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+    set(FASTPYCSV_TEST_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
 else()
-    find_package(Python3 COMPONENTS Interpreter QUIET)
-    if(Python3_Interpreter_FOUND)
-        set(CSVPY_TEST_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
-    endif()
+    set(FASTPYCSV_TEST_PYTHON_EXECUTABLE ${Python_EXECUTABLE})
 endif()
-if(BUILD_PYTHON AND CSVPY_TEST_PYTHON_EXECUTABLE)
+if(BUILD_PYTHON AND FASTPYCSV_TEST_PYTHON_EXECUTABLE)
     enable_testing()
     add_test(
-        NAME csvpy_compat_tests
-        COMMAND ${CSVPY_TEST_PYTHON_EXECUTABLE} -m unittest discover -s ${CMAKE_CURRENT_LIST_DIR}/tests
+        NAME fastpycsv_compat_tests
+        COMMAND ${FASTPYCSV_TEST_PYTHON_EXECUTABLE} -m unittest discover -s ${CMAKE_CURRENT_LIST_DIR}/tests
     )
-    set_tests_properties(csvpy_compat_tests PROPERTIES
+    set_tests_properties(fastpycsv_compat_tests PROPERTIES
         ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_LIST_DIR}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
     )
 endif()

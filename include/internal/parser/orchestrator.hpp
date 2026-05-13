@@ -6,6 +6,7 @@
 namespace csv {
     namespace internals {
         namespace parser {
+        template<bool EagerClassify = false>
         class CSVParseOrchestrator : public ICSVParseOrchestrator {
         public:
             CSVParseOrchestrator(
@@ -45,7 +46,7 @@ namespace csv {
                         this->worker_count_
                     ));
                 if (this->use_speculative_parallel_) {
-                    this->speculative_parser_.reset(new speculative::ParallelCSVParser(
+                    this->speculative_parser_.reset(new speculative::ParallelCSVParser<EagerClassify>(
                         this->parse_flags_,
                         this->ws_flags_,
                         this->worker_count_,
@@ -190,7 +191,11 @@ namespace csv {
             }
 #endif
 
-            CSVParserCore<> serial_parser_;
+            CSVParserCore<
+                RowCollection,
+                PermissiveParsePolicy,
+                CSVRowFieldPolicy<EagerClassify>,
+                CSVRowRowPolicy> serial_parser_;
             SpeculativeParseDiagnostics speculative_diagnostics_;
 #if CSV_ENABLE_THREADS
             ParseFlagMap parse_flags_;
@@ -198,7 +203,7 @@ namespace csv {
             speculative::SpeculativeScanner scanner_;
             bool use_speculative_parallel_ = false;
             size_t worker_count_ = 1;
-            std::unique_ptr<speculative::ParallelCSVParser> speculative_parser_;
+            std::unique_ptr<speculative::ParallelCSVParser<EagerClassify>> speculative_parser_;
 #endif
         };
 
@@ -211,15 +216,27 @@ namespace csv {
             bool enable_speculative_parallel,
             bool source_size_known
         ) {
-            return std::unique_ptr<ICSVParseOrchestrator>(new CSVParseOrchestrator(
-                parse_flags,
-                ws_flags,
-                format,
-                source_size,
-                col_names,
-                enable_speculative_parallel,
-                source_size_known
-            ));
+            if (format.is_eager_field_classification_enabled()) {
+                return std::unique_ptr<ICSVParseOrchestrator>(new CSVParseOrchestrator<true>(
+                    parse_flags,
+                    ws_flags,
+                    format,
+                    source_size,
+                    col_names,
+                    enable_speculative_parallel,
+                    source_size_known
+                ));
+            }
+
+            return std::unique_ptr<ICSVParseOrchestrator>(new CSVParseOrchestrator<false>(
+                    parse_flags,
+                    ws_flags,
+                    format,
+                    source_size,
+                    col_names,
+                    enable_speculative_parallel,
+                    source_size_known
+                ));
         }
         }
     }

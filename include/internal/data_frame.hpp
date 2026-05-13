@@ -1003,6 +1003,27 @@ namespace csv {
         /** Get the column names in order. */
         const std::vector<std::string>& columns() const noexcept { return this->col_names_->get_col_names(); }
 
+        /** Build an unkeyed DataFrame containing rows whose corresponding mask entry is true.
+         *
+         *  CSVRow copies share the underlying parsed row storage, so this is intended for
+         *  filtered document views that should avoid reparsing or rematerializing fields.
+         */
+        DataFrame selected_rows(const std::vector<std::uint8_t>& include_rows) const {
+            if (include_rows.size() != this->rows.size()) {
+                throw std::invalid_argument("selected row mask size must match DataFrame row count");
+            }
+
+            std::vector<CSVRow> selected;
+            selected.reserve(this->rows.size());
+            for (size_t row_index = 0; row_index < this->rows.size(); ++row_index) {
+                if (include_rows[row_index]) {
+                    selected.push_back(this->rows[row_index]);
+                }
+            }
+
+            return DataFrame(std::move(selected));
+        }
+
         /** Access a column view by position. */
         DataFrameColumn<KeyType> column_view(size_t col_index) const {
             if (col_index >= this->n_cols()) {

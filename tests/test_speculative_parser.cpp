@@ -434,7 +434,7 @@ TEST_CASE("ParallelCSVParser repairs speculative worker output in order", "[raw_
     chunks.push_back(second);
 
     std::vector<CSVRow> output;
-    ParallelCSVParser parser(parse_flags, ws_flags, 2);
+    ParallelCSVParser<> parser(parse_flags, ws_flags, 2);
     const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == 2);
@@ -465,7 +465,7 @@ TEST_CASE("ParallelCSVParser parses caller-owned chunks from the speculative sca
     REQUIRE(chunks.size() > 3);
 
     std::vector<CSVRow> output;
-    ParallelCSVParser parser(parse_flags, ws_flags, 3);
+    ParallelCSVParser<> parser(parse_flags, ws_flags, 3);
     const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == chunks.size());
@@ -498,7 +498,7 @@ TEST_CASE("ParallelCSVParser preserves column names for emitted rows", "[raw_csv
     REQUIRE(chunks.size() > 1);
 
     std::vector<CSVRow> output;
-    ParallelCSVParser parser(parse_flags, ws_flags, 2, col_names);
+    ParallelCSVParser<> parser(parse_flags, ws_flags, 2, col_names);
     const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == chunks.size());
@@ -542,7 +542,7 @@ TEST_CASE("ParallelCSVParser can leave the final split row pending", "[raw_csv_p
     chunks.push_back(second);
 
     std::vector<CSVRow> output;
-    ParallelCSVParser parser(parse_flags, ws_flags, 2);
+    ParallelCSVParser<> parser(parse_flags, ws_flags, 2);
     const auto result = parser.parse_chunks(chunks, output, false);
 
     REQUIRE(result.chunks_processed == 2);
@@ -564,7 +564,7 @@ TEST_CASE("ParallelCSVParser repairs chunks split between CR and LF", "[raw_csv_
     REQUIRE(chunks.size() == 3);
 
     std::vector<CSVRow> output;
-    ParallelCSVParser parser(parse_flags, ws_flags, 2);
+    ParallelCSVParser<> parser(parse_flags, ws_flags, 2);
     const auto result = parser.parse_chunks(chunks, output);
 
     REQUIRE(result.chunks_processed == chunks.size());

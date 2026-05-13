@@ -3,6 +3,8 @@
 This is the detailed documentation for Vince's CSV library. 
 For quick examples, go to this project's [GitHub page](https://github.com/vincentlaucsb/csv-parser).
 
+Python users should start with the [fastpycsv Python bindings](python/index.html).
+
 ## Outline
 
 ### CSV Reading

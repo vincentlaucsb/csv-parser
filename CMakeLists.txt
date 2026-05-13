@@ -46,6 +46,17 @@ endif()
 
 message("Building CSV library using C++${CMAKE_CXX_STANDARD}")
 
+if(ENABLE_CODE_COVERAGE)
+	message("Code coverage instrumentation enabled")
+	add_compile_definitions(CSV_CODE_COVERAGE=1)
+endif()
+
+if(BUILD_PYTHON)
+  # fastpycsv links the static csv target into a Python extension module, so Linux
+  # builds need the csv objects compiled as position-independent code.
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 if(CSV_ENABLE_THREADS)
   set(THREADS_PREFER_PTHREAD_FLAG TRUE)
   find_package(Threads QUIET)
@@ -65,10 +76,9 @@ else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
 	
 	if(ENABLE_CODE_COVERAGE)
-		message("Code coverage instrumentation enabled")
 		# -fprofile-update=atomic prevents negative counter corruption when
 		# background reader threads write to the same .gcda file concurrently.
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -Og -fprofile-update=atomic")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage -O0 -fprofile-update=atomic")
 	endif()
 endif(MSVC)
 
@@ -109,27 +119,27 @@ endif()
 ## Main Library
 add_subdirectory(${CSV_SOURCE_DIR})
 
-set(CSVPY_BOOTSTRAP_BINARY_DIR "${CSV_BUILD_DIR}/csvpy" CACHE PATH
-    "Build directory used by the csvpy bootstrap target when BUILD_PYTHON is OFF")
-set(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE "" CACHE FILEPATH
-    "Python executable used by the csvpy bootstrap target")
-if(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE AND NOT EXISTS "${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}")
-    message(STATUS "Ignoring missing CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE=${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}")
-    set(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE "" CACHE FILEPATH
-        "Python executable used by the csvpy bootstrap target" FORCE)
+set(FASTPYCSV_BOOTSTRAP_BINARY_DIR "${CSV_BUILD_DIR}/fastpycsv" CACHE PATH
+    "Build directory used by the fastpycsv bootstrap target when BUILD_PYTHON is OFF")
+set(FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE "" CACHE FILEPATH
+    "Python executable used by the fastpycsv bootstrap target")
+if(FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE AND NOT EXISTS "${FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE}")
+    message(STATUS "Ignoring missing FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE=${FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE}")
+    set(FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE "" CACHE FILEPATH
+        "Python executable used by the fastpycsv bootstrap target" FORCE)
 endif()
 
-# Build the Python binding for the library. The real `csvpy` module target is
+# Build the Python binding for the library. The real `fastpycsv` module target is
 # created when BUILD_PYTHON is enabled. Otherwise, keep a bootstrap target so
-# existing CMake builds can build csvpy without reconfiguring the main tree.
+# existing CMake builds can build fastpycsv without reconfiguring the main tree.
 if (${BUILD_PYTHON})
     message("Building Python bindings for the library.")
     enable_testing()
     add_subdirectory(python)
 else()
-    set(_CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS
+    set(_CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS
         -S ${CSV_ROOT_DIR}
-        -B ${CSVPY_BOOTSTRAP_BINARY_DIR}
+        -B ${FASTPYCSV_BOOTSTRAP_BINARY_DIR}
         -DBUILD_PYTHON=ON
         -DCSV_BUILD_TESTS=OFF
         -DCSV_BUILD_PROGRAMS=OFF
@@ -140,31 +150,31 @@ else()
         -U PYTHON_EXECUTABLE
     )
     if(CMAKE_GENERATOR)
-        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -G ${CMAKE_GENERATOR})
+        list(APPEND _CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS -G ${CMAKE_GENERATOR})
     endif()
     if(CMAKE_GENERATOR_PLATFORM)
-        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -A ${CMAKE_GENERATOR_PLATFORM})
+        list(APPEND _CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS -A ${CMAKE_GENERATOR_PLATFORM})
     endif()
     if(CMAKE_GENERATOR_TOOLSET)
-        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -T ${CMAKE_GENERATOR_TOOLSET})
+        list(APPEND _CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS -T ${CMAKE_GENERATOR_TOOLSET})
     endif()
     if(CMAKE_BUILD_TYPE)
-        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+        list(APPEND _CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
     endif()
-    if(CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE)
-        list(APPEND _CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS
-            -DPython_EXECUTABLE=${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}
-            -DPYTHON_EXECUTABLE=${CSVPY_BOOTSTRAP_PYTHON_EXECUTABLE}
+    if(FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE)
+        list(APPEND _CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS
+            -DPython_EXECUTABLE=${FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE}
+            -DPYTHON_EXECUTABLE=${FASTPYCSV_BOOTSTRAP_PYTHON_EXECUTABLE}
         )
     endif()
 
-    add_custom_target(csvpy
-        COMMAND ${CMAKE_COMMAND} ${_CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS}
-        COMMAND ${CMAKE_COMMAND} -E env --unset=PATH "Path=$ENV{Path}" ${CMAKE_COMMAND} --build ${CSVPY_BOOTSTRAP_BINARY_DIR} --target csvpy --config $<CONFIG>
+    add_custom_target(fastpycsv
+        COMMAND ${CMAKE_COMMAND} ${_CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS}
+        COMMAND ${CMAKE_COMMAND} -E env --unset=PATH "Path=$ENV{Path}" ${CMAKE_COMMAND} --build ${FASTPYCSV_BOOTSTRAP_BINARY_DIR} --target fastpycsv --config $<CONFIG>
         USES_TERMINAL
-        COMMENT "Configuring and building csvpy in ${CSVPY_BOOTSTRAP_BINARY_DIR}"
+        COMMENT "Configuring and building fastpycsv in ${FASTPYCSV_BOOTSTRAP_BINARY_DIR}"
     )
-    unset(_CSV_CSVPY_BOOTSTRAP_CONFIG_ARGS)
+    unset(_CSV_FASTPYCSV_BOOTSTRAP_CONFIG_ARGS)
 endif()
 
 ## Executables

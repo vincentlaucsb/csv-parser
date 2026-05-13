@@ -74,6 +74,8 @@ jobs:
       uses: codecov/codecov-action@v4
       with:
         files: coverage.info
+        flags: cpp
+        name: cpp-core
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
         override_commit: ${{ github.event.pull_request.head.sha || github.sha }}

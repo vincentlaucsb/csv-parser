@@ -75,6 +75,7 @@ namespace csv {
             return chunks;
         }
 
+        template<bool EagerClassify = false>
         class ParallelCSVParser {
         public:
             ParallelCSVParser(
@@ -97,7 +98,7 @@ namespace csv {
             ParallelCSVParser& operator=(const ParallelCSVParser&) = delete;
 
             ParsedChunkRows parse_chunk(const SpeculativeParseChunk& chunk) const {
-                ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
+                ChunkParserCoreT<EagerClassify> parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 return this->parse_chunk_with(parser, chunk);
             }
 
@@ -116,8 +117,8 @@ namespace csv {
                 std::vector<ParsedChunkRows> parsed(chunks.size());
                 this->parse_chunks_into(chunks, parsed);
 
-                ChunkParserCore repair_parser(this->parse_flags_, this->ws_flags_, this->col_names_);
-                SpeculativeParseValidator<RowSink> validator(repair_parser, output);
+                ChunkParserCoreT<EagerClassify> repair_parser(this->parse_flags_, this->ws_flags_, this->col_names_);
+                SpeculativeParseValidator<RowSink, ChunkParserCoreT<EagerClassify>> validator(repair_parser, output);
                 for (size_t i = 0; i < parsed.size(); ++i) {
                     validator.validate_and_release(std::move(parsed[i]));
                 }
@@ -141,7 +142,7 @@ namespace csv {
 
         private:
             ParsedChunkRows parse_chunk_with(
-                CSVParserCore<std::vector<CSVRow>>& parser,
+                ChunkParserCoreT<EagerClassify>& parser,
                 const SpeculativeParseChunk& chunk
             ) const {
                 std::vector<CSVRow> rows;
@@ -174,7 +175,7 @@ namespace csv {
                     return;
                 }
 
-                ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
+                ChunkParserCoreT<EagerClassify> parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 for (size_t i = 0; i < chunks.size(); ++i) {
                     parsed[i] = this->parse_chunk_with(parser, chunks[i]);
                 }
@@ -185,7 +186,7 @@ namespace csv {
                 std::vector<ParsedChunkRows>& parsed
             ) {
                 if (this->workers_.empty()) {
-                    ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
+                    ChunkParserCoreT<EagerClassify> parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                     for (size_t i = 0; i < chunks.size(); ++i) {
                         parsed[i] = this->parse_chunk_with(parser, chunks[i]);
                     }
@@ -228,7 +229,7 @@ namespace csv {
 
                 this->workers_.reserve(this->worker_count_);
                 for (size_t i = 0; i < this->worker_count_; ++i) {
-                    this->workers_.push_back(std::thread(&ParallelCSVParser::worker_loop, this));
+                    this->workers_.push_back(std::thread(&ParallelCSVParser<EagerClassify>::worker_loop, this));
                 }
             }
 
@@ -248,7 +249,7 @@ namespace csv {
             }
 
             void worker_loop() {
-                ChunkParserCore parser(this->parse_flags_, this->ws_flags_, this->col_names_);
+                ChunkParserCoreT<EagerClassify> parser(this->parse_flags_, this->ws_flags_, this->col_names_);
                 size_t observed_generation = 0;
 
                 for (;;) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare csvpy.reader against stdlib csv.reader."""
+"""Compare fastpycsv lazy row reading against stdlib csv readers."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _is_compatible_extension_name(name):
 
         # Windows includes ".pyd" as a fallback suffix, but a file tagged for a
         # different CPython ABI (for example cp310) will not load into this
-        # interpreter. Keep untagged csvpy.pyd valid while rejecting mismatches.
+        # interpreter. Keep untagged fastpycsv.pyd valid while rejecting mismatches.
         if suffix == ".pyd" and ".cp" in name:
             continue
 
@@ -37,16 +37,16 @@ def _is_compatible_extension_name(name):
     return False
 
 
-def _find_built_csvpy_extension():
+def _find_built_fastpycsv_extension():
     candidates = []
     for build_root in BUILD_ROOTS:
         if not build_root.exists():
             continue
 
-        for candidate in build_root.rglob("csvpy*"):
+        for candidate in build_root.rglob("fastpycsv*"):
             if (
                 candidate.is_file()
-                and candidate.name.startswith("csvpy")
+                and candidate.name.startswith("fastpycsv")
                 and _is_compatible_extension_name(candidate.name)
             ):
                 candidates.append(candidate)
@@ -57,43 +57,43 @@ def _find_built_csvpy_extension():
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def _load_csvpy_extension_from_build(extension_path):
-    spec = importlib.util.spec_from_file_location("csvpy.csvpy", extension_path)
+def _load_fastpycsv_extension_from_build(extension_path):
+    spec = importlib.util.spec_from_file_location("fastpycsv.fastpycsv", extension_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load csvpy extension from {extension_path}")
+        raise ImportError(f"cannot load fastpycsv extension from {extension_path}")
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules["csvpy.csvpy"] = module
+    sys.modules["fastpycsv.fastpycsv"] = module
     spec.loader.exec_module(module)
 
 
-def ensure_csvpy_available():
+def ensure_fastpycsv_available():
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
 
     try:
-        import csvpy  # noqa: F401
+        import fastpycsv  # noqa: F401
         return
     except ImportError:
-        sys.modules.pop("csvpy", None)
-        sys.modules.pop("csvpy.csvpy", None)
+        sys.modules.pop("fastpycsv", None)
+        sys.modules.pop("fastpycsv.fastpycsv", None)
         pass
 
-    extension_path = _find_built_csvpy_extension()
+    extension_path = _find_built_fastpycsv_extension()
     if extension_path is None:
         suffixes = ", ".join(_extension_suffixes())
         raise SystemExit(
-            "csvpy is not built for this Python interpreter. "
-            f"Expected a csvpy extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
+            "fastpycsv is not built for this Python interpreter. "
+            f"Expected a fastpycsv extension under {BUILD_ROOTS[0]} or {BUILD_ROOTS[1]} "
             f"with suffix: {suffixes}"
         )
 
     try:
-        _load_csvpy_extension_from_build(extension_path)
-        import csvpy  # noqa: F401
+        _load_fastpycsv_extension_from_build(extension_path)
+        import fastpycsv  # noqa: F401
     except ImportError as exc:
         raise SystemExit(
-            f"found csvpy at {extension_path}, but it could not be imported: {exc}"
+            f"found fastpycsv at {extension_path}, but it could not be imported: {exc}"
         ) from exc
 
 
@@ -116,52 +116,51 @@ def measure(name, path, func):
     )
 
 
-def bench_csvpy_strings(path):
-    import csvpy
+def bench_fastpycsv_reader_strings(path):
+    import fastpycsv
 
     rows = 0
     cols = 0
     with path.open(newline="", encoding="utf-8") as handle:
-        for row in csvpy.reader(handle):
+        for row in fastpycsv.reader(handle):
             rows += 1
             cols = max(cols, len(row))
     return rows, cols
 
 
-def bench_csvpy_cast(path):
-    import csvpy
+def bench_fastpycsv_reader_cast(path):
+    import fastpycsv
 
     rows = 0
     cols = 0
     with path.open(newline="", encoding="utf-8") as handle:
-        for row in csvpy.reader(handle, cast=True):
+        for row in fastpycsv.reader(handle, cast=True):
             rows += 1
             cols = max(cols, len(row))
     return rows, cols
 
 
-def bench_csvpy_dict_strings(path):
-    import csvpy
+def bench_fastpycsv_read_numpy_dataframe(path):
+    import fastpycsv
+    import pandas as pd
 
-    rows = 0
-    cols = 0
-    with path.open(newline="", encoding="utf-8") as handle:
-        for row in csvpy.DictReader(handle):
-            rows += 1
-            cols = max(cols, len(row))
-    return rows, cols
+    frame = pd.DataFrame(fastpycsv.read_numpy(str(path)))
+    return len(frame), len(frame.columns)
 
 
-def bench_csvpy_dict_cast(path):
-    import csvpy
+def bench_fastpycsv_read_numpy_arrays(path):
+    import fastpycsv
 
-    rows = 0
-    cols = 0
-    with path.open(newline="", encoding="utf-8") as handle:
-        for row in csvpy.DictReader(handle, cast=True):
-            rows += 1
-            cols = max(cols, len(row))
-    return rows, cols
+    arrays = fastpycsv.read_numpy(str(path))
+    rows = len(next(iter(arrays.values()))) if arrays else 0
+    return rows, len(arrays)
+
+
+def bench_pandas_pyarrow(path):
+    import pandas as pd
+
+    frame = pd.read_csv(path, engine="pyarrow")
+    return len(frame), len(frame.columns)
 
 
 def bench_stdlib_strings(path):
@@ -189,14 +188,15 @@ def main():
     parser.add_argument("csv_file", type=Path)
     args = parser.parse_args()
     path = args.csv_file
-    ensure_csvpy_available()
+    ensure_fastpycsv_available()
 
     measure("stdlib_csv_reader_strings", path, bench_stdlib_strings)
-    measure("csvpy_reader_strings", path, bench_csvpy_strings)
-    measure("csvpy_reader_cast", path, bench_csvpy_cast)
+    measure("fastpycsv_reader_strings", path, bench_fastpycsv_reader_strings)
+    measure("fastpycsv_reader_cast", path, bench_fastpycsv_reader_cast)
     measure("stdlib_dict_reader_strings", path, bench_stdlib_dict_strings)
-    measure("csvpy_dict_reader_strings", path, bench_csvpy_dict_strings)
-    measure("csvpy_dict_reader_cast", path, bench_csvpy_dict_cast)
+    measure("fastpycsv_read_numpy_arrays", path, bench_fastpycsv_read_numpy_arrays)
+    measure("fastpycsv_read_numpy_dataframe", path, bench_fastpycsv_read_numpy_dataframe)
+    measure("pandas_read_csv_pyarrow", path, bench_pandas_pyarrow)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 from pathlib import Path
-import csvpy
+import fastpycsv
 
 path = Path(__file__).parent.parent / 'data' / '2015_StateDepartment.csv'
 
-info = csvpy.get_file_info(str(path))
+info = fastpycsv.get_file_info(str(path))
 
 print(info.filename)
 print(info.col_names)
