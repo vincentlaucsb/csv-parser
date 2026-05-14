@@ -13,6 +13,7 @@ import csv
 import importlib.machinery
 import importlib.util
 import math
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -74,6 +75,12 @@ def _load_fastpycsv_extension_from_build(extension_path: Path) -> None:
 def ensure_fastpycsv_available() -> None:
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
+
+    env_extension = os.environ.get("FASTPYCSV_EXTENSION_PATH")
+    if env_extension:
+        _load_fastpycsv_extension_from_build(Path(env_extension))
+        import fastpycsv  # noqa: F401
+        return
 
     try:
         import fastpycsv  # noqa: F401

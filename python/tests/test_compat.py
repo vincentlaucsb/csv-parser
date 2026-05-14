@@ -4,10 +4,12 @@ import io
 import os
 import tempfile
 import unittest
+import zipfile
+from unittest import mock
 
 import fastpycsv
 
-from tempfiles import temp_csv_path
+from tempfiles import temp_compressed_csv_path, temp_csv_path, temp_zip_path
 
 
 CASES = [
@@ -102,6 +104,95 @@ class CompatReaderTests(unittest.TestCase):
         self.assertTrue(all(isinstance(value, str) for value in row))
         self.assertEqual(row["a"], "1")
         self.assertEqual(row.as_dict(), {"a": "1", "b": "2.5", "c": "true"})
+
+    def test_reader_zip_single_csv_member_auto_selects(self):
+        with temp_zip_path({
+            "notes/readme.md": "not csv\n",
+            "data/values.csv": "a,b\n1,2\n3,4\n",
+        }) as filename:
+            rows = fastpycsv.reader(filename).lists().all()
+
+        self.assertEqual(rows, [["1", "2"], ["3", "4"]])
+
+    def test_reader_zip_stored_member_auto_selects(self):
+        with temp_zip_path({
+            "data/values.csv": "a,b\n1,2\n3,4\n",
+        }, compression=zipfile.ZIP_STORED) as filename:
+            rows = fastpycsv.reader(filename).lists().all()
+
+        self.assertEqual(rows, [["1", "2"], ["3", "4"]])
+
+    def test_reader_zip_rows_do_not_use_python_zipfile(self):
+        with temp_zip_path({
+            "data/values.csv": "a,b\n1,2\n3,4\n",
+        }) as filename:
+            with mock.patch("zipfile.ZipFile", side_effect=AssertionError("zipfile should not be used")):
+                self.assertEqual(fastpycsv.zip_members(filename), ["data/values.csv"])
+                rows = fastpycsv.reader(filename).lists().all()
+
+        self.assertEqual(rows, [["1", "2"], ["3", "4"]])
+
+    def test_reader_zip_construction_does_not_open_member_stream(self):
+        with temp_zip_path({
+            "data/values.csv": "a,b\n1,2\n3,4\n",
+        }) as filename:
+            fastpycsv.reader(filename)
+            os.unlink(filename)
+
+    def test_reader_zip_explicit_member_selection(self):
+        with temp_zip_path({
+            "first.csv": "id,value\n1,wrong\n",
+            "nested/second.csv": "id,value\n2,right\n",
+        }) as filename:
+            rows = fastpycsv.reader(filename, member="nested/second.csv").dicts().all()
+
+        self.assertEqual(rows, [{"id": "2", "value": "right"}])
+
+    def test_reader_zip_multiple_csv_members_require_member(self):
+        with temp_zip_path({
+            "a.csv": "id\n1\n",
+            "nested/b.tsv": "id\n2\n",
+        }) as filename:
+            with self.assertRaisesRegex(ValueError, "a\\.csv.*nested/b\\.tsv"):
+                fastpycsv.reader(filename)
+
+    def test_reader_zip_missing_member_error(self):
+        with temp_zip_path({"data.csv": "id\n1\n"}) as filename:
+            with self.assertRaisesRegex(ValueError, "ZIP member not found: missing.csv"):
+                fastpycsv.reader(filename, member="missing.csv")
+
+    def test_reader_zip_no_csv_member_error(self):
+        with temp_zip_path({"readme.md": "hello\n"}) as filename:
+            with self.assertRaisesRegex(ValueError, "no CSV-like members"):
+                fastpycsv.reader(filename)
+
+    def test_zip_members_lists_archive_files(self):
+        with temp_zip_path({
+            "data/a.csv": "a\n1\n",
+            "notes/readme.md": "hello\n",
+        }) as filename:
+            members = fastpycsv.zip_members(filename)
+
+        self.assertEqual(members, ["data/a.csv", "notes/readme.md"])
+
+    def test_reader_stdlib_compressed_inputs(self):
+        for suffix in [".gz", ".bz2", ".xz", ".lzma"]:
+            with self.subTest(suffix=suffix):
+                with temp_compressed_csv_path("a,b\n1,2\n3,4\n", suffix) as filename:
+                    rows = fastpycsv.reader(filename).lists().all()
+
+                self.assertEqual(rows, [["1", "2"], ["3", "4"]])
+
+    def test_reader_zstd_input_when_available(self):
+        try:
+            import compression.zstd  # noqa: F401
+        except Exception:
+            self.skipTest("compression.zstd is not available in this Python")
+
+        with temp_compressed_csv_path("a,b\n1,2\n", ".zst") as filename:
+            rows = fastpycsv.reader(filename).lists().all()
+
+        self.assertEqual(rows, [["1", "2"]])
 
     def test_reader_cast_true_returns_scalar_types(self):
         row = next(fastpycsv.reader(

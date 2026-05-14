@@ -45,3 +45,8 @@ void init_CSVRow(nb::module_& m);
 void init_DataType(nb::module_& m);
 void init_CSVField(nb::module_& m);
 void init_CSVUtility(nb::module_& m);
+void init_CSVZip(nb::module_& m);
+std::unique_ptr<std::istream> open_zip_member_stream(
+    const std::string& path,
+    const std::string& member
+);

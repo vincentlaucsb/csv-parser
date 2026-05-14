@@ -4,6 +4,10 @@ set(FASTPYCSV_NANOBIND_GIT_REPOSITORY "https://github.com/wjakob/nanobind.git" C
     "nanobind Git repository used when building fastpycsv")
 set(FASTPYCSV_NANOBIND_GIT_TAG "v2.12.0" CACHE STRING
     "nanobind Git tag used when building fastpycsv")
+set(FASTPYCSV_ZLIB_NG_GIT_REPOSITORY "https://github.com/zlib-ng/zlib-ng.git" CACHE STRING
+    "zlib-ng Git repository used for native ZIP decompression")
+set(FASTPYCSV_ZLIB_NG_GIT_TAG "2.2.5" CACHE STRING
+    "zlib-ng Git tag used for native ZIP decompression")
 
 if(CMAKE_VERSION VERSION_LESS 3.18)
     set(FASTPYCSV_PYTHON_DEV_MODULE Development)
@@ -23,6 +27,21 @@ if(NOT nanobind_FOUND)
     FetchContent_MakeAvailable(nanobind)
 endif()
 
+set(ZLIB_COMPAT OFF CACHE BOOL "Use zlib-ng native API without zlib compatibility shims" FORCE)
+set(ZLIB_ENABLE_TESTS OFF CACHE BOOL "Disable zlib-ng tests" FORCE)
+set(ZLIBNG_ENABLE_TESTS OFF CACHE BOOL "Disable zlib-ng API tests" FORCE)
+set(WITH_GTEST OFF CACHE BOOL "Disable zlib-ng gtest dependency" FORCE)
+set(WITH_BENCHMARKS OFF CACHE BOOL "Disable zlib-ng benchmarks" FORCE)
+set(WITH_GZFILEOP OFF CACHE BOOL "Disable zlib-ng gzFile helpers" FORCE)
+set(INSTALL_UTILS OFF CACHE BOOL "Disable zlib-ng utility installs" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build zlib-ng as a static dependency" FORCE)
+FetchContent_Declare(
+    zlib_ng
+    GIT_REPOSITORY ${FASTPYCSV_ZLIB_NG_GIT_REPOSITORY}
+    GIT_TAG ${FASTPYCSV_ZLIB_NG_GIT_TAG}
+)
+FetchContent_MakeAvailable(zlib_ng)
+
 set(FASTPYCSV_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/fastpycsv.cpp
     ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_core.cpp
@@ -31,10 +50,20 @@ set(FASTPYCSV_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_predicate.cpp
     ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_reader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_writer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/fastpycsv_zip.cpp
 )
 
 nanobind_add_module(fastpycsv NOMINSIZE ${FASTPYCSV_SOURCES})
 target_link_libraries(fastpycsv PUBLIC csv)
+if(TARGET zlibstatic)
+    target_link_libraries(fastpycsv PRIVATE zlibstatic)
+elseif(TARGET zlib)
+    target_link_libraries(fastpycsv PRIVATE zlib)
+elseif(TARGET ZLIB::ZLIB)
+    target_link_libraries(fastpycsv PRIVATE ZLIB::ZLIB)
+else()
+    message(FATAL_ERROR "zlib-ng target was not created")
+endif()
 install(TARGETS fastpycsv
         LIBRARY DESTINATION fastpycsv
         RUNTIME DESTINATION fastpycsv)

@@ -11,112 +11,17 @@ similar per-column summary.
 from __future__ import annotations
 
 import argparse
-import ctypes
 import json
-import os
-import platform
-import subprocess
 import sys
-import time
-from dataclasses import dataclass
 from pathlib import Path
+
+import _support as bench_support
+from _support import RunResult, WorkerSpec
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_PACKAGE_ROOT = REPO_ROOT / "python"
 EDA_SCRIPT = PYTHON_PACKAGE_ROOT / "examples" / "eda_summary.py"
-
-
-@dataclass
-class RunResult:
-    name: str
-    returncode: int
-    wall_seconds: float
-    peak_rss_bytes: int
-    stdout: str
-    stderr: str
-
-
-def _windows_memory_bytes(pid: int) -> int:
-    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
-        _fields_ = [
-            ("cb", ctypes.c_ulong),
-            ("PageFaultCount", ctypes.c_ulong),
-            ("PeakWorkingSetSize", ctypes.c_size_t),
-            ("WorkingSetSize", ctypes.c_size_t),
-            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-            ("PagefileUsage", ctypes.c_size_t),
-            ("PeakPagefileUsage", ctypes.c_size_t),
-        ]
-
-    process_query_limited_information = 0x1000
-    process_vm_read = 0x0010
-    handle = ctypes.windll.kernel32.OpenProcess(
-        process_query_limited_information | process_vm_read,
-        False,
-        pid,
-    )
-    if not handle:
-        return 0
-
-    try:
-        counters = PROCESS_MEMORY_COUNTERS()
-        counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
-        ok = ctypes.windll.psapi.GetProcessMemoryInfo(
-            handle,
-            ctypes.byref(counters),
-            counters.cb,
-        )
-        if not ok:
-            return 0
-        return int(counters.PeakWorkingSetSize)
-    finally:
-        ctypes.windll.kernel32.CloseHandle(handle)
-
-
-def _linux_memory_bytes(pid: int) -> int:
-    status = Path(f"/proc/{pid}/status")
-    try:
-        for line in status.read_text(encoding="utf-8").splitlines():
-            if line.startswith("VmHWM:"):
-                return int(line.split()[1]) * 1024
-            if line.startswith("VmRSS:"):
-                return int(line.split()[1]) * 1024
-    except OSError:
-        return 0
-    return 0
-
-
-def _ps_memory_bytes(pid: int) -> int:
-    try:
-        proc = subprocess.run(
-            ["ps", "-o", "rss=", "-p", str(pid)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return 0
-
-    text = proc.stdout.strip()
-    if not text:
-        return 0
-    try:
-        return int(text.splitlines()[-1].strip()) * 1024
-    except ValueError:
-        return 0
-
-
-def process_memory_bytes(pid: int) -> int:
-    system = platform.system()
-    if system == "Windows":
-        return _windows_memory_bytes(pid)
-    if system == "Linux":
-        return _linux_memory_bytes(pid)
-    return _ps_memory_bytes(pid)
 
 
 def run_worker(worker: str, label: str, args: argparse.Namespace) -> RunResult:
@@ -138,35 +43,7 @@ def run_worker(worker: str, label: str, args: argparse.Namespace) -> RunResult:
     if args.fastpycsv_exact_values:
         command.append("--fastpycsv-exact-values")
 
-    env = os.environ.copy()
-    env["PYTHONPATH"] = (
-        str(PYTHON_PACKAGE_ROOT)
-        if not env.get("PYTHONPATH")
-        else str(PYTHON_PACKAGE_ROOT) + os.pathsep + env["PYTHONPATH"]
-    )
-
-    start = time.perf_counter()
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-    )
-
-    peak = 0
-    while process.poll() is None:
-        peak = max(peak, process_memory_bytes(process.pid))
-        time.sleep(args.poll_interval)
-
-    peak = max(peak, process_memory_bytes(process.pid))
-    stdout, stderr = process.communicate()
-    wall = time.perf_counter() - start
-    return RunResult(label, process.returncode, wall, peak, stdout, stderr)
-
-
-def mib(value: int) -> float:
-    return value / (1024 * 1024)
+    return bench_support.run_process(label, command, args.poll_interval)
 
 
 def print_results(path: Path, results: list[RunResult]) -> None:
@@ -181,7 +58,7 @@ def print_results(path: Path, results: list[RunResult]) -> None:
         throughput = size_mib / result.wall_seconds if result.wall_seconds > 0 else 0.0
         print(
             f"{result.name}\t{status}\t{result.wall_seconds:.6f}"
-            f"\t{throughput:.3f}\t{mib(result.peak_rss_bytes):.1f}"
+            f"\t{throughput:.3f}\t{bench_support.mib(result.peak_rss_bytes):.1f}"
         )
 
     for result in results:
@@ -275,6 +152,12 @@ def parse_args() -> argparse.Namespace:
         default=0.05,
         help="seconds between memory samples",
     )
+    parser.add_argument(
+        "--only",
+        action="append",
+        choices=("fastpycsv", "pandas", "pyarrow"),
+        help="only benchmark one library family; repeat to include more than one",
+    )
     parser.add_argument("--worker", choices=("fastpycsv", "pandas_pyarrow"), help=argparse.SUPPRESS)
     args = parser.parse_args()
 
@@ -297,13 +180,17 @@ def main() -> None:
         worker_pandas_pyarrow(args)
         return
 
-    results = [
-        run_worker(
+    workers = bench_support.selected_workers([
+        WorkerSpec(
             "fastpycsv",
             "fastpycsv_eda_approx" if not args.fastpycsv_exact_values else "fastpycsv_eda_exact",
-            args,
+            ("fastpycsv",),
         ),
-        run_worker("pandas_pyarrow", "pandas_pyarrow_eda", args),
+        WorkerSpec("pandas_pyarrow", "pandas_pyarrow_eda", ("pandas", "pyarrow")),
+    ], args.only)
+    results = [
+        run_worker(worker.worker, worker.label, args)
+        for worker in workers
     ]
     print_results(args.csv_file, results)
 

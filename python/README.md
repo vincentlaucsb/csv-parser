@@ -23,6 +23,7 @@ Main API:
   batches.
 - `fastpycsv.write_csv()` streams lazy rows or Python iterables through the native
   CSV writer.
+- `fastpycsv.zip_members()` lists members in ZIP inputs.
 
 ## Building
 
@@ -131,6 +132,29 @@ filtered or projected materialization, such as `.filter(...).dicts(...).all()`.
 The default is a good starting point; change it only after benchmarking a large
 filtered export.
 
+Compressed paths are accepted as read sources. `fastpycsv.reader()` supports
+`.gz`, `.bz2`, `.xz`, `.lzma`, and, on Python versions that provide
+`compression.zstd`, `.zst` and `.zstd` inputs through source adapters.
+
+ZIP paths use fastpycsv's native zlib-ng backed reader for stored and deflated
+members, then feed the selected member into the native CSV stream parser. If an
+archive has exactly one CSV-like member (`.csv`, `.tsv`, or `.txt`), fastpycsv
+selects it automatically:
+
+```python
+rows = fastpycsv.reader("export.zip").dicts().all()
+```
+
+For archives with multiple CSV-like files, inspect members and select one:
+
+```python
+print(fastpycsv.zip_members("export.zip"))
+rows = fastpycsv.reader("export.zip", member="tables/vehicles.csv").dicts().all()
+```
+
+ZIP support is read-only and does not handle encrypted, nested, or non-deflated
+compressed members.
+
 Use `fastpycsv.write_csv()` to stream lazy rows or ordinary Python iterables back
 out through csv-parser's native writer:
 
@@ -160,8 +184,8 @@ assert reader.fieldnames == ["id", "amount", "active"]
 assert rows[0].as_list() == [1, 2.5, True]
 ```
 
-Use `fastpycsv.read_numpy(path, columns=None, *, cast=True, predicate=None)` when
-you want eager column arrays suitable for pandas:
+Use `fastpycsv.read_numpy(path, columns=None, *, cast=True, predicate=None,
+member=None)` when you want eager column arrays suitable for pandas:
 
 ```python
 import pandas as pd
@@ -178,14 +202,14 @@ mostly NumPy `StringDType` construction for string-heavy data and pandas'
 DataFrame materialization after the arrays have been built.
 
 Use `fastpycsv.read_numpy_batches(path, columns=None, *, predicate=None, cast=True,
-batch_size=50000, schema="sample")` when you want streaming dictionaries of
-NumPy arrays instead of one eager full-file result. `schema="sample"` infers
-dtypes from the first bounded batch and then streams once, `schema="global"`
-does a full pre-scan for stable dtypes matching `read_numpy()`, and
-`schema="batch"` infers each emitted batch independently for true one-pass
-bounded-memory streaming. With `cast=False`, batches are string-only and skip
-schema inference. Explicit `dtypes={column: dtype}` overrides are not implemented
-yet and are tracked as a follow-up.
+batch_size=50000, schema="sample", member=None)` when you want streaming
+dictionaries of NumPy arrays instead of one eager full-file result.
+`schema="sample"` infers dtypes from the first bounded batch and then streams
+once, `schema="global"` does a full pre-scan for stable dtypes matching
+`read_numpy()`, and `schema="batch"` infers each emitted batch independently for
+true one-pass bounded-memory streaming. With `cast=False`, batches are
+string-only and skip schema inference. Explicit `dtypes={column: dtype}`
+overrides are not implemented yet and are tracked as a follow-up.
 
 For simple row filters, create native predicates and pass them to
 `read_numpy()` or `read_numpy_batches()`:
@@ -206,23 +230,46 @@ stable Python facade.
 
 ## Benchmarks
 
-To compare reader throughput locally:
+To compare lazy row-reader throughput locally:
 
 ```powershell
 python python/benchmarks/compare_readers.py path/to/input.csv
 ```
 
-To compare the streaming EDA script against pandas using the pyarrow CSV engine:
+To run the streaming EDA script against pandas using the pyarrow CSV engine:
 
 ```powershell
 python python/benchmarks/compare_eda.py path/to/input.csv
 ```
 
-To compare a streaming `fastpycsv` filter against pyarrow on the Used Cars-style
-`region == "el paso"` workload:
+This EDA comparison is a bounded-memory streaming sanity check, not a claim that
+arbitrary Python row-loop EDA should beat DataFrame libraries. The fastpycsv
+example is GIL-bound Python aggregation and will usually lose to pandas,
+pyarrow, or Polars for DataFrame-style summaries.
+
+To compare best-path CSV filtering across fastpycsv, pyarrow, and Polars on the
+Used Cars-style `region == "el paso"` workload:
 
 ```powershell
 python python/benchmarks/compare_filter.py path/to/vehicles.csv
+```
+
+Use repeated `--filter` arguments for multi-column filters. Quote filters that
+contain `<` or `>` in PowerShell:
+
+```powershell
+python python/benchmarks/compare_filter.py path/to/vehicles.csv --filter region="el paso" --filter 'price<10000'
+```
+
+The filter head-to-head scripts show one best available path per library:
+fastpycsv uses native predicates with parallel predicate evaluation, pyarrow
+uses CSV projection plus compute kernels, and Polars uses lazy/eager filter
+expressions depending on whether the input is plain CSV or a ZIP member.
+
+To compare ZIP-contained CSV filtering across the same library set:
+
+```powershell
+python python/benchmarks/compare_zip_filter.py path/to/flight_prices.zip
 ```
 
 To compare selected-column CSV-to-NumPy materialization against pyarrow:

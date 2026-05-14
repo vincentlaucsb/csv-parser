@@ -13,6 +13,7 @@ concepts, but ordinary ETL code should not start there.
 | `fastpycsv.read_numpy()` | You want selected CSV columns as eager NumPy arrays. |
 | `fastpycsv.read_numpy_batches()` | You want selected CSV columns as bounded-memory NumPy batches. |
 | `fastpycsv.write_csv()` | You want to stream lazy rows or Python iterables back to CSV. |
+| `fastpycsv.zip_members()` | You want to inspect member names in a ZIP input. |
 
 ## `fastpycsv.reader(csvfile, dialect="excel", **fmtparams)`
 
@@ -38,11 +39,39 @@ Supported formatting options:
 - `consume_header`: consume the first row as column names. Defaults to `True`.
 - `fieldnames`: explicit column names. When provided, the first row is not
   consumed.
+- `member`: ZIP archive member to read when `csvfile` is a `.zip` path.
 - `batch_size`: advanced performance hint for filtered or projected exports.
   Most users can ignore it.
 
 Only the default `excel` dialect is currently supported. Unsupported dialect
 features fail fast instead of silently diverging from stdlib behavior.
+
+Compressed inputs are supported as source adapters, so parser behavior is the
+same as reading the decompressed CSV path. `reader()` accepts `.gz`, `.bz2`,
+`.xz`, `.lzma`, and, on Python versions that provide `compression.zstd`, `.zst`
+and `.zstd` inputs.
+
+ZIP inputs use fastpycsv's native zlib-ng backed reader for stored and deflated
+members, then stream the selected member into the native CSV parser. When a
+`.zip` path contains exactly one CSV-like member (`.csv`, `.tsv`, or `.txt`),
+`reader()` selects it automatically:
+
+```python
+for row in fastpycsv.reader("export.zip"):
+    consume(row)
+```
+
+When an archive has multiple CSV-like members, pass `member=`:
+
+```python
+rows = fastpycsv.reader("export.zip", member="tables/vehicles.csv").dicts().all()
+```
+
+Use `fastpycsv.zip_members(path)` to list non-directory archive members before
+selecting one. Encrypted members, recursive ZIPs, non-deflated ZIP compression
+methods, and ZIP writing are not supported. See
+[Reading Compressed Files](compressed-inputs.md) for format coverage and
+performance notes.
 
 `batch_size` is not the same thing as `.chunks(size)`. For ordinary lazy
 iteration, `reader()` yields one row at a time no matter what `batch_size` is:
@@ -207,7 +236,7 @@ reader.to_dicts(["id", "price"])
 # reader.dicts(["id", "price"]).all()
 ```
 
-## `fastpycsv.read_numpy(path, columns=None, *, cast=True, predicate=None, **fmtparams)`
+## `fastpycsv.read_numpy(path, columns=None, *, cast=True, predicate=None, member=None, **fmtparams)`
 
 Parses selected columns into NumPy arrays keyed by column name.
 
@@ -221,13 +250,13 @@ arrays = fastpycsv.read_numpy("vehicles.csv", columns=["price", "year", "odomete
 `all_of()`. With `cast=True`, fastpycsv classifies scalar fields and maps them to
 NumPy-friendly column types.
 
-`read_numpy()` accepts the same CSV format keywords as `reader()`, including
-`delimiter`, `quotechar`, `skipinitialspace`, `strict`, `consume_header`, and
-`fieldnames`.
+`read_numpy()` accepts the same CSV format keywords and compressed inputs as
+`reader()`, including `delimiter`, `quotechar`, `skipinitialspace`, `strict`,
+`consume_header`, `fieldnames`, and `member` for ZIP inputs.
 
 See [NumPy and pandas](numpy.md) for dtype behavior and batching details.
 
-## `fastpycsv.read_numpy_batches(path, columns=None, *, predicate=None, cast=True, batch_size=50000, schema="sample", **fmtparams)`
+## `fastpycsv.read_numpy_batches(path, columns=None, *, predicate=None, cast=True, batch_size=50000, schema="sample", member=None, **fmtparams)`
 
 Streams dictionaries of NumPy arrays. This is the bounded-memory version of
 `read_numpy()`.
@@ -243,8 +272,19 @@ for arrays in fastpycsv.read_numpy_batches("vehicles.csv", columns=["price", "ye
 - `"global"`: pre-scan the file for stable full-file dtypes.
 - `"batch"`: infer each emitted batch independently.
 
-`read_numpy_batches()` accepts the same CSV format keywords as `reader()` and
-`read_numpy()`.
+`read_numpy_batches()` accepts the same CSV format keywords and compressed
+inputs as `reader()` and `read_numpy()`, including `member` for ZIP inputs.
+
+## `fastpycsv.zip_members(path)`
+
+Returns the non-directory member names from a ZIP archive:
+
+```python
+members = fastpycsv.zip_members("export.zip")
+```
+
+This helper is intentionally read-only. It does not recurse into nested ZIP
+files or decrypt encrypted archives.
 
 For both NumPy readers, `path` and `columns` may be positional. Filtering,
 casting, batching, schema, and CSV format options are keyword-only.

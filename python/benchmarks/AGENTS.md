@@ -1,7 +1,13 @@
 # Python Benchmark Agent Context
 
-This directory contains Python-side benchmark helpers, including
-`compare_readers.py`, `compare_eda.py`, and `compare_filter.py`.
+This directory contains Python-side benchmark helpers. Shared process,
+extension-discovery, and result-formatting plumbing lives in `_support.py`; keep
+individual benchmark scripts focused on the workload they measure.
+
+Subprocess benchmarks should resolve the built `fastpycsv` extension in the
+parent process via `_support.benchmark_env()` and pass
+`FASTPYCSV_EXTENSION_PATH` to workers. Do not make each measured worker
+recursively scan `build/`; that discovery cost swamps small runs and adds noise.
 
 ## Building `fastpycsv`
 
@@ -46,6 +52,10 @@ built `fastpycsv` extension and errors clearly if it is missing:
 python python/benchmarks/compare_readers.py path/to/input.csv
 ```
 
+Most Python comparison scripts accept `--only` to run one library family at a
+time, for example `--only fastpycsv`, `--only pyarrow`, or `--only polars`.
+Repeat `--only` to include a small subset of libraries in one run.
+
 For EDA wall-time and memory comparisons against pandas with the pyarrow CSV
 engine:
 
@@ -56,13 +66,35 @@ python python/benchmarks/compare_eda.py path/to/input.csv
 `compare_eda.py` launches each workload in a fresh Python process and samples
 peak resident/working-set memory. The fastpycsv side uses the bounded approximate
 top-value sketch by default; pass `--fastpycsv-exact-values` only when exact
-histograms are required.
+histograms are required. This script exists to sanity-check bounded-memory
+streaming ergonomics, not to claim that GIL-bound Python row aggregation should
+beat pandas, pyarrow, or Polars on DataFrame-style summaries.
 
-For a streaming filter/subset comparison against pyarrow, defaulting to the
-Craigslist Used Cars `region == "el paso"` workload:
+For best-path CSV filtering across fastpycsv, pyarrow, and Polars, defaulting
+to the Craigslist Used Cars `region == "el paso"` workload:
 
 ```powershell
 python python/benchmarks/compare_filter.py path/to/vehicles.csv
+```
+
+Use repeated `--filter` arguments for multi-column filters. Quote filters that
+contain `<` or `>` in PowerShell:
+
+```powershell
+python python/benchmarks/compare_filter.py path/to/vehicles.csv --filter region="el paso" --filter 'price<10000'
+```
+
+The filter head-to-head scripts should present one best available path per
+library. fastpycsv should use native predicates with
+`FASTPYCSV_PREDICATE_PARALLEL=1`, pyarrow should use CSV projection plus compute
+kernels, and Polars should use lazy/eager filter expressions as appropriate for
+plain CSV vs ZIP member inputs.
+
+For ZIP-contained CSV filtering across the same library set, defaulting to Dil
+Wong's flight prices `destinationAirport == "PHX"` workload:
+
+```powershell
+python python/benchmarks/compare_zip_filter.py path/to/flight_prices.zip
 ```
 
 For selected-column CSV-to-NumPy materialization against pyarrow:
@@ -80,10 +112,11 @@ python python/benchmarks/compare_python_materialization.py path/to/vehicles.csv
 This compares full CSV and first+last-column subset materialization for
 row-oriented `list[dict]` outputs and column-oriented `dict[str, list]` outputs.
 
-The benchmark matrix compares stdlib `csv.reader`, lazy `fastpycsv.reader` rows with
-strings, lazy `fastpycsv.reader` rows with `cast=True`, and stdlib
-`csv.DictReader`. Keep DataFrame/Table libraries out of this script unless the
-benchmark explicitly normalizes outputs first.
+The reader benchmark compares stdlib `csv.reader`, stdlib `csv.DictReader`,
+lazy `fastpycsv.reader` rows with strings, and lazy `fastpycsv.reader` rows with
+`cast=True`. Keep DataFrame/Table libraries and NumPy materialization out of
+this script; those workloads belong in the dedicated materialization
+benchmarks.
 
 Use the same Python version that built `fastpycsv`. A `cp310` extension, for
 example, will not import under Python 3.14.

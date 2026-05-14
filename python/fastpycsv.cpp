@@ -8,6 +8,7 @@ NB_MODULE(fastpycsv, m) {
     init_CSVPredicate(m);
     init_CSVNumpy(m);
     init_CSVWriter(m);
+    init_CSVZip(m);
     init_CSVRow(m);
     init_DataType(m);
     init_CSVField(m);

@@ -46,7 +46,7 @@ less = _native.less
 less_equal = _native.less_equal
 parse_no_header = _native.parse_no_header
 from ._numpy import read_numpy, read_numpy_batches
-from ._reader import reader
+from ._reader import reader, zip_members
 from ._writer import write_csv
 
 __all__ = [
@@ -68,4 +68,5 @@ __all__ = [
     "read_numpy_batches",
     "reader",
     "write_csv",
+    "zip_members",
 ]

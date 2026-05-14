@@ -62,6 +62,7 @@ fastpycsv.write_csv(
 
 quickstart
 api
+compressed-inputs
 numpy
 type-casting
 benchmarks

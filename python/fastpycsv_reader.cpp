@@ -1,6 +1,160 @@
 #include "fastpycsv_bindings.hpp"
 #include "fastpycsv_predicate.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <istream>
+#include <streambuf>
+
+namespace {
+    class PythonReadStreamBuf : public std::streambuf {
+    public:
+        explicit PythonReadStreamBuf(nb::object source)
+            : source_(std::move(source)) {
+            this->setg(this->buffer_.data(), this->buffer_.data(), this->buffer_.data());
+        }
+
+    protected:
+        int_type underflow() override {
+            if (this->gptr() < this->egptr()) {
+                return traits_type::to_int_type(*this->gptr());
+            }
+
+            const std::streamsize size = this->read_into(this->buffer_.data(), this->buffer_.size());
+            if (size <= 0) {
+                return traits_type::eof();
+            }
+
+            this->setg(this->buffer_.data(), this->buffer_.data(), this->buffer_.data() + size);
+            return traits_type::to_int_type(*this->gptr());
+        }
+
+        std::streamsize xsgetn(char* destination, std::streamsize count) override {
+            if (count <= 0) {
+                return 0;
+            }
+
+            std::streamsize total = 0;
+
+            if (this->gptr() < this->egptr()) {
+                const std::streamsize buffered = this->egptr() - this->gptr();
+                const std::streamsize copied = (std::min)(buffered, count);
+                std::memcpy(destination, this->gptr(), static_cast<size_t>(copied));
+                this->gbump(static_cast<int>(copied));
+                destination += copied;
+                total += copied;
+                count -= copied;
+            }
+
+            while (count > 0) {
+                const size_t requested = static_cast<size_t>((std::min<std::streamsize>)(
+                    count,
+                    16 * 1024 * 1024
+                ));
+                const std::streamsize read = this->read_into(destination, requested);
+                if (read <= 0) {
+                    break;
+                }
+
+                destination += read;
+                total += read;
+                count -= read;
+            }
+
+            return total;
+        }
+
+    private:
+        nb::object source_;
+        std::array<char, 256 * 1024> buffer_;
+
+        std::streamsize read_into(char* destination, size_t count) {
+            if (count == 0) {
+                return 0;
+            }
+
+            nb::gil_scoped_acquire gil;
+            if (PyObject_HasAttrString(this->source_.ptr(), "readinto")) {
+                PyObject* view = PyMemoryView_FromMemory(
+                    destination,
+                    static_cast<Py_ssize_t>(count),
+                    PyBUF_WRITE
+                );
+                if (view == nullptr) {
+                    throw nb::python_error();
+                }
+
+                nb::object result = this->source_.attr("readinto")(nb::steal<nb::object>(view));
+                if (result.is_none()) {
+                    return 0;
+                }
+
+                const Py_ssize_t read = PyNumber_AsSsize_t(result.ptr(), PyExc_OverflowError);
+                if (read == -1 && PyErr_Occurred()) {
+                    throw nb::python_error();
+                }
+                if (read < 0 || static_cast<size_t>(read) > count) {
+                    throw nb::value_error("compressed source readinto() returned an invalid byte count");
+                }
+                return static_cast<std::streamsize>(read);
+            }
+
+            nb::object chunk = this->source_.attr("read")(count);
+            PyObject* ptr = chunk.ptr();
+            char* data = nullptr;
+            Py_ssize_t size = 0;
+
+            if (PyBytes_Check(ptr)) {
+                if (PyBytes_AsStringAndSize(ptr, &data, &size) < 0) {
+                    throw nb::python_error();
+                }
+            }
+            else if (PyByteArray_Check(ptr)) {
+                data = PyByteArray_AsString(ptr);
+                size = PyByteArray_Size(ptr);
+            }
+            else if (PyUnicode_Check(ptr)) {
+                const std::string text = nb::cast<std::string>(chunk);
+                if (text.size() > count) {
+                    throw std::runtime_error("compressed source returned more bytes than requested");
+                }
+                std::memcpy(destination, text.data(), text.size());
+                return static_cast<std::streamsize>(text.size());
+            }
+            else if (chunk.is_none()) {
+                return 0;
+            }
+            else {
+                throw nb::type_error("compressed source read() must return bytes or str");
+            }
+
+            if (size <= 0) {
+                return 0;
+            }
+
+            const size_t byte_count = static_cast<size_t>(size);
+            if (byte_count > count) {
+                throw std::runtime_error("compressed source returned more bytes than requested");
+            }
+            std::memcpy(destination, data, byte_count);
+            return static_cast<std::streamsize>(byte_count);
+        }
+    };
+
+    class PythonReadStream : public std::istream {
+    public:
+        explicit PythonReadStream(nb::object source)
+            : std::istream(nullptr),
+              buffer_(std::move(source)) {
+            this->rdbuf(&this->buffer_);
+        }
+
+    private:
+        PythonReadStreamBuf buffer_;
+    };
+}
+
 class LazyCSVRow {
 public:
     LazyCSVRow(CSVRow row, bool cast)
@@ -368,6 +522,30 @@ public:
     ) : reader_(filename, cast ? format.eager_field_classification() : format),
         cast_(cast),
         batch_size_(batch_size == 0 ? 1 : batch_size) {}
+
+    LazyCSVRowReader(
+        nb::object source,
+        CSVFormat format,
+        bool cast,
+        size_t batch_size = 8192
+    ) : reader_(std::unique_ptr<std::istream>(new PythonReadStream(std::move(source))),
+            (cast ? format.eager_field_classification() : format).threading(false)),
+        cast_(cast),
+        batch_size_(batch_size == 0 ? 1 : batch_size) {}
+
+    LazyCSVRowReader(
+        std::unique_ptr<std::istream> source,
+        CSVFormat format,
+        bool cast,
+        size_t batch_size = 8192
+    ) : reader_(std::move(source), cast ? format.eager_field_classification() : format),
+        cast_(cast),
+        batch_size_(batch_size == 0 ? 1 : batch_size) {}
+
+    LazyCSVRowReader(const LazyCSVRowReader&) = delete;
+    LazyCSVRowReader& operator=(const LazyCSVRowReader&) = delete;
+    LazyCSVRowReader(LazyCSVRowReader&&) noexcept = default;
+    LazyCSVRowReader& operator=(LazyCSVRowReader&&) noexcept = default;
 
     LazyCSVRowReader& iter() {
         return *this;
@@ -745,4 +923,28 @@ void init_CSVReader(nb::module_& m){
     .def("to_lists", &LazyCSVRowReader::to_lists, "columns"_a = nb::none())
     .def("to_tuples", &LazyCSVRowReader::to_tuples, "columns"_a = nb::none())
     .def("to_dicts", &LazyCSVRowReader::to_dicts, "columns"_a = nb::none());
+
+    m.def(
+        "_rows_reader_from_stream",
+        [](nb::object source, CSVFormat format, bool cast, size_t batch_size) {
+            return LazyCSVRowReader(std::move(source), std::move(format), cast, batch_size);
+        },
+        "Create a row reader from a Python file-like object using the stream parser.",
+        "source"_a,
+        "format"_a,
+        "cast"_a = false,
+        "batch_size"_a = 8192
+    );
+    m.def(
+        "_rows_reader_from_zip",
+        [](const std::string& path, const std::string& member, CSVFormat format, bool cast, size_t batch_size) {
+            return LazyCSVRowReader(open_zip_member_stream(path, member), std::move(format), cast, batch_size);
+        },
+        "Create a row reader from a ZIP member using the native stream parser.",
+        "path"_a,
+        "member"_a,
+        "format"_a,
+        "cast"_a = false,
+        "batch_size"_a = 8192
+    );
 }

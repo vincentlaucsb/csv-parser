@@ -26,6 +26,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import _support as bench_support
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_PACKAGE_ROOT = REPO_ROOT / "python"
@@ -98,6 +100,12 @@ def _load_fastpycsv_extension_from_build(extension_path: Path) -> None:
 def ensure_fastpycsv_available() -> None:
     if str(PYTHON_PACKAGE_ROOT) not in sys.path:
         sys.path.insert(0, str(PYTHON_PACKAGE_ROOT))
+
+    env_extension = os.environ.get("FASTPYCSV_EXTENSION_PATH")
+    if env_extension:
+        _load_fastpycsv_extension_from_build(Path(env_extension))
+        import fastpycsv  # noqa: F401
+        return
 
     try:
         import fastpycsv  # noqa: F401
@@ -205,12 +213,7 @@ def run_worker(worker: WorkerSpec, args: argparse.Namespace) -> RunResult:
         args.delimiter,
     ]
 
-    env = os.environ.copy()
-    env["PYTHONPATH"] = (
-        str(PYTHON_PACKAGE_ROOT)
-        if not env.get("PYTHONPATH")
-        else str(PYTHON_PACKAGE_ROOT) + os.pathsep + env["PYTHONPATH"]
-    )
+    env = bench_support.benchmark_env()
 
     start = time.perf_counter()
     process = subprocess.Popen(
@@ -550,6 +553,31 @@ def rotated_workers(workers: list[WorkerSpec], offset: int) -> list[WorkerSpec]:
     return workers[start:] + workers[:start]
 
 
+def worker_libraries(worker: WorkerSpec) -> tuple[str, ...]:
+    if worker.worker.startswith("fastpycsv"):
+        return ("fastpycsv",)
+    if worker.worker.startswith("pyarrow"):
+        return ("pyarrow",)
+    if worker.worker.startswith("polars"):
+        return ("polars",)
+    return ()
+
+
+def selected_workers(workers: list[WorkerSpec], only: list[str] | None) -> list[WorkerSpec]:
+    if not only:
+        return workers
+
+    selected = [
+        worker
+        for worker in workers
+        if any(library in worker_libraries(worker) for library in only)
+    ]
+    if not selected:
+        choices = sorted({library for worker in workers for library in worker_libraries(worker)})
+        raise SystemExit(f"--only selected no benchmark workers; available libraries: {', '.join(choices)}")
+    return selected
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("csv_file", type=Path)
@@ -576,6 +604,12 @@ def parse_args() -> argparse.Namespace:
         "--include-full",
         action="store_true",
         help="also benchmark full-CSV list/dict materialization, which is intentionally expensive",
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        choices=("fastpycsv", "pyarrow", "polars"),
+        help="only benchmark one library family; repeat to include more than one",
     )
     parser.add_argument(
         "--worker",
@@ -681,7 +715,7 @@ def main() -> None:
         worker_polars_column_dict(args, subset=True)
         return
 
-    workers = benchmark_workers(args.include_full)
+    workers = selected_workers(benchmark_workers(args.include_full), args.only)
     for run_index in range(args.warmup_runs):
         for worker in rotated_workers(workers, run_index):
             run_worker(worker, args)

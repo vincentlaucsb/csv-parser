@@ -36,6 +36,7 @@ def read_numpy(
     *,
     cast: bool = True,
     predicate=None,
+    member: Optional[str] = None,
     delimiter: str = ",",
     quotechar: Optional[str] = '"',
     doublequote: bool = True,
@@ -53,7 +54,7 @@ def read_numpy(
         consume_header,
         fieldnames,
     )
-    source = _CSVSource(csvfile)
+    source = _CSVSource(csvfile, member)
     try:
         return _native_read_numpy(source.name, fmt, columns, cast, predicate)
     finally:
@@ -68,6 +69,7 @@ def read_numpy_batches(
     cast: bool = True,
     batch_size: int = 50000,
     schema: str = "sample",
+    member: Optional[str] = None,
     delimiter: str = ",",
     quotechar: Optional[str] = '"',
     doublequote: bool = True,
@@ -85,7 +87,7 @@ def read_numpy_batches(
         consume_header,
         fieldnames,
     )
-    source = _CSVSource(csvfile)
+    source = _CSVSource(csvfile, member)
     try:
         reader = _native_read_numpy_batches(source.name, fmt, columns, predicate, cast, batch_size, schema)
     except Exception:

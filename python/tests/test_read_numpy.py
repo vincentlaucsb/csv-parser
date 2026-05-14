@@ -4,7 +4,7 @@ import unittest
 
 import fastpycsv
 
-from tempfiles import temp_csv_path
+from tempfiles import temp_compressed_csv_path, temp_csv_path, temp_zip_path
 
 try:
     import numpy as np
@@ -54,6 +54,71 @@ class ReadNumpyTests(unittest.TestCase):
         self.assertEqual(arrays["ratio"].tolist(), [1.5, 2.25])
         self.assertEqual(arrays["flag"].tolist(), [True, False])
         self.assertEqual(arrays["name"].tolist(), ["alpha", "beta"])
+
+    def test_read_numpy_reads_zip_member(self):
+        path = self.enter_context(temp_zip_path({
+            "data/values.csv": (
+                "name,count,ratio\n"
+                "alpha,1,1.5\n"
+                "beta,2,2.25\n"
+            ),
+        }))
+
+        arrays = fastpycsv.read_numpy(path, columns=["count", "name"])
+
+        self.assertEqual(arrays["count"].tolist(), [1, 2])
+        self.assertEqual(arrays["name"].tolist(), ["alpha", "beta"])
+
+    def test_read_numpy_batches_reads_zip_member(self):
+        path = self.enter_context(temp_zip_path({
+            "skip.txt": "not,csv\n",
+            "data/values.csv": (
+                "id,group\n"
+                "1,keep\n"
+                "2,drop\n"
+                "3,keep\n"
+            ),
+        }))
+
+        batches = list(fastpycsv.read_numpy_batches(
+            path,
+            columns=["id"],
+            member="data/values.csv",
+            predicate=fastpycsv.equal("group", "keep"),
+            batch_size=1,
+        ))
+
+        self.assertEqual(concatenate_batches(batches)["id"].tolist(), [1, 3])
+
+    def test_read_numpy_reads_stdlib_compressed_input(self):
+        path = self.enter_context(temp_compressed_csv_path(
+            "name,count\n"
+            "alpha,1\n"
+            "beta,2\n",
+            ".gz",
+        ))
+
+        arrays = fastpycsv.read_numpy(path, columns=["count"])
+
+        self.assertEqual(arrays["count"].tolist(), [1, 2])
+
+    def test_read_numpy_batches_reads_stdlib_compressed_input(self):
+        path = self.enter_context(temp_compressed_csv_path(
+            "id,group\n"
+            "1,keep\n"
+            "2,drop\n"
+            "3,keep\n",
+            ".xz",
+        ))
+
+        batches = list(fastpycsv.read_numpy_batches(
+            path,
+            columns=["id"],
+            predicate=fastpycsv.equal("group", "keep"),
+            batch_size=1,
+        ))
+
+        self.assertEqual(concatenate_batches(batches)["id"].tolist(), [1, 3])
 
     def test_read_numpy_widens_nullable_int_float_and_bool(self):
         path = self.enter_context(temp_csv_path(
