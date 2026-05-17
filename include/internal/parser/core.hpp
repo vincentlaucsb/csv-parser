@@ -266,7 +266,7 @@ namespace csv {
                 data.field_scalars.emplace_back(internals::classify_field_scalar(field_str));
             }
 
-            std::uint32_t append_realized_quoted_field(
+            CSVChunkIndex append_realized_quoted_field(
                 RawCSVData& data,
                 size_t field_start,
                 size_t field_length,

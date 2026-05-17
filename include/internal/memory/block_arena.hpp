@@ -7,13 +7,11 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "../common.hpp"
-#include "constants.hpp"
 
 namespace csv {
     namespace internals {
@@ -30,9 +28,9 @@ namespace csv {
                 struct Allocation {
                     Allocation() : offset(0), data(nullptr) {}
 
-                    Allocation(std::uint32_t offset_, T* data_) : offset(offset_), data(data_) {}
+                    Allocation(CSVChunkIndex offset_, T* data_) : offset(offset_), data(data_) {}
 
-                    std::uint32_t offset = 0;
+                    CSVChunkIndex offset = 0;
                     T* data = nullptr;
                 };
 
@@ -142,9 +140,9 @@ namespace csv {
                 std::atomic<size_t> size_{ 0 };
                 std::atomic<size_t> block_count_{ 0 };
 
-                std::uint32_t checked_offset(size_t value) const noexcept {
-                    assert(value <= INVALID_REALIZED_OFFSET);
-                    return static_cast<std::uint32_t>(value);
+                CSVChunkIndex checked_offset(size_t value) const noexcept {
+                    assert(value <= CSV_CHUNK_INDEX_MAX);
+                    return static_cast<CSVChunkIndex>(value);
                 }
 
                 void allocate_block(size_t required_capacity) {

@@ -36,6 +36,7 @@ namespace csv {
              *  Must be called before set_col_names() for CI policy to take effect.
              */
             void set_policy(csv::ColumnNamePolicy policy);
+            csv::ColumnNamePolicy get_policy() const noexcept;
 
             bool empty() const noexcept { return this->col_names.empty(); }
             size_t size() const noexcept;

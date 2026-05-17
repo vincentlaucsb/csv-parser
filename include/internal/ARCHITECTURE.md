@@ -52,6 +52,12 @@ Two independent parser paths exist and must be kept behaviorally aligned:
   - Parse configuration (delimiter/quote/trim/header/chunk size/policies).
   - Runtime threading can be disabled per reader with `CSVFormat::threading(false)`.
 
+- DataFrame
+  - Batch-oriented facade over `CSVRow` objects with keyed access, sparse edit
+    overlays, column views, and row-like writer compatibility.
+  - Public types remain in namespace `csv`, while implementation headers are
+    split under `include/internal/data_frame/` to keep each proxy/helper focused.
+
 ### Parsing core
 
 - CSVParserCore

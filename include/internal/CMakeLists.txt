@@ -33,7 +33,6 @@ target_sources(csv
 		csv_writer.hpp
 		data_type.hpp
 		memory/block_arena.hpp
-		memory/constants.hpp
 		memory/quote_arena.hpp
 		memory/raw_csv_field.hpp
 		memory/raw_csv_field_list.hpp

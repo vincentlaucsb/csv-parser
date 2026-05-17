@@ -598,6 +598,188 @@ TEST_CASE("DataFrame: cell assignment tracks independent edits across rows and c
     REQUIRE(names[1] == "NewName2");
 }
 
+
+TEST_CASE("DataFrame: row insert", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+        "4,Carol,30\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    frame.insert_row(2, { "3", "Charlie", "25" });
+
+    REQUIRE(frame.size() == 4);
+    REQUIRE(frame.at(2)["name"].get<std::string>() == "Charlie");
+    REQUIRE(frame["3"]["value"].get<std::string>() == "25");
+    REQUIRE(frame.at(3)["id"].get<std::string>() == "4");
+    REQUIRE(frame.at(3).key() == "4");
+}
+
+TEST_CASE("DataFrame: inserted row stores logical field values", "[data_frame]") {
+    std::istringstream input(
+        "id,name,note\n"
+        "1,Alice,plain\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+
+    frame.insert_row(1, { "2", "Comma, Quote\"", "line 1\nline 2" });
+
+    REQUIRE(frame.size() == 2);
+    REQUIRE(frame.at(1)["id"].get<std::string>() == "2");
+    REQUIRE(frame.at(1)["name"].get<std::string>() == "Comma, Quote\"");
+    REQUIRE(frame.at(1)["note"].get<std::string>() == "line 1\nline 2");
+}
+
+TEST_CASE("DataFrame: row insert validates shape and duplicate keys", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    REQUIRE_THROWS_AS(frame.insert_row(3, { "3", "Carol", "30" }), std::out_of_range);
+    REQUIRE_THROWS_AS(frame.insert_row(1, { "3", "Carol" }), std::invalid_argument);
+    REQUIRE_THROWS_AS(frame.insert_row(1, { "2", "Bobby", "21" }), std::runtime_error);
+    REQUIRE(frame.size() == 2);
+    REQUIRE(frame["2"]["name"].get<std::string>() == "Bob");
+}
+
+TEST_CASE("DataFrame: row insert rejects custom-keyed frames", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(
+        reader,
+        [](const CSVRow& row) {
+            return row["name"].get<std::string>();
+        },
+        DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST
+    );
+
+    REQUIRE_THROWS_AS(frame.insert_row(1, { "3", "Carol", "30" }), std::runtime_error);
+}
+
+TEST_CASE("DataFrame: column insert materializes visible rows", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+
+    frame.at(0)["name"] = "Alicia";
+    frame.insert_column(1, "note", "x,y");
+
+    REQUIRE(frame.n_cols() == 4);
+    REQUIRE(frame.columns() == std::vector<std::string>{"id", "note", "name", "value"});
+    REQUIRE(frame.at(0)["id"].get<std::string>() == "1");
+    REQUIRE(frame.at(0)["note"].get<std::string>() == "x,y");
+    REQUIRE(frame.at(0)["name"].get<std::string>() == "Alicia");
+    REQUIRE(frame.at(1)["note"].get<std::string>() == "x,y");
+    REQUIRE(frame.column("note") == std::vector<std::string>{"x,y", "x,y"});
+    REQUIRE(frame.at(0).to_json() == "{\"id\":1,\"note\":\"x,y\",\"name\":\"Alicia\",\"value\":10}");
+
+    frame.at(0)["note"] = "edited";
+    REQUIRE(frame.at(0)["note"].get<std::string>() == "edited");
+
+    std::stringstream output;
+    auto writer = make_csv_writer(output);
+    writer << frame.columns();
+    for (auto& row : frame) {
+        writer << std::vector<std::string>(row);
+    }
+
+    REQUIRE(output.str() ==
+        "id,note,name,value\n"
+        "1,edited,Alicia,10\n"
+        "2,\"x,y\",Bob,20\n"
+    );
+}
+
+TEST_CASE("DataFrame: column insert preserves keyed access", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    frame.insert_column(0, "prefix", "row");
+
+    REQUIRE(frame.n_cols() == 4);
+    REQUIRE(frame.contains("1"));
+    REQUIRE(frame.contains("2"));
+    REQUIRE(frame["1"]["prefix"].get<std::string>() == "row");
+    REQUIRE(frame["1"]["name"].get<std::string>() == "Alice");
+    REQUIRE(frame["2"].key() == "2");
+}
+
+TEST_CASE("DataFrame: column insert preserves custom-keyed access", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(
+        reader,
+        [](const CSVRow& row) {
+            return row["name"].get<std::string>();
+        },
+        DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST
+    );
+
+    frame.insert_column(2, "note", "ok");
+
+    REQUIRE(frame.contains("Alice"));
+    REQUIRE(frame.contains("Bob"));
+    REQUIRE(frame["Alice"]["note"].get<std::string>() == "ok");
+    REQUIRE(frame["Bob"]["value"].get<std::string>() == "20");
+}
+
+TEST_CASE("DataFrame: column insert validates position and names", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVFormat format;
+    format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
+    CSVReader reader(input, format);
+    DataFrame<> frame(reader);
+
+    REQUIRE_THROWS_AS(frame.insert_column(4, "extra"), std::out_of_range);
+    REQUIRE_THROWS_AS(frame.insert_column(1, ""), std::invalid_argument);
+    REQUIRE_THROWS_AS(frame.insert_column(1, "NAME"), std::invalid_argument);
+
+    frame.append_column("extra", "ok");
+    REQUIRE(frame.n_cols() == 4);
+    REQUIRE(frame.has_column("EXTRA"));
+    REQUIRE(frame.at(0)["EXTRA"].get<std::string>() == "ok");
+}
+
+TEST_CASE("DataFrame: column insert supports empty frames", "[data_frame]") {
+    DataFrame<> frame;
+
+    frame.insert_column(0, "A", "unused");
+    frame.append_column("B");
+
+    REQUIRE(frame.n_rows() == 0);
+    REQUIRE(frame.n_cols() == 2);
+    REQUIRE(frame.columns() == std::vector<std::string>{"A", "B"});
+}
+
 TEST_CASE("DataFrame: row erase shifts sparse edit indices", "[data_frame]") {
     std::istringstream input(
         "id,name,value\n"

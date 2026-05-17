@@ -13,7 +13,6 @@
 
 #include "col_names.hpp"
 #include "common.hpp"
-#include "memory/constants.hpp"
 #include "memory/field_scalar_list.hpp"
 #include "memory/quote_arena.hpp"
 #include "memory/raw_csv_field.hpp"
@@ -23,7 +22,6 @@ namespace csv {
     namespace internals {
         class JsonConverter;
 
-        using memory::INVALID_REALIZED_OFFSET;
         using memory::CSVFieldScalarList;
         using memory::RawCSVField;
         using memory::RawCSVFieldList;
