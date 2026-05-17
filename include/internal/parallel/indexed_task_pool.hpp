@@ -21,7 +21,10 @@ namespace csv {
         class IndexedTaskPool {
         public:
             explicit IndexedTaskPool(size_t worker_count)
-                : worker_count_(worker_count) {
+#if CSV_ENABLE_THREADS
+                : worker_count_(worker_count)
+#endif
+            {
                 this->start_workers(worker_count);
             }
 
@@ -92,9 +95,9 @@ namespace csv {
                 }
             }
 
+#if CSV_ENABLE_THREADS
             size_t worker_count_ = 0;
 
-#if CSV_ENABLE_THREADS
             void start_workers(size_t worker_count) {
                 if (worker_count <= 1) {
                     return;
