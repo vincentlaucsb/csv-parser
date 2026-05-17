@@ -55,14 +55,14 @@ namespace csv {
             return this->make_cell(n);
         }
 
-        /** Get the number of fields in the row. */
-        size_t size() const { return row->size(); }
+        /** Get the number of visible fields in the row. */
+        size_t size() const { return frame ? frame->n_cols() : row->size(); }
 
         /** Check if the row is empty. */
-        bool empty() const { return row->empty(); }
+        bool empty() const { return this->size() == 0; }
 
         /** Get column names. */
-        const std::vector<std::string>& get_col_names() const { return row->get_col_names(); }
+        const std::vector<std::string>& get_col_names() const { return frame ? frame->columns() : row->get_col_names(); }
 
         /** Get the underlying CSVRow for compatibility. */
         const CSVRow& get_underlying_row() const { return *row; }
@@ -85,9 +85,9 @@ namespace csv {
         /** Convert to vector of strings for CSVWriter compatibility. */
         operator std::vector<std::string>() const {
             std::vector<std::string> result;
-            result.reserve(row->size());
+            result.reserve(this->size());
             
-            for (size_t i = 0; i < row->size(); i++) {
+            for (size_t i = 0; i < this->size(); i++) {
                 result.push_back(this->make_cell(i).template get<std::string>());
             }
             return result;
@@ -147,12 +147,20 @@ namespace csv {
         }
 
         DataFrameCell make_cell(size_t col_index) {
+            if (frame) {
+                col_index = frame->physical_column_index(col_index);
+            }
+
             return can_mutate
                 ? DataFrameCell(row, const_cast<RowOverlay*>(row_overlay), col_index)
                 : DataFrameCell(row, row_overlay, col_index);
         }
 
         DataFrameCell make_cell(size_t col_index) const {
+            if (frame) {
+                col_index = frame->physical_column_index(col_index);
+            }
+
             return DataFrameCell(row, row_overlay, col_index);
         }
 

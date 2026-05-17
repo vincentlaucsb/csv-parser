@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -20,13 +22,25 @@ namespace csv {
         using iterator = internals::indexed_proxy_iterator<const DataFrameColumn<KeyType>, DataFrameCell, cell_accessor>;
         using const_iterator = iterator;
 
-        DataFrameColumn() : frame_(nullptr), col_index_(0) {}
+        DataFrameColumn() : frame_(nullptr), mutable_frame_(nullptr), col_index_(0), generation_value_(0) {}
 
         DataFrameColumn(const DataFrame<KeyType>* frame, size_t col_index)
-            : frame_(frame), col_index_(col_index) {}
+            : frame_(frame),
+            mutable_frame_(nullptr),
+            col_index_(col_index),
+            generation_(frame ? frame->column_generation_ : std::shared_ptr<size_t>()),
+            generation_value_(generation_ ? *generation_ : 0) {}
+
+        DataFrameColumn(DataFrame<KeyType>* frame, size_t col_index)
+            : frame_(frame),
+            mutable_frame_(frame),
+            col_index_(col_index),
+            generation_(frame ? frame->column_generation_ : std::shared_ptr<size_t>()),
+            generation_value_(generation_ ? *generation_ : 0) {}
 
         /** Column name. */
         const std::string& name() const {
+            this->require_valid();
             return (*frame_->col_names_)[col_index_];
         }
 
@@ -37,6 +51,10 @@ namespace csv {
 
         /** Number of rows in the parent batch. */
         size_t size() const noexcept {
+            if (!this->is_valid()) {
+                return 0;
+            }
+
             return frame_->size();
         }
 
@@ -47,9 +65,10 @@ namespace csv {
 
         /** Access a visible cell value by row index. */
         DataFrameCell operator[](size_t row_index) const {
+            this->require_valid();
             const auto& row = frame_->rows.at(row_index);
             const auto* row_edits = frame_->find_row_edits(row_index);
-            return DataFrameCell(&row, row_edits, col_index_);
+            return DataFrameCell(&row, row_edits, frame_->physical_column_index(col_index_));
         }
 
         /** Access a visible cell value as a string_view without materializing a DataFrameCell.
@@ -59,14 +78,16 @@ namespace csv {
          *  storage and must not be retained across DataFrame mutation.
          */
         csv::string_view get_sv(size_t row_index) const {
+            this->require_valid();
             const auto& row = frame_->rows.at(row_index);
             const auto* row_edits = frame_->find_row_edits(row_index);
+            const size_t physical_index = frame_->physical_column_index(col_index_);
             csv::string_view edited_value;
-            if (row_edits && row_edits->try_get_view(col_index_, edited_value)) {
+            if (row_edits && row_edits->try_get_view(physical_index, edited_value)) {
                 return edited_value;
             }
 
-            return row[col_index_].template get<csv::string_view>();
+            return row[physical_index].template get<csv::string_view>();
         }
 
         /** Materialize this column as a vector of converted values. */
@@ -85,6 +106,18 @@ namespace csv {
         /** Convert to a vector of strings. */
         operator std::vector<std::string>() const {
             return this->to_vector<std::string>();
+        }
+
+        /** Delete this column from the parent DataFrame.
+         *
+         *  Structural mutation invalidates outstanding row, column, and cell proxies.
+         */
+        bool erase() {
+            if (!mutable_frame_) {
+                throw std::runtime_error("cannot erase column from const DataFrame");
+            }
+
+            return mutable_frame_->erase_column_at_index(col_index_);
         }
 
 #ifdef CSV_HAS_CXX20
@@ -107,7 +140,20 @@ namespace csv {
         const_iterator cend() const { return const_iterator(this, this->size()); }
 
     private:
+        bool is_valid() const noexcept {
+            return generation_ && *generation_ == generation_value_;
+        }
+
+        void require_valid() const {
+            if (!this->is_valid()) {
+                throw std::runtime_error("DataFrameColumn proxy is invalid after structural column mutation");
+            }
+        }
+
         const DataFrame<KeyType>* frame_;
+        DataFrame<KeyType>* mutable_frame_;
         size_t col_index_;
+        std::shared_ptr<size_t> generation_;
+        size_t generation_value_;
     };
 }

@@ -780,6 +780,105 @@ TEST_CASE("DataFrame: column insert supports empty frames", "[data_frame]") {
     REQUIRE(frame.columns() == std::vector<std::string>{"A", "B"});
 }
 
+TEST_CASE("DataFrame: column erase hides the column without reparsing rows", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+
+    frame.at(0)["name"] = "Alicia";
+    auto name_column = frame.column_view("name");
+    REQUIRE(name_column.erase());
+
+    REQUIRE(frame.n_cols() == 2);
+    REQUIRE(frame.columns() == std::vector<std::string>{"id", "value"});
+    REQUIRE_FALSE(frame.has_column("name"));
+    REQUIRE(frame.at(0).size() == 2);
+    REQUIRE(frame.at(0)["id"].get<std::string>() == "1");
+    REQUIRE(frame.at(0)["value"].get<std::string>() == "10");
+    REQUIRE(frame.column("value") == std::vector<std::string>{"10", "20"});
+    REQUIRE(frame.at(0).to_json() == "{\"id\":1,\"value\":10}");
+
+    std::stringstream output;
+    auto writer = make_csv_writer(output);
+    writer << frame.columns();
+    for (auto& row : frame) {
+        writer << std::vector<std::string>(row);
+    }
+
+    REQUIRE(output.str() ==
+        "id,value\n"
+        "1,10\n"
+        "2,20\n"
+    );
+}
+
+TEST_CASE("DataFrame: row insert after column erase expands to physical storage", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    REQUIRE(frame.column_view("name").erase());
+    frame.insert_row(1, { "3", "30" });
+
+    REQUIRE(frame.size() == 3);
+    REQUIRE(frame.columns() == std::vector<std::string>{"id", "value"});
+    REQUIRE(frame["3"]["value"].get<std::string>() == "30");
+    REQUIRE(frame.at(2)["value"].get<std::string>() == "20");
+}
+
+TEST_CASE("DataFrame: column erase rejects key and const columns", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader, "id", DataFrameOptions::DuplicateKeyPolicy::KEEP_FIRST);
+
+    REQUIRE_THROWS_AS(frame.column_view("id").erase(), std::runtime_error);
+
+    const auto& cframe = frame;
+    auto const_column = cframe.column_view("name");
+    REQUIRE_THROWS_AS(const_column.erase(), std::runtime_error);
+
+    REQUIRE(frame.column_view("name").erase());
+    REQUIRE(frame.contains("1"));
+    REQUIRE(frame["1"]["value"].get<std::string>() == "10");
+}
+
+TEST_CASE("DataFrame: erased column proxy is invalidated", "[data_frame]") {
+    std::istringstream input(
+        "id,name,value\n"
+        "1,Alice,10\n"
+        "2,Bob,20\n"
+    );
+    CSVReader reader(input);
+    DataFrame<> frame(reader);
+
+    auto name_column = frame.column_view("name");
+    REQUIRE(name_column.erase());
+
+    REQUIRE(name_column.size() == 0);
+    REQUIRE_THROWS_AS(name_column.name(), std::runtime_error);
+    REQUIRE_THROWS_AS(name_column[0], std::runtime_error);
+    REQUIRE_THROWS_AS(name_column.get_sv(0), std::runtime_error);
+
+    size_t iterated = 0;
+    for (const auto& field : name_column) {
+        (void)field;
+        ++iterated;
+    }
+    REQUIRE(iterated == 0);
+}
+
 TEST_CASE("DataFrame: row erase shifts sparse edit indices", "[data_frame]") {
     std::istringstream input(
         "id,name,value\n"
