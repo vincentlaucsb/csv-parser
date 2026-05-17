@@ -2,18 +2,23 @@
 #include "csv.hpp"
 #include "shared/file_guard.hpp"
 
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#if !defined(__EMSCRIPTEN__)
+#include <fstream>
+#endif
+
 using namespace csv;
 
 namespace {
+#if !defined(__EMSCRIPTEN__)
     void write_file(const std::string& filename, const std::string& content) {
         std::ofstream out(filename, std::ios::binary);
         out << content;
     }
+#endif
 
     std::vector<size_t> row_offsets(CSVReader& reader) {
         std::vector<size_t> offsets;
