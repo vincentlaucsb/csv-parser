@@ -36,6 +36,9 @@ namespace csv {
             std::shared_ptr<void> _data = nullptr;
             csv::string_view data = "";
 
+            /** Absolute byte offset where this parsed chunk starts in the source. */
+            size_t source_start = 0;
+
             internals::RawCSVFieldList fields;
 
             /** Optional parser-time scalar sidecar; empty unless eager classification is enabled. */

@@ -13,13 +13,45 @@ namespace csv {
     template<typename KeyType>
     class DataFrameColumn {
     public:
-        struct cell_accessor {
-            DataFrameCell operator()(const DataFrameColumn<KeyType>* owner, size_t row_index) const {
-                return owner->operator[](row_index);
+        class iterator {
+        public:
+            using value_type = DataFrameCell;
+            using difference_type = std::ptrdiff_t;
+            using reference = DataFrameCell;
+            using iterator_category = std::input_iterator_tag;
+
+            iterator() = default;
+            iterator(const DataFrameColumn<KeyType>* owner, size_t row_index)
+                : owner_(owner), row_index_(row_index) {}
+
+            DataFrameCell operator*() const {
+                return (*owner_)[row_index_];
             }
+
+            iterator& operator++() {
+                ++row_index_;
+                return *this;
+            }
+
+            iterator operator++(int) {
+                auto tmp = *this;
+                ++(*this);
+                return tmp;
+            }
+
+            bool operator==(const iterator& other) const {
+                return owner_ == other.owner_ && row_index_ == other.row_index_;
+            }
+
+            bool operator!=(const iterator& other) const {
+                return !(*this == other);
+            }
+
+        private:
+            const DataFrameColumn<KeyType>* owner_ = nullptr;
+            size_t row_index_ = 0;
         };
 
-        using iterator = internals::indexed_proxy_iterator<const DataFrameColumn<KeyType>, DataFrameCell, cell_accessor>;
         using const_iterator = iterator;
 
         DataFrameColumn() : frame_(nullptr), mutable_frame_(nullptr), col_index_(0), generation_value_(0) {}

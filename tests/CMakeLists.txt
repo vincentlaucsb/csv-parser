@@ -30,6 +30,7 @@ target_sources(csv_test
         test_csv_format.cpp
         test_csv_iterator.cpp
         test_csv_ranges.cpp
+        test_csv_row_offsets.cpp
         test_csv_row.cpp
         test_csv_row_json.cpp
         test_speculative_parser.cpp

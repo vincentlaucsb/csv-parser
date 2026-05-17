@@ -564,6 +564,11 @@ namespace csv {
         /** Return the number of fields in this row */
         CONSTEXPR size_t size() const noexcept { return row_length; }
 
+        /** Return the absolute byte offset where this row starts in the source. */
+        size_t byte_offset() const noexcept {
+            return this->data ? this->data->source_start + this->data_start : 0;
+        }
+
         /** @name Value Retrieval */
         ///@{
         CSVField operator[](size_t n) const;

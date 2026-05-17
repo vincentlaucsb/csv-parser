@@ -163,7 +163,7 @@ namespace csv {
                 fragment.bytes,
                 fragment.owner,
                 rows,
-                ParserChunkOptions(ParserDFAState(), false)
+                ParserChunkOptions(ParserDFAState(), false, fragment.offset)
             );
             parser.end_feed();
             return rows;
@@ -181,7 +181,7 @@ namespace csv {
                 chunk.chunk,
                 chunk.owner,
                 parsed_rows,
-                ParserChunkOptions(corrected_initial_state, chunk.scan_bom)
+                ParserChunkOptions(corrected_initial_state, chunk.scan_bom, chunk.offset)
             );
 
             return split_parsed_chunk_rows(

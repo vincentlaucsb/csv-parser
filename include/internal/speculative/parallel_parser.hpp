@@ -144,7 +144,7 @@ namespace csv {
                     chunk.bytes,
                     chunk.owner,
                     rows,
-                    ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.scan_bom)
+                    ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.scan_bom, chunk.offset)
                 );
 
                 ParsedChunkRows result = split_parsed_chunk_rows(

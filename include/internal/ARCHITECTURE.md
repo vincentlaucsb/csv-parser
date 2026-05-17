@@ -107,6 +107,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - RawCSVData
   - Shared chunk payload and per-chunk parse metadata.
+  - Stores `source_start`, the absolute source byte offset for the backing
+    chunk; `CSVRow::byte_offset()` combines it with the row-local `data_start`.
 
 - RawCSVFieldList
   - Compact field metadata storage (start/length/quote flags).
@@ -149,6 +151,7 @@ CSVReader
          | RawCSVData               |
          | - _data: shared_ptr<void>|
          | - data: string_view      |
+         | - source_start: size_t   |
          | - fields: RawCSVFieldList|
          +------------+-------------+
                       ^

@@ -130,11 +130,18 @@ namespace csv {
 
         struct ParserChunkOptions {
             ParserChunkOptions() noexcept = default;
-            explicit ParserChunkOptions(ParserDFAState initial_state, bool scan_bom = true) noexcept
-                : initial_state(initial_state), scan_bom(scan_bom) {}
+            explicit ParserChunkOptions(
+                ParserDFAState initial_state,
+                bool scan_bom = true,
+                size_t source_start = 0
+            ) noexcept
+                : initial_state(initial_state),
+                  scan_bom(scan_bom),
+                  source_start(source_start) {}
 
             ParserDFAState initial_state;
             bool scan_bom = true;
+            size_t source_start = 0;
         };
 
         struct ParserChunkResult {
@@ -474,6 +481,20 @@ namespace csv {
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
                 RowSink& output,
+                size_t source_start
+            ) {
+                return this->parse_chunk(
+                    chunk,
+                    std::move(owner),
+                    output,
+                    ParserChunkOptions(this->initial_state_, true, source_start)
+                );
+            }
+
+            ParserChunkResult parse_chunk(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                RowSink& output,
                 const ParserChunkOptions& options
             ) {
                 this->output_ = &output;
@@ -795,6 +816,7 @@ namespace csv {
                 this->reset_data_ptr();
                 this->data_ptr_->_data = std::move(owner);
                 this->data_ptr_->data = chunk;
+                this->data_ptr_->source_start = options.source_start;
                 this->data_ptr_->fields.reserve_for_source_size(chunk.size());
                 this->data_ptr_->field_scalars.reserve_for_source_size(chunk.size());
                 this->data_ptr_->quote_arena.reserve_for_source_size(chunk.size());

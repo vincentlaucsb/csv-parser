@@ -127,13 +127,13 @@ namespace csv {
                     );
                 }
 #else
-                (void)base_offset;
                 (void)serial_chunk_size;
 #endif
 
                 return this->parse_serial_window(
                     chunk,
                     std::move(owner),
+                    base_offset,
                     source_exhausted,
                     output
                 );
@@ -143,6 +143,7 @@ namespace csv {
             CSVParseWindowResult parse_serial_window(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
+                size_t base_offset,
                 bool source_exhausted,
                 RowCollection& output
             ) {
@@ -150,7 +151,8 @@ namespace csv {
                 const ParserChunkResult parse_result = this->serial_parser_.parse_chunk(
                     chunk,
                     std::move(owner),
-                    output
+                    output,
+                    base_offset
                 );
                 result.complete_prefix_length = parse_result.complete_prefix_length;
                 if (source_exhausted) {
