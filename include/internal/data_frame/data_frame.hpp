@@ -622,7 +622,6 @@ namespace csv {
             this->is_keyed = true;
             this->col_names_ = reader.col_names_ptr();
             this->physical_col_names_ = this->col_names_;
-            this->reset_visible_column_indices();
             const std::string key_column = options.get_key_column();
 
             if (key_column.empty())
