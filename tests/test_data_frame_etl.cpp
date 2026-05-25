@@ -199,6 +199,17 @@ TEST_CASE("DataFrame ETL: column_parallel_apply sees edited values", "[data_fram
     REQUIRE(summaries[2].non_empty == 2);
 }
 
+TEST_CASE("DataFrame ETL: executor skips zero tasks", "[data_frame][etl]") {
+    DataFrameExecutor executor(2);
+    size_t calls = 0;
+
+    executor.parallel_for(0, [&calls](size_t) {
+        ++calls;
+    });
+
+    REQUIRE(calls == 0);
+}
+
 TEST_CASE("DataFrame ETL: column_parallel_apply selected columns use matching states", "[data_frame][etl]") {
     auto input = make_people_stream();
     CSVReader reader(input);

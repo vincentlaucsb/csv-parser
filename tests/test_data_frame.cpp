@@ -45,6 +45,16 @@ TEST_CASE("DataFrame: basic helpers", "[data_frame]") {
     REQUIRE_THROWS_AS(frame.at(99), std::out_of_range);
 
     REQUIRE(frame.at(2)["name"].get<std::string>() == "Carol");
+
+    const auto& cframe = frame;
+    REQUIRE_THROWS_AS(cframe.column_view(cframe.n_cols()), std::out_of_range);
+}
+
+TEST_CASE("DataFrame: default cell is empty", "[data_frame]") {
+    DataFrameCell cell;
+
+    REQUIRE(cell.get_sv().empty());
+    REQUIRE(cell.is_null());
 }
 
 TEST_CASE("DataFrame: preserves CSVReader column name policy", "[data_frame]") {
@@ -135,6 +145,9 @@ TEST_CASE("DataFrame: column iteration respects visible values", "[data_frame]")
     REQUIRE(name_col.begin()->get<std::string>() == "Alicia");
     REQUIRE(name_col.get_sv(0) == "Alicia");
     REQUIRE(name_col.get_sv(1) == "Bob");
+
+    auto value_col = frame.column_view("value");
+    REQUIRE(value_col.get_sv(0) == "10");
     REQUIRE_THROWS_AS(frame.column_view(frame.n_cols()), std::out_of_range);
 }
 

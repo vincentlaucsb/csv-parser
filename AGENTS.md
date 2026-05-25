@@ -40,6 +40,8 @@ CSVReader reader(infile, format);
 
 For detailed file mapping, parser data flow, and component relationships, see `ARCHITECTURE.md` and `include/internal/ARCHITECTURE.md`.
 
+For Codecov/API-based coverage review workflow, see `CODECOV_AGENTS.md`.
+
 ## Common Pitfalls
 
 1. **Don't assume one code path:** Mmap and stream paths are different. Always test both.
