@@ -816,6 +816,10 @@ namespace csv {
         }
 
         void validate_inserted_row(const std::vector<std::string>& row) const {
+            if (this->n_cols() == 0 && !row.empty()) {
+                throw std::invalid_argument("cannot insert a non-empty row into a DataFrame without columns");
+            }
+
             if (this->col_names_ && !this->col_names_->empty() && row.size() != this->n_cols()) {
                 throw std::invalid_argument("inserted row field count must match DataFrame column count");
             }

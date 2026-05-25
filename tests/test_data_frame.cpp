@@ -132,6 +132,7 @@ TEST_CASE("DataFrame: column iteration respects visible values", "[data_frame]")
     REQUIRE(name_col.index() == 1);
     REQUIRE(name_col.size() == 2);
     REQUIRE(values == std::vector<std::string>{"Alicia", "Bob"});
+    REQUIRE(name_col.begin()->get<std::string>() == "Alicia");
     REQUIRE(name_col.get_sv(0) == "Alicia");
     REQUIRE(name_col.get_sv(1) == "Bob");
     REQUIRE_THROWS_AS(frame.column_view(frame.n_cols()), std::out_of_range);
@@ -618,6 +619,17 @@ TEST_CASE("DataFrame: row insert", "[data_frame]") {
     REQUIRE(frame.at(3).key() == "4");
 }
 
+TEST_CASE("DataFrame: row insert rejects non-empty rows without schema", "[data_frame]") {
+    DataFrame<> frame;
+
+    REQUIRE_THROWS_AS(frame.insert_row(0, { "orphaned" }), std::invalid_argument);
+
+    frame.insert_row(0, {});
+    REQUIRE(frame.size() == 1);
+    REQUIRE(frame.n_cols() == 0);
+    REQUIRE(frame.at(0).empty());
+}
+
 TEST_CASE("DataFrame: inserted row stores logical field values", "[data_frame]") {
     std::istringstream input(
         "id,name,note\n"
@@ -865,6 +877,7 @@ TEST_CASE("DataFrame: erased column proxy is invalidated", "[data_frame]") {
 
     auto name_column = frame.column_view("name");
     REQUIRE(name_column.erase());
+    REQUIRE_THROWS_AS(name_column.erase(), std::runtime_error);
 
     REQUIRE(name_column.size() == 0);
     REQUIRE_THROWS_AS(name_column.name(), std::runtime_error);

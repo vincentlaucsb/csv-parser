@@ -57,6 +57,9 @@ Two independent parser paths exist and must be kept behaviorally aligned:
     overlays, column views, and row-like writer compatibility.
   - Public types remain in namespace `csv`, while implementation headers are
     split under `include/internal/data_frame/` to keep each proxy/helper focused.
+  - Iterator APIs follow the library's cached-proxy convention: iterators store
+    the current proxy and expose reference/pointer-like `operator*` and
+    `operator->`, as `CSVReader` and `CSVRow` do.
   - DataFrame is deliberately row-backed. Structural edits use the simplest
     reliable strategy for each operation instead of forcing a uniform storage
     abstraction: row insert/erase mutate row vectors directly, column insert

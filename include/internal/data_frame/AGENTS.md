@@ -41,6 +41,9 @@ compaction/materialization API over adding hot-path indirection for all access.
 - Sparse overlays are keyed by physical column index. Any feature that changes
   physical row storage or logical-to-physical mapping must account for existing
   overlays.
+- DataFrame iterators should follow the library's cached-proxy convention:
+  store the current proxy inside the iterator and expose `operator*` /
+  `operator->` reference-like access, as `CSVReader` and `CSVRow` do.
 
 ## Test Expectations
 
@@ -56,4 +59,3 @@ Structural edit tests should cover:
 - JSON output
 - column lookup by name and index
 - attempts to mutate through const proxies
-
