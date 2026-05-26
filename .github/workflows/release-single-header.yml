@@ -20,15 +20,14 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: "3.x"
+    - name: Create release asset directory
+      run: mkdir -p release-assets
 
     - name: Generate single header
-      run: |
-        mkdir -p release-assets
-        python single_header.py release-assets/csv.hpp
+      uses: vincentlaucsb/single_header@0.1.0
+      with:
+        config: single_header.json
+        output: release-assets/csv.hpp
 
     - name: Generate SHA256 checksum
       run: |

@@ -82,10 +82,11 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
+    - name: Install single_header
+      id: single-header
+      uses: vincentlaucsb/single_header@0.1.0
       with:
-        python-version: '3.x'
+        run: "false"
 
     - name: Cache CMake FetchContent dependencies
       uses: actions/cache@v5
@@ -107,6 +108,7 @@ jobs:
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCSV_CXX_STANDARD=${{ matrix.cxx_standard }}
         -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
+        -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
@@ -187,10 +189,11 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
+    - name: Install single_header
+      id: single-header
+      uses: vincentlaucsb/single_header@0.1.0
       with:
-        python-version: '3.x'
+        run: "false"
 
     - name: Cache CMake FetchContent dependencies
       uses: actions/cache@v5
@@ -209,6 +212,7 @@ jobs:
         -DCSV_ENABLE_THREADS=OFF
         -DCSV_CXX_STANDARD=20
         -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
+        -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
         -DCMAKE_CROSSCOMPILING_EMULATOR=node
         -DCMAKE_BUILD_TYPE=Release
         -S ${{ github.workspace }}

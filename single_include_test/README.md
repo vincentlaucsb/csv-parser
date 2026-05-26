@@ -9,13 +9,14 @@ Specifically, it ensures that:
 
 ## How It Works
 
-1. **Build time:** CMake generates `csv.hpp` into `build/single_include_generated/` by running `single_header.py`
+1. **Build time:** CMake generates `csv.hpp` into `build/single_include_generated/` by running the configured `single_header` executable
 2. **Compilation:** This test project compiles all `.cpp` files against the generated header
 3. **CI validation:** The smoke test runs on every commit, ensuring the header is always valid
 
 ## Local Testing
 
 ```bash
+cmake -S . -B build -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON -DCSV_SINGLE_HEADER_EXECUTABLE=/path/to/single_header
 cd build
 cmake --build . --target single_include_test
 ```

@@ -1,0 +1,11 @@
+{
+  "includeRoots": [
+    "include"
+  ],
+  "output": "csv.hpp",
+  "entry": "include/csv.hpp",
+  "rewriteMacros": {
+    "CSV_INLINE": "inline"
+  },
+  "implementationMarker": "/** INSERT_CSV_SOURCES **/"
+}

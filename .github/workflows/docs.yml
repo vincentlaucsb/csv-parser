@@ -47,7 +47,10 @@ jobs:
     - name: Generate single header
       # Drops csv.hpp into docs/html so it is served at the same Pages URL
       # as the Doxygen docs: https://<owner>.github.io/csv-parser/csv.hpp
-      run: python single_header.py docs/html/csv.hpp
+      uses: vincentlaucsb/single_header@0.1.0
+      with:
+        config: single_header.json
+        output: docs/html/csv.hpp
 
     - name: Upload Pages artifact
       uses: actions/upload-pages-artifact@v3

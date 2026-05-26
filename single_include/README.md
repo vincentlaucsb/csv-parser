@@ -34,10 +34,10 @@ No build configuration needed — everything is self-contained in the single fil
 To generate the amalgamated header yourself:
 
 ```bash
-python single_header.py output_path/csv.hpp
+single_header --config single_header.json --output output_path/csv.hpp
 ```
 
-This reads all source files from `include/` and produces a completely self-contained header file.
+This reads the generation settings from `single_header.json`, pulls source files from `include/`, and produces a completely self-contained header file.
 
 ### Validation
 
@@ -49,6 +49,7 @@ The CI pipeline automatically validates the generated header by:
 Run the smoke test locally:
 
 ```bash
+cmake -S . -B build -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON -DCSV_SINGLE_HEADER_EXECUTABLE=/path/to/single_header
 cd build
 cmake --build . --target single_include_test
 ```
