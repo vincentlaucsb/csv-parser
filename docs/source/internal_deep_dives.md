@@ -10,4 +10,3 @@ users can stay with the README and public API reference.
 - @subpage csv_field_journey
 - @subpage threadsafe_deque_design
 - @subpage bom_stripping_refactor
-- @subpage thread_pool_refactor

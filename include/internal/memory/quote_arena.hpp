@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cstdint>
 
 #include "../common.hpp"
 #include "block_arena.hpp"
@@ -18,7 +17,7 @@ namespace csv {
             public:
                 RawCSVQuoteArena() : arena_(internals::PAGE_SIZE) {}
 
-                std::uint32_t append(csv::string_view bytes) {
+                CSVChunkIndex append(csv::string_view bytes) {
                     if (bytes.empty()) {
                         return this->checked_offset(this->arena_.size());
                     }
@@ -44,9 +43,9 @@ namespace csv {
             private:
                 RawCSVBlockArena<char> arena_;
 
-                std::uint32_t checked_offset(size_t value) const noexcept {
-                    assert(value <= INVALID_REALIZED_OFFSET);
-                    return static_cast<std::uint32_t>(value);
+                CSVChunkIndex checked_offset(size_t value) const noexcept {
+                    assert(value <= CSV_CHUNK_INDEX_MAX);
+                    return static_cast<CSVChunkIndex>(value);
                 }
             };
         }

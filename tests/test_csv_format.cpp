@@ -225,18 +225,18 @@ TEST_CASE("CSVFormat - runtime threading switch disables speculative workers", "
 #endif
 }
 
-TEST_CASE("CSVFormat - chunk_size rejects values larger than uint32_t", "[csv_format]") {
+TEST_CASE("CSVFormat - chunk_size rejects values larger than CSV_CHUNK_SIZE_MAX", "[csv_format]") {
     CSVFormat format;
 
-    if ((std::numeric_limits<size_t>::max)() <= (std::numeric_limits<std::uint32_t>::max)()) {
-        SUCCEED("size_t cannot represent a chunk size larger than uint32_t on this platform");
+    if ((std::numeric_limits<size_t>::max)() <= internals::CSV_CHUNK_SIZE_MAX) {
+        SUCCEED("size_t cannot represent a chunk size larger than CSV_CHUNK_SIZE_MAX on this platform");
         return;
     }
 
-    const size_t too_large = static_cast<size_t>((std::numeric_limits<std::uint32_t>::max)()) + 1;
+    const size_t too_large = internals::CSV_CHUNK_SIZE_MAX + 1;
     REQUIRE_THROWS_WITH(
         format.chunk_size(too_large),
-        internals::make_chunk_size_ceiling_error((std::numeric_limits<std::uint32_t>::max)(), too_large)
+        internals::make_chunk_size_ceiling_error(internals::CSV_CHUNK_SIZE_MAX, too_large)
     );
 }
 

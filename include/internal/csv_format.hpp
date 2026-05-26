@@ -136,7 +136,7 @@ namespace csv {
         /** Sets the chunk size used when reading the CSV
          *
          *  @param[in] size Chunk size in bytes (minimum: CSV_CHUNK_SIZE_FLOOR)
-         *  @throws std::invalid_argument if size < CSV_CHUNK_SIZE_FLOOR or size > UINT32_MAX
+         *  @throws std::invalid_argument if size < CSV_CHUNK_SIZE_FLOOR or size > CSV_CHUNK_SIZE_MAX
          *
          *  Use this when constructing a CSVReader from a filename and individual rows
          *  may exceed the default 10MB chunk size. The value is passed to CSVReader at

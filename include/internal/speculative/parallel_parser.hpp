@@ -1,12 +1,8 @@
 #pragma once
 
+#include "../parallel/indexed_task_pool.hpp"
 #include "scanner.hpp"
 #include "validator.hpp"
-
-#if CSV_ENABLE_THREADS
-#include <condition_variable>
-#include <thread>
-#endif
 
 #if CSV_ENABLE_THREADS
 
@@ -86,13 +82,11 @@ namespace csv {
             ) : parse_flags_(parse_flags),
                 ws_flags_(ws_flags),
                 col_names_(col_names),
-                worker_count_(worker_count == 0 ? 1 : worker_count) {
-                this->start_workers();
+                task_pool_(worker_count == 0 ? 1 : worker_count) {
+                this->init_worker_parsers();
             }
 
-            ~ParallelCSVParser() {
-                this->stop_workers();
-            }
+            ~ParallelCSVParser() {}
 
             ParallelCSVParser(const ParallelCSVParser&) = delete;
             ParallelCSVParser& operator=(const ParallelCSVParser&) = delete;
@@ -150,7 +144,7 @@ namespace csv {
                     chunk.bytes,
                     chunk.owner,
                     rows,
-                    ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.scan_bom)
+                    ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.scan_bom, chunk.offset)
                 );
 
                 ParsedChunkRows result = split_parsed_chunk_rows(
@@ -170,7 +164,7 @@ namespace csv {
                 const std::vector<SpeculativeParseChunk>& chunks,
                 std::vector<ParsedChunkRows>& parsed
             ) {
-                if (this->worker_count_ > 1 && chunks.size() > 1) {
+                if (this->task_pool_.worker_count() > 1 && chunks.size() > 1) {
                     this->parse_chunks_parallel(chunks, parsed);
                     return;
                 }
@@ -185,140 +179,37 @@ namespace csv {
                 const std::vector<SpeculativeParseChunk>& chunks,
                 std::vector<ParsedChunkRows>& parsed
             ) {
-                if (this->workers_.empty()) {
-                    ChunkParserCoreT<EagerClassify> parser(this->parse_flags_, this->ws_flags_, this->col_names_);
-                    for (size_t i = 0; i < chunks.size(); ++i) {
-                        parsed[i] = this->parse_chunk_with(parser, chunks[i]);
-                    }
+                this->task_pool_.parallel_for(chunks.size(), [this, &chunks, &parsed](
+                    size_t worker_index,
+                    size_t task_index
+                ) {
+                    CSV_DEBUG_ASSERT(worker_index < this->worker_parsers_.size());
+                    parsed[task_index] = this->parse_chunk_with(
+                        this->worker_parsers_[worker_index],
+                        chunks[task_index]
+                    );
+                });
+            }
+
+            void init_worker_parsers() {
+                const size_t worker_count = this->task_pool_.worker_count();
+                if (worker_count <= 1) {
                     return;
                 }
 
-                std::exception_ptr worker_exception;
-                {
-                    std::unique_lock<std::mutex> lock(this->work_mutex_);
-                    this->active_chunks_ = &chunks;
-                    this->active_parsed_ = &parsed;
-                    this->next_task_ = 0;
-                    this->completed_workers_ = 0;
-                    this->failed_ = false;
-                    this->worker_exception_ = nullptr;
-                    this->generation_++;
-                }
-
-                this->work_ready_.notify_all();
-
-                {
-                    std::unique_lock<std::mutex> lock(this->work_mutex_);
-                    this->work_done_.wait(lock, [this]() {
-                        return this->completed_workers_ == this->workers_.size();
-                    });
-                    worker_exception = this->worker_exception_;
-                    this->active_chunks_ = nullptr;
-                    this->active_parsed_ = nullptr;
-                }
-
-                if (worker_exception) {
-                    std::rethrow_exception(worker_exception);
-                }
-            }
-
-            void start_workers() {
-                if (this->worker_count_ <= 1) {
-                    return;
-                }
-
-                this->workers_.reserve(this->worker_count_);
-                for (size_t i = 0; i < this->worker_count_; ++i) {
-                    this->workers_.push_back(std::thread(&ParallelCSVParser<EagerClassify>::worker_loop, this));
-                }
-            }
-
-            void stop_workers() {
-                {
-                    std::lock_guard<std::mutex> lock(this->work_mutex_);
-                    this->stop_ = true;
-                    this->generation_++;
-                }
-                this->work_ready_.notify_all();
-
-                for (size_t i = 0; i < this->workers_.size(); ++i) {
-                    if (this->workers_[i].joinable()) {
-                        this->workers_[i].join();
-                    }
-                }
-            }
-
-            void worker_loop() {
-                ChunkParserCoreT<EagerClassify> parser(this->parse_flags_, this->ws_flags_, this->col_names_);
-                size_t observed_generation = 0;
-
-                for (;;) {
-                    {
-                        std::unique_lock<std::mutex> lock(this->work_mutex_);
-                        this->work_ready_.wait(lock, [this, &observed_generation]() {
-                            return this->stop_ || this->generation_ != observed_generation;
-                        });
-
-                        if (this->stop_) {
-                            return;
-                        }
-                        observed_generation = this->generation_;
-                    }
-
-                    for (;;) {
-                        size_t task = 0;
-                        const std::vector<SpeculativeParseChunk>* chunks = nullptr;
-                        std::vector<ParsedChunkRows>* parsed = nullptr;
-                        {
-                            std::lock_guard<std::mutex> lock(this->work_mutex_);
-                            if (this->failed_ || this->next_task_ >= this->active_chunks_->size()) {
-                                break;
-                            }
-
-                            task = this->next_task_++;
-                            chunks = this->active_chunks_;
-                            parsed = this->active_parsed_;
-                        }
-
-                        try {
-                            (*parsed)[task] = this->parse_chunk_with(parser, (*chunks)[task]);
-                        }
-                        catch (...) {
-                            std::lock_guard<std::mutex> lock(this->work_mutex_);
-                            this->failed_ = true;
-                            if (!this->worker_exception_) {
-                                this->worker_exception_ = std::current_exception();
-                            }
-                            break;
-                        }
-                    }
-
-                    {
-                        std::lock_guard<std::mutex> lock(this->work_mutex_);
-                        this->completed_workers_++;
-                        if (this->completed_workers_ == this->workers_.size()) {
-                            this->work_done_.notify_one();
-                        }
-                    }
+                this->worker_parsers_.reserve(worker_count);
+                for (size_t i = 0; i < worker_count; ++i) {
+                    this->worker_parsers_.push_back(
+                        ChunkParserCoreT<EagerClassify>(this->parse_flags_, this->ws_flags_, this->col_names_)
+                    );
                 }
             }
 
             ParseFlagMap parse_flags_;
             WhitespaceMap ws_flags_;
             ColNamesPtr col_names_;
-            size_t worker_count_;
-            std::vector<std::thread> workers_;
-            std::mutex work_mutex_;
-            std::condition_variable work_ready_;
-            std::condition_variable work_done_;
-            const std::vector<SpeculativeParseChunk>* active_chunks_ = nullptr;
-            std::vector<ParsedChunkRows>* active_parsed_ = nullptr;
-            size_t next_task_ = 0;
-            size_t completed_workers_ = 0;
-            size_t generation_ = 0;
-            bool stop_ = false;
-            bool failed_ = false;
-            std::exception_ptr worker_exception_;
+            internals::parallel::IndexedTaskPool task_pool_;
+            std::vector<ChunkParserCoreT<EagerClassify>> worker_parsers_;
         };
         }
     }

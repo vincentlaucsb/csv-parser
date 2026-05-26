@@ -7,8 +7,10 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <deque>
+#include <limits>
 #include <memory>
 #if !defined(CSV_ENABLE_THREADS) || CSV_ENABLE_THREADS
 #include <mutex>
@@ -98,12 +100,12 @@
 #  define CSV_CPLUSPLUS __cplusplus
 #endif
 
-#if CSV_CPLUSPLUS >= 202002L
-#define CSV_HAS_CXX20
-#endif
-
 #if CSV_CPLUSPLUS >= 202302L
 #define CSV_HAS_CXX23
+#endif
+
+#if CSV_CPLUSPLUS >= 202002L
+#define CSV_HAS_CXX20
 #endif
 
 #if CSV_CPLUSPLUS >= 201703L
@@ -406,6 +408,13 @@ namespace csv {
          * @see parser/mmap.cpp MmapParser::next() for chunk transition logic
          */
         constexpr size_t CSV_CHUNK_SIZE_DEFAULT = 10000000; // 10MB
+
+        /** Type used to represent the location of a CSV byte within a larger chunk. */
+        typedef std::uint32_t CSVChunkIndex;
+
+        CONSTEXPR_VALUE_14 CSVChunkIndex CSV_CHUNK_INDEX_MAX = (std::numeric_limits<CSVChunkIndex>::max)();
+
+        CONSTEXPR_VALUE_14 size_t CSV_CHUNK_SIZE_MAX = CSV_CHUNK_INDEX_MAX;
 
         /** Minimum supported custom chunk size for CSVFormat::chunk_size().
          *

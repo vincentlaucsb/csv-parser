@@ -11,14 +11,14 @@ on:
     branches: [ "master" ]
     paths:
       - "include/**"
-      - "single_header.py"
+      - "single_header.json"
       - "CMakeLists.txt"
       - ".github/workflows/compat-edge-cases.yml"
   pull_request:
     branches: [ "master" ]
     paths:
       - "include/**"
-      - "single_header.py"
+      - "single_header.json"
       - "CMakeLists.txt"
       - ".github/workflows/compat-edge-cases.yml"
   workflow_dispatch:
@@ -37,10 +37,11 @@ jobs:
     - name: Set up MSVC developer command prompt
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
+    - name: Install single_header
+      id: single-header
+      uses: vincentlaucsb/single_header@0.1.0
       with:
-        python-version: '3.x'
+        run: "false"
 
     - name: Cache CMake FetchContent dependencies
       uses: actions/cache@v5
@@ -55,6 +56,7 @@ jobs:
         -DCSV_CXX_STANDARD=20
         -DCSV_BUILD_PROGRAMS=OFF
         -DBUILD_PYTHON=OFF
+        -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
 
     - name: Generate amalgamated single-header
       run: cmake --build ${{ github.workspace }}/build/no-zc-cplusplus --config Release --target generate_single_header

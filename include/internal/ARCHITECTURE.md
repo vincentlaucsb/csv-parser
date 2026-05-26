@@ -52,6 +52,21 @@ Two independent parser paths exist and must be kept behaviorally aligned:
   - Parse configuration (delimiter/quote/trim/header/chunk size/policies).
   - Runtime threading can be disabled per reader with `CSVFormat::threading(false)`.
 
+- DataFrame
+  - Batch-oriented facade over `CSVRow` objects with keyed access, sparse edit
+    overlays, column views, and row-like writer compatibility.
+  - Public types remain in namespace `csv`, while implementation headers are
+    split under `include/internal/data_frame/` to keep each proxy/helper focused.
+  - Iterator APIs follow the library's cached-proxy convention: iterators store
+    the current proxy and expose reference/pointer-like `operator*` and
+    `operator->`, as `CSVReader` and `CSVRow` do.
+  - DataFrame is deliberately row-backed. Structural edits use the simplest
+    reliable strategy for each operation instead of forcing a uniform storage
+    abstraction: row insert/erase mutate row vectors directly, column insert
+    materializes visible rows into fresh row storage, and column erase hides the
+    visible column with a logical-to-physical mapping while keeping underlying
+    `CSVRow` storage intact.
+
 ### Parsing core
 
 - CSVParserCore
@@ -95,6 +110,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - RawCSVData
   - Shared chunk payload and per-chunk parse metadata.
+  - Stores `source_start`, the absolute source byte offset for the backing
+    chunk; `CSVRow::byte_offset()` combines it with the row-local `data_start`.
 
 - RawCSVFieldList
   - Compact field metadata storage (start/length/quote flags).
@@ -137,6 +154,7 @@ CSVReader
          | RawCSVData               |
          | - _data: shared_ptr<void>|
          | - data: string_view      |
+         | - source_start: size_t   |
          | - fields: RawCSVFieldList|
          +------------+-------------+
                       ^
@@ -217,6 +235,30 @@ field view. `CSVField` owns scalar classification and typed conversion caching.
 ### Bounded streaming semantics
 
 Avoid designs that force retaining all parsed chunks globally.
+
+### DataFrame structural edit strategy
+
+`DataFrame` is a row-backed editing facade, not a columnar analytics engine.
+Keep normal row access and streaming-friendly storage simple; do not add
+columnar indirection to every hot-path field access solely to make structural
+edit strategies symmetric.
+
+Current structural edit policy:
+
+- Row insert/erase: mutate `rows`, `keys_`, and sparse row-overlay slots
+  directly because rows are the native storage unit.
+- Column insert: write the current visible table, including sparse overlay
+  edits, through the CSV writer and reparse it into fresh row storage. This
+  bakes visible edits into the rebuilt rows and clears sparse overlays.
+- Column erase: soft-delete the visible column by removing it from the visible
+  column-name list and logical-to-physical column map. Underlying `CSVRow`
+  storage is intentionally left unchanged.
+
+This asymmetry is intentional. The consistent principle is to use the cheapest
+reliable operation that preserves visible semantics and keeps ordinary row
+access simple. If repeated soft deletes leave too much hidden physical storage,
+prefer adding an explicit compaction/materialization operation over making all
+row access pay for a columnar model.
 
 ### CSVReader::iterator is single-pass by design
 

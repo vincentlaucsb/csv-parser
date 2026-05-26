@@ -3,8 +3,6 @@
  */
 
 #include <algorithm>
-#include <cstdint>
-#include <limits>
 #include <set>
 
 #include "csv_format.hpp"
@@ -56,7 +54,7 @@ namespace csv {
         if (size < internals::CSV_CHUNK_SIZE_FLOOR) {
             throw std::invalid_argument(internals::make_chunk_size_error(internals::CSV_CHUNK_SIZE_FLOOR, size));
         }
-        const size_t max_chunk_size = (std::numeric_limits<std::uint32_t>::max)();
+        const size_t max_chunk_size = internals::CSV_CHUNK_SIZE_MAX;
         if (size > max_chunk_size) {
             throw std::invalid_argument(internals::make_chunk_size_ceiling_error(max_chunk_size, size));
         }

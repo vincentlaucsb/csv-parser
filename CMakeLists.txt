@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_PYTHON "Build Python Binding" OFF)
-option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires Python)" OFF)
+option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires single_header)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
 option(CSV_NO_SIMD "Disable SIMD fast paths at compile time" OFF)
@@ -204,18 +204,23 @@ if (CSV_DEVELOPER)
     endif()
 
     # Generate a single header library
-    if(CMAKE_VERSION VERSION_LESS "3.12")
-      find_package(PythonInterp 3 QUIET)
-    else()
-      find_package(Python3 COMPONENTS Interpreter)
+    set(CSV_SINGLE_HEADER_EXECUTABLE "" CACHE FILEPATH "Path to the single_header executable")
+    if(CSV_SINGLE_HEADER_EXECUTABLE AND NOT EXISTS "${CSV_SINGLE_HEADER_EXECUTABLE}")
+      message(STATUS "Ignoring missing CSV_SINGLE_HEADER_EXECUTABLE=${CSV_SINGLE_HEADER_EXECUTABLE}")
+      set(CSV_SINGLE_HEADER_EXECUTABLE "" CACHE FILEPATH "Path to the single_header executable" FORCE)
     endif()
-    if(Python3_Interpreter_FOUND OR PYTHONINTERP_FOUND)
-      if(Python3_Interpreter_FOUND)
-        set(CSV_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
-      else()
-        set(CSV_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+    if(NOT CSV_SINGLE_HEADER_EXECUTABLE)
+      find_program(_CSV_SINGLE_HEADER_EXECUTABLE_FOUND
+          NAMES single_header single_header.exe
+          HINTS ${CSV_ROOT_DIR}
+      )
+      if(_CSV_SINGLE_HEADER_EXECUTABLE_FOUND)
+        set(CSV_SINGLE_HEADER_EXECUTABLE "${_CSV_SINGLE_HEADER_EXECUTABLE_FOUND}" CACHE FILEPATH "Path to the single_header executable" FORCE)
       endif()
+      unset(_CSV_SINGLE_HEADER_EXECUTABLE_FOUND CACHE)
+    endif()
 
+    if(CSV_SINGLE_HEADER_EXECUTABLE)
       set(CSV_SINGLE_INCLUDE_GENERATED_DIR ${CSV_BUILD_DIR}/single_include_generated)
       set(CSV_SINGLE_INCLUDE_GENERATED_HEADER ${CSV_SINGLE_INCLUDE_GENERATED_DIR}/csv.hpp)
           file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
@@ -227,9 +232,11 @@ if (CSV_DEVELOPER)
       add_custom_command(
           OUTPUT ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           COMMAND ${CMAKE_COMMAND} -E make_directory ${CSV_SINGLE_INCLUDE_GENERATED_DIR}
-          COMMAND ${CSV_PYTHON_EXECUTABLE} single_header.py ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+          COMMAND ${CSV_SINGLE_HEADER_EXECUTABLE}
+            --config ${CSV_ROOT_DIR}/single_header.json
+            --output ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
-            DEPENDS ${CSV_ROOT_DIR}/single_header.py ${CSV_SINGLE_HEADER_INPUTS}
+            DEPENDS ${CSV_ROOT_DIR}/single_header.json ${CSV_SINGLE_HEADER_INPUTS}
           COMMENT "Generating single-header csv.hpp"
       )
 
@@ -244,9 +251,9 @@ if (CSV_DEVELOPER)
           add_subdirectory(single_include_test EXCLUDE_FROM_ALL)
       endif()
     else()
-      message(WARNING "Python3 not found, skipping target 'generate_single_header'.")
+      message(WARNING "single_header executable not found, skipping target 'generate_single_header'.")
       if(CSV_BUILD_SINGLE_INCLUDE_TEST)
-        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a Python 3 interpreter for single-header generation.")
+        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires the single_header executable.")
       endif()
     endif()
 

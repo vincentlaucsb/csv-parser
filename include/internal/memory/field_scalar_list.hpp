@@ -13,7 +13,6 @@
 
 #include "../common.hpp"
 #include "../data_type.hpp"
-#include "constants.hpp"
 
 namespace csv {
     namespace internals {

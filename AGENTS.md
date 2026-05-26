@@ -40,6 +40,8 @@ CSVReader reader(infile, format);
 
 For detailed file mapping, parser data flow, and component relationships, see `ARCHITECTURE.md` and `include/internal/ARCHITECTURE.md`.
 
+For Codecov/API-based coverage review workflow, see `CODECOV_AGENTS.md`.
+
 ## Common Pitfalls
 
 1. **Don't assume one code path:** Mmap and stream paths are different. Always test both.
@@ -75,6 +77,7 @@ See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 9. **Keep constructor initializer lists in declaration order.** C++ initializes bases and members in declaration order, not initializer-list order. When adding or editing a constructor, order its initializer list to match the class declaration exactly so GCC/Clang `-Wreorder` stays clean and readers do not infer a false initialization dependency.
 10. **Internal folder namespaces should match folder structure.** When adding or moving files under `include/internal/`, place their contents in the matching nested namespace when practical. For example, `include/internal/speculative/` maps to `csv::internals::speculative`, and `include/internal/parser/` maps to `csv::internals::parser`. Do not churn existing files solely for this rule unless the namespace move is part of an intentional architecture cleanup.
 11. **Do not accidentally pass large objects by value.** Use `const&` for observation, `&` for mutation, and `&&` / by-value-with-an-explicit-`std::move` for ownership transfer. If passing a large object by value is intentional, make the consuming semantics obvious at the call site or add a brief comment.
+12. **Prefer cached-proxy iterators for facade/view types.** For iterators over logical views such as `CSVReader`, `CSVRow`, `DataFrameRow`, and `DataFrameColumn`, keep the library convention of storing the current proxy in the iterator and returning reference/pointer-like access from `operator*` and `operator->`. Use value-returning iterators only when there is a specific correctness reason and document the tradeoff.
 
 ### Rules for Comments
 1. **Always update or remove incorrect comments.**

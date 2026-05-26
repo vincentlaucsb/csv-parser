@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "../common.hpp"
-#include "constants.hpp"
 #include "raw_csv_field.hpp"
 
 namespace csv {

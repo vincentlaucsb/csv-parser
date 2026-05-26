@@ -44,6 +44,10 @@ namespace csv {
             this->_policy = policy;
         }
 
+        CSV_INLINE csv::ColumnNamePolicy ColNames::get_policy() const noexcept {
+            return this->_policy;
+        }
+
         CSV_INLINE size_t ColNames::size() const noexcept {
             return this->col_names.size();
         }
