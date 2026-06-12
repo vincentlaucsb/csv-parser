@@ -1,5 +1,11 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 project(csv)
+
+# enable MSVC_RUNTIME_LIBRARY target property
+# see https://cmake.org/cmake/help/latest/policy/CMP0091.html
+if(POLICY CMP0091)
+  cmake_policy(SET CMP0091 NEW)
+endif()
 
 if(DEFINED CSV_CXX_STANDARD AND NOT "${CSV_CXX_STANDARD}" STREQUAL "")
 	set(CMAKE_CXX_STANDARD ${CSV_CXX_STANDARD})
