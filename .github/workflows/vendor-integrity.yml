@@ -1,0 +1,17 @@
+name: Vendored header integrity
+on:
+  push:
+    branches: [master]
+    paths: ['include/external/classify_scalar.*', 'tools/sync_classify_scalar.py', '.github/workflows/vendor-integrity.yml', '.gitattributes']
+  pull_request:
+    branches: [master]
+    paths: ['include/external/classify_scalar.*', 'tools/sync_classify_scalar.py', '.github/workflows/vendor-integrity.yml', '.gitattributes']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 tools/sync_classify_scalar.py --check

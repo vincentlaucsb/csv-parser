@@ -52,9 +52,16 @@ function(add_csv_parser_test_target target_name)
         )
     endif()
 
+    set(_csv_test_filters)
+    if(ENABLE_CODE_COVERAGE)
+        # Repeated stress loops add little line coverage and become brittle
+        # under instrumentation. Normal and sanitizer jobs still run them.
+        list(APPEND _csv_test_filters "~[stress]")
+    endif()
+
     add_test(
         NAME ${target_name}
-        COMMAND ${target_name} --verbosity high --durations yes
+        COMMAND ${target_name} ${_csv_test_filters} --verbosity high --durations yes
         WORKING_DIRECTORY ${CSV_ROOT_DIR}
     )
 endfunction()

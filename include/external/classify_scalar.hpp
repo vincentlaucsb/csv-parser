@@ -1,5 +1,5 @@
 /*
-classify_scalar, version 1.1.0
+classify_scalar, version 1.1.1
 https://github.com/vincentlaucsb/classify_scalar
 
 MIT License
@@ -28,7 +28,7 @@ SOFTWARE.
 #pragma once
 
 #if defined(CLASSIFY_SCALAR_VERSION)
-#if CLASSIFY_SCALAR_VERSION >= 10100
+#if CLASSIFY_SCALAR_VERSION >= 10101
 #define CLASSIFY_SCALAR_SKIP_HEADER
 #else
 #error "A newer classify_scalar.hpp was included after an older copy. Include the newest copy first."
@@ -36,8 +36,8 @@ SOFTWARE.
 #else
 #define CLASSIFY_SCALAR_VERSION_MAJOR 1
 #define CLASSIFY_SCALAR_VERSION_MINOR 1
-#define CLASSIFY_SCALAR_VERSION_PATCH 0
-#define CLASSIFY_SCALAR_VERSION 10100
+#define CLASSIFY_SCALAR_VERSION_PATCH 1
+#define CLASSIFY_SCALAR_VERSION 10101
 #endif
 
 #ifndef CLASSIFY_SCALAR_SKIP_HEADER
@@ -132,8 +132,16 @@ SOFTWARE.
 #include <system_error>
 #endif
 
-#if defined(CLASSIFY_SCALAR_HAS_CXX17) && !defined(_LIBCPP_VERSION) && !defined(CLASSIFY_SCALAR_DISABLE_STD_FLOAT_FROM_CHARS)
+#if defined(CLASSIFY_SCALAR_HAS_CXX17) && !defined(CLASSIFY_SCALAR_DISABLE_STD_FLOAT_FROM_CHARS)
+// A build-system compile/link probe may override the standard feature macro.
+// A negative probe must not fall through to the feature-macro fallback.
+#if defined(CLASSIFY_SCALAR_USE_STD_FLOAT_FROM_CHARS)
+#if CLASSIFY_SCALAR_USE_STD_FLOAT_FROM_CHARS
 #define CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
+#endif
+#elif defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
+#define CLASSIFY_SCALAR_HAS_STD_FLOAT_FROM_CHARS
+#endif
 #endif
 
 namespace classify_scalar {

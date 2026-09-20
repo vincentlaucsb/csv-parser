@@ -65,6 +65,12 @@ TEST_CASE("My test") {
 
 ### Testing Conventions
 
+Tests tagged `[stress]` run in normal and sanitizer configurations but are
+excluded from CTest runs when `ENABLE_CODE_COVERAGE=ON`. Repeated timing-sensitive
+loops add little line coverage and can exceed their deadlines under coverage
+instrumentation. Keep focused regression tests untagged so coverage still
+exercises the underlying behavior.
+
 #### Tests Should Expose Bugs, Not Assert Them
 
 When writing a test for a known bug, assert correct behavior (even if it currently fails), not buggy behavior.

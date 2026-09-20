@@ -112,7 +112,7 @@ TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
 }
 
 TEST_CASE("ThreadSafeDeque concurrent stress test",
-          "[threading][race_condition]") {
+          "[threading][race_condition][stress]") {
     // Stress test: rapidly create and iterate many small CSVs
     // to maximize the chance of hitting the race window
     SECTION("Rapid sequential small CSV parsing") {

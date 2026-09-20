@@ -59,6 +59,8 @@ For Codecov/API-based coverage review workflow, see `CODECOV_AGENTS.md`.
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 
 ### Rules for Coding
+Keep `include/external/classify_scalar.hpp` identical to its pinned upstream source. Fix it in `vincentlaucsb/classify_scalar`, then use `python tools/sync_classify_scalar.py --ref <tag-or-commit>` and `--check`; do not patch the vendored copy. See `include/external/README.md` for the release/sync workflow.
+
 1. **Use compatibility macros defined in `common.hpp`** for cross-compiler or cross-standard concerns. If it doesn't exist, consider creating one.
 2. **Compatibility macros defined in `common.hpp` MUST be referenced only after including `common.hpp`** to ensure correctness.
 3. **Prefer compile time control flow and assertions where possible**. For example, if a branch may be safely written with `if constexpr`, then use the `IF_CONSTEXPR` macro (from `common.hpp`) to ensure C++11 compatibility while ensuring optimal control flow for C++17 and later users.

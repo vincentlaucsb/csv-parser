@@ -49,6 +49,9 @@ if(CSV_NO_SIMD)
 	target_compile_definitions(csv PUBLIC CSV_NO_SIMD=1)
 endif()
 
+target_compile_definitions(csv PUBLIC
+	CLASSIFY_SCALAR_USE_STD_FLOAT_FROM_CHARS=$<BOOL:${CSV_HAS_STD_FLOATING_POINT_FROM_CHARS}>)
+
 if(CSV_ENABLE_THREADS)
 	target_compile_definitions(csv PUBLIC CSV_ENABLE_THREADS=1)
 	target_link_libraries(csv PRIVATE Threads::Threads)
@@ -69,6 +72,8 @@ get_target_property(_csv_sources csv SOURCES)
 target_sources(csv_no_simd PRIVATE ${_csv_sources})
 set_target_properties(csv_no_simd PROPERTIES LINKER_LANGUAGE CXX)
 target_compile_definitions(csv_no_simd PUBLIC CSV_NO_SIMD=1)
+target_compile_definitions(csv_no_simd PUBLIC
+	CLASSIFY_SCALAR_USE_STD_FLOAT_FROM_CHARS=$<BOOL:${CSV_HAS_STD_FLOATING_POINT_FROM_CHARS}>)
 if(CSV_ENABLE_THREADS)
 	target_compile_definitions(csv_no_simd PUBLIC CSV_ENABLE_THREADS=1)
 	target_link_libraries(csv_no_simd PRIVATE Threads::Threads)

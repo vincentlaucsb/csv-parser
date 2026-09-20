@@ -1,0 +1,52 @@
+name: Sync classify_scalar
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: 'Reviewed upstream tag or commit to vendor'
+        required: true
+        type: string
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: classify-scalar-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      # An optional bot token allows PR checks to start without approval.
+      - uses: actions/checkout@v5
+        with:
+          ref: master
+          token: ${{ secrets.VENDOR_SYNC_TOKEN || github.token }}
+      - name: Import and verify upstream header
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+        run: |
+          python3 tools/sync_classify_scalar.py --ref "$UPSTREAM_REF"
+          python3 tools/sync_classify_scalar.py --check
+      - name: Open update PR
+        env:
+          GH_TOKEN: ${{ secrets.VENDOR_SYNC_TOKEN || github.token }}
+        run: |
+          if git diff --quiet; then
+            echo 'Already synced.'
+            exit 0
+          fi
+          version=$(python3 -c 'import json; print(json.load(open("include/external/classify_scalar.json"))["version"])')
+          revision=$(python3 -c 'import json; print(json.load(open("include/external/classify_scalar.json"))["commit"])')
+          branch="codex/sync-classify-scalar-${revision:0:12}"
+          if [ -n "$(git ls-remote --heads origin "$branch")" ]; then
+            echo "An update branch already exists: $branch"
+            exit 0
+          fi
+          git switch -c "$branch"
+          git config user.name 'classify-scalar-sync[bot]'
+          git config user.email 'classify-scalar-sync[bot]@users.noreply.github.com'
+          git add include/external/classify_scalar.hpp include/external/classify_scalar.json
+          git commit -m "Sync classify_scalar $version"
+          git push --set-upstream origin "$branch"
+          printf 'Import the unchanged upstream header from https://github.com/vincentlaucsb/classify_scalar/commit/%s.\n\nVersion: %s. Provenance and checksum verified; normal CI must pass before merging.\n' "$revision" "$version" > "$RUNNER_TEMP/pr-body.md"
+          gh pr create --base master --head "$branch" --title "Sync classify_scalar $version" --body-file "$RUNNER_TEMP/pr-body.md"
