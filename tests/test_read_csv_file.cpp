@@ -407,14 +407,30 @@ TEST_CASE("Doubled quotes across chunks are realized for mmap and stream readers
         REQUIRE_FALSE(reader.read_row(row));
     };
 
-    SECTION("Memory-mapped file path") {
+    // Keep minimum-size chunks in both paths: more boundaries make the doubled-quote regression easier to expose.
+    SECTION("Memory-mapped file path, default chunks") {
         CSVFormat format;
         CSVReader reader(cleanup.filename, format);
         validate_reader(reader);
     }
 
-    SECTION("std::istream path") {
+    SECTION("Memory-mapped file path, minimum chunks") {
         CSVFormat format;
+        format.chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);
+        CSVReader reader(cleanup.filename, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path, default chunks") {
+        CSVFormat format;
+        std::ifstream infile(cleanup.filename, std::ios::binary);
+        CSVReader reader(infile, format);
+        validate_reader(reader);
+    }
+
+    SECTION("std::istream path, minimum chunks") {
+        CSVFormat format;
+        format.chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);
         std::ifstream infile(cleanup.filename, std::ios::binary);
         CSVReader reader(infile, format);
         validate_reader(reader);
