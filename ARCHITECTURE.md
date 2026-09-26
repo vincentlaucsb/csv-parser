@@ -12,6 +12,7 @@ Subsystem deep-dive:
 Operational/testing guidance:
 - AGENTS.md
 - tests/AGENTS.md
+- include/external/AGENTS.md — upstream-first rule for the vendored header
 - include/external/README.md — upstream releases, pinned vendoring, and sync automation
 
 Notes:
