@@ -26,26 +26,10 @@ namespace csv {
         }
     }
 
-    /** Return a CSVField object corrsponding to the nth value in the row.
-     *
-     *  @note This method performs bounds checking, and will throw an
-     *        `std::runtime_error` if n is invalid.
-     *
-     *  @complexity
-     *  Constant, by calling csv::CSVRow::get_csv::string_view()
-     *
-     */
     CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
         return this->make_field(n, this->data);
     }
 
-    /** Retrieve a value by its associated column name. If the column
-     *  specified can't be round, a runtime error is thrown.
-     *
-     *  @complexity
-     *  Constant. This calls the other CSVRow::operator[]() after
-     *  converting column names into indices using a hash table.
-     */
     CSV_INLINE CSVField CSVRow::operator[](csv::string_view col_name) const {
         auto & col_names = this->data->col_names;
         auto col_pos = col_names->index_of(col_name);

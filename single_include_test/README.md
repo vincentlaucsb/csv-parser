@@ -9,21 +9,20 @@ Specifically, it ensures that:
 
 ## How It Works
 
-1. **Build time:** CMake generates `csv.hpp` into `build/single_include_generated/` by running the configured `single_header` executable
+1. **Build time:** The `generate_single_header` target runs the configured `single_header` executable and writes `csv.hpp` into `build/single_include_generated/`
 2. **Compilation:** This test project compiles all `.cpp` files against the generated header
-3. **CI validation:** The smoke test runs on every commit, ensuring the header is always valid
+3. **CI validation:** The multi-platform workflow builds this target on Linux and macOS; its Windows job currently skips it
 
 ## Local Testing
 
 ```bash
 cmake -S . -B build -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON -DCSV_SINGLE_HEADER_EXECUTABLE=/path/to/single_header
-cd build
-cmake --build . --target single_include_test
+cmake --build build --target single_include_test
 ```
 
 The generated header is located at:
 ```
-build/x64-Debug/single_include_generated/csv.hpp  (or similar based on your build config)
+build/single_include_generated/csv.hpp
 ```
 
 ## Important

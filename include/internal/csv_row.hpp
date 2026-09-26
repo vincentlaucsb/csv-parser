@@ -55,7 +55,7 @@ namespace csv {
             "Attempted to convert a floating point value to an integral type.";
         static const std::string ERROR_NEG_TO_UNSIGNED = "Negative numbers cannot be converted to unsigned types.";
     
-        // Inside CSVField::get() or wherever you materialize the value
+        // Applied when CSVRow exposes a field view with configured whitespace trimming.
         csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept;
     }
 
@@ -571,8 +571,10 @@ namespace csv {
 
         /** @name Value Retrieval */
         ///@{
+        /** Return the field at @p n. Throws std::runtime_error if the index is out of bounds. */
         CSVField operator[](size_t n) const;
-        CSVField operator[](csv::string_view) const;
+        /** Return the field named @p col_name. Throws std::runtime_error if the name is absent. */
+        CSVField operator[](csv::string_view col_name) const;
         inline std::string to_json(const std::vector<std::string>& subset = {}) const {
             const auto* converter = this->get_json_converter();
             return converter == nullptr ? "{}"

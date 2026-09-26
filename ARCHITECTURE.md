@@ -7,11 +7,12 @@ Primary architecture document:
 
 Subsystem deep-dive:
 - include/internal/THREADSAFE_DEQUE_DESIGN.md
-- BOMStrippingRefactor.md
+- include/internal/BOMStrippingRefactor.md
 
 Operational/testing guidance:
 - AGENTS.md
 - tests/AGENTS.md
+- include/external/AGENTS.md — upstream-first rule for the vendored header
 - include/external/README.md — upstream releases, pinned vendoring, and sync automation
 
 Notes:
