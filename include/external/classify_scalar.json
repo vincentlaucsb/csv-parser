@@ -1,7 +1,7 @@
 {
   "repository": "vincentlaucsb/classify_scalar",
   "path": "include/classify_scalar.hpp",
-  "commit": "42652a1c0159719cb731e098e04ddc683c2d72f2",
-  "version": "1.1.1",
-  "sha256": "559c9accb2a3346642d4061e7748d9686933297334b0d9198c8b7687c20b36fc"
+  "commit": "991598ef24582aadd2bbee132aae3a1468b0b1c8",
+  "version": "1.1.2",
+  "sha256": "4919ba16bdc88bdae0ca60cfd678c8af9a6eec3834454b4d9f3ff8ca71937e5d"
 }

@@ -1,5 +1,5 @@
 /*
-classify_scalar, version 1.1.1
+classify_scalar, version 1.1.2
 https://github.com/vincentlaucsb/classify_scalar
 
 MIT License
@@ -28,7 +28,7 @@ SOFTWARE.
 #pragma once
 
 #if defined(CLASSIFY_SCALAR_VERSION)
-#if CLASSIFY_SCALAR_VERSION >= 10101
+#if CLASSIFY_SCALAR_VERSION >= 10102
 #define CLASSIFY_SCALAR_SKIP_HEADER
 #else
 #error "A newer classify_scalar.hpp was included after an older copy. Include the newest copy first."
@@ -36,8 +36,8 @@ SOFTWARE.
 #else
 #define CLASSIFY_SCALAR_VERSION_MAJOR 1
 #define CLASSIFY_SCALAR_VERSION_MINOR 1
-#define CLASSIFY_SCALAR_VERSION_PATCH 1
-#define CLASSIFY_SCALAR_VERSION 10101
+#define CLASSIFY_SCALAR_VERSION_PATCH 2
+#define CLASSIFY_SCALAR_VERSION 10102
 #endif
 
 #ifndef CLASSIFY_SCALAR_SKIP_HEADER
@@ -680,8 +680,6 @@ CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 std::uint64_t signed_integer_limits[3] = {
     int64_positive_limit,
     int64_negative_limit
 };
-CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 long double int64_min_long_double = static_cast<long double>(int64_min_value);
-CLASSIFY_SCALAR_CONSTEXPR_VALUE_14 long double int64_max_long_double = static_cast<long double>(int64_max_value);
 
 namespace parsing {
 
@@ -812,6 +810,9 @@ CLASSIFY_SCALAR_FORCE_INLINE std::int64_t days_from_civil(int year, const int mo
     return era * 146097 + static_cast<std::int64_t>(doe) - 719468;
 }
 
+// Accepts an ISO date or date-time with optional seconds, fraction, and Z or
+// signed HH:MM/HHMM offset. Fractions are truncated or padded to milliseconds;
+// output rejects instants before the Unix epoch.
 CLASSIFY_SCALAR_FORCE_INLINE bool parse_iso_timestamp(
     const char* first,
     const char* last,
@@ -866,6 +867,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_iso_timestamp(
             if (current != last && *current == '.') {
                 ++current;
                 const char* fraction_first = current;
+                // Keep millisecond precision while consuming all fractional digits.
                 while (current != last && ascii_digits[static_cast<unsigned char>(*current)]) {
                     if (current - fraction_first < 3)
                         millisecond = millisecond * 10 + (*current - '0');
@@ -912,6 +914,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_iso_timestamp(
     if (!out)
         return true;
 
+    // Convert the parsed local clock time and offset to UTC milliseconds.
     const std::int64_t timezone_offset_milliseconds =
         static_cast<std::int64_t>(timezone_sign)
         * (static_cast<std::int64_t>(timezone_hour) * 60 + timezone_minute)
@@ -924,6 +927,7 @@ CLASSIFY_SCALAR_FORCE_INLINE bool parse_iso_timestamp(
         + millisecond
         - timezone_offset_milliseconds;
 
+    // The unsigned output cannot represent instants before the Unix epoch.
     if (timestamp < 0)
         return false;
 
@@ -1126,6 +1130,8 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_ascii(
         ++current;
 
     long double integral_part = 0;
+    std::uint64_t integral_digits = 0;
+    bool integral_digits_fit = true;
     long double decimal_part = 0;
     unsigned places_after_decimal = 0;
     int exponent = 0;
@@ -1138,10 +1144,22 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating_ascii(
 
     while (current != last && ascii_digits[static_cast<unsigned char>(*current)]) {
         const unsigned char digit = static_cast<unsigned char>(*current - '0');
-        integral_part = (integral_part * 10.0L) + digit;
+        // Accumulate exactly before floating conversion so values near int64
+        // boundaries do not lose bits when long double is only double precision.
+        if (integral_digits_fit && integral_digits <= (std::numeric_limits<std::uint64_t>::max() - digit) / 10) {
+            integral_digits = integral_digits * 10 + digit;
+        } else {
+            if (integral_digits_fit) {
+                integral_part = static_cast<long double>(integral_digits);
+                integral_digits_fit = false;
+            }
+            integral_part = (integral_part * 10.0L) + digit;
+        }
         has_digit = true;
         ++current;
     }
+    if (integral_digits_fit)
+        integral_part = static_cast<long double>(integral_digits);
 
     if (current != last && static_cast<unsigned char>(*current) == static_cast<unsigned char>(DecimalSymbol)) {
         ++current;
@@ -1295,7 +1313,10 @@ CLASSIFY_SCALAR_FORCE_INLINE floating_parse_status parse_floating(
 }
 
 CLASSIFY_SCALAR_FORCE_INLINE bool floating_is_integral(const double value, std::int64_t* out) noexcept {
-    if (value < int64_min_long_double || value > int64_max_long_double)
+    // The nearest double to INT64_MAX is 2^63, which is outside int64 even on
+    // platforms where long double has no extra precision (notably MSVC).
+    if (value < static_cast<double>(int64_min_value)
+            || value >= -static_cast<double>(int64_min_value))
         return false;
 
     const std::int64_t integer = static_cast<std::int64_t>(value);
