@@ -146,7 +146,9 @@ If you use this library for work, please [become a sponsor](https://github.com/s
 will fund continued maintenance and development of the project.
 
 Shameless plug: If you like this library, check out my side project
-[experiencer](https://github.com/vincentlaucsb/experiencer) — a WYSIWYG resume editor with clean HTML/CSS output.
+[Experiencer](https://www.experiencer.app) — a WYSIWYG resume editor with clean ATS-friendly HTML/CSS output and powerful AI intergration with MCP or REST.
+
+[![Experiencer Banner](https://experiencer.app/brand/oss-banner.png)](https://www.experiencer.app)
 
 ## Integration
 While C++20 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
