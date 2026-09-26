@@ -153,7 +153,7 @@ namespace csv {
          */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
-        CSVReader(TStream &source, CSVFormat format = CSVFormat::guess_csv())
+        CSVReader(TStream &source, const CSVFormat& format = CSVFormat::guess_csv())
             : _format(format),
               read_scheduler_(format.is_threading_enabled()) {
             this->init_from_stream(source, format);
@@ -413,7 +413,7 @@ namespace csv {
 
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
-        void init_from_stream(TStream& source, CSVFormat format) {
+        void init_from_stream(TStream& source, const CSVFormat& format) {
             this->init_parser(
                 std::unique_ptr<internals::parser::CSVParserDriverBase>(
                     new internals::parser::StreamParser<TStream>(source, format, this->col_names)

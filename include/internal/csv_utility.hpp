@@ -53,7 +53,7 @@ namespace csv {
      *  Rows already obtained from the reader remain valid, but unread rows
      *  still depend on the source view staying alive.
      */
-    inline CSVReader parse_unsafe(csv::string_view in, CSVFormat format = CSVFormat::guess_csv()) {
+    inline CSVReader parse_unsafe(csv::string_view in, const CSVFormat& format = CSVFormat::guess_csv()) {
         std::unique_ptr<std::istream> stream(new internals::StringViewStream(in));
         return CSVReader(std::move(stream), format);
     }

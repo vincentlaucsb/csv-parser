@@ -1,8 +1,10 @@
 # Vendored classify_scalar
 
 `classify_scalar.hpp` is an unchanged copy of the upstream public header.
-Do not patch it here. Fix `vincentlaucsb/classify_scalar` first, run its
-`python tools/version.py --patch` command, and review/test the upstream change.
+Do not patch it here. Follow the upstream
+[vendoring guidance](https://github.com/vincentlaucsb/classify_scalar#maintaining-vendored-releases):
+make and test the fix in `vincentlaucsb/classify_scalar`, run its
+`python tools/version.py --patch` command, and review the upstream change.
 
 Then sync an approved tag or commit from this repository's root:
 

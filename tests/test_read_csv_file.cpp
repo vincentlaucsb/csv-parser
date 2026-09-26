@@ -384,26 +384,23 @@ TEST_CASE("Whitespace trimming applies after doubled quote realization", "[read_
 
 TEST_CASE("Doubled quotes across chunks are realized for mmap and stream readers", "[read_csv_quote][realized_quotes][chunk_boundary]") {
     FileGuard cleanup("./tests/data/tmp_realized_quotes_chunks.csv");
-    std::vector<std::string> expected;
+    const size_t row_count = 500000;
     {
         std::ofstream out(cleanup.filename, std::ios::binary);
         out << "id,text,tail\n";
 
-        size_t row = 0;
-        while (expected.size() < 3 || static_cast<size_t>(out.tellp()) < internals::CSV_CHUNK_SIZE_FLOOR + 4096) {
-            const std::string value = "row-" + std::to_string(row) + "-\"quoted\"";
+        // The generated file crosses the default 10 MB chunk boundary.
+        for (size_t row = 0; row < row_count; ++row) {
             out << row << ",\"row-" << row << "-\"\"quoted\"\"\",tail-" << row << "\n";
-            expected.push_back(value);
-            row++;
         }
     }
 
     auto validate_reader = [&](CSVReader& reader) {
         CSVRow row;
-        for (size_t i = 0; i < expected.size(); ++i) {
+        for (size_t i = 0; i < row_count; ++i) {
             REQUIRE(reader.read_row(row));
             REQUIRE(row["id"].get<size_t>() == i);
-            REQUIRE(row["text"].get<std::string>() == expected[i]);
+            REQUIRE(row["text"].get<std::string>() == "row-" + std::to_string(i) + "-\"quoted\"");
             REQUIRE(row["tail"].get<std::string>() == "tail-" + std::to_string(i));
         }
 
@@ -412,16 +409,12 @@ TEST_CASE("Doubled quotes across chunks are realized for mmap and stream readers
 
     SECTION("Memory-mapped file path") {
         CSVFormat format;
-        format.chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);
-
         CSVReader reader(cleanup.filename, format);
         validate_reader(reader);
     }
 
     SECTION("std::istream path") {
         CSVFormat format;
-        format.chunk_size(internals::CSV_CHUNK_SIZE_FLOOR);
-
         std::ifstream infile(cleanup.filename, std::ios::binary);
         CSVReader reader(infile, format);
         validate_reader(reader);

@@ -7,7 +7,7 @@ Primary architecture document:
 
 Subsystem deep-dive:
 - include/internal/THREADSAFE_DEQUE_DESIGN.md
-- BOMStrippingRefactor.md
+- include/internal/BOMStrippingRefactor.md
 
 Operational/testing guidance:
 - AGENTS.md

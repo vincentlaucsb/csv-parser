@@ -287,15 +287,13 @@ namespace csv {
                 // than scanning quote-heavy fields twice in the parser hot path.
                 auto allocation = data.quote_arena.allocate_contiguous(field_str.size());
                 char* out = allocation.data;
-                for (size_t i = 0; i < field_str.size(); ++i) {
-                    if (data.parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE
+                size_t i = 0;
+                while (i < field_str.size()) {
+                    const bool doubled_quote = data.parse_flags[field_str[i] + CHAR_OFFSET] == ParseFlags::QUOTE
                         && i + 1 < field_str.size()
-                        && data.parse_flags[field_str[i + 1] + CHAR_OFFSET] == ParseFlags::QUOTE) {
-                        *(out++) = field_str[i++];
-                        continue;
-                    }
-
+                        && data.parse_flags[field_str[i + 1] + CHAR_OFFSET] == ParseFlags::QUOTE;
                     *(out++) = field_str[i];
+                    i += doubled_quote ? 2 : 1;
                 }
 
                 realized_length = static_cast<size_t>(out - allocation.data);
