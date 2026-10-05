@@ -66,6 +66,13 @@ namespace csv {
             return values.empty();
         }
 
+        RowOverlay snapshot() const {
+            row_overlay_lock_guard lock(this);
+            RowOverlay result;
+            result.values = values;
+            return result;
+        }
+
     private:
         struct row_overlay_lock_guard {
             explicit row_overlay_lock_guard(const RowOverlay* overlay)
