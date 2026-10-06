@@ -259,21 +259,28 @@ namespace csv {
          *
          *  CSVRow copies share the underlying parsed row storage, so this is intended for
          *  filtered document views that should avoid reparsing or rematerializing fields.
+         *  Existing cell edits are copied; subsequent edits to either frame are independent.
          */
         DataFrame selected_rows(const std::vector<std::uint8_t>& include_rows) const {
             if (include_rows.size() != this->rows.size()) {
                 throw std::invalid_argument("selected row mask size must match DataFrame row count");
             }
 
-            std::vector<CSVRow> selected;
-            selected.reserve(this->rows.size());
+            DataFrame result;
+            result.rows.reserve(this->rows.size());
             for (size_t row_index = 0; row_index < this->rows.size(); ++row_index) {
                 if (include_rows[row_index]) {
-                    selected.push_back(this->rows[row_index]);
+                    result.rows.push_back(this->rows[row_index]);
+                    result.edits.emplace_back();
+                    if (const RowOverlay* overlay = this->find_row_edits(row_index)) {
+                        RowOverlay snapshot = overlay->snapshot();
+                        if (!snapshot.empty()) {
+                            *result.edits.back().ensure() = std::move(snapshot);
+                        }
+                    }
                 }
             }
 
-            DataFrame result(std::move(selected));
             result.col_names_ = this->col_names_;
             result.physical_col_names_ = this->physical_col_names_;
             result.column_indices_ = this->column_indices_;
