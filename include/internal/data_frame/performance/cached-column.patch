@@ -1,0 +1,153 @@
+--- a/include/internal/data_frame/clean_data_frame.hpp
++++ b/include/internal/data_frame/clean_data_frame.hpp
+@@ -33,6 +33,17 @@
+                     return rows_.at(row)[column].get<csv::string_view>();
+                 }
+
++                inline size_t resolve_column(size_t column) const {
++                    validate_column(column, n_cols());
++                    return column;
++                }
++                inline CellBinding bind_physical(size_t, size_t column) const {
++                    return CellBinding{nullptr, column};
++                }
++                inline csv::string_view view_physical(size_t row, size_t column) const {
++                    return rows_.at(row)[column].get<csv::string_view>();
++                }
++
+                 inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {
+                     validate_row(row, n_cols());
+                     return RowStorageBuilder::make_row(row, names_);
+--- a/include/internal/data_frame/dirty_data_frame.hpp
++++ b/include/internal/data_frame/dirty_data_frame.hpp
+@@ -46,11 +46,22 @@
+                     return CellBinding{find_edits(row), physical_column(column)};
+                 }
+                 inline csv::string_view view(size_t row, size_t column) const {
+-                    const CellBinding cell = bind(row, column);
++                    return view_physical(row, resolve_column(column));
++                }
++                inline size_t resolve_column(size_t column) const {
++                    validate_column(column, n_cols());
++                    return physical_column(column);
++                }
++                inline CellBinding bind_physical(size_t row, size_t column) const {
++                    return CellBinding{find_edits(row), column};
++                }
++                inline csv::string_view view_physical(size_t row, size_t column) const {
++                    const RowOverlay* overlay = find_edits(row);
+                     csv::string_view value;
+-                    if (cell.overlay && cell.overlay->try_get_view(cell.physical_column, value)) { return value; }
+-                    return backing_->rows().at(row)[cell.physical_column].get<csv::string_view>();
++                    if (overlay && overlay->try_get_view(column, value)) { return value; }
++                    return backing_->rows().at(row)[column].get<csv::string_view>();
+                 }
++
+                 inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {
+                     validate_row(row, n_cols());
+                     if (column_indices_.empty() && n_cols() == backing_->n_cols()) { return RowStorageBuilder::make_row(row, backing_->names()); }
+--- a/include/internal/data_frame/data_frame_storage.hpp
++++ b/include/internal/data_frame/data_frame_storage.hpp
+@@ -42,6 +42,9 @@
+                 inline size_t n_cols() const noexcept { return dispatch(Count()); }
+                 inline CellBinding bind(size_t row, size_t column) const { return dispatch(Bind{row, column}); }
+                 inline csv::string_view view(size_t row, size_t column) const { return dispatch(View{row, column}); }
++                inline size_t resolve_column(size_t column) const { return dispatch(ResolveColumn{column}); }
++                inline CellBinding bind_physical(size_t row, size_t column) const { return dispatch(BindPhysical{row, column}); }
++                inline csv::string_view view_physical(size_t row, size_t column) const { return dispatch(ViewPhysical{row, column}); }
+                 inline const RowOverlay* find_edits(const CSVRow* row) const {
+                     return dispatch(Edits{row_index(row)});
+                 }
+@@ -144,6 +147,18 @@
+                     size_t row, column;
+                     template<typename B> csv::string_view operator()(const B& b) const { return b.view(row, column); }
+                 };
++                struct ResolveColumn {
++                    size_t column;
++                    template<typename B> size_t operator()(const B& b) const { return b.resolve_column(column); }
++                };
++                struct BindPhysical {
++                    size_t row, column;
++                    template<typename B> CellBinding operator()(const B& b) const { return b.bind_physical(row, column); }
++                };
++                struct ViewPhysical {
++                    size_t row, column;
++                    template<typename B> csv::string_view operator()(const B& b) const { return b.view_physical(row, column); }
++                };
+                 struct Edits {
+                     size_t row;
+                     template<typename B> const RowOverlay* operator()(const B& b) const { return b.find_edits(row); }
+--- a/include/internal/data_frame/data_frame_column.hpp
++++ b/include/internal/data_frame/data_frame_column.hpp
+@@ -1,6 +1,7 @@
+ #pragma once
+
+ #include <memory>
++#include <limits>
+ #include <stdexcept>
+ #include <string>
+ #include <vector>
+@@ -22,21 +23,25 @@
+         using iterator = internals::indexed_proxy_iterator<const DataFrameColumn<KeyType>, DataFrameCell, cell_accessor>;
+         using const_iterator = iterator;
+
+-        DataFrameColumn() : frame_(nullptr), mutable_frame_(nullptr), col_index_(0), generation_value_(0) {}
++        DataFrameColumn() : frame_(nullptr), mutable_frame_(nullptr), col_index_(0), generation_value_(0), physical_column_(std::numeric_limits<size_t>::max()) {}
+
+         DataFrameColumn(const DataFrame<KeyType>* frame, size_t col_index)
+             : frame_(frame),
+             mutable_frame_(nullptr),
+             col_index_(col_index),
+             generation_(frame ? frame->column_generation_ : std::shared_ptr<size_t>()),
+-            generation_value_(generation_ ? *generation_ : 0) {}
++            generation_value_(generation_ ? *generation_ : 0),
++            physical_column_(frame && col_index < frame->n_cols()
++                ? frame->storage_.resolve_column(col_index) : std::numeric_limits<size_t>::max()) {}
+
+         DataFrameColumn(DataFrame<KeyType>* frame, size_t col_index)
+             : frame_(frame),
+             mutable_frame_(frame),
+             col_index_(col_index),
+             generation_(frame ? frame->column_generation_ : std::shared_ptr<size_t>()),
+-            generation_value_(generation_ ? *generation_ : 0) {}
++            generation_value_(generation_ ? *generation_ : 0),
++            physical_column_(frame && col_index < frame->n_cols()
++                ? frame->storage_.resolve_column(col_index) : std::numeric_limits<size_t>::max()) {}
+
+         /** Column name. */
+         const std::string& name() const {
+@@ -66,7 +71,12 @@
+         /** Access a visible cell value by row index. */
+         DataFrameCell operator[](size_t row_index) const {
+             this->require_valid();
+-            return frame_->make_cell(row_index, col_index_, false);
++            if (physical_column_ == std::numeric_limits<size_t>::max()) {
++                return frame_->make_cell(row_index, col_index_, false);
++            }
++            const auto* row = &frame_->storage_.rows().at(row_index);
++            const auto binding = frame_->storage_.bind_physical(row_index, physical_column_);
++            return DataFrameCell(row, binding.overlay, binding.physical_column);
+         }
+
+         /** Access a visible cell value as a string_view without materializing a DataFrameCell.
+@@ -77,7 +87,10 @@
+          */
+         csv::string_view get_sv(size_t row_index) const {
+             this->require_valid();
+-            return frame_->cell_view(row_index, col_index_);
++            if (physical_column_ == std::numeric_limits<size_t>::max()) {
++                return frame_->cell_view(row_index, col_index_);
++            }
++            return frame_->storage_.view_physical(row_index, physical_column_);
+         }
+
+         /** Materialize this column as a vector of converted values. */
+@@ -147,5 +160,8 @@
+         size_t col_index_;
+         std::shared_ptr<size_t> generation_;
+         size_t generation_value_;
++        // Exclusive structural mutation invalidates views when the mapping changes.
++        // Invalid manually constructed views retain the original deferred validation.
++        size_t physical_column_;
+     };
+ }

@@ -245,14 +245,37 @@ edit strategies symmetric.
 
 Current structural edit policy:
 
-- Row insert/erase: mutate `rows`, `keys_`, and sparse row-overlay slots
-  directly because rows are the native storage unit.
-- Column insert: write the current visible table, including sparse overlay
-  edits, through the CSV writer and reparse it into fresh row storage. This
-  bakes visible edits into the rebuilt rows and clears sparse overlays.
+- Clean row/cell access: `data_frame::DataFrameStorage` centrally selects a
+  concrete `CleanDataFrame` or `DirtyDataFrame` through an atomic tagged pointer.
+  Calls remain direct and inlineable, with no vtable or C++17 variant dependency.
+  Clean handling owns physical rows/names; dirty handling owns visible names,
+  sparse overlays, and logical-to-physical mapping. Facade features never inspect
+  the active state themselves.
+- First-edit promotion: construct all dirty state before release publication and
+  retain the clean backing object for readers that captured the previous backend.
+  Mutable cells bind to the stable selector. Structural changes and moves are
+  exclusive; read operations do not acquire a transition lock.
+- Read-only column views: `data_frame::RowViewAccessor` reuses `CSVRow`'s decoded,
+  trimmed field extraction without constructing a scalar-aware `CSVField`.
+  Both backends use it for parsed values; dirty overlays retain their own lookup.
+  The measurements and rejected physical-column caching alternative are retained
+  in [data_frame/PERFORMANCE.md](data_frame/PERFORMANCE.md).
+- Row insert/erase: mutate `rows` and `keys_` directly and update the handler's
+  row bindings and overlay slots because rows are the native storage unit.
+- Column insert: delegate validation, schema/key-column remapping, and rebuilding
+  to `DirtyDataFrame`, including for a clean input frame. Construct fresh shared
+  backing chunks from visible values,
+  including sparse edits, without CSV serialization/reparsing. This preserves
+  empty fields and zero-column rows and returns the frame to clean handling.
+  Stored keys remain stable row identities even after key-column cell edits.
+  View keys are retargeted into private owned key-byte storage before their
+  parsed backing is released; owning-key types require no additional work.
 - Column erase: soft-delete the visible column by removing it from the visible
   column-name list and logical-to-physical column map. Underlying `CSVRow`
   storage is intentionally left unchanged.
+- Selection: share immutable parsed rows and independently snapshot editing
+  state and visible-column mapping. Row proxies resolve current overlays when
+  creating cells; raw underlying rows intentionally exclude logical edits.
 
 This asymmetry is intentional. The consistent principle is to use the cheapest
 reliable operation that preserves visible semantics and keeps ordinary row

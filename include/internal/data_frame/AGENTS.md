@@ -5,8 +5,14 @@ namespace `csv`; the folder split is for maintainability, not a namespace move.
 
 ## Storage Model
 
-`DataFrame` is row-backed. Its primary storage is `std::vector<CSVRow>` plus
-per-row sparse edit overlays. Do not turn normal row/cell access into a
+`DataFrame` delegates storage operations through private
+`internals::data_frame::DataFrameStorage`. Its C++11 tagged pointer selects
+concrete `CleanDataFrame` or `DirtyDataFrame` implementations without virtual
+dispatch. State checks belong only in this selector, never in facade features.
+`CleanDataFrame` owns the native `std::vector<CSVRow>` and physical column names.
+`DirtyDataFrame` owns visible names, sparse overlays, and column mapping.
+Clean reads access parsed rows directly, without overlay slots or mapping.
+Do not turn normal row/cell access into a
 columnar abstraction just to make structural edit implementations symmetric.
 
 The guiding rule is:
@@ -16,11 +22,17 @@ The guiding rule is:
 
 Current structural edit strategy:
 
-- Row insert/erase mutates row storage, keyed metadata, and sparse overlay slots
-  directly.
-- Column insert materializes the current visible table through `CSVWriter`,
-  reparses it into fresh row storage, and clears sparse overlays because visible
-  edits are baked into the rebuilt rows.
+- Cell assignment activates dirty handling lazily. Taking mutable row/cell
+  proxies does not allocate overlays or activate the flag.
+- Row insert/erase delegates to the active concrete backend. Dirty handling
+  shifts overlay slots alongside native rows; row and slot capacity is prepared
+  before committing keyed insertion metadata.
+- Column insert builds fresh owned row storage from visible values, without CSV
+  serialization or reparsing. Shared backing chunks avoid allocation per row
+  and preserve empty values and zero-column row cardinality. Successful
+  materialization returns the selector to clean handling. `DirtyDataFrame`
+  owns schema validation, key-column remapping, and row rebuilding, including
+  structural insertion into an otherwise clean frame.
 - Column erase is a soft delete: visible column names and the
   logical-to-physical column map change, while underlying `CSVRow` storage stays
   intact.
@@ -41,13 +53,32 @@ compaction/materialization API over adding hot-path indirection for all access.
 - Sparse overlays are keyed by physical column index. Any feature that changes
   physical row storage or logical-to-physical mapping must account for existing
   overlays.
+- Stored keys identify rows independently of key-column cell edits. Structural
+  materialization must preserve those keys, including custom-function keys.
+- `csv::string_view` keys must be copied into private owned key storage before
+  replacing parsed rows, and the cached key index must be invalidated when views
+  are retargeted. Owning-key types use a compile-time no-op storage policy.
+- Row proxies resolve current editing state when constructing cells; never
+  capture overlay allocation history as the authority for later row access.
+- Selection shares parsed rows but snapshots overlays independently and keeps
+  the visible column mapping. Never reconstruct a logical frame solely from
+  `get_underlying_row()`: it omits edits and includes hidden columns.
+- First-edit promotion fully constructs the dirty backend and slot array before
+  release publication. Retain the clean backing object so readers that loaded
+  the old backend can finish without per-read locking. Bind mutable cells to the
+  stable selector, not to whichever concrete backend was active at capture.
+- Structural operations and moves require exclusive access. Successful column
+  materialization may retire dirty state; ordinary cell edits retain row locks.
 - DataFrame iterators should follow the library's cached-proxy convention:
   store the current proxy inside the iterator and expose `operator*` /
   `operator->` reference-like access, as `CSVReader` and `CSVRow` do.
 
 ## Test Expectations
 
-Put DataFrame behavior tests in `tests/test_data_frame.cpp`. For writer
+Put general DataFrame behavior tests in `tests/test_data_frame.cpp`; put
+clean/dirty transitions and edit-preservation regressions in
+`tests/test_data_frame_dirty.cpp`. Both belong to the `data_frame_test` target.
+For writer
 compatibility, also check `tests/test_write_csv.cpp` when row-like output or
 `to_sv_range()` behavior changes.
 
