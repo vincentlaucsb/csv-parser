@@ -83,7 +83,6 @@ namespace csv {
             csv::string_view chunk;
             std::shared_ptr<void> owner;
             bool starts_at_record_boundary = true;
-            bool scan_bom = true;
             ParserChunkResult parse_result;
             CSVRowFragment prefix_fragment;
             std::vector<CSVRow> complete_rows;
@@ -106,7 +105,6 @@ namespace csv {
             result.owner = owner;
             result.starts_at_record_boundary = starts_at_record_boundary
                 || parse_result.initial_state.pending_linefeed;
-            result.scan_bom = starts_at_record_boundary && sequence_number == 0;
             result.parse_result = parse_result;
 
             size_t first_complete_row = 0;
@@ -163,7 +161,7 @@ namespace csv {
                 fragment.bytes,
                 fragment.owner,
                 rows,
-                ParserChunkOptions(ParserDFAState(), false, fragment.offset)
+                ParserChunkOptions(ParserDFAState(), fragment.offset)
             );
             parser.end_feed();
             return rows;
@@ -181,7 +179,7 @@ namespace csv {
                 chunk.chunk,
                 chunk.owner,
                 parsed_rows,
-                ParserChunkOptions(corrected_initial_state, chunk.scan_bom, chunk.offset)
+                ParserChunkOptions(corrected_initial_state, chunk.offset)
             );
 
             return split_parsed_chunk_rows(

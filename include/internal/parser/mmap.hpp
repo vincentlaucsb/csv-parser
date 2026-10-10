@@ -38,7 +38,10 @@ namespace csv {
             void next(size_t bytes) override;
 
         private:
-            void finalize_loaded_chunk(
+            /** Parse a loaded window and rewind mmap_pos to its incomplete tail.
+             *  Returns whether the window completed at least one row.
+             */
+            bool finalize_loaded_chunk(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
                 size_t length,

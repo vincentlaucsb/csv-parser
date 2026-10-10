@@ -7,10 +7,71 @@
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
 #include "shared/file_guard.hpp"
+#include "shared/generated_file.hpp"
 
 using namespace csv;
 using std::vector;
 using std::string;
+
+namespace {
+    const std::string UTF8_BOM = "\xEF\xBB\xBF";
+
+    void write_binary_file(const std::string& filename, const std::string& data) {
+        std::ofstream out(filename, std::ios::binary);
+        out.write(data.data(), static_cast<std::streamsize>(data.size()));
+    }
+
+    /** Run `validate` against the same bytes through the mmap and stream constructors. */
+    template<typename Validate>
+    void validate_both_paths(
+        const std::string& data,
+        const CSVFormat& format,
+        const std::string& filename,
+        Validate validate
+    ) {
+        SECTION("mmap path") {
+            FileGuard cleanup(filename);
+            write_binary_file(filename, data);
+            CSVReader reader(filename, format);
+            validate(reader);
+        }
+
+        SECTION("stream path") {
+            std::istringstream input(data);
+            CSVReader reader(input, format);
+            validate(reader);
+        }
+    }
+
+    void require_encoding_rejected_both_paths(
+        const std::string& data,
+        const CSVFormat& format,
+        const std::string& filename,
+        const std::string& encoding
+    ) {
+        SECTION("mmap path") {
+            FileGuard cleanup(filename);
+            write_binary_file(filename, data);
+            REQUIRE_THROWS_WITH(CSVReader(filename, format), Catch::Matchers::ContainsSubstring(encoding));
+        }
+
+        SECTION("stream path") {
+            std::istringstream input(data);
+            REQUIRE_THROWS_WITH(CSVReader(input, format), Catch::Matchers::ContainsSubstring(encoding));
+        }
+    }
+
+    const std::string& large_utf8_bom_filename() {
+        static csv_test::GeneratedFile file("./tests/data/tmp_large_utf8_bom.csv");
+
+        return file.path([](std::ofstream& out) {
+            out << UTF8_BOM << "A,B,C\n";
+            for (size_t i = 0; i < 600000; ++i) {
+                out << i * 3 << ',' << i * 3 + 1 << ',' << i * 3 + 2 << '\n';
+            }
+        });
+    }
+}
 
 TEST_CASE( "Test Parse Flags", "[test_parse_flags]" ) {
     REQUIRE(internals::make_parse_flags(',', '"')[162] == internals::ParseFlags::QUOTE);
@@ -113,6 +174,215 @@ TEST_CASE("Unicode BOM handling", "[read_unicode_bom]") {
         REQUIRE_THROWS_WITH(CSVReader(filename), Catch::Matchers::ContainsSubstring("UTF-16"));
     }
 }
+
+TEST_CASE("UTF-8 BOM is stripped on both parser paths", "[read_unicode_bom]") {
+    CSVFormat guessed = CSVFormat::guess_csv();
+    CSVFormat explicit_format;
+    explicit_format.delimiter(',').header_row(0);
+
+    auto validate_rows = [](CSVReader& reader) {
+        REQUIRE(reader.utf8_bom());
+        REQUIRE(reader.get_col_names() == vector<string>({ "A", "B", "C" }));
+
+        vector<vector<string>> rows;
+        for (auto& row : reader) {
+            rows.push_back(vector<string>(row));
+        }
+        REQUIRE(rows == vector<vector<string>>({ { "1", "2", "3" }, { "4", "5", "6" } }));
+    };
+
+    const std::string data = UTF8_BOM + "A,B,C\n1,2,3\n4,5,6\n";
+
+    SECTION("Guessed format") {
+        validate_both_paths(data, guessed, "./tests/data/tmp_utf8_bom_guessed.csv", validate_rows);
+    }
+
+    SECTION("Explicit format skips guessing") {
+        validate_both_paths(data, explicit_format, "./tests/data/tmp_utf8_bom_explicit.csv", validate_rows);
+    }
+
+    SECTION("Only one leading BOM is stripped") {
+        const std::string double_bom = UTF8_BOM + UTF8_BOM + "A,B\n1,2\n";
+        validate_both_paths(double_bom, explicit_format, "./tests/data/tmp_utf8_double_bom.csv", [](CSVReader& reader) {
+            REQUIRE(reader.utf8_bom());
+            REQUIRE(reader.get_col_names() == vector<string>({ UTF8_BOM + "A", "B" }));
+        });
+    }
+}
+
+TEST_CASE("UTF-16 and UTF-32 BOMs are rejected on both parser paths", "[read_unicode_bom]") {
+    CSVFormat guessed = CSVFormat::guess_csv();
+    CSVFormat explicit_format;
+    explicit_format.delimiter(',').header_row(0);
+
+    const std::string utf16_le("\xFF\xFE" "A\0,\0B\0\n\0", 10);
+    const std::string utf16_be("\xFE\xFF" "\0A\0,\0B\0\n", 10);
+    const std::string utf32_le("\xFF\xFE\0\0" "A\0\0\0,\0\0\0B\0\0\0\n\0\0\0", 20);
+    const std::string utf32_be("\0\0\xFE\xFF" "\0\0\0A\0\0\0,\0\0\0B\0\0\0\n", 20);
+    const std::string filename = "./tests/data/tmp_rejected_unicode_bom.csv";
+
+    SECTION("UTF-16 LE, guessed format") {
+        require_encoding_rejected_both_paths(utf16_le, guessed, filename, "UTF-16");
+    }
+
+    SECTION("UTF-16 BE, explicit format") {
+        require_encoding_rejected_both_paths(utf16_be, explicit_format, filename, "UTF-16");
+    }
+
+    SECTION("UTF-16 LE, explicit format") {
+        require_encoding_rejected_both_paths(utf16_le, explicit_format, filename, "UTF-16");
+    }
+
+    SECTION("UTF-32 LE is not mistaken for UTF-16 LE") {
+        require_encoding_rejected_both_paths(utf32_le, guessed, filename, "UTF-32");
+    }
+
+    SECTION("UTF-32 BE, explicit format") {
+        require_encoding_rejected_both_paths(utf32_be, explicit_format, filename, "UTF-32");
+    }
+}
+
+TEST_CASE("Tiny UTF-8 BOM inputs behave consistently", "[read_unicode_bom]") {
+    CSVFormat format;
+    format.delimiter(',').no_header();
+
+    SECTION("Empty input") {
+        // Stream only: a zero-byte file opened by filename is reported as an
+        // open failure (see "Empty CSV does not crash parser entry points").
+        std::istringstream input("");
+        CSVReader reader(input, format);
+        size_t n_rows = 0;
+        for (auto& row : reader) { (void)row; ++n_rows; }
+        REQUIRE(n_rows == 0);
+        REQUIRE_FALSE(reader.utf8_bom());
+    }
+
+    SECTION("BOM-only file") {
+        validate_both_paths(UTF8_BOM, format, "./tests/data/tmp_bom_only.csv", [](CSVReader& reader) {
+            size_t n_rows = 0;
+            for (auto& row : reader) { (void)row; ++n_rows; }
+            REQUIRE(n_rows == 0);
+            REQUIRE(reader.utf8_bom());
+        });
+    }
+
+    SECTION("BOM followed by one row without a trailing newline") {
+        validate_both_paths(UTF8_BOM + "1,2,3", format, "./tests/data/tmp_bom_one_row.csv", [](CSVReader& reader) {
+            vector<vector<string>> rows;
+            for (auto& row : reader) {
+                rows.push_back(vector<string>(row));
+            }
+            REQUIRE(rows == vector<vector<string>>({ { "1", "2", "3" } }));
+            REQUIRE(reader.utf8_bom());
+        });
+    }
+}
+
+TEST_CASE("UTF-8 BOM is not part of the first row", "[read_unicode_bom]") {
+    // The BOM precedes the first row rather than belonging to it, so the
+    // row's raw text and source offset both start after the three BOM bytes.
+    CSVFormat format;
+    format.delimiter(',').no_header();
+
+    const std::string data = UTF8_BOM + "1,2,3\n4,5,6\n";
+    validate_both_paths(data, format, "./tests/data/tmp_bom_first_row.csv", [](CSVReader& reader) {
+        CSVRow row;
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row.raw_str() == "1,2,3");
+        REQUIRE(row.byte_offset() == 3);
+        REQUIRE(row[0] == "1");
+
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row.raw_str() == "4,5,6");
+        REQUIRE(row.byte_offset() == 9);
+    });
+}
+
+TEST_CASE("UTF-8 BOM with a file crossing chunk boundaries", "[read_unicode_bom]") {
+    const std::string& filename = large_utf8_bom_filename();
+
+    auto validate_reader = [](CSVReader& reader) {
+        REQUIRE(reader.utf8_bom());
+        REQUIRE(reader.get_col_names() == vector<string>({ "A", "B", "C" }));
+
+        size_t i = 0;
+        for (auto& row : reader) {
+            REQUIRE(row.size() == 3);
+            REQUIRE(row[0].get<size_t>() == i * 3);
+            REQUIRE(row[1].get<size_t>() == i * 3 + 1);
+            REQUIRE(row[2].get<size_t>() == i * 3 + 2);
+            ++i;
+        }
+        REQUIRE(i == 600000);
+    };
+
+    CSVFormat serial;
+    serial.delimiter(',').header_row(0).speculative_parallel_threads(1);
+
+    // Small chunks make the first stream window larger than one serial chunk,
+    // which sends it through the speculative parser.
+    CSVFormat speculative;
+    speculative.delimiter(',').header_row(0)
+        .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
+        .speculative_parallel_threads(4)
+        .speculative_parallel_min_bytes(0);
+
+    auto check_worker_count = [](CSVReader& reader, size_t expected) {
+#if CSV_ENABLE_THREADS
+        REQUIRE(reader.parse_worker_count() == expected);
+#else
+        (void)reader;
+        (void)expected;
+#endif
+    };
+
+    SECTION("Serial, mmap path") {
+        CSVReader reader(filename, serial);
+        validate_reader(reader);
+    }
+
+    SECTION("Serial, stream path") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, serial);
+        validate_reader(reader);
+    }
+
+    SECTION("Speculative, mmap path") {
+        CSVReader reader(filename, speculative);
+        check_worker_count(reader, 4);
+        validate_reader(reader);
+    }
+
+    SECTION("Speculative, stream path") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, speculative);
+        check_worker_count(reader, 4);
+        validate_reader(reader);
+    }
+}
+
+#ifndef __EMSCRIPTEN__
+TEST_CASE("guess_format() sees through a UTF-8 BOM", "[read_unicode_bom]") {
+    SECTION("UTF-8 BOM") {
+        const std::string filename = "./tests/data/tmp_guess_format_bom.csv";
+        FileGuard cleanup(filename);
+        write_binary_file(filename, UTF8_BOM + "A|B|C\n1|2|3\n4|5|6\n");
+
+        const auto guessed = guess_format(filename);
+        REQUIRE(guessed.delim == '|');
+        REQUIRE(guessed.header_row == 0);
+        REQUIRE(guessed.n_cols == 3);
+    }
+
+    SECTION("UTF-16 is rejected") {
+        const std::string filename = "./tests/data/tmp_guess_format_utf16.csv";
+        FileGuard cleanup(filename);
+        write_binary_file(filename, std::string("\xFF\xFE" "A\0,\0B\0\n\0", 10));
+
+        REQUIRE_THROWS_WITH(guess_format(filename), Catch::Matchers::ContainsSubstring("UTF-16"));
+    }
+}
+#endif
 
 //! [Escaped Comma]
 TEST_CASE( "Test Escaped Comma", "[read_csv_comma]" ) {

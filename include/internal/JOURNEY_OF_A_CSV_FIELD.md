@@ -12,7 +12,9 @@ have changed shape.
 A CSV field is usually not copied while parsing.
 
 1. A source adapter (`MmapParser` or `StreamParser`) provides a byte window.
-2. `CSVParseOrchestrator` chooses serial parsing or speculative parallel parsing.
+2. `CSVParseOrchestrator` strips a leading UTF-8 BOM from the first window
+   (rejecting UTF-16/UTF-32), then chooses serial parsing or speculative
+   parallel parsing.
 3. `CSVParserCore` walks bytes and records field boundaries in `RawCSVFieldList`.
 4. `CSVRow` stores a shared pointer to `RawCSVData`.
 5. `CSVRow` slices either the original bytes or parser-realized quoted-field
@@ -84,7 +86,6 @@ CSVReader
 - quote state
 - escaped quote pairs
 - CR, LF, and CRLF row endings
-- UTF-8 BOM skip
 - field boundary recording
 - row emission
 
@@ -143,7 +144,7 @@ does not know whether the row came from serial parsing or speculative parsing.
 Low-level flow:
 
 ```text
-source window bytes
+source window bytes (BOM already stripped by CSVParseOrchestrator)
   |
   v
 make_speculative_parse_chunks()
@@ -151,7 +152,6 @@ make_speculative_parse_chunks()
   +--> chunk 0 bytes + owner + offset + sequence_number
   |       |
   |       +--> starts_at_record_boundary = true
-  |       +--> scan_bom = true
   |       +--> assumed_start_state = outside quotes
   |
   +--> chunk N bytes + owner + offset + sequence_number
@@ -173,7 +173,6 @@ make_speculative_parse_chunks()
           +--> sequence_number
           +--> assumed_start_state
           +--> starts_at_record_boundary
-          +--> scan_bom
 
 ParallelCSVParser::parse_chunks()
   |

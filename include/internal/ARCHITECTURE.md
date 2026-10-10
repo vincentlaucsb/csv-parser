@@ -71,7 +71,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - CSVParserCore
   - Templated, non-virtual byte parser core in parser/core.hpp.
-  - Owns DFA state, BOM handling, field/row construction, and concrete row-sink emission.
+  - Owns DFA state, field/row construction, and concrete row-sink emission.
+  - Receives source windows after leading BOM handling by the orchestrator.
   - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
 
 - PermissiveParsePolicy
@@ -97,6 +98,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - parser/orchestrator.hpp
   - Chooses serial CSVParserCore parsing or speculative parallel parsing for a byte window.
+  - Owns Unicode BOM handling: scans the first source window once, rejects UTF-16/UTF-32,
+    and hands parsers a BOM-free view while reporting completed prefixes in source bytes.
 
 - MmapParser
   - Reads chunks from memory maps and handles chunk-transition remainder.
@@ -225,6 +228,39 @@ Fields spanning chunk boundaries must not be split/corrupted.
 ### Path parity
 
 Mmap and stream parsers must preserve the same externally observable behavior.
+
+### Unicode BOM handling and source offsets
+
+`CSVParseOrchestrator` checks the first source window once, before dispatching
+serial or speculative parsing. It rejects UTF-16/UTF-32 with a transcoder error
+and records a leading UTF-8 BOM for `CSVReader::utf8_bom()`. Only that first BOM
+is removed; another BOM remains part of the CSV data. Parser cores and
+speculative chunks carry no BOM state. Format guessing separately checks and
+strips the leading BOM once per `guess_format()` call, before scoring delimiter
+candidates.
+
+Both adapters' first windows include their pre-read head buffer, up to 500KB;
+the stream adapter may append more bytes before parsing. A first window too
+short to classify a BOM therefore occurs only at end of input.
+
+Source adapters advance in original source bytes while parsers receive
+`chunk.substr(skip)` at `base_offset + skip`:
+
+- `RawCSVData::source_start` identifies the source position of the parsed view.
+  A first row after a UTF-8 BOM starts at byte 3, and its `raw_str()` excludes
+  those three bytes. Field offsets remain relative to the backing view.
+- `CSVParseWindowResult::complete_prefix_length` includes the skipped bytes,
+  also reported as `skipped_prefix_length`. Mmap re-reads and stream leftovers
+  must begin after this prefix, even when the window completed no row.
+- Mmap head-window fallback uses `completed_row()` rather than position
+  arithmetic: skipping a BOM advances the source position without completing
+  a row. A BOM-only source emits no row and still consumes the BOM.
+
+Regression coverage lives in `tests/test_read_csv.cpp` (`[read_unicode_bom]`)
+for both adapters, guessed/explicit formats, encoding rejection, tiny inputs,
+row offsets, and a 600K-row file parsed serially and speculatively. The BOM
+variant of `[issue_337]` in `tests/test_edge_cases_large_rows.cpp` covers a
+header longer than the mmap head buffer.
 
 ### Field storage and conversion contract
 

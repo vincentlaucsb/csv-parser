@@ -28,7 +28,7 @@ namespace csv {
 
         CSV_INLINE MmapParser::~MmapParser() = default;
 
-        CSV_INLINE void MmapParser::finalize_loaded_chunk(
+        CSV_INLINE bool MmapParser::finalize_loaded_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
             size_t length,
@@ -50,6 +50,7 @@ namespace csv {
             }
 
             this->mmap_pos -= (length - result.complete_prefix_length);
+            return result.completed_row();
         }
 
         CSV_INLINE size_t MmapParser::read_window_size(size_t chunk_size) const noexcept {
@@ -72,19 +73,20 @@ namespace csv {
             // for delimiter/header guessing.
             if (!head_.empty()) {
                 auto head_owner = std::make_shared<std::string>(std::move(head_));
-                const size_t head_start = this->mmap_pos;
                 const size_t length = head_owner->size();
                 this->mmap_pos += length;
 
-                this->finalize_loaded_chunk(*head_owner, head_owner, length, bytes);
+                const bool completed_row = this->finalize_loaded_chunk(*head_owner, head_owner, length, bytes);
 
                 // Issue #337: The head is capped at 500KB regardless of chunk_size,
                 // so it may end before the first row does. Only in that case fall
                 // through and map a full read window from the rewound position;
                 // otherwise return so construction doesn't parse an extra window
                 // (CSVReader::initial_read() keeps reading if the header row is
-                // still pending).
-                if (this->eof_ || this->mmap_pos != head_start) {
+                // still pending). Ask the parse result rather than comparing
+                // positions: a skipped UTF-8 BOM advances mmap_pos even when no
+                // row completed.
+                if (this->eof_ || completed_row) {
                     return;
                 }
             }

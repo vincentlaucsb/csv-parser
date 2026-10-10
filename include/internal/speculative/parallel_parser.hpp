@@ -16,7 +16,6 @@ namespace csv {
             std::shared_ptr<void> owner;
             ChunkSpeculation speculation;
             bool starts_at_record_boundary = false;
-            bool scan_bom = false;
         };
 
         struct ParallelCSVParseResult {
@@ -34,8 +33,7 @@ namespace csv {
             size_t chunk_size,
             const SpeculativeScanner& scanner,
             size_t base_offset = 0,
-            size_t first_sequence_number = 0,
-            bool scan_bom_for_first_chunk = true
+            size_t first_sequence_number = 0
         ) {
             std::vector<SpeculativeParseChunk> chunks;
             if (chunk_size == 0) {
@@ -55,7 +53,6 @@ namespace csv {
                 chunk.owner = owner;
                 chunk.speculation = scanner.speculate(sequence_number, chunk.offset, bytes);
                 chunk.starts_at_record_boundary = first_chunk;
-                chunk.scan_bom = first_chunk && scan_bom_for_first_chunk;
 
                 // The first chunk in a speculative window starts at a known row
                 // boundary because source windows must be aligned to incomplete-row
@@ -144,7 +141,7 @@ namespace csv {
                     chunk.bytes,
                     chunk.owner,
                     rows,
-                    ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.scan_bom, chunk.offset)
+                    ParserChunkOptions(chunk.speculation.assumed_start_state, chunk.offset)
                 );
 
                 ParsedChunkRows result = split_parsed_chunk_rows(
@@ -156,7 +153,6 @@ namespace csv {
                     chunk.starts_at_record_boundary,
                     chunk.offset
                 );
-                result.scan_bom = chunk.scan_bom;
                 return result;
             }
 

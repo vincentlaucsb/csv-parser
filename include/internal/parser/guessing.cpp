@@ -76,6 +76,12 @@ namespace csv {
              *  Header detection: If first row has >= columns than mode, use row 0.
              *  Otherwise use the first row with the mode length.
              */
+            // The parser core does not handle BOMs, so strip one here (once, not
+            // per candidate). This also rejects UTF-16/UTF-32 before guessing
+            // scores mis-decoded bytes.
+            bool utf8_bom = false;
+            head = head.substr(get_bom_skip_or_throw(head, utf8_bom));
+
             CSVFormat format;
             size_t max_score = 0;
             size_t header = 0;
