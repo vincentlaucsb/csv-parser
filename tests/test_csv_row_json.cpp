@@ -128,12 +128,13 @@ TEST_CASE("CSVRow JSON serialization writes valid numbers for every numeric fiel
 }
 
 TEST_CASE("CSVRow JSON serialization writes hexadecimal integers in decimal", "[csv_row_to_json]") {
+    // Classification and hex conversion must agree on whitespace and a leading '+'.
     CSVRow row = make_csv_row(
-        { "0x1F", "-0X10", "0x7FFFFFFFFFFFFFFF", "10" },
-        { "hex", "neg_hex", "max_hex", "decimal" }
+        { "0x1F", "-0X10", "0x7FFFFFFFFFFFFFFF", "10", " \t+0X2A\r\n" },
+        { "hex", "neg_hex", "max_hex", "decimal", "padded_hex" }
     );
 
-    REQUIRE(row.to_json_array() == "[31,-16,9223372036854775807,10]");
+    REQUIRE(row.to_json_array() == "[31,-16,9223372036854775807,10,42]");
 }
 
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/68
