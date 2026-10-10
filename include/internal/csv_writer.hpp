@@ -128,8 +128,8 @@ namespace internals {
             csv::enable_if_t<std::is_integral<T>::value && std::is_signed<T>::value, int> = 0
         >
         inline std::string to_string(T value) {
-            return (value >= 0) ? to_string((size_t)value)
-                : "-" + to_string((size_t)(value * -1));
+            return (value >= 0) ? to_string(static_cast<unsigned long long>(value))
+                : "-" + to_string(0ULL - static_cast<unsigned long long>(value));
         }
 
     /** to_string() for floating point numbers */

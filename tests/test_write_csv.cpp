@@ -1,4 +1,5 @@
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <queue>
 #include <list>
@@ -449,3 +450,38 @@ TEST_CASE("DataFrame - Write with Sparse Overlay", "[test_dataframe_sparse_overl
     REQUIRE(result.find("Everything is fine in production") != std::string::npos);  // quote updated
 }
 //! [DataFrame Sparse Overlay Write Example]
+
+TEST_CASE("Signed integer conversion - extrema regression", "[test_convert_number][regression]") {
+    SECTION("Negative integers") {
+        // Negating the minimum signed value used to overflow before conversion.
+        const int min_int = (std::numeric_limits<int>::min)();
+        const long long min_long_long = (std::numeric_limits<long long>::min)();
+
+        REQUIRE(csv::internals::to_string(-1) == "-1");
+        REQUIRE(csv::internals::to_string(min_int) == std::to_string(min_int));
+        REQUIRE(csv::internals::to_string(min_long_long) == std::to_string(min_long_long));
+    }
+
+    SECTION("Non-negative integers") {
+        // Converting through size_t can truncate long long on 32-bit platforms.
+        const long long max_long_long = (std::numeric_limits<long long>::max)();
+
+        REQUIRE(csv::internals::to_string(0) == "0");
+        REQUIRE(csv::internals::to_string(0LL) == "0");
+        REQUIRE(csv::internals::to_string(max_long_long) == std::to_string(max_long_long));
+    }
+}
+
+TEST_CASE("CSV Writer - signed integer extrema regression", "[test_csv_tuple][regression]") {
+    // Exercise the public writer API so extrema stay intact in a mixed tuple.
+    const int min_int = (std::numeric_limits<int>::min)();
+    const long long min_long_long = (std::numeric_limits<long long>::min)();
+    const long long max_long_long = (std::numeric_limits<long long>::max)();
+    std::stringstream output, correct;
+    auto writer = make_csv_writer(output);
+
+    writer << std::make_tuple(min_int, min_long_long, -1, 0, max_long_long);
+    correct << min_int << ',' << min_long_long << ",-1,0," << max_long_long << '\n';
+
+    REQUIRE(output.str() == correct.str());
+}
