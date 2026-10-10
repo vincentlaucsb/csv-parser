@@ -66,9 +66,7 @@ namespace csv {
         /** Access a visible cell value by row index. */
         DataFrameCell operator[](size_t row_index) const {
             this->require_valid();
-            const auto& row = frame_->rows.at(row_index);
-            const auto* row_edits = frame_->find_row_edits(row_index);
-            return DataFrameCell(&row, row_edits, frame_->physical_column_index(col_index_));
+            return frame_->make_cell(row_index, col_index_, false);
         }
 
         /** Access a visible cell value as a string_view without materializing a DataFrameCell.
@@ -79,15 +77,7 @@ namespace csv {
          */
         csv::string_view get_sv(size_t row_index) const {
             this->require_valid();
-            const auto& row = frame_->rows.at(row_index);
-            const auto* row_edits = frame_->find_row_edits(row_index);
-            const size_t physical_index = frame_->physical_column_index(col_index_);
-            csv::string_view edited_value;
-            if (row_edits && row_edits->try_get_view(physical_index, edited_value)) {
-                return edited_value;
-            }
-
-            return row[physical_index].template get<csv::string_view>();
+            return frame_->cell_view(row_index, col_index_);
         }
 
         /** Materialize this column as a vector of converted values. */

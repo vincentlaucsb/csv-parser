@@ -245,14 +245,22 @@ edit strategies symmetric.
 
 Current structural edit policy:
 
-- Row insert/erase: mutate `rows`, `keys_`, and sparse row-overlay slots
-  directly because rows are the native storage unit.
-- Column insert: write the current visible table, including sparse overlay
-  edits, through the CSV writer and reparse it into fresh row storage. This
-  bakes visible edits into the rebuilt rows and clears sparse overlays.
+- Clean row/cell access: read parsed storage directly. Private
+  `data_frame::DirtyDataFrame` owns the atomic state flag, sparse overlays,
+  and optional logical-to-physical column map. The first assignment or column
+  soft delete activates the handler; mutable reads alone do not.
+- Row insert/erase: mutate `rows` and `keys_` directly and update the handler's
+  row bindings and overlay slots because rows are the native storage unit.
+- Column insert: construct fresh shared backing chunks from visible values,
+  including sparse edits, without CSV serialization/reparsing. This preserves
+  empty fields and zero-column rows and returns the frame to clean handling.
+  Stored keys remain stable row identities even after key-column cell edits.
 - Column erase: soft-delete the visible column by removing it from the visible
   column-name list and logical-to-physical column map. Underlying `CSVRow`
   storage is intentionally left unchanged.
+- Selection: share immutable parsed rows and independently snapshot editing
+  state and visible-column mapping. Row proxies resolve current overlays when
+  creating cells; raw underlying rows intentionally exclude logical edits.
 
 This asymmetry is intentional. The consistent principle is to use the cheapest
 reliable operation that preserves visible semantics and keeps ordinary row

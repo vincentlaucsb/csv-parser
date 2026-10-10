@@ -39,7 +39,7 @@ namespace csv {
             csv::ColumnNamePolicy get_policy() const noexcept;
 
             bool empty() const noexcept { return this->col_names.empty(); }
-            size_t size() const noexcept;
+            inline size_t size() const noexcept { return this->col_names.size(); }
 
             /** Retrieve column name by index. Throws if index is out of bounds. */
             const std::string& operator[](size_t i) const;

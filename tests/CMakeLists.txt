@@ -105,5 +105,6 @@ add_csv_parser_test_target(csv_write_test
 
 add_csv_parser_test_target(data_frame_test
     test_data_frame.cpp
+    test_data_frame_dirty.cpp
     test_data_frame_etl.cpp
 )

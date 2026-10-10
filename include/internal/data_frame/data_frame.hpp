@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -22,6 +21,7 @@
 #include "data_frame_executor.hpp"
 #include "data_frame_options.hpp"
 #include "data_frame_row.hpp"
+#include "dirty_data_frame.hpp"
 #include "fwd.hpp"
 #include "row_overlay.hpp"
 
@@ -189,8 +189,9 @@ namespace csv {
             }
 
             this->validate_inserted_row(row);
-            std::vector<std::string> physical_row = this->expand_visible_row(row);
-            CSVRow inserted_row = this->make_inserted_csv_row(physical_row, this->physical_col_names_);
+            CSVRow inserted_row = dirty_state_.is_dirty()
+                ? DirtyState::make_owned_row(dirty_state_.expand_visible_row(row, this->physical_n_cols()), this->physical_col_names_)
+                : DirtyState::make_owned_row(row, this->physical_col_names_);
 
             if (this->is_keyed) {
                 if (this->key_column_index_ == CSV_NOT_FOUND) {
@@ -207,16 +208,21 @@ namespace csv {
             }
 
             this->rows.insert(this->rows.begin() + index, std::move(inserted_row));
-            this->edits.insert(this->edits.begin() + index, RowOverlaySlot());
+            this->dirty_state_.insert_row(index, this->rows.data());
             this->invalidate_key_index();
         }
 
-        /** Insert a new column with empty values. Structural mutation materializes visible rows into fresh row storage. */
+        /** Insert a new column with empty values.
+         *  Materializes visible rows into fresh row storage and invalidates outstanding proxies.
+         */
         void insert_column(size_t index, const std::string& name) {
             this->insert_column(index, name, std::string());
         }
 
-        /** Insert a new column with a default value. Structural mutation materializes visible rows into fresh row storage. */
+        /** Insert a new column with a default value.
+         *  Materializes visible rows into fresh row storage and invalidates outstanding proxies.
+         *  Established row keys remain unchanged even when key-column values have been edited.
+         */
         void insert_column(size_t index, const std::string& name, const std::string& default_value) {
             if (index > this->n_cols()) {
                 throw std::out_of_range("DataFrame insert_column index out of range");
@@ -227,22 +233,30 @@ namespace csv {
             std::vector<std::string> new_columns = this->columns();
             new_columns.insert(new_columns.begin() + index, name);
 
-            std::stringstream serialized;
-            auto writer = make_csv_writer(serialized);
-            writer << new_columns;
+            internals::ColNamesPtr names = std::make_shared<internals::ColNames>();
+            names->set_policy(this->col_names_->get_policy());
+            names->set_col_names(new_columns);
 
-            const DataFrame& self = *this;
-            for (size_t row_index = 0; row_index < this->rows.size(); ++row_index) {
-                std::vector<std::string> row_values = self.at(row_index);
-                row_values.insert(row_values.begin() + index, default_value);
-                writer << row_values;
+            int key_column_index = this->key_column_index_;
+            if (key_column_index != CSV_NOT_FOUND) {
+                const size_t logical_index = this->logical_key_column_index();
+                key_column_index = static_cast<int>(logical_index + (index <= logical_index ? 1 : 0));
             }
+            // Select once per operation. The clean materializer has no per-cell overlay lookup.
+            std::vector<CSVRow> rebuilt = this->dirty_state_.is_dirty()
+                ? this->dirty_state_.insert_column(this->rows, names, index, default_value)
+                : DirtyState::materialize_column_insert(this->rows.size(), names, index, default_value,
+                    [this](size_t row_index, size_t column_index) {
+                        return this->rows[row_index][column_index].template get<csv::string_view>();
+                    });
 
-            this->replace_with_reparsed_column_insert(
-                serialized.str(),
-                this->col_names_->get_policy(),
-                index
-            );
+            this->rows = std::move(rebuilt);
+            this->col_names_ = names;
+            this->physical_col_names_ = names;
+            this->key_column_index_ = key_column_index;
+            this->dirty_state_.reset(this->rows.size(), this->rows.data());
+            this->invalidate_column_proxies();
+            this->invalidate_json_converter();
         }
 
         /** Append a new column with empty values. */
@@ -271,19 +285,16 @@ namespace csv {
             for (size_t row_index = 0; row_index < this->rows.size(); ++row_index) {
                 if (include_rows[row_index]) {
                     result.rows.push_back(this->rows[row_index]);
-                    result.edits.emplace_back();
-                    if (const RowOverlay* overlay = this->find_row_edits(row_index)) {
-                        RowOverlay snapshot = overlay->snapshot();
-                        if (!snapshot.empty()) {
-                            *result.edits.back().ensure() = std::move(snapshot);
-                        }
-                    }
                 }
             }
+            result.dirty_state_.set_clean_row_count(result.rows.size(), result.rows.data());
 
             result.col_names_ = this->col_names_;
             result.physical_col_names_ = this->physical_col_names_;
-            result.column_indices_ = this->column_indices_;
+            if (this->dirty_state_.is_dirty()) {
+                result.dirty_state_ = this->dirty_state_.selected_rows(include_rows);
+                result.dirty_state_.bind_rows(result.rows.data());
+            }
             return result;
         }
 
@@ -348,36 +359,30 @@ namespace csv {
          * @throws std::out_of_range if index is out of bounds
          */
         DataFrameRow<KeyType> at(size_t i) {
-            const auto& row = rows.at(i);
-            auto* row_edits = this->ensure_row_edits(i);
-            return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
+            return this->make_row_proxy(i);
         }
         
         /** Access a row by position with bounds checking (const version). */
         DataFrameRow<KeyType> at(size_t i) const {
-            const auto& row = rows.at(i);
-            const RowOverlay* row_edits = this->find_row_edits(i);
-            return DataFrameRow<KeyType>(&row, this, i, row_edits, this->key_ptr_at(i));
+            return this->make_const_row_proxy(i);
         }
 
         /**
          * Access a row by its key.
+         * Stored keys identify rows independently of subsequent key-column cell edits.
          *
          * @throws std::runtime_error if the DataFrame was not created with a key column
          * @throws std::out_of_range if the key is not found
          */
         DataFrameRow<KeyType> operator[](const KeyType& key) {
             this->require_keyed_frame();
-            auto position = this->position_of(key);
-            return DataFrameRow<KeyType>(&rows.at(position), this, position, this->ensure_row_edits(position), this->key_ptr_at(position));
+            return this->make_row_proxy(this->position_of(key));
         }
 
         /** Access a row by its key (const version). */
         DataFrameRow<KeyType> operator[](const KeyType& key) const {
             this->require_keyed_frame();
-            auto position = this->position_of(key);
-            const RowOverlay* row_edits = this->find_row_edits(position);
-            return DataFrameRow<KeyType>(&rows.at(position), this, position, row_edits, this->key_ptr_at(position));
+            return this->make_const_row_proxy(this->position_of(key));
         }
 
         /**
@@ -571,9 +576,6 @@ namespace csv {
         /** Physical column names used by the underlying CSVRow storage. */
         internals::ConstColNamesPtr physical_col_names_ = col_names_;
 
-        /** Maps visible column positions to physical CSVRow field positions. */
-        std::vector<size_t> column_indices_;
-        
         /** Internal storage for row data. */
         std::vector<CSVRow> rows;
 
@@ -588,13 +590,10 @@ namespace csv {
         mutable internals::lazy_shared_ptr<internals::JsonConverter> json_converter_;
         std::shared_ptr<size_t> column_generation_{ new size_t(0) };
 
-        /**
-         * Sparse per-row edit overlays. Slots stay cheap at load time; the
-         * heavier synchronized overlay map is allocated only for rows that are
-         * actually edited.
-         */
-        std::vector<RowOverlaySlot> edits;
-        std::shared_ptr<std::mutex> edits_creation_lock_{ new std::mutex() };
+        using DirtyState = internals::data_frame::DirtyDataFrame;
+        // An atomic state flag chooses direct parsed-row access or the private
+        // handler. Slots and physical-column mapping are allocated only when needed.
+        DirtyState dirty_state_;
 
         /** Initialize an unkeyed DataFrame from a CSV reader. */
         void init_unkeyed_from_reader(CSVReader& reader) {
@@ -602,7 +601,6 @@ namespace csv {
             this->is_keyed = false;
             this->col_names_ = reader.col_names_ptr();
             this->physical_col_names_ = this->col_names_;
-            this->reset_visible_column_indices();
 
             std::vector<CSVRow> batch;
             while (reader.read_chunk(batch, dataframe_read_chunk_rows())) {
@@ -618,9 +616,8 @@ namespace csv {
                 ? internals::ConstColNamesPtr(std::make_shared<internals::ColNames>())
                 : source_rows.front().col_names_ptr();
             this->physical_col_names_ = this->col_names_;
-            this->reset_visible_column_indices();
             this->rows = std::move(source_rows);
-            this->edits.resize(this->rows.size());
+            this->dirty_state_.set_clean_row_count(this->rows.size(), this->rows.data());
         }
 
         /** Initialize a keyed DataFrame from a CSV reader using column-based key extraction. */
@@ -668,7 +665,6 @@ namespace csv {
         ) {
             std::unordered_map<KeyType, size_t> key_to_pos;
             this->assert_fresh_storage(true);
-            this->reset_visible_column_indices();
 
             std::vector<CSVRow> batch;
             while (reader.read_chunk(batch, dataframe_read_chunk_rows())) {
@@ -705,20 +701,11 @@ namespace csv {
 
         void append_unkeyed_batch(std::vector<CSVRow>& batch) {
             reserve_for_append(rows, batch.size());
-            reserve_for_append(edits, batch.size());
 
             for (auto& row : batch) {
                 rows.push_back(std::move(row));
-                edits.emplace_back();
             }
-        }
-
-        void reset_visible_column_indices() {
-            this->column_indices_.clear();
-            this->column_indices_.reserve(this->col_names_->size());
-            for (size_t i = 0; i < this->col_names_->size(); ++i) {
-                this->column_indices_.push_back(i);
-            }
+            this->dirty_state_.set_clean_row_count(this->rows.size(), this->rows.data());
         }
 
         size_t physical_n_cols() const noexcept {
@@ -726,7 +713,11 @@ namespace csv {
         }
 
         size_t physical_column_index(size_t logical_col_index) const {
-            return this->column_indices_.at(logical_col_index);
+            if (logical_col_index >= this->n_cols()) {
+                internals::throw_column_index_out_of_range();
+            }
+            return this->dirty_state_.is_dirty()
+                ? this->dirty_state_.physical_column_index(logical_col_index) : logical_col_index;
         }
 
         template<typename KeyFunc>
@@ -738,7 +729,6 @@ namespace csv {
         ) {
             reserve_for_append(rows, batch.size());
             reserve_for_append(keys_, batch.size());
-            reserve_for_append(edits, batch.size());
 
             for (auto& row : batch) {
                 KeyType key = key_func(row);
@@ -756,9 +746,9 @@ namespace csv {
 
                 rows.push_back(std::move(row));
                 keys_.push_back(key);
-                edits.emplace_back();
                 key_to_pos[key] = rows.size() - 1;
             }
+            this->dirty_state_.set_clean_row_count(this->rows.size(), this->rows.data());
         }
 
         /** Find the index of a column by name. Throws if the column is not found. */
@@ -767,59 +757,49 @@ namespace csv {
                 throw std::out_of_range(std::string(internals::ERROR_COLUMN_NOT_FOUND) + name);
         }
 
-        /** Return the overlay for a specific row index. */
-        const RowOverlay* find_row_edits(size_t row_index) const {
-            return edits.at(row_index).get();
+        DataFrameCell make_cell(size_t row_index, size_t column_index, bool mutable_access) const {
+            return this->make_cell(&this->rows.at(row_index), row_index, column_index, mutable_access);
         }
 
-        /** Return the row overlay, allocating it only when mutable access needs it. */
-        RowOverlay* ensure_row_edits(size_t row_index) {
-            RowOverlaySlot& slot = edits.at(row_index);
-            RowOverlay* overlay = slot.get();
-            if (overlay) {
-                return overlay;
+        DataFrameCell make_cell(const CSVRow* row, size_t row_index, size_t column_index, bool mutable_access) const {
+            if (column_index >= this->n_cols()) {
+                internals::throw_column_index_out_of_range();
             }
+            const RowOverlay* overlay = nullptr;
+            if (this->dirty_state_.is_dirty()) {
+                overlay = this->dirty_state_.find_row_edits(row_index);
+                column_index = this->dirty_state_.physical_column_index(column_index);
+            }
+            return mutable_access
+                ? DataFrameCell(row, overlay, column_index, &this->dirty_state_, true)
+                : DataFrameCell(row, overlay, column_index);
+        }
 
-            std::lock_guard<std::mutex> lock(*edits_creation_lock_);
-            return slot.ensure();
+        csv::string_view cell_view(size_t row_index, size_t column_index) const {
+            const auto& row = this->rows.at(row_index);
+            if (column_index >= this->n_cols()) {
+                internals::throw_column_index_out_of_range();
+            }
+            if (this->dirty_state_.is_dirty()) {
+                return this->dirty_state_.get_sv(row, row_index, column_index);
+            }
+            return row[column_index].template get<csv::string_view>();
+        }
+
+        size_t logical_key_column_index() const {
+            const size_t physical_index = static_cast<size_t>(this->key_column_index_);
+            return this->dirty_state_.is_dirty()
+                ? this->dirty_state_.logical_column_index(physical_index) : physical_index;
         }
 
         DataFrameRow<KeyType> make_row_proxy(size_t row_index) {
             const auto& row = rows.at(row_index);
-            return DataFrameRow<KeyType>(&row, this, row_index, this->ensure_row_edits(row_index), this->key_ptr_at(row_index));
+            return DataFrameRow<KeyType>(&row, this, row_index, static_cast<RowOverlay*>(nullptr), this->key_ptr_at(row_index));
         }
 
         DataFrameRow<KeyType> make_const_row_proxy(size_t row_index) const {
             const auto& row = rows.at(row_index);
-            return DataFrameRow<KeyType>(&row, this, row_index, this->find_row_edits(row_index), this->key_ptr_at(row_index));
-        }
-
-        void erase_row_edits(size_t row_index) {
-            if (row_index < edits.size()) {
-                edits.erase(edits.begin() + row_index);
-            }
-        }
-
-        static CSVRow make_inserted_csv_row(
-            const std::vector<std::string>& row,
-            internals::ConstColNamesPtr col_names
-        ) {
-            internals::RawCSVDataPtr data = std::make_shared<internals::RawCSVData>();
-            data->col_names = std::const_pointer_cast<internals::ColNames>(col_names);
-
-            size_t total_bytes = 0;
-            for (const auto& field : row) {
-                total_bytes += field.size();
-            }
-            data->quote_arena.reserve_for_source_size(total_bytes);
-            data->fields.reserve_for_source_size(row.size());
-
-            for (const auto& field : row) {
-                const size_t offset = data->quote_arena.append(csv::string_view(field));
-                data->fields.emplace_back(offset, field.size(), true);
-            }
-
-            return CSVRow(data, 0, 0, row.size());
+            return DataFrameRow<KeyType>(&row, this, row_index, static_cast<const RowOverlay*>(nullptr), this->key_ptr_at(row_index));
         }
 
         void validate_inserted_row(const std::vector<std::string>& row) const {
@@ -832,19 +812,6 @@ namespace csv {
             }
         }
 
-        std::vector<std::string> expand_visible_row(const std::vector<std::string>& row) const {
-            if (this->column_indices_.empty() || this->physical_n_cols() == this->n_cols()) {
-                return row;
-            }
-
-            std::vector<std::string> physical_row(this->physical_n_cols());
-            for (size_t i = 0; i < row.size(); ++i) {
-                physical_row[this->physical_column_index(i)] = row[i];
-            }
-
-            return physical_row;
-        }
-
         void validate_inserted_column_name(const std::string& name) const {
             if (name.empty()) {
                 throw std::invalid_argument("inserted column name must not be empty");
@@ -853,97 +820,6 @@ namespace csv {
             if (this->has_column(name)) {
                 throw std::invalid_argument("inserted column name must not duplicate an existing column");
             }
-        }
-
-        std::vector<KeyType> build_keys_from_rows(
-            const std::vector<CSVRow>& source_rows,
-            size_t key_column_index
-        ) const {
-            std::vector<KeyType> rebuilt_keys;
-            std::unordered_map<KeyType, size_t> seen_keys;
-            rebuilt_keys.reserve(source_rows.size());
-
-            for (size_t row_index = 0; row_index < source_rows.size(); ++row_index) {
-                KeyType key = source_rows[row_index][key_column_index].template get<KeyType>();
-                auto inserted = seen_keys.emplace(key, row_index);
-                if (!inserted.second) {
-                    throw std::runtime_error(internals::ERROR_DUPLICATE_KEY);
-                }
-
-                rebuilt_keys.push_back(std::move(key));
-            }
-
-            return rebuilt_keys;
-        }
-
-        void replace_with_reparsed_column_insert(
-            const std::string& serialized,
-            ColumnNamePolicy column_name_policy,
-            size_t inserted_column_index
-        ) {
-            const bool was_keyed = this->is_keyed;
-            const int old_key_column_index = this->key_column_index_;
-            int new_key_column_index = CSV_NOT_FOUND;
-            if (old_key_column_index != CSV_NOT_FOUND) {
-                const auto key_position = std::find(
-                    this->column_indices_.begin(),
-                    this->column_indices_.end(),
-                    static_cast<size_t>(old_key_column_index)
-                );
-                if (key_position == this->column_indices_.end()) {
-                    throw std::runtime_error("key column is not visible");
-                }
-
-                const size_t key_column_index = static_cast<size_t>(
-                    std::distance(this->column_indices_.begin(), key_position)
-                );
-                new_key_column_index = static_cast<int>(
-                    inserted_column_index <= key_column_index
-                        ? key_column_index + 1
-                        : key_column_index
-                );
-            }
-
-            CSVFormat format;
-            format.delimiter(',')
-                .header_row(0)
-                .column_names_policy(column_name_policy);
-
-            std::istringstream input(serialized);
-            CSVReader reader(input, format);
-            DataFrame<KeyType> rebuilt(reader);
-
-            std::vector<KeyType> rebuilt_keys;
-            if (was_keyed && new_key_column_index != CSV_NOT_FOUND) {
-                rebuilt_keys = this->build_keys_from_rows(
-                    rebuilt.rows,
-                    static_cast<size_t>(new_key_column_index)
-                );
-            }
-
-            this->col_names_ = rebuilt.col_names_;
-            this->physical_col_names_ = rebuilt.col_names_;
-            this->reset_visible_column_indices();
-            this->rows = std::move(rebuilt.rows);
-            this->edits.clear();
-            this->edits.resize(this->rows.size());
-
-            if (was_keyed) {
-                this->is_keyed = true;
-                this->key_column_index_ = new_key_column_index;
-                if (new_key_column_index != CSV_NOT_FOUND) {
-                    this->keys_ = std::move(rebuilt_keys);
-                }
-            }
-            else {
-                this->is_keyed = false;
-                this->key_column_index_ = CSV_NOT_FOUND;
-                this->keys_.clear();
-            }
-
-            this->invalidate_key_index();
-            this->invalidate_column_proxies();
-            this->invalidate_json_converter();
         }
 
         bool erase_column_at_index(size_t column_index) {
@@ -964,8 +840,8 @@ namespace csv {
             visible_names->set_policy(this->col_names_->get_policy());
             visible_names->set_col_names(names);
 
+            this->dirty_state_.erase_column(column_index, this->physical_n_cols());
             this->col_names_ = visible_names;
-            this->column_indices_.erase(this->column_indices_.begin() + column_index);
             this->invalidate_column_proxies();
             this->invalidate_json_converter();
             return true;
@@ -976,7 +852,7 @@ namespace csv {
                 return false;
             }
 
-            this->erase_row_edits(row_index);
+            this->dirty_state_.erase_row(row_index);
             rows.erase(rows.begin() + row_index);
             if (this->is_keyed) {
                 keys_.erase(keys_.begin() + row_index);
@@ -1018,8 +894,7 @@ namespace csv {
         void assert_fresh_storage(bool expected_is_keyed) const {
             CSV_DEBUG_ASSERT(this->rows.empty());
             CSV_DEBUG_ASSERT(this->keys_.empty());
-            CSV_DEBUG_ASSERT(this->edits.empty());
-            CSV_DEBUG_ASSERT(this->column_indices_.empty());
+            CSV_DEBUG_ASSERT(!this->dirty_state_.is_dirty());
             CSV_DEBUG_ASSERT(this->key_index.get() == nullptr);
             CSV_DEBUG_ASSERT(this->json_converter_.get() == nullptr);
             CSV_DEBUG_ASSERT(this->is_keyed == expected_is_keyed);
