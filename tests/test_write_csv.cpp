@@ -1,4 +1,5 @@
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <queue>
 #include <list>
@@ -53,6 +54,12 @@ TEST_CASE("Numeric Converter Tsts", "[test_convert_number]") {
         REQUIRE(csv::internals::to_string(-0.25) == "-0.25000");
         REQUIRE(csv::internals::to_string(-0.625) == "-0.62500");
         REQUIRE(csv::internals::to_string(-0.666) == "-0.66600");
+    }
+
+    SECTION("Negative Integers") {
+        REQUIRE(csv::internals::to_string(-1) == "-1");
+        REQUIRE(csv::internals::to_string((std::numeric_limits<int>::min)()) == "-2147483648");
+        REQUIRE(csv::internals::to_string((std::numeric_limits<long long>::min)()) == "-9223372036854775808");
     }
 
     SECTION("Numbers Close to 10^n - Regression") {
