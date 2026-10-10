@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "fastpycsv"
-version = "5.4.0"
+version = "5.5.0"
 description = "Fast ETL-focused CSV parsing for Python, backed by Vince's CSV Parser"
 readme = "python/README.md"
 requires-python = ">=3.9"
