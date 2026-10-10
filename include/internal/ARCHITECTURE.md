@@ -71,7 +71,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - CSVParserCore
   - Templated, non-virtual byte parser core in parser/core.hpp.
-  - Owns DFA state, BOM handling, field/row construction, and concrete row-sink emission.
+  - Owns DFA state, field/row construction, and concrete row-sink emission.
+  - Only ever sees BOM-free bytes; Unicode BOM handling belongs to the orchestrator.
   - Source adapters feed byte windows into it; it does not own file, mmap, or stream source mechanics.
 
 - PermissiveParsePolicy
@@ -97,6 +98,9 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - parser/orchestrator.hpp
   - Chooses serial CSVParserCore parsing or speculative parallel parsing for a byte window.
+  - Owns Unicode BOM handling: scans the first source window once, rejects UTF-16/UTF-32,
+    and hands parsers a BOM-free view while reporting completed prefixes in source bytes.
+    See @ref bom_stripping_refactor.
 
 - MmapParser
   - Reads chunks from memory maps and handles chunk-transition remainder.

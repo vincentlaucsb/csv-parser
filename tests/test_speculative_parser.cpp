@@ -166,7 +166,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
     SECTION("continuation chunk keeps leading partial row as prefix") {
         std::vector<CSVRow> parsed_rows;
         auto chunk = std::make_shared<std::string>(" value\",2\n3,Bob\n4,\"tail");
-        ParserChunkOptions options(ParserDFAState(true), false);
+        ParserChunkOptions options(ParserDFAState(true));
 
         const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows, options);
         auto rows = split_parsed_chunk_rows(
@@ -189,7 +189,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
     SECTION("continuation prefix preserves embedded newlines") {
         std::vector<CSVRow> parsed_rows;
         auto chunk = std::make_shared<std::string>("line one\nline two\",tail\nnext,row\npartial");
-        ParserChunkOptions options(ParserDFAState(true), false);
+        ParserChunkOptions options(ParserDFAState(true));
 
         const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows, options);
         auto rows = split_parsed_chunk_rows(
@@ -211,7 +211,7 @@ TEST_CASE("Parsed chunk rows split edge fragments from complete rows", "[raw_csv
     SECTION("continuation chunk without a record boundary is one prefix fragment") {
         std::vector<CSVRow> parsed_rows;
         auto chunk = std::make_shared<std::string>(" still inside the same quoted field");
-        ParserChunkOptions options(ParserDFAState(true), false);
+        ParserChunkOptions options(ParserDFAState(true));
 
         const auto parse_result = parser.parse_chunk(*chunk, chunk, parsed_rows, options);
         auto rows = split_parsed_chunk_rows(
@@ -256,7 +256,7 @@ TEST_CASE("Speculative validator repairs wrongly seeded continuation chunks", "[
         *chunk1,
         chunk1,
         parsed1_wrong,
-        ParserChunkOptions(ParserDFAState(false), false)
+        ParserChunkOptions(ParserDFAState(false))
     );
     auto rows1_wrong = split_parsed_chunk_rows(
         1,
@@ -312,7 +312,7 @@ TEST_CASE("Speculative validator batch-releases repaired rows to RowCollection",
         *chunk1,
         chunk1,
         parsed1_wrong,
-        ParserChunkOptions(ParserDFAState(false), false)
+        ParserChunkOptions(ParserDFAState(false))
     );
     auto rows1_wrong = split_parsed_chunk_rows(
         1,
@@ -370,7 +370,7 @@ TEST_CASE("Speculative validator carries split rows across chunks without record
         *chunk1,
         chunk1,
         parsed1,
-        ParserChunkOptions(ParserDFAState(true), false)
+        ParserChunkOptions(ParserDFAState(true))
     );
     auto rows1 = split_parsed_chunk_rows(1, *chunk1, chunk1, result1, std::move(parsed1), false);
 
@@ -380,7 +380,7 @@ TEST_CASE("Speculative validator carries split rows across chunks without record
         *chunk2,
         chunk2,
         parsed2,
-        ParserChunkOptions(ParserDFAState(true), false)
+        ParserChunkOptions(ParserDFAState(true))
     );
     auto rows2 = split_parsed_chunk_rows(2, *chunk2, chunk2, result2, std::move(parsed2), false);
 
@@ -416,7 +416,6 @@ TEST_CASE("ParallelCSVParser repairs speculative worker output in order", "[raw_
     first.speculation.sequence_number = 0;
     first.speculation.assumed_start_state = ParserDFAState(false);
     first.starts_at_record_boundary = true;
-    first.scan_bom = true;
 
     auto chunk1 = std::make_shared<std::string>("world\",ok\n2,done,ok\n");
     SpeculativeParseChunk second;
@@ -427,7 +426,6 @@ TEST_CASE("ParallelCSVParser repairs speculative worker output in order", "[raw_
     second.speculation.sequence_number = 1;
     second.speculation.assumed_start_state = ParserDFAState(false);
     second.starts_at_record_boundary = false;
-    second.scan_bom = false;
 
     std::vector<SpeculativeParseChunk> chunks;
     chunks.push_back(first);
@@ -524,7 +522,6 @@ TEST_CASE("ParallelCSVParser can leave the final split row pending", "[raw_csv_p
     first.speculation.sequence_number = 0;
     first.speculation.assumed_start_state = ParserDFAState(false);
     first.starts_at_record_boundary = true;
-    first.scan_bom = true;
 
     auto chunk1 = std::make_shared<std::string>(" beta");
     SpeculativeParseChunk second;
@@ -535,7 +532,6 @@ TEST_CASE("ParallelCSVParser can leave the final split row pending", "[raw_csv_p
     second.speculation.sequence_number = 1;
     second.speculation.assumed_start_state = ParserDFAState(true);
     second.starts_at_record_boundary = false;
-    second.scan_bom = false;
 
     std::vector<SpeculativeParseChunk> chunks;
     chunks.push_back(first);

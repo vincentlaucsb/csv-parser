@@ -215,9 +215,7 @@ namespace csv {
                     owner,
                     serial_chunk_size,
                     this->scanner_,
-                    base_offset,
-                    0,
-                    false
+                    base_offset
                 );
 
                 const speculative::ParallelCSVParseResult parse_result = this->speculative_parser_->parse_chunks(

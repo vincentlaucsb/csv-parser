@@ -95,9 +95,6 @@ namespace csv {
             return make_ws_flags(flags.data(), flags.size());
         }
 
-        /** Return the number of leading BOM bytes to skip, or throw for unsupported Unicode encodings. */
-        CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom);
-
         /** Explicit DFA state at a parse boundary.
          *
          *  This is intentionally about parser control flow, not field metadata.
@@ -132,15 +129,12 @@ namespace csv {
             ParserChunkOptions() noexcept = default;
             explicit ParserChunkOptions(
                 ParserDFAState initial_state,
-                bool scan_bom = true,
                 size_t source_start = 0
             ) noexcept
                 : initial_state(initial_state),
-                  scan_bom(scan_bom),
                   source_start(source_start) {}
 
             ParserDFAState initial_state;
-            bool scan_bom = true;
             size_t source_start = 0;
         };
 
@@ -426,9 +420,6 @@ namespace csv {
                 return quote_escape_flag(parse_flag(ch), this->quote_escape_);
             }
 
-            /** Whether or not this CSV has a UTF-8 byte order mark. */
-            CONSTEXPR bool utf8_bom() const { return this->utf8_bom_; }
-
             void set_output(RowSink& output) noexcept {
                 this->output_ = &output;
             }
@@ -494,7 +485,7 @@ namespace csv {
                     chunk,
                     std::move(owner),
                     output,
-                    ParserChunkOptions(this->initial_state_, false, source_start)
+                    ParserChunkOptions(this->initial_state_, source_start)
                 );
             }
 
@@ -559,9 +550,6 @@ namespace csv {
                 this->pending_linefeed_ = start_state.pending_linefeed;
                 this->data_pos_ = 0;
                 this->current_row_start() = 0;
-                if (this->scan_bom_for_current_chunk_) {
-                    this->strip_unicode_bom();
-                }
 
                 auto& in = this->data_ptr_->data;
 
@@ -679,14 +667,9 @@ namespace csv {
             bool field_has_double_quote_ = false;
             ParserDFAState initial_state_;
             ParserDFAState ending_state_;
-            bool scan_bom_for_current_chunk_ = true;
 
             /** Where we are in the current data block. */
             size_t data_pos_ = 0;
-
-            /** Whether or not an attempt to find Unicode BOM has been made. */
-            bool unicode_bom_scan_ = false;
-            bool utf8_bom_ = false;
 
             RowSink* output_ = nullptr;
             ParsePolicy policy_;
@@ -802,16 +785,6 @@ namespace csv {
                 this->emit_row(std::move(current_row_));
             }
 
-            /** Handle possible Unicode byte order mark. */
-            void strip_unicode_bom() {
-                auto& data = this->data_ptr_->data;
-
-                if (!this->unicode_bom_scan_) {
-                    this->data_pos_ += get_bom_skip_or_throw(data, this->utf8_bom_);
-                    this->unicode_bom_scan_ = true;
-                }
-            }
-
             ParserChunkResult parse_prepared_chunk(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
@@ -828,7 +801,6 @@ namespace csv {
                 this->data_ptr_->field_scalars.reserve_for_source_size(chunk.size());
                 this->data_ptr_->quote_arena.reserve_for_source_size(chunk.size());
                 this->initial_state_ = options.initial_state;
-                this->scan_bom_for_current_chunk_ = options.scan_bom;
                 this->current_row_ = this->row_policy_.make_initial_row(this->data_ptr_);
                 this->policy_.begin_chunk(this->data_ptr_);
                 this->policy_.begin_row(this->current_row_);
@@ -846,7 +818,6 @@ namespace csv {
                 this->initial_state_ = this->ending_state_.pending_linefeed
                     ? this->ending_state_
                     : ParserDFAState{};
-                this->scan_bom_for_current_chunk_ = true;
                 return remainder;
             }
         };

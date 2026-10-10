@@ -29,6 +29,13 @@
 
 namespace csv {
     namespace internals {
+        /** Return the number of leading BOM bytes to skip, or throw for unsupported Unicode encodings.
+         *
+         *  BOM handling happens at the source-window level (CSVParseOrchestrator and
+         *  format guessing); CSVParserCore only ever sees BOM-free bytes.
+         */
+        CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom);
+
         namespace parser {
         struct GuessScore {
             size_t header;
@@ -175,7 +182,7 @@ namespace csv {
             virtual bool utf8_bom() const noexcept {
                 return this->parse_orchestrator_
                     ? this->parse_orchestrator_->utf8_bom()
-                    : CSVParserCore<>::utf8_bom();
+                    : false;
             }
 
         protected:
