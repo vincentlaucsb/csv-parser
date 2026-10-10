@@ -1,282 +1,160 @@
 #pragma once
 
-#include <algorithm>
-#include <atomic>
-#include <cstdint>
-#include <iterator>
 #include <mutex>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
-
-#include "../csv_row.hpp"
-#include "../raw_csv_data.hpp"
-#include "row_overlay.hpp"
+#include "clean_data_frame.hpp"
 
 namespace csv {
     namespace internals {
         namespace data_frame {
-            /** Private editing state. Clean frames need neither overlay slots nor a column map.
-             *
-             * The flag is published only after slots are initialized. Structural operations
-             * and moves require exclusive access, just like DataFrame's row storage.
+            /** Overlay-aware backend. Owns visible schema and all column mutation logic.
+             * Physical rows stay in the stable clean backing; promotion leaves readers
+             * and proxies bound to the same objects. Structural operations are exclusive.
              */
-            class DirtyDataFrame {
+            class DirtyDataFrame : public RowBackend {
             public:
-                DirtyDataFrame() = default;
+                explicit inline DirtyDataFrame(CleanDataFrame& backing, bool allocate_edits = true)
+                    : backing_(&backing), names_(backing.names()) {
+                    if (allocate_edits) { edits_.resize(backing.rows().size()); }
+                }
                 DirtyDataFrame(const DirtyDataFrame&) = delete;
                 DirtyDataFrame& operator=(const DirtyDataFrame&) = delete;
 
-                inline DirtyDataFrame(DirtyDataFrame&& other) noexcept
-                    : row_count_(other.row_count_),
-                      rows_begin_(other.rows_begin_),
-                      edits_(std::move(other.edits_)),
-                      column_indices_(std::move(other.column_indices_)),
-                      active_(other.is_dirty()) {
-                    other.reset(0);
+                inline void rebind(CleanDataFrame& backing) noexcept { backing_ = &backing; }
+                inline const ConstColNamesPtr& names() const noexcept { return names_; }
+                inline size_t n_cols() const noexcept { return names_->size(); }
+                inline const RowOverlay* find_edits(size_t row) const {
+                    // Empty slots exist only in an unpublished, exclusive mutation
+                    // backend. Published backends initialize every slot before release.
+                    return edits_.empty() ? nullptr : edits_.at(row).get();
                 }
-
-                inline DirtyDataFrame& operator=(DirtyDataFrame&& other) noexcept {
-                    if (this != &other) {
-                        this->row_count_ = other.row_count_;
-                        this->rows_begin_ = other.rows_begin_;
-                        this->edits_ = std::move(other.edits_);
-                        this->column_indices_ = std::move(other.column_indices_);
-                        this->active_.store(other.is_dirty(), std::memory_order_release);
-                        other.reset(0);
-                    }
-                    return *this;
+                inline RowOverlay* ensure_edits(size_t row) {
+                    if (auto* overlay = edits_.at(row).get()) { return overlay; }
+                    std::lock_guard<std::mutex> lock(creation_lock_);
+                    return edits_.at(row).ensure();
                 }
-
-                inline bool is_dirty() const noexcept {
-                    return this->active_.load(std::memory_order_acquire);
+                inline size_t physical_column(size_t column) const {
+                    return column_indices_.empty() ? column : column_indices_.at(column);
                 }
-
-                inline void reset(size_t row_count, const CSVRow* rows_begin = nullptr) noexcept {
-                    std::vector<RowOverlaySlot>().swap(this->edits_);
-                    this->column_indices_.clear();
-                    this->row_count_ = row_count;
-                    this->rows_begin_ = rows_begin;
-                    this->active_.store(false, std::memory_order_release);
+                inline size_t logical_column(size_t physical) const {
+                    if (column_indices_.empty()) { return physical; }
+                    const auto position = std::find(column_indices_.begin(), column_indices_.end(), physical);
+                    if (position == column_indices_.end()) { throw std::runtime_error("key column is not visible"); }
+                    return static_cast<size_t>(std::distance(column_indices_.begin(), position));
                 }
-
-                inline void set_clean_row_count(size_t row_count, const CSVRow* rows_begin) noexcept {
-                    CSV_DEBUG_ASSERT(!this->is_dirty());
-                    this->row_count_ = row_count;
-                    this->rows_begin_ = rows_begin;
+                inline CellBinding bind(size_t row, size_t column) const {
+                    validate_column(column, n_cols());
+                    return CellBinding{find_edits(row), physical_column(column)};
                 }
-
-                inline void bind_rows(const CSVRow* rows_begin) noexcept { this->rows_begin_ = rows_begin; }
-
-                // Cells already carry a pointer into the row vector. Deriving the
-                // position only on mutation keeps their size identical to standalone cells.
-                inline size_t row_index(const CSVRow* row) const noexcept {
-                    return static_cast<size_t>(row - this->rows_begin_);
-                }
-
-                // Called only on the dirty read path, or under the creation lock.
-                inline const RowOverlay* find_row_edits(size_t row_index) const {
-                    return this->edits_.at(row_index).get();
-                }
-
-                inline RowOverlay* ensure_row_edits(size_t row_index) {
-                    if (this->is_dirty()) {
-                        if (auto* overlay = this->edits_.at(row_index).get()) {
-                            return overlay;
-                        }
-                    }
-                    std::lock_guard<std::mutex> lock(this->creation_lock_);
-                    this->activate();
-                    return this->edits_.at(row_index).ensure();
-                }
-
-                inline size_t physical_column_index(size_t logical_index) const {
-                    return this->column_indices_.empty() ? logical_index : this->column_indices_.at(logical_index);
-                }
-
-                inline size_t logical_column_index(size_t physical_index) const {
-                    if (this->column_indices_.empty()) {
-                        return physical_index;
-                    }
-                    const auto position = std::find(this->column_indices_.begin(), this->column_indices_.end(), physical_index);
-                    if (position == this->column_indices_.end()) {
-                        throw std::runtime_error("key column is not visible");
-                    }
-                    return static_cast<size_t>(std::distance(this->column_indices_.begin(), position));
-                }
-
-                inline csv::string_view get_sv(const CSVRow& row, size_t row_index, size_t column_index) const {
-                    const size_t physical_index = this->physical_column_index(column_index);
-                    const auto* overlay = this->find_row_edits(row_index);
+                inline csv::string_view view(size_t row, size_t column) const {
+                    const CellBinding cell = bind(row, column);
                     csv::string_view value;
-                    if (overlay && overlay->try_get_view(physical_index, value)) {
-                        return value;
-                    }
-                    return row[physical_index].get<csv::string_view>();
+                    if (cell.overlay && cell.overlay->try_get_view(cell.physical_column, value)) { return value; }
+                    return backing_->rows().at(row)[cell.physical_column].get<csv::string_view>();
                 }
-
-                inline std::vector<std::string> expand_visible_row(
-                    const std::vector<std::string>& row, size_t physical_columns
-                ) const {
-                    if (this->column_indices_.empty()) {
-                        return row;
-                    }
-                    std::vector<std::string> expanded(physical_columns);
-                    for (size_t i = 0; i < row.size(); ++i) {
-                        expanded[this->physical_column_index(i)] = row[i];
-                    }
-                    return expanded;
+                inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {
+                    validate_row(row, n_cols());
+                    if (column_indices_.empty() && n_cols() == backing_->n_cols()) { return RowStorageBuilder::make_row(row, backing_->names()); }
+                    std::vector<std::string> expanded(backing_->n_cols());
+                    for (size_t i = 0; i < row.size(); ++i) { expanded[physical_column(i)] = row[i]; }
+                    return RowStorageBuilder::make_row(expanded, backing_->names());
                 }
-
-                inline void insert_row(size_t index, const CSVRow* rows_begin) {
-                    if (this->is_dirty()) {
-                        this->edits_.insert(this->edits_.begin() + index, RowOverlaySlot());
-                    }
-                    ++this->row_count_;
-                    this->rows_begin_ = rows_begin;
+                inline void reserve_insert() {
+                    backing_->reserve_insert();
+                    reserve_next(edits_);
                 }
-
+                inline void insert_row(size_t index, CSVRow&& row) {
+                    // Call reserve_insert before mutating keyed metadata. Slot moves
+                    // and CSVRow moves cannot allocate once capacity is available.
+                    backing_->insert_row(index, std::move(row));
+                    edits_.insert(edits_.begin() + index, RowOverlaySlot());
+                }
                 inline void erase_row(size_t index) {
-                    if (this->is_dirty()) {
-                        this->edits_.erase(this->edits_.begin() + index);
-                    }
-                    --this->row_count_;
+                    edits_.erase(edits_.begin() + index);
+                    backing_->erase_row(index);
                 }
-
-                inline void erase_column(size_t index, size_t physical_columns) {
-                    std::vector<size_t> mapping = this->column_indices_;
+                inline bool erase_column(size_t index, int key_column) {
+                    if (index >= n_cols()) { return false; }
+                    const size_t physical = physical_column(index);
+                    if (key_column != CSV_NOT_FOUND && physical == static_cast<size_t>(key_column)) {
+                        throw std::runtime_error("cannot erase key column from DataFrame");
+                    }
+                    std::vector<std::string> columns = names_->get_col_names();
+                    columns.erase(columns.begin() + index);
+                    ColNamesPtr names = std::make_shared<ColNames>();
+                    names->set_policy(names_->get_policy());
+                    names->set_col_names(columns);
+                    std::vector<size_t> mapping = column_indices_;
                     if (mapping.empty()) {
-                        mapping.reserve(physical_columns);
-                        for (size_t i = 0; i < physical_columns; ++i) {
-                            mapping.push_back(i);
-                        }
+                        mapping.reserve(backing_->n_cols());
+                        for (size_t i = 0; i < backing_->n_cols(); ++i) { mapping.push_back(i); }
                     }
                     mapping.erase(mapping.begin() + index);
-                    this->activate();
-                    this->column_indices_ = std::move(mapping);
+                    names_ = std::move(names);
+                    column_indices_ = std::move(mapping);
+                    return true;
                 }
-
-                inline DirtyDataFrame selected_rows(const std::vector<std::uint8_t>& mask) const {
-                    DirtyDataFrame selected;
-                    for (auto include : mask) {
-                        selected.row_count_ += include != 0;
-                    }
-                    selected.edits_.resize(selected.row_count_);
-                    selected.column_indices_ = this->column_indices_;
+                inline std::unique_ptr<DirtyDataFrame> selected_rows(
+                    CleanDataFrame& selected, const std::vector<std::uint8_t>& mask
+                ) const {
+                    std::unique_ptr<DirtyDataFrame> result(new DirtyDataFrame(selected));
+                    result->names_ = names_;
+                    result->column_indices_ = column_indices_;
                     size_t target = 0;
                     for (size_t i = 0; i < mask.size(); ++i) {
                         if (mask[i]) {
-                            if (const auto* overlay = this->find_row_edits(i)) {
-                                *selected.edits_[target].ensure() = overlay->snapshot();
+                            if (const auto* overlay = find_edits(i)) {
+                                *result->edits_[target].ensure() = overlay->snapshot();
                             }
                             ++target;
                         }
                     }
-                    selected.active_.store(true, std::memory_order_release);
-                    return selected;
+                    return result;
                 }
 
-                inline std::vector<CSVRow> insert_column(
-                    const std::vector<CSVRow>& rows, ConstColNamesPtr names,
-                    size_t index, const std::string& default_value
-                ) const {
-                    return materialize_column_insert(rows.size(), std::move(names), index, default_value,
-                        [this, &rows](size_t row_index, size_t column_index) -> std::string {
-                            const size_t physical_index = this->physical_column_index(column_index);
-                            const auto* overlay = this->find_row_edits(row_index);
-                            std::string value;
-                            if (overlay && overlay->try_get_copy(physical_index, value)) {
-                                return value;
-                            }
-                            return rows[row_index][physical_index].get<std::string>();
-                        });
-                }
-
-                /** Shared lossless storage construction; the caller supplies clean or dirty values.
-                 * No CSV serialization/reparse, and no per-row backing-store allocation.
-                 */
-                template<typename FieldAt>
-                static inline std::vector<CSVRow> materialize_column_insert(
-                    size_t row_count, ConstColNamesPtr names, size_t index,
-                    const std::string& default_value, FieldAt field_at
+                template<typename BeforeReplace>
+                inline void insert_column(
+                    size_t index, const std::string& name, const std::string& default_value,
+                    int& key_column, const BeforeReplace& before_replace
                 ) {
-                    std::vector<CSVRow> rebuilt;
-                    rebuilt.reserve(row_count);
-                    RowStorageBuilder storage(names);
-                    for (size_t row = 0; row < row_count; ++row) {
-                        storage.begin_row();
-                        for (size_t column = 0; column < names->size(); ++column) {
-                            if (column == index) {
-                                storage.append_field(csv::string_view(default_value));
-                            }
-                            else {
-                                const auto value = field_at(row, column < index ? column : column - 1);
-                                storage.append_field(csv::string_view(value));
-                            }
-                        }
-                        rebuilt.push_back(storage.finish_row());
+                    if (index > n_cols()) { throw std::out_of_range("DataFrame insert_column index out of range"); }
+                    if (name.empty()) { throw std::invalid_argument("inserted column name must not be empty"); }
+                    if (names_->index_of(name) != CSV_NOT_FOUND) {
+                        throw std::invalid_argument("inserted column name must not duplicate an existing column");
                     }
-                    return rebuilt;
-                }
-
-                static inline CSVRow make_owned_row(const std::vector<std::string>& values, ConstColNamesPtr names) {
-                    RowStorageBuilder storage(std::move(names));
-                    storage.begin_row();
-                    for (const auto& value : values) {
-                        storage.append_field(csv::string_view(value));
+                    std::vector<std::string> columns = names_->get_col_names();
+                    columns.insert(columns.begin() + index, name);
+                    ColNamesPtr names = std::make_shared<ColNames>();
+                    names->set_policy(names_->get_policy());
+                    names->set_col_names(columns);
+                    int new_key_column = key_column;
+                    if (key_column != CSV_NOT_FOUND) {
+                        const size_t logical = logical_column(static_cast<size_t>(key_column));
+                        new_key_column = static_cast<int>(logical + (index <= logical ? 1 : 0));
                     }
-                    return storage.finish_row();
+                    // Select a concrete materializer once. An unpublished clean-input
+                    // mutation backend has neither slot allocation nor per-field lookups.
+                    std::vector<CSVRow> rebuilt = edits_.empty() && column_indices_.empty()
+                        ? RowStorageBuilder::insert_column(backing_->rows().size(), names, index, default_value,
+                            [this](size_t row, size_t column) { return backing_->rows()[row][column].get<csv::string_view>(); })
+                        : RowStorageBuilder::insert_column(backing_->rows().size(), names, index, default_value,
+                            [this](size_t row, size_t column) -> std::string {
+                                const CellBinding cell = bind(row, column);
+                                std::string value;
+                                if (cell.overlay && cell.overlay->try_get_copy(cell.physical_column, value)) { return value; }
+                                return backing_->rows()[row][cell.physical_column].get<std::string>();
+                            });
+                    // Prepare everything before releasing parsed backing or view-key bytes.
+                    before_replace();
+                    backing_->replace_rows(std::move(rebuilt), std::move(names));
+                    key_column = new_key_column;
                 }
 
             private:
-                // Arena offsets are chunk-local. Rotate backing storage between rows to
-                // retain the parser's bounded chunk sizes for large materialized tables.
-                class RowStorageBuilder {
-                public:
-                    explicit inline RowStorageBuilder(ConstColNamesPtr names) : names_(std::move(names)) {}
-
-                    inline void begin_row() {
-                        if (!this->data_ || this->bytes_ >= CSV_CHUNK_SIZE_DEFAULT ||
-                            this->data_->fields.size() >= CSV_CHUNK_SIZE_DEFAULT) {
-                            this->data_ = std::make_shared<RawCSVData>();
-                            this->data_->col_names = std::const_pointer_cast<ColNames>(this->names_);
-                            this->bytes_ = 0;
-                        }
-                        this->field_start_ = this->data_->fields.size();
-                        this->data_->fields.reserve_for_source_size(this->field_start_ + this->names_->size());
-                    }
-
-                    inline void append_field(csv::string_view value) {
-                        const size_t offset = this->data_->quote_arena.append(value);
-                        this->data_->fields.emplace_back(offset, value.size(), true);
-                        this->bytes_ += value.size();
-                    }
-
-                    inline CSVRow finish_row() const {
-                        return CSVRow(this->data_, 0, this->field_start_, this->data_->fields.size() - this->field_start_);
-                    }
-
-                private:
-                    ConstColNamesPtr names_;
-                    RawCSVDataPtr data_;
-                    size_t bytes_ = 0;
-                    size_t field_start_ = 0;
-                };
-
-                inline void activate() {
-                    if (!this->is_dirty()) {
-                        this->edits_.resize(this->row_count_);
-                        this->active_.store(true, std::memory_order_release);
-                    }
-                }
-
-                size_t row_count_ = 0;
-                const CSVRow* rows_begin_ = nullptr;
+                CleanDataFrame* backing_;
+                ConstColNamesPtr names_;
                 std::vector<RowOverlaySlot> edits_;
                 std::vector<size_t> column_indices_;
                 std::mutex creation_lock_;
-                std::atomic<bool> active_{false};
             };
         }
     }

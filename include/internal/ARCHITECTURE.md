@@ -245,13 +245,21 @@ edit strategies symmetric.
 
 Current structural edit policy:
 
-- Clean row/cell access: read parsed storage directly. Private
-  `data_frame::DirtyDataFrame` owns the atomic state flag, sparse overlays,
-  and optional logical-to-physical column map. The first assignment or column
-  soft delete activates the handler; mutable reads alone do not.
+- Clean row/cell access: `data_frame::DataFrameStorage` centrally selects a
+  concrete `CleanDataFrame` or `DirtyDataFrame` through an atomic tagged pointer.
+  Calls remain direct and inlineable, with no vtable or C++17 variant dependency.
+  Clean handling owns physical rows/names; dirty handling owns visible names,
+  sparse overlays, and logical-to-physical mapping. Facade features never inspect
+  the active state themselves.
+- First-edit promotion: construct all dirty state before release publication and
+  retain the clean backing object for readers that captured the previous backend.
+  Mutable cells bind to the stable selector. Structural changes and moves are
+  exclusive; read operations do not acquire a transition lock.
 - Row insert/erase: mutate `rows` and `keys_` directly and update the handler's
   row bindings and overlay slots because rows are the native storage unit.
-- Column insert: construct fresh shared backing chunks from visible values,
+- Column insert: delegate validation, schema/key-column remapping, and rebuilding
+  to `DirtyDataFrame`, including for a clean input frame. Construct fresh shared
+  backing chunks from visible values,
   including sparse edits, without CSV serialization/reparsing. This preserves
   empty fields and zero-column rows and returns the frame to clean handling.
   Stored keys remain stable row identities even after key-column cell edits.

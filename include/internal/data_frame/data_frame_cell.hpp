@@ -6,7 +6,7 @@
 
 #include "../csv_exceptions.hpp"
 #include "../csv_row.hpp"
-#include "dirty_data_frame.hpp"
+#include "data_frame_storage.hpp"
 #include "fwd.hpp"
 #include "row_overlay.hpp"
 
@@ -145,22 +145,21 @@ namespace csv {
         // reads retain the existing snapshot semantics; row proxies resolve afresh.
         DataFrameCell(
             const CSVRow* source, const RowOverlay* overlay, size_t column,
-            const internals::data_frame::DirtyDataFrame* dirty_state,
+            const internals::data_frame::DataFrameStorage* storage,
             bool mutable_access
         ) : CSVField(csv::string_view()), row_(source),
-            edit_context_(mutable_access ? static_cast<const void*>(dirty_state) : static_cast<const void*>(overlay)),
+            edit_context_(mutable_access ? static_cast<const void*>(storage) : static_cast<const void*>(overlay)),
             col_index_(column), can_mutate_(mutable_access), frame_bound_(mutable_access) {
             this->refresh_value(overlay);
         }
 
-        const internals::data_frame::DirtyDataFrame* dirty_state() const {
-            return static_cast<const internals::data_frame::DirtyDataFrame*>(edit_context_);
+        const internals::data_frame::DataFrameStorage* storage() const {
+            return static_cast<const internals::data_frame::DataFrameStorage*>(edit_context_);
         }
 
         const RowOverlay* find_overlay() const {
             if (frame_bound_) {
-                const auto* state = this->dirty_state();
-                return state->is_dirty() ? state->find_row_edits(state->row_index(row_)) : nullptr;
+                return this->storage()->find_edits(row_);
             }
             return static_cast<const RowOverlay*>(edit_context_);
         }
@@ -191,8 +190,8 @@ namespace csv {
 
             owned_value_ = stored;
             auto* state = frame_bound_
-                ? const_cast<internals::data_frame::DirtyDataFrame*>(this->dirty_state()) : nullptr;
-            RowOverlay* overlay = state ? state->ensure_row_edits(state->row_index(row_))
+                ? const_cast<internals::data_frame::DataFrameStorage*>(this->storage()) : nullptr;
+            RowOverlay* overlay = state ? state->ensure_edits(row_)
                 : const_cast<RowOverlay*>(static_cast<const RowOverlay*>(edit_context_));
             overlay->set(col_index_, std::move(stored));
             CSVField::operator=(CSVField(csv::string_view(owned_value_)));

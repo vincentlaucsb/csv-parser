@@ -41,7 +41,7 @@ namespace csv {
         /** Column name. */
         const std::string& name() const {
             this->require_valid();
-            return (*frame_->col_names_)[col_index_];
+            return frame_->columns().at(col_index_);
         }
 
         /** Zero-based column position. */

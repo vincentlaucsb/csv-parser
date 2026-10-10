@@ -5,10 +5,13 @@ namespace `csv`; the folder split is for maintainability, not a namespace move.
 
 ## Storage Model
 
-`DataFrame` is row-backed. Its primary storage is `std::vector<CSVRow>`.
-Private `internals::data_frame::DirtyDataFrame` owns sparse edit overlays,
-logical-to-physical column mapping, and the atomic dirty-state flag. Clean
-reads access parsed rows directly, without overlay slots or column mapping.
+`DataFrame` delegates storage operations through private
+`internals::data_frame::DataFrameStorage`. Its C++11 tagged pointer selects
+concrete `CleanDataFrame` or `DirtyDataFrame` implementations without virtual
+dispatch. State checks belong only in this selector, never in facade features.
+`CleanDataFrame` owns the native `std::vector<CSVRow>` and physical column names.
+`DirtyDataFrame` owns visible names, sparse overlays, and column mapping.
+Clean reads access parsed rows directly, without overlay slots or mapping.
 Do not turn normal row/cell access into a
 columnar abstraction just to make structural edit implementations symmetric.
 
@@ -21,12 +24,15 @@ Current structural edit strategy:
 
 - Cell assignment activates dirty handling lazily. Taking mutable row/cell
   proxies does not allocate overlays or activate the flag.
-- Row insert/erase mutates row storage and keyed metadata directly. The handler
-  updates overlay slots when active and tracks the current row-storage base.
+- Row insert/erase delegates to the active concrete backend. Dirty handling
+  shifts overlay slots alongside native rows; row and slot capacity is prepared
+  before committing keyed insertion metadata.
 - Column insert builds fresh owned row storage from visible values, without CSV
   serialization or reparsing. Shared backing chunks avoid allocation per row
   and preserve empty values and zero-column row cardinality. Successful
-  materialization clears dirty handling because visible edits are baked in.
+  materialization returns the selector to clean handling. `DirtyDataFrame`
+  owns schema validation, key-column remapping, and row rebuilding, including
+  structural insertion into an otherwise clean frame.
 - Column erase is a soft delete: visible column names and the
   logical-to-physical column map change, while underlying `CSVRow` storage stays
   intact.
@@ -57,8 +63,12 @@ compaction/materialization API over adding hot-path indirection for all access.
 - Selection shares parsed rows but snapshots overlays independently and keeps
   the visible column mapping. Never reconstruct a logical frame solely from
   `get_underlying_row()`: it omits edits and includes hidden columns.
-- Dirty-state publication and first-overlay creation are synchronized. Keep
-  structural changes exclusive; ordinary cell edits retain row-level locking.
+- First-edit promotion fully constructs the dirty backend and slot array before
+  release publication. Retain the clean backing object so readers that loaded
+  the old backend can finish without per-read locking. Bind mutable cells to the
+  stable selector, not to whichever concrete backend was active at capture.
+- Structural operations and moves require exclusive access. Successful column
+  materialization may retire dirty state; ordinary cell edits retain row locks.
 - DataFrame iterators should follow the library's cached-proxy convention:
   store the current proxy inside the iterator and expose `operator*` /
   `operator->` reference-like access, as `CSVReader` and `CSVRow` do.

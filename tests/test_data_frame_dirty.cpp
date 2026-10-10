@@ -1,12 +1,15 @@
 #include <cstdint>
+#include <atomic>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
 #include "shared/generated_file.hpp"
+#include "shared/timeout_helper.hpp"
 
 using namespace csv;
 
@@ -470,3 +473,83 @@ TEST_CASE("DataFrame: materialization preserves an empty borrowed key",
     REQUIRE(frame[csv::string_view()]["prefix"].get<std::string>() == "x");
     REQUIRE(frame[csv::string_view()]["name"].get<std::string>() == "empty key row");
 }
+
+TEST_CASE("DataFrame: repeated backend transitions preserve schema and proxy reads",
+    "[data_frame][backend]") {
+    DataFrame<> frame;
+    frame.append_column("id");
+    frame.append_column("value");
+    frame.insert_row(0, {"1", "original"});
+    for (size_t i = 0; i < 20; ++i) {
+        const auto& source = frame;
+        const auto row = source.at(0);
+        auto column = source.column_view("value");
+        auto pending = frame.at(0)["value"];
+        const std::string edited = "edit_" + std::to_string(i);
+        pending = edited;
+        REQUIRE(row["value"].get<std::string>() == edited);
+        REQUIRE(column[0].get<std::string>() == edited);
+        frame.insert_column(0, "extra", "default");
+        REQUIRE_THROWS_AS(column.name(), std::runtime_error);
+        REQUIRE(frame.at(0)["value"].get<std::string>() == edited);
+        REQUIRE(frame.columns() == std::vector<std::string>{"extra", "id", "value"});
+        REQUIRE(frame.column_view("extra").erase());
+        auto selected = frame.selected_rows({1});
+        REQUIRE(selected.columns() == std::vector<std::string>{"id", "value"});
+        REQUIRE(selected.at(0)["value"].get<std::string>() == edited);
+        frame.append_column("materialize");
+        REQUIRE(frame.column_view("materialize").erase());
+        frame = frame.selected_rows({1});
+    }
+}
+
+#if CSV_ENABLE_THREADS
+TEST_CASE("DataFrame: concurrent first edits retain clean readers and captured cells",
+    "[data_frame][backend][threading]") {
+    const auto& filename = issue_333_file();
+    auto validate = [](CSVReader& reader) {
+        auto frame = std::make_shared<DataFrame<>>(reader);
+        REQUIRE(frame->size() == 500001);
+        auto errors = std::make_shared<ThreadSafeErrorCollector>();
+        test_with_timeout([frame, errors]() {
+            const auto& source = *frame;
+            const auto row = source.at(0);
+            auto pending_name = frame->at(0)["name"];
+            auto pending_value = frame->at(0)["value"];
+            const auto* names = &source.columns();
+            std::atomic<bool> start(false), valid(true);
+            auto wait = [&start]() { while (!start.load(std::memory_order_acquire)) { std::this_thread::yield(); } };
+            std::thread name_writer([&]() { wait(); pending_name = "edited name"; });
+            std::thread value_writer([&]() { wait(); pending_value = "99"; });
+            std::thread observer([&]() {
+                wait();
+                for (size_t i = 0; i < 2000; ++i) {
+                    const auto name = row["name"].get<std::string>();
+                    const auto value = row["value"].get<std::string>();
+                    if ((name != "person_1" && name != "edited name") ||
+                        (value != "7" && value != "99") || &source.columns() != names) {
+                        valid.store(false, std::memory_order_relaxed);
+                    }
+                }
+            });
+            start.store(true, std::memory_order_release);
+            name_writer.join();
+            value_writer.join();
+            observer.join();
+            if (!valid.load(std::memory_order_relaxed)) { errors->add_error("first-edit reader observed corrupt state"); }
+            if (row["name"].get<std::string>() != "edited name") { errors->add_error("captured name cell lost its write"); }
+            if (row["value"].get<int>() != 99) { errors->add_error("captured value cell lost its write"); }
+        });
+        errors->check_and_fail_if_errors();
+    };
+    SECTION("mmap") {
+        CSVReader reader(filename, CSVFormat());
+        validate(reader);
+    }
+    SECTION("stream") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, CSVFormat());
+        validate(reader);
+    }
+}
+#endif
