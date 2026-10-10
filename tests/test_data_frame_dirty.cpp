@@ -339,3 +339,133 @@ TEST_CASE("DataFrame: materialization owns preserved view keys after reader dest
     REQUIRE(small.empty());
     REQUIRE_FALSE(small.contains("1"));
 }
+
+TEST_CASE("DataFrame: standalone mutable proxies retain edits and access permissions",
+    "[data_frame][coverage]") {
+    // A row built in memory isolates proxy binding from the parser paths.
+    DataFrame<> source;
+    source.append_column("name");
+    source.append_column("value");
+    source.insert_row(0, {"original", "22"});
+    const auto& raw = source.at(0).get_underlying_row();
+    RowOverlay overlay;
+    DataFrameRow<std::string> detached(&raw, static_cast<DataFrame<>*>(nullptr), 0, &overlay, nullptr);
+
+    auto cell = detached["name"];
+    cell = "standalone edited value";
+    REQUIRE(detached["name"].get<std::string>() == "standalone edited value");
+    REQUIRE(raw["name"].get<std::string>() == "original");
+    auto copied = cell;
+    DataFrameCell moved(std::move(cell));
+    overlay.set(0, "later overlay edit");
+    REQUIRE(copied.get<std::string>() == "standalone edited value");
+    REQUIRE(moved.get<std::string>() == "standalone edited value");
+    REQUIRE(detached["name"].get<std::string>() == "later overlay edit");
+
+    const DataFrameCell read_only(&raw, static_cast<const RowOverlay*>(&overlay), 0);
+    moved = read_only;
+    REQUIRE(moved.get<std::string>() == "later overlay edit");
+    REQUIRE_THROWS_AS(moved = "blocked", std::runtime_error);
+    moved = detached["value"];
+    REQUIRE(moved.get<int>() == 22);
+    moved = "33";
+    REQUIRE(detached["value"].get<int>() == 33);
+
+    DataFrameCell empty;
+    DataFrameCell empty_copy(empty);
+    DataFrameCell empty_move(std::move(empty_copy));
+    REQUIRE(empty_move.is_null());
+    copied = empty;
+    REQUIRE(copied.get_sv().empty());
+    moved = std::move(empty_move);
+    REQUIRE(moved.is_null());
+    REQUIRE_THROWS_AS(moved = "unbound", std::runtime_error);
+
+    DataFrameCell no_overlay(&raw, static_cast<RowOverlay*>(nullptr), 0);
+    REQUIRE(no_overlay.get<std::string>() == "original");
+    REQUIRE_THROWS_AS(no_overlay = "unbound", std::runtime_error);
+}
+
+TEST_CASE("DataFrame: cell position bounds remain enforced after edits",
+    "[data_frame][coverage]") {
+    DataFrame<> frame;
+    frame.append_column("name");
+    frame.insert_row(0, {"original"});
+    SECTION("clean") {}
+    SECTION("dirty") { frame.at(0)["name"] = "edited"; }
+    REQUIRE_THROWS_AS(frame.at(0)[frame.n_cols()], std::out_of_range);
+    const auto& source = frame;
+    REQUIRE_THROWS_AS(source.at(0)[source.n_cols()], std::out_of_range);
+    REQUIRE_THROWS_AS(source.column_view("name").get_sv(source.size()), std::out_of_range);
+}
+
+TEST_CASE("DataFrame: row insertion with identity mapping shifts sparse edits",
+    "[data_frame][coverage]") {
+    const auto& filename = issue_333_file();
+    const bool keyed = GENERATE(false, true);
+    auto validate = [keyed](CSVReader& reader) {
+        DataFrame<> frame = keyed ? DataFrame<>(reader, "id") : DataFrame<>(reader);
+        REQUIRE(frame.size() == 500001);
+        if (keyed) { REQUIRE(frame.contains("1")); }
+        frame.at(0)["name"] = "edited first";
+        frame.at(500000)["name"] = "edited last";
+        // No column has been deleted: dirty insertion uses the identity mapping.
+        frame.insert_row(0, {"new-row", "inserted", "17"});
+        REQUIRE(frame.size() == 500002);
+        REQUIRE(frame.at(1)["name"].get<std::string>() == "edited first");
+        REQUIRE(frame.at(500001)["name"].get<std::string>() == "edited last");
+        frame.at(0)["name"] = "edited inserted";
+        REQUIRE(frame.at(0).to_json() == "{\"id\":\"new-row\",\"name\":\"edited inserted\",\"value\":17}");
+        frame.append_column("extra", "default");
+        REQUIRE(frame.at(0)["name"].get<std::string>() == "edited inserted");
+        REQUIRE(frame.at(1)["name"].get<std::string>() == "edited first");
+        REQUIRE(frame.at(500001)["value"].get<int>() == 3500007);
+        REQUIRE(frame.at(500001)["extra"].get<std::string>() == "default");
+        if (keyed) {
+            REQUIRE(frame["new-row"]["name"].get<std::string>() == "edited inserted");
+            REQUIRE(frame["1"]["name"].get<std::string>() == "edited first");
+            REQUIRE(frame["500001"]["name"].get<std::string>() == "edited last");
+        }
+    };
+    SECTION("mmap") {
+        CSVReader reader(filename, CSVFormat());
+        validate(reader);
+    }
+    SECTION("stream") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, CSVFormat());
+        validate(reader);
+    }
+}
+
+TEST_CASE("DataFrame: materialization preserves an empty borrowed key",
+    "[data_frame][coverage][view_keys]") {
+    const auto& filename = issue_333_file();
+    DataFrame<csv::string_view> frame;
+    auto load = [&frame](CSVReader& reader) {
+        frame = DataFrame<csv::string_view>(reader, [](const CSVRow& row) -> csv::string_view {
+            const auto key = row["id"].get<csv::string_view>();
+            return key == csv::string_view("1") ? csv::string_view() : key;
+        });
+    };
+    SECTION("mmap") {
+        CSVReader reader(filename, CSVFormat());
+        load(reader);
+    }
+    SECTION("stream") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, CSVFormat());
+        load(reader);
+    }
+    REQUIRE(frame.size() == 500001);
+    REQUIRE(frame.contains(csv::string_view()));
+    frame.at(0)["name"] = "empty key row";
+    frame.append_column("extra");
+    REQUIRE(frame.at(0).key().empty());
+    REQUIRE(frame.contains(csv::string_view()));
+    REQUIRE(frame[csv::string_view()]["name"].get<std::string>() == "empty key row");
+    REQUIRE(frame.contains("500001"));
+    frame.insert_column(0, "prefix", "x");
+    REQUIRE(frame[csv::string_view()]["prefix"].get<std::string>() == "x");
+    REQUIRE(frame[csv::string_view()]["name"].get<std::string>() == "empty key row");
+}
