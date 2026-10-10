@@ -236,6 +236,189 @@ TEST_CASE("Edge case: CSV rows larger than default chunk size", "[edge_cases_lar
     }
 }
 
+TEST_CASE("Issue #337 - First row longer than the mmap head buffer", "[issue_337]") {
+    // MmapParser parses its pre-read head buffer (capped at 500KB regardless of
+    // chunk_size) as the first window. When that window held no complete row,
+    // trim_header() ran against an empty queue, marked the header as trimmed,
+    // and the reader silently produced zero columns and zero rows. The stream
+    // path was unaffected because its first window is the head plus a full read.
+    const size_t n_rows = 1000;
+    std::string body;
+    for (size_t i = 0; i < n_rows; ++i) {
+        body += std::to_string(i * 3 + 0) + ','
+              + std::to_string(i * 3 + 1) + ','
+              + std::to_string(i * 3 + 2) + '\n';
+    }
+
+    // Compare without letting Catch2 expand the huge column name on failure.
+    auto require_col_names = [](CSVReader& reader, const std::string& first) {
+        const auto names = reader.get_col_names();
+        REQUIRE(names.size() == 3);
+        REQUIRE(names[0].size() == first.size());
+        REQUIRE((names[0] == first));
+        REQUIRE(names[1] == "B");
+        REQUIRE(names[2] == "C");
+    };
+
+    SECTION("Header row fits in chunk_size") {
+        const std::string long_name = "A" + std::string(600 * 1024, 'x');
+        const std::string data = long_name + ",B,C\n" + body;
+
+        CSVFormat format;
+        format.delimiter(',').header_row(0).chunk_size(2 * 1024 * 1024).speculative_parallel_threads(1);
+
+        auto validate_reader = [&](CSVReader& reader) {
+            require_col_names(reader, long_name);
+
+            size_t i = 0;
+            for (auto& row : reader) {
+                REQUIRE(row.size() == 3);
+                for (size_t col = 0; col < 3; ++col) {
+                    REQUIRE(row[col].get<size_t>() == i * 3 + col);
+                }
+                ++i;
+            }
+            REQUIRE(i == n_rows);
+        };
+
+        SECTION("stream path") {
+            std::istringstream in(data);
+            CSVReader reader(in, format);
+            validate_reader(reader);
+        }
+
+        SECTION("mmap path") {
+            FileGuard cleanup("./tests/data/tmp_issue_337_long_header.csv");
+            {
+                std::ofstream out(cleanup.filename, std::ios::binary);
+                out << data;
+            }
+            CSVReader reader(cleanup.filename, format);
+            validate_reader(reader);
+        }
+    }
+
+    SECTION("Header row after a short preamble row") {
+        // header_row(1): the head window holds the complete preamble row but
+        // not the long header row, so header trimming must resume on a later read.
+        const std::string long_name = "A" + std::string(600 * 1024, 'x');
+        const std::string data = "preamble\n" + long_name + ",B,C\n" + body;
+
+        CSVFormat format;
+        format.delimiter(',').header_row(1).chunk_size(2 * 1024 * 1024).speculative_parallel_threads(1);
+
+        auto validate_reader = [&](CSVReader& reader) {
+            require_col_names(reader, long_name);
+
+            size_t i = 0;
+            for (auto& row : reader) {
+                REQUIRE(row.size() == 3);
+                REQUIRE(row[0].get<size_t>() == i * 3);
+                ++i;
+            }
+            REQUIRE(i == n_rows);
+        };
+
+        SECTION("stream path") {
+            std::istringstream in(data);
+            CSVReader reader(in, format);
+            validate_reader(reader);
+        }
+
+        SECTION("mmap path") {
+            FileGuard cleanup("./tests/data/tmp_issue_337_preamble.csv");
+            {
+                std::ofstream out(cleanup.filename, std::ios::binary);
+                out << data;
+            }
+            CSVReader reader(cleanup.filename, format);
+            validate_reader(reader);
+        }
+    }
+
+    SECTION("Header row starts after the first read window ends") {
+        // header_row(2) with long preamble rows: the first read window ends
+        // inside the header row on both paths, so trim_header() must not mark
+        // the header as trimmed after popping only the preamble rows.
+        // The 700KB window starting at byte 0 (stream) or after "short\n"
+        // (mmap) ends inside the 150KB header row.
+        const std::string preamble = "preamble," + std::string(600 * 1024, 'p') + '\n';
+        const std::string long_name = "A" + std::string(150 * 1024, 'x');
+        const std::string data = "short\n" + preamble + long_name + ",B,C\n" + body;
+
+        CSVFormat format;
+        format.delimiter(',')
+            .header_row(2)
+            .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR + 200 * 1024)
+            .speculative_parallel_threads(1);  // Keep the stream window at chunk_size
+
+        auto validate_reader = [&](CSVReader& reader) {
+            require_col_names(reader, long_name);
+
+            size_t i = 0;
+            for (auto& row : reader) {
+                REQUIRE(row.size() == 3);
+                REQUIRE(row[2].get<size_t>() == i * 3 + 2);
+                ++i;
+            }
+            REQUIRE(i == n_rows);
+        };
+
+        SECTION("stream path") {
+            std::istringstream in(data);
+            CSVReader reader(in, format);
+            validate_reader(reader);
+        }
+
+        SECTION("mmap path") {
+            FileGuard cleanup("./tests/data/tmp_issue_337_late_header.csv");
+            {
+                std::ofstream out(cleanup.filename, std::ios::binary);
+                out << data;
+            }
+            CSVReader reader(cleanup.filename, format);
+            validate_reader(reader);
+        }
+    }
+
+    SECTION("Header row larger than chunk_size still throws") {
+        const std::string data = "A" + std::string(1200 * 1024, 'x') + ",B,C\n" + body;
+
+        CSVFormat format;
+        format.delimiter(',').header_row(0).chunk_size(internals::CSV_CHUNK_SIZE_FLOOR).speculative_parallel_threads(1);
+
+        auto read_all = [](CSVReader& reader) {
+            for (auto& row : reader) { (void)row; }
+        };
+
+        SECTION("stream path") {
+            REQUIRE_THROWS_WITH(
+                [&]() {
+                    std::istringstream in(data);
+                    CSVReader reader(in, format);
+                    read_all(reader);
+                }(),
+                Catch::Matchers::ContainsSubstring("chunk size")
+            );
+        }
+
+        SECTION("mmap path") {
+            FileGuard cleanup("./tests/data/tmp_issue_337_too_long.csv");
+            {
+                std::ofstream out(cleanup.filename, std::ios::binary);
+                out << data;
+            }
+            REQUIRE_THROWS_WITH(
+                [&]() {
+                    CSVReader reader(cleanup.filename, format);
+                    read_all(reader);
+                }(),
+                Catch::Matchers::ContainsSubstring("chunk size")
+            );
+        }
+    }
+}
+
 TEST_CASE("Issue #218 - Infinite read loop detection", "[issue_218]") {
 
     SECTION("Detects when row exceeds chunk size and file doesn't end") {

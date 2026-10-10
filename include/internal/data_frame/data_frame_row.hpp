@@ -64,7 +64,9 @@ namespace csv {
         /** Get column names. */
         const std::vector<std::string>& get_col_names() const { return frame ? frame->columns() : row->get_col_names(); }
 
-        /** Get the underlying CSVRow for compatibility. */
+        /** Get the underlying CSVRow without applying cell edits or column visibility.
+         *  Use row conversion to obtain the current visible values.
+         */
         const CSVRow& get_underlying_row() const { return *row; }
 
         /** Get the key for this row (only valid for keyed DataFrames). */
@@ -148,7 +150,7 @@ namespace csv {
 
         DataFrameCell make_cell(size_t col_index) {
             if (frame) {
-                col_index = frame->physical_column_index(col_index);
+                return frame->make_cell(row, row_index, col_index, can_mutate);
             }
 
             return can_mutate
@@ -158,7 +160,7 @@ namespace csv {
 
         DataFrameCell make_cell(size_t col_index) const {
             if (frame) {
-                col_index = frame->physical_column_index(col_index);
+                return frame->make_cell(row, row_index, col_index, false);
             }
 
             return DataFrameCell(row, row_overlay, col_index);

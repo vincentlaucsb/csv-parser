@@ -263,6 +263,13 @@ TEST_CASE("Multithreaded parsing", "[threading]") {
   
 - **test_csv_row_json.cpp**: JSON export functionality
 
+- **test_data_frame.cpp**: General DataFrame API and structural operations
+
+- **test_data_frame_dirty.cpp**: Clean/dirty transitions, edit preservation,
+  proxy visibility, and structural composition regressions
+
+- **test_data_frame_etl.cpp**: DataFrame batch processing and parallel editing
+
 ### Key Patterns
 
 1. **Validation Lambdas**: Write once, test both paths

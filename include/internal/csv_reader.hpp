@@ -369,6 +369,9 @@ namespace csv {
     private:
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
+
+        /** How many rows up to and including the header have been trimmed */
+        int header_rows_trimmed_ = 0;
         
         /** @name Reader Scheduling: Flags and State */
         ///@{
@@ -386,6 +389,7 @@ namespace csv {
             this->n_cols = other.n_cols;
             this->_n_rows = other._n_rows;
             this->header_trimmed = other.header_trimmed;
+            this->header_rows_trimmed_ = other.header_rows_trimmed_;
             this->_chunk_size = other._chunk_size;
             this->_read_requested = other._read_requested;
             this->read_scheduler_.set_threading_enabled(this->_format.is_threading_enabled());
@@ -397,6 +401,7 @@ namespace csv {
             this->n_cols = 0;
             this->_n_rows = 0;
             this->header_trimmed = false;
+            this->header_rows_trimmed_ = 0;
             this->_read_requested = false;
             this->_chunk_size = internals::CSV_CHUNK_SIZE_DEFAULT;
         }
@@ -421,12 +426,8 @@ namespace csv {
             );
         }
 
-        /** Read initial chunk to get metadata */
-        void initial_read() {
-            this->read_scheduler_.run([this] { this->read_csv(this->_chunk_size); });
-            this->read_scheduler_.join();
-            this->read_scheduler_.rethrow_exception_if_any();
-        }
+        /** Read until the header row is consumed (or EOF) to get metadata */
+        void initial_read();
 
         void trim_header();
         ///@}
