@@ -118,6 +118,25 @@ TEST_CASE("CSVRow JSON serialization removes numeric leading zeros", "[csv_row_t
     REQUIRE(row.to_json_array() == "[69,-42,9,0,0.5,1e2]");
 }
 
+TEST_CASE("CSVRow JSON serialization writes valid numbers for every numeric field", "[csv_row_to_json]") {
+    CSVRow row = make_csv_row(
+        { ".5", "-.5", "+.5", "5.", "1.e5", " 08 ", " +2", "10.25" },
+        { "no_int", "neg_no_int", "pos_no_int", "no_frac", "no_frac_exp", "padded_zero", "padded_sign", "plain" }
+    );
+
+    REQUIRE(row.to_json_array() == "[0.5,-0.5,0.5,5.0,1.0e5,8,2,10.25]");
+}
+
+TEST_CASE("CSVRow JSON serialization writes hexadecimal integers in decimal", "[csv_row_to_json]") {
+    // Classification and hex conversion must agree on whitespace and a leading '+'.
+    CSVRow row = make_csv_row(
+        { "0x1F", "-0X10", "0x7FFFFFFFFFFFFFFF", "10", " \t+0X2A\r\n" },
+        { "hex", "neg_hex", "max_hex", "decimal", "padded_hex" }
+    );
+
+    REQUIRE(row.to_json_array() == "[31,-16,9223372036854775807,10,42]");
+}
+
 // Reported in: https://github.com/vincentlaucsb/csv-parser/issues/68
 TEST_CASE("CSVRow to_json() with Wrong Columns", "[csv_json_wrong_cols]") {
     std::stringstream csv_string(R"(A,B,C,

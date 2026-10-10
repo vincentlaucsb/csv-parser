@@ -93,26 +93,65 @@ namespace csv {
             return out;
         }
 
-        inline void append_json_number_without_leading_zeros(
-            std::string& out,
-            csv::string_view value
-        ) noexcept {
+        CSV_CONST inline bool is_ascii_space(char c) noexcept {
+            return c == ' ' || (c >= '\t' && c <= '\r');
+        }
+
+        /** Append a numeric field as a JSON number.
+         *
+         *  data_type() accepts surrounding whitespace, a '+' sign, leading zeros,
+         *  and a '.' without a digit on one side, none of which JSON allows.
+         */
+        inline void append_json_number(std::string& out, csv::string_view value) noexcept {
             size_t first = 0;
-            if (first < value.size() && (value[first] == '+' || value[first] == '-')) {
+            size_t last = value.size();
+            while (first < last && is_ascii_space(value[first])) {
+                ++first;
+            }
+
+            while (last > first && is_ascii_space(value[last - 1])) {
+                --last;
+            }
+
+            if (first < last && (value[first] == '+' || value[first] == '-')) {
                 if (value[first] == '-') {
                     out += '-';
                 }
                 ++first;
             }
 
-            while (first + 1 < value.size()
+            while (first + 1 < last
                 && value[first] == '0'
                 && value[first + 1] >= '0'
                 && value[first + 1] <= '9') {
                 ++first;
             }
 
-            out.append(value.data() + first, value.size() - first);
+            if (first < last && value[first] == '.') {
+                out += '0';
+            }
+
+            for (size_t i = first; i < last; ++i) {
+                out += value[i];
+                if (value[i] == '.' && (i + 1 == last || value[i + 1] < '0' || value[i + 1] > '9')) {
+                    out += '0';
+                }
+            }
+        }
+
+        /** JSON has no hexadecimal literal, so write 0x-prefixed integers in decimal. */
+        inline bool append_json_hex_integer(std::string& out, csv::string_view value) {
+            if (value.find_first_of("xX") == csv::string_view::npos) {
+                return false;
+            }
+
+            long long parsed = 0;
+            if (!classify_scalar::parse_hex(value.data(), value.data() + value.size(), parsed)) {
+                return false;
+            }
+
+            out += std::to_string(parsed);
+            return true;
         }
 
         class JsonConverter {
@@ -235,7 +274,9 @@ namespace csv {
             void append_json_value(std::string& out, csv::string_view value) const {
                 const DataType type = internals::data_type(value);
                 if (type >= DataType::CSV_INT8 && type <= DataType::CSV_DOUBLE) {
-                    append_json_number_without_leading_zeros(out, value);
+                    if (type > DataType::CSV_INT64 || !append_json_hex_integer(out, value)) {
+                        append_json_number(out, value);
+                    }
                 } else if (type == DataType::CSV_NULL) {
                     out += "null";
                 } else {
