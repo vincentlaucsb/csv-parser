@@ -93,7 +93,7 @@ namespace csv {
             }
 
             bool utf8_bom() const noexcept override {
-                return this->serial_parser_.utf8_bom();
+                return this->utf8_bom_;
             }
 
             void reset_with_initial_state(ParserDFAState state) noexcept override {
@@ -112,6 +112,46 @@ namespace csv {
                 bool source_exhausted,
                 RowCollection& output
             ) override {
+                // BOM handling is a source-window concern: detect it once on the
+                // first window, reject unsupported encodings before any parser
+                // (serial or speculative) sees the bytes, and hand parsers a
+                // BOM-free view. Source adapters speak in original source-byte
+                // offsets, so the skipped bytes are added back to the completed
+                // prefix. That also keeps a re-read of the first window (e.g. an
+                // mmap head that completed no row, issue #337) from starting at
+                // the BOM again.
+                //
+                // Both adapters make the first window their head buffer, which
+                // holds min(source size, 500KB) bytes, so a first window too
+                // short to classify a BOM only happens at end of input.
+                size_t bom_skip = 0;
+                if (!this->bom_scanned_) {
+                    bom_skip = get_bom_skip_or_throw(chunk, this->utf8_bom_);
+                    this->bom_scanned_ = true;
+                }
+
+                CSVParseWindowResult result = this->dispatch_window(
+                    chunk.substr(bom_skip),
+                    std::move(owner),
+                    base_offset + bom_skip,
+                    serial_chunk_size,
+                    source_exhausted,
+                    output
+                );
+                result.complete_prefix_length += bom_skip;
+                result.skipped_prefix_length = bom_skip;
+                return result;
+            }
+
+        private:
+            CSVParseWindowResult dispatch_window(
+                csv::string_view chunk,
+                std::shared_ptr<void> owner,
+                size_t base_offset,
+                size_t serial_chunk_size,
+                bool source_exhausted,
+                RowCollection& output
+            ) {
 #if CSV_ENABLE_THREADS
                 if (this->use_speculative_parallel_
                     && this->worker_count_ > 1
@@ -139,7 +179,6 @@ namespace csv {
                 );
             }
 
-        private:
             CSVParseWindowResult parse_serial_window(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
@@ -178,7 +217,7 @@ namespace csv {
                     this->scanner_,
                     base_offset,
                     0,
-                    base_offset == 0
+                    false
                 );
 
                 const speculative::ParallelCSVParseResult parse_result = this->speculative_parser_->parse_chunks(
@@ -199,6 +238,10 @@ namespace csv {
                 CSVRowFieldPolicy<EagerClassify>,
                 CSVRowRowPolicy> serial_parser_;
             SpeculativeParseDiagnostics speculative_diagnostics_;
+
+            /** Whether the first source window has been checked for a Unicode BOM. */
+            bool bom_scanned_ = false;
+            bool utf8_bom_ = false;
 #if CSV_ENABLE_THREADS
             ParseFlagMap parse_flags_;
             WhitespaceMap ws_flags_;

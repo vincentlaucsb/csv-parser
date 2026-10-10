@@ -381,6 +381,46 @@ TEST_CASE("Issue #337 - First row longer than the mmap head buffer", "[issue_337
         }
     }
 
+    SECTION("UTF-8 BOM before a header row longer than the head buffer") {
+        // The mmap head window completes no row, so MmapParser rewinds and
+        // re-reads from the start of the source. The BOM must still be
+        // skipped on that second read instead of becoming part of "A...".
+        const std::string long_name = "A" + std::string(600 * 1024, 'x');
+        const std::string data = "\xEF\xBB\xBF" + long_name + ",B,C\n" + body;
+
+        CSVFormat format;
+        format.delimiter(',').header_row(0).chunk_size(2 * 1024 * 1024).speculative_parallel_threads(1);
+
+        auto validate_reader = [&](CSVReader& reader) {
+            REQUIRE(reader.utf8_bom());
+            require_col_names(reader, long_name);
+
+            size_t i = 0;
+            for (auto& row : reader) {
+                REQUIRE(row.size() == 3);
+                REQUIRE(row[0].get<size_t>() == i * 3);
+                ++i;
+            }
+            REQUIRE(i == n_rows);
+        };
+
+        SECTION("stream path") {
+            std::istringstream in(data);
+            CSVReader reader(in, format);
+            validate_reader(reader);
+        }
+
+        SECTION("mmap path") {
+            FileGuard cleanup("./tests/data/tmp_issue_337_bom_long_header.csv");
+            {
+                std::ofstream out(cleanup.filename, std::ios::binary);
+                out << data;
+            }
+            CSVReader reader(cleanup.filename, format);
+            validate_reader(reader);
+        }
+    }
+
     SECTION("Header row larger than chunk_size still throws") {
         const std::string data = "A" + std::string(1200 * 1024, 'x') + ",B,C\n" + body;
 

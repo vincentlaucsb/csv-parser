@@ -161,7 +161,16 @@ namespace csv {
         };
 
         struct CSVParseWindowResult {
+            /** Source bytes fully consumed by this window, including skipped_prefix_length. */
             size_t complete_prefix_length = 0;
+
+            /** Leading source bytes consumed without being parsed (a UTF-8 BOM). */
+            size_t skipped_prefix_length = 0;
+
+            /** Whether this window produced at least one complete row. */
+            bool completed_row() const noexcept {
+                return this->complete_prefix_length > this->skipped_prefix_length;
+            }
         };
     }
 
@@ -485,7 +494,7 @@ namespace csv {
                     chunk,
                     std::move(owner),
                     output,
-                    ParserChunkOptions(this->initial_state_, true, source_start)
+                    ParserChunkOptions(this->initial_state_, false, source_start)
                 );
             }
 
