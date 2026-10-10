@@ -255,6 +255,8 @@ Current structural edit policy:
   including sparse edits, without CSV serialization/reparsing. This preserves
   empty fields and zero-column rows and returns the frame to clean handling.
   Stored keys remain stable row identities even after key-column cell edits.
+  View keys are retargeted into private owned key-byte storage before their
+  parsed backing is released; owning-key types require no additional work.
 - Column erase: soft-delete the visible column by removing it from the visible
   column-name list and logical-to-physical column map. Underlying `CSVRow`
   storage is intentionally left unchanged.

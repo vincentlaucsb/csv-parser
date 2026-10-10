@@ -49,6 +49,9 @@ compaction/materialization API over adding hot-path indirection for all access.
   overlays.
 - Stored keys identify rows independently of key-column cell edits. Structural
   materialization must preserve those keys, including custom-function keys.
+- `csv::string_view` keys must be copied into private owned key storage before
+  replacing parsed rows, and the cached key index must be invalidated when views
+  are retargeted. Owning-key types use a compile-time no-op storage policy.
 - Row proxies resolve current editing state when constructing cells; never
   capture overlay allocation history as the authority for later row access.
 - Selection shares parsed rows but snapshots overlays independently and keeps

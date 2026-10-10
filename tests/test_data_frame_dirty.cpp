@@ -278,3 +278,64 @@ TEST_CASE("DataFrame: selected rows preserve physical edit indices after structu
     auto repeated = selected.selected_rows({0, 1});
     REQUIRE(std::vector<std::string>(repeated.at(0)) == std::vector<std::string>{"3", ""});
 }
+
+TEST_CASE("DataFrame: materialization owns preserved view keys after reader destruction",
+    "[data_frame][view_keys]") {
+    const auto& filename = issue_333_file();
+    const bool custom_keys = GENERATE(false, true);
+    DataFrame<csv::string_view> frame;
+    auto load = [custom_keys, &frame](CSVReader& reader) {
+        frame = custom_keys
+            ? DataFrame<csv::string_view>(reader, [](const CSVRow& row) { return row["id"].get<csv::string_view>(); })
+            : DataFrame<csv::string_view>(reader, "id");
+    };
+    SECTION("mmap") {
+        CSVReader reader(filename, CSVFormat());
+        load(reader);
+    }
+    SECTION("stream") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, CSVFormat());
+        load(reader);
+    }
+
+    // Neither parser nor input remains alive. Build the cached index before the
+    // original backing rows are released; it also contains borrowed key views.
+    REQUIRE(frame.size() == 500001);
+    REQUIRE(frame.contains("1"));
+    frame.at(0)["id"] = "edited key value";
+    frame.append_column("extra", "x");
+    REQUIRE(frame.at(0).key() == csv::string_view("1"));
+    REQUIRE(frame.contains("1"));
+    REQUIRE(frame["1"]["id"].get<std::string>() == "edited key value");
+    REQUIRE(frame.contains("500001"));
+
+    if (!custom_keys) {
+        frame.insert_row(1, {"inserted", "new row", "99", "x"});
+    }
+    frame.append_column("again");
+    REQUIRE(frame.contains("1"));
+    REQUIRE(frame.at(0).key() == csv::string_view("1"));
+    if (!custom_keys) {
+        REQUIRE(frame["inserted"]["value"].get<int>() == 99);
+    }
+    DataFrame<csv::string_view> moved(std::move(frame));
+    moved.append_column("after_move");
+    REQUIRE(moved.contains("500001"));
+    REQUIRE(moved["1"]["id"].get<std::string>() == "edited key value");
+
+    // Compact the preserved keys to fewer bytes than a string's inline buffer.
+    // Moving their owner must also preserve these small-string-backed views.
+    while (moved.size() > 2) {
+        moved.at(moved.size() - 1).erase();
+    }
+    moved.append_column("small_keys");
+    DataFrame<csv::string_view> small(std::move(moved));
+    REQUIRE(small.contains("1"));
+    REQUIRE(small.at(0).key() == csv::string_view("1"));
+    small.at(1).erase();
+    small.at(0).erase();
+    small.append_column("no_keys");
+    REQUIRE(small.empty());
+    REQUIRE_FALSE(small.contains("1"));
+}

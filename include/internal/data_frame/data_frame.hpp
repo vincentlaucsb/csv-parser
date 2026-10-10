@@ -23,6 +23,7 @@
 #include "data_frame_row.hpp"
 #include "dirty_data_frame.hpp"
 #include "fwd.hpp"
+#include "key_storage.hpp"
 #include "row_overlay.hpp"
 
 namespace csv {
@@ -250,6 +251,11 @@ namespace csv {
                         return this->rows[row_index][column_index].template get<csv::string_view>();
                     });
 
+            // View keys and a previously cached index may still refer to the
+            // backing rows about to be released. Owning-key storage is a no-op.
+            if (this->is_keyed) {
+                this->key_storage_.preserve(this->keys_, [this]() { this->invalidate_key_index(); });
+            }
             this->rows = std::move(rebuilt);
             this->col_names_ = names;
             this->physical_col_names_ = names;
@@ -581,6 +587,7 @@ namespace csv {
 
         /** Stored keys for keyed DataFrames only. Empty for unkeyed frames. */
         std::vector<KeyType> keys_;
+        internals::data_frame::KeyStorage<KeyType> key_storage_;
 
         /** Column index used for keyed frames constructed from a named column. */
         int key_column_index_ = CSV_NOT_FOUND;
