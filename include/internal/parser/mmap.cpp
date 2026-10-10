@@ -72,11 +72,21 @@ namespace csv {
             // for delimiter/header guessing.
             if (!head_.empty()) {
                 auto head_owner = std::make_shared<std::string>(std::move(head_));
+                const size_t head_start = this->mmap_pos;
                 const size_t length = head_owner->size();
                 this->mmap_pos += length;
 
                 this->finalize_loaded_chunk(*head_owner, head_owner, length, bytes);
-                return;
+
+                // Issue #337: The head is capped at 500KB regardless of chunk_size,
+                // so it may end before the first row does. Only in that case fall
+                // through and map a full read window from the rewound position;
+                // otherwise return so construction doesn't parse an extra window
+                // (CSVReader::initial_read() keeps reading if the header row is
+                // still pending).
+                if (this->eof_ || this->mmap_pos != head_start) {
+                    return;
+                }
             }
 
             // Create memory map

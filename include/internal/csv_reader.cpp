@@ -71,18 +71,40 @@ namespace csv {
         return new_format;
     }
 
+    CSV_INLINE void CSVReader::initial_read() {
+        // Issue #337: A single read window may end before the header row when
+        // earlier rows are long, so keep reading until the header is consumed.
+        do {
+            const int trimmed_before = this->header_rows_trimmed_;
+            this->read_scheduler_.run([this] { this->read_csv(this->_chunk_size); });
+            this->read_scheduler_.join();
+            this->read_scheduler_.rethrow_exception_if_any();
+
+            // trim_header() drains the queue until the header is consumed, so an
+            // untrimmed header with no progress means the read produced no rows.
+            if (!this->header_trimmed && !this->parser->eof()
+                && this->header_rows_trimmed_ == trimmed_before) {
+                internals::throw_row_too_large_for_chunk(this->_chunk_size);
+            }
+        } while (!this->header_trimmed && !this->parser->eof());
+    }
+
     CSV_INLINE void CSVReader::trim_header() {
         if (!this->header_trimmed) {
-            for (int i = 0; i <= this->_format.header && !this->records->empty(); i++) {
-                if (i == this->_format.header && this->col_names->empty()) {
+            // The rows up to and including the header may arrive over several
+            // reads, so track progress instead of assuming one read holds them all.
+            while (this->header_rows_trimmed_ <= this->_format.header && !this->records->empty()) {
+                if (this->header_rows_trimmed_ == this->_format.header && this->col_names->empty()) {
                     this->set_col_names(this->records->pop_front());
                 }
                 else {
                     this->records->pop_front();
                 }
+
+                this->header_rows_trimmed_++;
             }
 
-            this->header_trimmed = true;
+            this->header_trimmed = this->header_rows_trimmed_ > this->_format.header;
         }
     }
 
