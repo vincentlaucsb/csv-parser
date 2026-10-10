@@ -1,6 +1,7 @@
 #pragma once
 
 #include "row_storage.hpp"
+#include "row_view.hpp"
 
 namespace csv {
     namespace internals {
@@ -30,7 +31,7 @@ namespace csv {
 
                 inline csv::string_view view(size_t row, size_t column) const {
                     validate_column(column, n_cols());
-                    return rows_.at(row)[column].get<csv::string_view>();
+                    return RowViewAccessor::view(rows_.at(row), column);
                 }
 
                 inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {

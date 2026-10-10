@@ -49,7 +49,7 @@ namespace csv {
                     const CellBinding cell = bind(row, column);
                     csv::string_view value;
                     if (cell.overlay && cell.overlay->try_get_view(cell.physical_column, value)) { return value; }
-                    return backing_->rows().at(row)[cell.physical_column].get<csv::string_view>();
+                    return RowViewAccessor::view(backing_->rows().at(row), cell.physical_column);
                 }
                 inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {
                     validate_row(row, n_cols());

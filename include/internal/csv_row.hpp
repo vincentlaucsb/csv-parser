@@ -49,6 +49,8 @@ namespace csv {
             struct CSVRowFragment;
         }
 
+        namespace data_frame { struct RowViewAccessor; }
+
         static const std::string ERROR_NAN = "Not a number.";
         static const std::string ERROR_OVERFLOW = "Overflow error.";
         static const std::string ERROR_FLOAT_TO_INT =
@@ -546,6 +548,7 @@ namespace csv {
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         friend class internals::CSVParserCore;
         friend struct internals::CSVRowRowPolicy;
+        friend struct internals::data_frame::RowViewAccessor;
         friend internals::parser::CSVParserDriverBase;
         friend struct internals::speculative::CSVRowFragment;
 

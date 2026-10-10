@@ -255,6 +255,11 @@ Current structural edit policy:
   retain the clean backing object for readers that captured the previous backend.
   Mutable cells bind to the stable selector. Structural changes and moves are
   exclusive; read operations do not acquire a transition lock.
+- Read-only column views: `data_frame::RowViewAccessor` reuses `CSVRow`'s decoded,
+  trimmed field extraction without constructing a scalar-aware `CSVField`.
+  Both backends use it for parsed values; dirty overlays retain their own lookup.
+  The measurements and rejected physical-column caching alternative are retained
+  in [data_frame/PERFORMANCE.md](data_frame/PERFORMANCE.md).
 - Row insert/erase: mutate `rows` and `keys_` directly and update the handler's
   row bindings and overlay slots because rows are the native storage unit.
 - Column insert: delegate validation, schema/key-column remapping, and rebuilding

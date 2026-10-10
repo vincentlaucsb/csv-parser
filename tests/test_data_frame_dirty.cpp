@@ -553,3 +553,55 @@ TEST_CASE("DataFrame: concurrent first edits retain clean readers and captured c
     }
 }
 #endif
+
+TEST_CASE("DataFrame: direct column views preserve parsed and edited field bytes",
+    "[data_frame][column_view]") {
+    static csv_test::GeneratedFile file("csv_parser_direct_column_view.csv");
+    const auto& filename = file.path([](std::ofstream& out) {
+        out << "id,name,value,quoted,empty\n";
+        for (size_t i = 0; i < 500001; ++i) {
+            out << i << ", name_" << i << " ," << i * 7
+                << ",\" quoted_" << i << "_\"\"x\"\" \",\n";
+        }
+    });
+    CSVFormat format;
+    format.trim({' '}).eager_field_classification(true);
+    auto validate = [](CSVReader& reader) {
+        DataFrame<> frame(reader);
+        REQUIRE(frame.size() == 500001);
+        const auto& source = frame;
+        // Direct extraction must retain CSVRow decoding/trimming even when the
+        // parser has cached scalar metadata that this read path does not need.
+        for (const size_t row : {size_t(0), size_t(250000), size_t(500000)}) {
+            for (size_t column = 0; column < 5; ++column) {
+                CHECK(source.column_view(column).get_sv(row) ==
+                    source.at(row).get_underlying_row()[column].get_sv());
+            }
+        }
+        CHECK(source.column_view("quoted").get_sv(500000) == "quoted_500000_\"x\"");
+        auto names = source.column_view("name");
+        frame.at(0)[1] = "edited,\n\"name\"";
+        CHECK(names.get_sv(0) == "edited,\n\"name\"");
+        CHECK(names.get_sv(500000) == "name_500000");
+        CHECK_THROWS_AS(names.get_sv(frame.size()), std::out_of_range);
+        REQUIRE(frame.column_view("value").erase());
+        CHECK_THROWS_AS(names.get_sv(0), std::runtime_error);
+        CHECK(source.column_view("quoted").get_sv(500000) == "quoted_500000_\"x\"");
+        CHECK(source.column_view("empty").get_sv(500000).empty());
+        // Materialized fields contain literal bytes, with no parser trimming.
+        frame.insert_column(1, "new", "  materialized\"value  ");
+        CHECK(source.column_view("new").get_sv(500000) == "  materialized\"value  ");
+        CHECK(source.column_view("name").get_sv(0) == "edited,\n\"name\"");
+        CHECK(source.column_view("quoted").get_sv(500000) == "quoted_500000_\"x\"");
+        CHECK(source.column_view("empty").get_sv(500000).empty());
+    };
+    SECTION("mmap") {
+        CSVReader reader(filename, format);
+        validate(reader);
+    }
+    SECTION("stream") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input, format);
+        validate(reader);
+    }
+}
