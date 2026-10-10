@@ -121,9 +121,10 @@ namespace csv {
                 // mmap head that completed no row, issue #337) from starting at
                 // the BOM again.
                 //
-                // Both adapters make the first window their head buffer, which
-                // holds min(source size, 500KB) bytes, so a first window too
-                // short to classify a BOM only happens at end of input.
+                // Both adapters' first windows include the pre-read head buffer
+                // (up to 500KB); streams may append more bytes before parsing.
+                // A first window too short to classify a BOM therefore occurs
+                // only at end of input.
                 size_t bom_skip = 0;
                 if (!this->bom_scanned_) {
                     bom_skip = get_bom_skip_or_throw(chunk, this->utf8_bom_);

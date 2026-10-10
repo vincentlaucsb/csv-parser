@@ -382,9 +382,9 @@ TEST_CASE("Issue #337 - First row longer than the mmap head buffer", "[issue_337
     }
 
     SECTION("UTF-8 BOM before a header row longer than the head buffer") {
-        // The mmap head window completes no row, so MmapParser rewinds and
-        // re-reads from the start of the source. The BOM must still be
-        // skipped on that second read instead of becoming part of "A...".
+        // The mmap head window completes no row, so MmapParser re-reads from
+        // the first row's start, after the BOM. The skipped prefix must advance
+        // the source offset without suppressing this fallback read.
         const std::string long_name = "A" + std::string(600 * 1024, 'x');
         const std::string data = "\xEF\xBB\xBF" + long_name + ",B,C\n" + body;
 

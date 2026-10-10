@@ -7,7 +7,6 @@ Primary architecture document:
 
 Subsystem deep-dive:
 - include/internal/THREADSAFE_DEQUE_DESIGN.md
-- include/internal/BOMStrippingRefactor.md
 
 Operational/testing guidance:
 - AGENTS.md
@@ -18,6 +17,7 @@ Operational/testing guidance:
 Notes:
 - Internal architecture content lives under include/internal to stay close to implementation.
 - Detailed file map, parser data flow, and component relationship diagrams are maintained in include/internal/ARCHITECTURE.md.
+- Unicode BOM ownership and source-offset invariants are maintained in include/internal/ARCHITECTURE.md.
 - Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
 - Always update or remove incorrect comments.
 - Public API comments should remain user-facing and avoid references to internal helper/function details.
