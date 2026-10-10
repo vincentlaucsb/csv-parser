@@ -76,7 +76,14 @@ namespace csv {
                 this->mmap_pos += length;
 
                 this->finalize_loaded_chunk(*head_owner, head_owner, length, bytes);
-                return;
+                if (this->eof_) {
+                    return;
+                }
+
+                // Issue #337: The head is capped at 500KB regardless of chunk_size,
+                // so it may end before the first row does. Fall through and map a
+                // full read window from the rewound position so the first read
+                // covers the head plus one window, matching StreamParser.
             }
 
             // Create memory map
