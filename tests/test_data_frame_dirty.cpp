@@ -347,7 +347,8 @@ TEST_CASE("DataFrame: standalone mutable proxies retain edits and access permiss
     source.append_column("name");
     source.append_column("value");
     source.insert_row(0, {"original", "22"});
-    const auto& raw = source.at(0).get_underlying_row();
+    const auto source_row = source.at(0);
+    const auto& raw = source_row.get_underlying_row();
     RowOverlay overlay;
     DataFrameRow<std::string> detached(&raw, static_cast<DataFrame<>*>(nullptr), 0, &overlay, nullptr);
 
