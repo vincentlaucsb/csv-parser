@@ -63,7 +63,13 @@ namespace csv {
             return this->size() == 0;
         }
 
-        /** Access a visible cell value by row index. */
+        /** Access a visible cell value by row index, allowing edits on mutable frames. */
+        DataFrameCell operator[](size_t row_index) {
+            this->require_valid();
+            return frame_->make_cell(row_index, col_index_, mutable_frame_ != nullptr);
+        }
+
+        /** Access a visible cell value by row index without allowing edits. */
         DataFrameCell operator[](size_t row_index) const {
             this->require_valid();
             return frame_->make_cell(row_index, col_index_, false);

@@ -19,6 +19,7 @@
 #include "basic_csv_parser_simd.hpp"
 #include "common.hpp"
 #include "csv_exceptions.hpp"
+#include "data_frame/fwd.hpp"
 
 namespace csv {
 namespace internals {
@@ -343,6 +344,31 @@ namespace internals {
             return *this;
         }
 
+        /** Write a complete DataFrame: visible column names followed by visible rows.
+         *  Sparse edits and row selections are included. A frame with no rows still
+         *  writes its header. The writer's delimiter, quoting, and buffering settings
+         *  apply, and auto-flush flushes the stream once at the end of the document.
+         */
+        template<typename KeyType>
+        DelimWriter& operator<<(const DataFrame<KeyType>& frame) {
+            append_range_fields(frame.columns());
+            end_record();
+            flush_batch_if_needed();
+
+#ifdef CSV_HAS_CXX20
+            return write_rows(frame);
+#else
+            // Older standards use the existing visible-row conversion path.
+            for (const auto& row : frame) {
+                append_range_fields(std::vector<std::string>(row));
+                end_record();
+                flush_batch_if_needed();
+            }
+            finish_write_call();
+            return *this;
+#endif
+        }
+
         /** Write a row from any single argument accepted by operator<<
          *  (std::vector, std::array, std::tuple, C-array, C++20 range, etc.).
          *
@@ -385,6 +411,9 @@ namespace internals {
          *  Buffered writers flush the batch when it grows large or when this call ends.
          *  Auto-flushing writers additionally flush the underlying stream once at the
          *  end of the bulk call.
+         *
+         *  Passing a DataFrame writes data rows only. Use operator<< to include
+         *  its column names as a header.
          *
          *  @note Requires C++20 or later.
          */

@@ -64,6 +64,21 @@ With C++20, you can use `std::ranges::views` to elegantly reorder fields in a si
 
 \snippet tests/test_write_csv.cpp CSV Ranges Reordering Example
 
+## Writing a Complete DataFrame
+
+`writer << frame` writes the visible column names once, then the visible rows in
+order, including sparse edits and structural column changes. It accepts const
+frames and is available in C++11 and later. A frame with a schema but no rows
+still writes its header.
+
+The writer's delimiter, quoting, and buffering settings apply. With auto-flush
+enabled, the underlying stream is flushed once after the document. With
+auto-flush disabled, use `writer.flush()` when the output must be available;
+the writer also flushes on destruction.
+
+In C++20, `writer.write_rows(frame)` remains a data-row-only operation. It does
+not write a header, which is useful when appending to an existing document.
+
 ## DataFrame with Sparse Overlay
 
 When working with DataFrames, you can efficiently update specific cells without reconstructing entire rows. The overlay mechanism stores only the changed cells and writes them correctly:

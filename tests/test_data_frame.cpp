@@ -2,6 +2,8 @@
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/file_guard.hpp"
+#include "shared/generated_file.hpp"
 
 using namespace csv;
 
@@ -970,4 +972,90 @@ TEST_CASE("DataFrame: selected row masks keep boundary behavior", "[data_frame][
     DataFrame<> empty;
     REQUIRE(empty.selected_rows({}).empty());
     REQUIRE_THROWS_AS(empty.selected_rows({1}), std::invalid_argument);
+}
+
+
+TEST_CASE("DataFrame: load edit and save a document", "[data_frame][document_io]") {
+    FileGuard input_file("./tests/data/fake_data/dataframe_document_io.csv");
+    {
+        std::ofstream out(input_file.filename, std::ios::binary);
+        out << "id;name;value\n1;Alice;10\n2;Bob;20\n";
+    }
+    auto validate = [](DataFrame<>& frame) {
+        REQUIRE(frame.columns() == std::vector<std::string>{"id", "name", "value"});
+        REQUIRE(frame.n_rows() == 2);
+        REQUIRE_THROWS_AS(frame["1"], std::runtime_error);
+        frame.column_view("name")[1] = "new, \"quoted\"\nname";
+        const auto read_only_column = frame.column_view("name");
+        REQUIRE_THROWS_AS(read_only_column[1] = "blocked", std::runtime_error);
+        const auto& read_only_frame = frame;
+        REQUIRE_THROWS_AS(read_only_frame.column_view("name")[1] = "blocked", std::runtime_error);
+        std::stringstream output;
+        auto writer = make_csv_writer(output);
+        const auto& document = frame;
+        REQUIRE(&(writer << document) == &writer);
+        REQUIRE(output.str() == "id,name,value\n1,Alice,10\n2,\"new, \"\"quoted\"\"\nname\",20\n");
+        CSVReader reader(output);
+        DataFrame<> round_trip(reader);
+        REQUIRE(round_trip.columns() == frame.columns());
+        REQUIRE(round_trip.n_rows() == frame.n_rows());
+        for (size_t i = 0; i < frame.n_rows(); ++i) {
+            REQUIRE(std::vector<std::string>(round_trip.at(i)) == std::vector<std::string>(frame.at(i)));
+        }
+    };
+    SECTION("Memory-mapped filename with format guessing") {
+        DataFrame<> frame(input_file.filename);
+        validate(frame);
+    }
+    SECTION("Memory-mapped filename with explicit format") {
+        DataFrame<> frame(input_file.filename, CSVFormat().delimiter(';').header_row(0));
+        validate(frame);
+    }
+    SECTION("Existing stream reader path") {
+        std::ifstream input(input_file.filename, std::ios::binary);
+        CSVReader reader(input, CSVFormat().delimiter(';').header_row(0));
+        DataFrame<> frame(reader);
+        validate(frame);
+    }
+}
+
+TEST_CASE("DataFrame: filename constructor propagates reader errors", "[data_frame][document_io]") {
+    REQUIRE_THROWS_AS(DataFrame<>("./tests/data/fake_data/no_such_dataframe_file.csv"), std::runtime_error);
+}
+
+TEST_CASE("DataFrame: document round trip across parser chunks", "[data_frame][document_io]") {
+    // Distinct columns and more than 10 MB catch chunk lifetime or field mix-ups.
+    static csv_test::GeneratedFile fixture("dataframe_document_large.csv");
+    const auto& filename = fixture.path([](std::ostream& out) {
+        out << "id,label,value\n";
+        for (size_t i = 0; i < 500000; ++i) {
+            out << i << ",label-for-row-" << i << ',' << i * 7 + 3 << '\n';
+        }
+    });
+    auto validate = [](const DataFrame<>& frame) {
+        REQUIRE(frame.n_rows() == 500000);
+        std::stringstream output;
+        auto writer = make_csv_writer(output).set_auto_flush(false);
+        writer << frame;
+        writer.flush();
+        CSVReader reader(output);
+        size_t i = 0;
+        for (const auto& row : reader) {
+            REQUIRE(row[0].get<size_t>() == i);
+            REQUIRE(row[1].get<std::string>() == "label-for-row-" + std::to_string(i));
+            REQUIRE(row[2].get<size_t>() == i * 7 + 3);
+            ++i;
+        }
+        REQUIRE(i == 500000);
+    };
+    SECTION("Memory-mapped filename") {
+        const DataFrame<> frame(filename);
+        validate(frame);
+    }
+    SECTION("Stream reader") {
+        std::ifstream input(filename, std::ios::binary);
+        CSVReader reader(input);
+        const DataFrame<> frame(reader);
+        validate(frame);
+    }
 }

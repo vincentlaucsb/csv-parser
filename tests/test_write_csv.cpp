@@ -485,3 +485,66 @@ TEST_CASE("CSV Writer - signed integer extrema regression", "[test_csv_tuple][re
 
     REQUIRE(output.str() == correct.str());
 }
+
+TEST_CASE("CSV Writer: DataFrame document includes visible edits and schema", "[test_csv_writer][document_io]") {
+    std::stringstream input("id,name,value\n1,Alice,10\n2,Bob,20\n3,Carol,30\n");
+    CSVReader reader(input);
+    DataFrame<> frame(reader, DataFrameOptions().set_key_column("id"));
+    frame.at(1)["name"] = "B\"ob";
+    REQUIRE(frame.column_view("value").erase());
+    frame.insert_column(1, "extra", "x;y");
+    frame.at(1)["extra"] = "new;value";
+    const auto selected = frame.selected_rows({0, 1, 0});
+    std::stringstream output;
+    DelimWriter<std::stringstream, ';', '"'> writer(output);
+    REQUIRE(&(writer << selected) == &writer);
+    REQUIRE(output.str() == "id;extra;name\n2;\"new;value\";\"B\"\"ob\"\n");
+    REQUIRE(frame["2"]["name"].get<std::string>() == "B\"ob");
+
+#ifdef CSV_HAS_CXX20
+    std::stringstream rows_only;
+    auto row_writer = make_csv_writer(rows_only);
+    row_writer.write_rows(selected);
+    REQUIRE(rows_only.str() == "2,new;value,\"B\"\"ob\"\n");
+#endif
+}
+
+TEST_CASE("CSV Writer: DataFrame header-only documents and quoting", "[test_csv_writer][document_io]") {
+    std::stringstream input("first,second\n");
+    CSVReader reader(input);
+    const DataFrame<> frame(reader);
+    REQUIRE(frame.empty());
+    std::stringstream output;
+    auto writer = make_csv_writer(output, false);
+    writer << frame;
+    REQUIRE(output.str() == "\"first\",\"second\"\n");
+}
+
+TEST_CASE("CSV Writer: DataFrame document obeys flush policy", "[test_csv_writer][document_io]") {
+    struct CountingBuffer : std::stringbuf {
+        int sync_calls = 0;
+        int sync() override {
+            ++sync_calls;
+            return std::stringbuf::sync();
+        }
+    } buffer;
+    std::ostream output(&buffer);
+    std::stringstream input("a,b\n1,2\n3,4\n");
+    CSVReader reader(input);
+    const DataFrame<> frame(reader);
+    auto writer = make_csv_writer(output);
+    SECTION("Auto-flush once per document and support chaining") {
+        writer << frame << std::vector<std::string>{"5", "6"};
+        REQUIRE(buffer.sync_calls == 2);
+        REQUIRE(buffer.str() == "a,b\n1,2\n3,4\n5,6\n");
+    }
+    SECTION("Buffered output waits for explicit flush") {
+        writer.set_auto_flush(false);
+        writer << frame;
+        REQUIRE(buffer.sync_calls == 0);
+        REQUIRE(buffer.str().empty());
+        writer.flush();
+        REQUIRE(buffer.sync_calls == 1);
+        REQUIRE(buffer.str() == "a,b\n1,2\n3,4\n");
+    }
+}
