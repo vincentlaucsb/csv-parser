@@ -593,6 +593,30 @@ for (auto& r: rows) {
 
 For files that fit comfortably in memory, `DataFrame` provides fast and powerful keyed access, in-place updates, and grouping operations—all built on the same high-performance parser. It uses the same parsing pipeline as `CSVReader` but retains the results in memory for both row-wise and column-wise random access.
 
+**Load, Edit, and Save a Document**
+
+```cpp
+#include <fstream>
+#include "csv.hpp"
+
+csv::DataFrame<> doc("data.csv");
+doc.column_view("a")[1] = "new value"; // Second data row, column "a"
+std::ofstream output("new.csv");
+auto writer = csv::make_csv_writer(output);
+writer << doc;
+```
+
+The filename constructor creates an unkeyed frame and guesses the input format,
+like `CSVReader`. To specify it explicitly, pass a `CSVFormat` as the second
+argument, for example `DataFrame<>("data.csv", CSVFormat().delimiter(';').header_row(0))`.
+`column_view()` selects a column; string-keyed `operator[]` continues to select a
+row in a keyed frame.
+
+`writer << doc` writes the visible column names once, followed by the visible
+rows in their current order. It includes sparse edits and structural column
+changes, accepts const frames, and writes the header even when there are no data
+rows. Both operations are available in C++11 and later.
+
 **Creating a DataFrame with Keyed Access**
 ```cpp
 # include "csv.hpp"
@@ -767,24 +791,18 @@ engineering.column_parallel_apply(exec, column_summaries,
 
 #### Writing Back to CSV
 
-Each `DataFrameRow` can be written directly with `CSVWriter`. Sparse overlay
-edits are reflected automatically, so you do not need to rebuild each row by
-hand before writing.
+Write the whole frame, including its header, with `writer << df`. Sparse overlay
+edits and selected rows are reflected automatically.
 
 ```cpp
 std::ofstream out("edited_employees.csv");
 auto writer = make_csv_writer(out).set_auto_flush(false);
-
-// Emit the header row first.
-writer << df.columns();
-
-// Then stream the edited rows back out.
-for (const auto& row : df) {
-    writer << row;
-}
-
+writer << df;
 writer.flush();
 ```
+
+In C++20, `writer.write_rows(df)` writes only data rows, without a header. Use it
+when appending rows to a document whose header has already been written.
 
 ### Writing CSV Files
 *For a more in-depth guide, check out the [Doxygen page on CSV writing](https://vincentlaucsb.github.io/csv-parser/csv_writing_guide.html).*

@@ -81,6 +81,18 @@ namespace csv {
             this->init_unkeyed_from_reader(reader);
         }
 
+        /** Construct an unkeyed DataFrame directly from a CSV file.
+         *  By default, the delimiter and header are detected as for CSVReader.
+         *  Pass a CSVFormat to configure parsing explicitly.
+         */
+        explicit DataFrame(
+            csv::string_view filename,
+            CSVFormat format = CSVFormat::guess_csv()
+        ) {
+            CSVReader reader(filename, format);
+            this->init_unkeyed_from_reader(reader);
+        }
+
         /** Construct an unkeyed DataFrame from an existing batch of rows. */
         explicit DataFrame(std::vector<CSVRow> rows) {
             this->init_unkeyed_from_rows(rows);
