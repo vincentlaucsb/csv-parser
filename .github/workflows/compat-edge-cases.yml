@@ -118,3 +118,42 @@ jobs:
     - name: Test
       shell: msys2 {0}
       run: ctest --test-dir build/mingw-minimal --output-on-failure
+
+  mingw-winlibs-repro:
+    name: WinLibs GCC 16.1.0 MinGW repro
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Install WinLibs GCC 16.1.0
+      shell: pwsh
+      run: |
+        $archive = Join-Path $env:RUNNER_TEMP "winlibs-gcc-16.1.0.zip"
+        $destination = Join-Path $env:RUNNER_TEMP "winlibs-gcc-16.1.0"
+        Invoke-WebRequest `
+          -Uri "https://github.com/brechtsanders/winlibs_mingw/releases/download/16.1.0posix-14.0.0-ucrt-r3/winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64ucrt-14.0.0-r3.zip" `
+          -OutFile $archive
+        Expand-Archive -LiteralPath $archive -DestinationPath $destination
+        $bin = Split-Path (Get-ChildItem -LiteralPath $destination -Filter g++.exe -Recurse | Select-Object -First 1 -ExpandProperty FullName)
+        $bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        "WINLIBS_BIN=$bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Configure CMake without float fallback
+      shell: pwsh
+      run: >
+        cmake -S . -B build/mingw-winlibs-repro -G "MinGW Makefiles"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCSV_CXX_STANDARD=17
+        -DCSV_BUILD_PROGRAMS=OFF
+        -DBUILD_PYTHON=OFF
+        -DCMAKE_C_COMPILER="$env:WINLIBS_BIN\gcc.exe"
+        -DCMAKE_CXX_COMPILER="$env:WINLIBS_BIN\g++.exe"
+        -DCMAKE_MAKE_PROGRAM="$env:WINLIBS_BIN\mingw32-make.exe"
+
+    - name: Build
+      shell: pwsh
+      run: cmake --build build/mingw-winlibs-repro
