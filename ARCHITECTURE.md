@@ -37,3 +37,7 @@ Notes:
 - When changing compile-time behavior, explicitly document tradeoffs (codegen, performance, portability, readability).
 - If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.
 - Apply the 5/2 anti-duplication rule: if equivalent behavior exists in 2+ code paths and each copy is ~5+ meaningful lines, extract a shared helper; if duplication remains, document why and keep regression coverage for each path.
+
+- Explicit operational errors use the shared `CSVError` model in both build modes;
+  compiler exception macros select optional throwing conveniences automatically.
+  Reader worker errors must only be observed after joining the scheduler.

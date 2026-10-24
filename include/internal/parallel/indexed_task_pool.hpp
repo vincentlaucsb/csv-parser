@@ -79,9 +79,11 @@ namespace csv {
                     this->task_exception_ = nullptr;
                 }
 
+#if CSV_EXCEPTIONS_ENABLED
                 if (captured_exception) {
                     std::rethrow_exception(captured_exception);
                 }
+#endif
 #else
                 this->run_serial(task_count, std::forward<Fn>(fn));
 #endif
@@ -147,8 +149,11 @@ namespace csv {
                             break;
                         }
 
+#if CSV_EXCEPTIONS_ENABLED
                         try {
+#endif
                             this->current_task_(worker_index, task_index);
+#if CSV_EXCEPTIONS_ENABLED
                         }
                         catch (...) {
                             std::lock_guard<std::mutex> lock(this->mutex_);
@@ -158,6 +163,7 @@ namespace csv {
                             }
                             break;
                         }
+#endif
                     }
 
                     {

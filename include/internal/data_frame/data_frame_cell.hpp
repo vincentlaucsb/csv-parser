@@ -13,7 +13,9 @@
 namespace csv {
     class DataFrameCell : public CSVField {
     public:
+#if CSV_EXCEPTIONS_ENABLED
         using CSVField::get;
+#endif
         using CSVField::get_sv;
         using CSVField::is_float;
         using CSVField::is_int;
@@ -99,15 +101,31 @@ namespace csv {
             return *this;
         }
 
+#if CSV_EXCEPTIONS_ENABLED
         DataFrameCell& operator=(csv::string_view value) {
-            return this->assign(std::string(value));
+            CSVError error;
+            this->try_assign(value, error);
+            internals::throw_dataframe_error(error);
+            return *this;
+        }
+#endif
+
+        /** Assign through a mutable cell, preserving the current value on validation failure. */
+        bool try_assign(csv::string_view value, CSVError& error) {
+            error.clear();
+            if (!can_mutate_ || !edit_context_)
+                return internals::fail(error, CSVErrorCode::ReadOnlyProxy, internals::ERROR_CANNOT_EDIT_CONST_DF_CELL);
+            this->assign(std::string(value));
+            return true;
         }
 
         /** Const-friendly read access for proxy use in column iteration and callbacks. */
+#if CSV_EXCEPTIONS_ENABLED
         template<typename T = std::string>
         T get() const {
             return const_cast<DataFrameCell*>(this)->CSVField::template get<T>();
         }
+#endif
 
         bool is_null() const noexcept {
             return const_cast<DataFrameCell*>(this)->CSVField::is_null();
@@ -136,6 +154,11 @@ namespace csv {
         template<typename T>
         bool try_get(T& out) const noexcept {
             return const_cast<DataFrameCell*>(this)->CSVField::template try_get<T>(out);
+        }
+
+        template<typename T>
+        bool try_get(T& out, CSVConversionError& error) const noexcept {
+            return const_cast<DataFrameCell*>(this)->CSVField::template try_get<T>(out, error);
         }
 
     private:
@@ -180,14 +203,10 @@ namespace csv {
             }
 
             owned_value_.clear();
-            CSVField::operator=(CSVField((*row_)[col_index_].template get<csv::string_view>()));
+            CSVField::operator=(CSVField(internals::data_frame::RowViewAccessor::view(*row_, col_index_)));
         }
 
         DataFrameCell& assign(std::string stored) {
-            if (!can_mutate_ || !edit_context_) {
-                throw std::runtime_error(internals::ERROR_CANNOT_EDIT_CONST_DF_CELL);
-            }
-
             owned_value_ = stored;
             auto* state = frame_bound_
                 ? const_cast<internals::data_frame::DataFrameStorage*>(this->storage()) : nullptr;

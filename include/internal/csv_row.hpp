@@ -62,53 +62,6 @@ namespace csv {
     }
 
     /**
-    * @enum CSVConversionError
-    * @brief Non-throwing CSVField conversion result.
-    *
-    * Returned by CSVField::as() inside std::expected, and used internally by
-    * CSVField::get() and CSVField::try_get() to keep throwing and non-throwing
-    * conversions on the same rules.
-    *
-    * @sa csv_conversion_error_message()
-    */
-    enum class CSVConversionError {
-        /** Conversion succeeded. */
-        None = 0,
-
-        /** The field is not compatible with the requested target type. */
-        NotANumber,
-
-        /** The parsed value does not fit in the requested target type. */
-        Overflow,
-
-        /** A floating point field was requested as an integral type. */
-        FloatToInt,
-
-        /** A negative value was requested as an unsigned type. */
-        NegativeToUnsigned
-    };
-
-    namespace internals {
-        typedef const char* csv_error_message;
-
-        static CONSTEXPR_VALUE_14 csv_error_message CSV_CONVERSION_ERROR_MESSAGES[] = {
-            "",
-            "Not a number.",
-            "Overflow error.",
-            "Attempted to convert a floating point value to an integral type.",
-            "Negative numbers cannot be converted to unsigned types."
-        };
-    }
-
-    /** Return a stable human-readable description for a CSVConversionError. */
-    inline const char* csv_conversion_error_message(CSVConversionError error) noexcept {
-        const size_t index = static_cast<size_t>(error);
-        return index < (sizeof(internals::CSV_CONVERSION_ERROR_MESSAGES) / sizeof(internals::CSV_CONVERSION_ERROR_MESSAGES[0]))
-            ? internals::CSV_CONVERSION_ERROR_MESSAGES[index]
-            : internals::CSV_CONVERSION_ERROR_MESSAGES[static_cast<size_t>(CSVConversionError::NotANumber)];
-    }
-
-    /**
     * @class CSVField
     * @brief Data type representing individual CSV values.
     *        CSVFields can be obtained by using CSVRow::operator[]
@@ -179,12 +132,15 @@ namespace csv {
         *           numeric value.
         *
         */
+#if CSV_EXCEPTIONS_ENABLED
         template<typename T = std::string> T get() {
             T out{};
-            const CSVConversionError err = check_convert(out);
+            CSVConversionError err;
+            try_get(out, err);
             if (err != CSVConversionError::None) throw std::runtime_error(csv_conversion_error_message(err));
             return out;
         }
+#endif
 
 #ifdef CSV_HAS_STD_EXPECTED
         /**
@@ -201,7 +157,8 @@ namespace csv {
         template<typename T = std::string>
         std::expected<T, CSVConversionError> as() {
             T out{};
-            const CSVConversionError err = check_convert(out);
+            CSVConversionError err;
+            try_get(out, err);
             return (err != CSVConversionError::None)
                 ? std::expected<T, CSVConversionError>(std::unexpected(err))
                 : std::expected<T, CSVConversionError>(out);
@@ -225,7 +182,17 @@ namespace csv {
          */
         template<typename T = std::string>
         bool try_get(T& out) noexcept {
-            return check_convert(out) == CSVConversionError::None;
+            CSVConversionError error;
+            return try_get(out, error);
+        }
+
+        /** Convert with the same rules as try_get(), retaining the failure reason.
+         *  On failure, out is unchanged and error identifies the conversion failure.
+         */
+        template<typename T>
+        bool try_get(T& out, CSVConversionError& error) noexcept {
+            error = check_convert(out);
+            return error == CSVConversionError::None;
         }
 
 #ifdef CSV_HAS_CXX17
@@ -458,6 +425,22 @@ namespace csv {
         /** Shared validation + conversion kernel used by get(), try_get(), and as().
          *  Assigns to @p out and returns CSVConversionError::None on success.
          */
+        CSVConversionError check_convert(std::string& out) noexcept {
+            out.assign(this->sv.data(), this->sv.size());
+            return CSVConversionError::None;
+        }
+
+        CSVConversionError check_convert(csv::string_view& out) noexcept {
+            out = this->sv;
+            return CSVConversionError::None;
+        }
+
+        CSVConversionError check_convert(long double& out) noexcept {
+            if (!is_num()) return CSVConversionError::NotANumber;
+            out = this->numeric_value_as_long_double();
+            return CSVConversionError::None;
+        }
+
         CSVConversionError check_convert(bool& out) noexcept {
             if (this->type() != DataType::CSV_BOOL)
                 return CSVConversionError::NotANumber;
@@ -574,20 +557,57 @@ namespace csv {
 
         /** @name Value Retrieval */
         ///@{
+        /** Checked field retrieval. Inspect error before using the returned field.
+         *  The field's view remains valid only while this row's storage is alive.
+         */
+        CSVField try_field(size_t index, CSVError& error) const;
+        CSVField try_field(csv::string_view name, CSVError& error) const;
+
+#if CSV_EXCEPTIONS_ENABLED
         /** Return the field at @p n. Throws std::runtime_error if the index is out of bounds. */
         CSVField operator[](size_t n) const;
         /** Return the field named @p col_name. Throws std::runtime_error if the name is absent. */
         CSVField operator[](csv::string_view col_name) const;
-        inline std::string to_json(const std::vector<std::string>& subset = {}) const {
+#endif
+        /** Serialize all named fields. */
+        inline std::string to_json() const {
             const auto* converter = this->get_json_converter();
-            return converter == nullptr ? "{}"
-                : converter->row_to_json(this->size(), [this](size_t i) { return this->get_field(i); }, subset);
+            return converter ? converter->row_to_json(this->size(),
+                [this](size_t i) { return this->get_field(i); }) : "{}";
         }
-        inline std::string to_json_array(const std::vector<std::string>& subset = {}) const {
+        /** Serialize all named fields as an array. */
+        inline std::string to_json_array() const {
             const auto* converter = this->get_json_converter();
-            return converter == nullptr ? "[]"
-                : converter->row_to_json_array(this->size(), [this](size_t i) { return this->get_field(i); }, subset);
+            return converter ? converter->row_to_json_array(this->size(),
+                [this](size_t i) { return this->get_field(i); }) : "[]";
         }
+        /** Serialize a subset, reporting unknown column names. */
+        inline std::string try_to_json(const std::vector<std::string>& subset, CSVError& error) const {
+            error.clear();
+            const auto* converter = this->get_json_converter();
+            return converter ? converter->try_row_to_json(this->size(),
+                [this](size_t i) { return this->get_field(i); }, subset, error) : "{}";
+        }
+        inline std::string try_to_json_array(const std::vector<std::string>& subset, CSVError& error) const {
+            error.clear();
+            const auto* converter = this->get_json_converter();
+            return converter ? converter->try_row_to_json_array(this->size(),
+                [this](size_t i) { return this->get_field(i); }, subset, error) : "[]";
+        }
+#if CSV_EXCEPTIONS_ENABLED
+        inline std::string to_json(const std::vector<std::string>& subset) const {
+            CSVError error;
+            auto out = try_to_json(subset, error);
+            internals::throw_error(error);
+            return out;
+        }
+        inline std::string to_json_array(const std::vector<std::string>& subset) const {
+            CSVError error;
+            auto out = try_to_json_array(subset, error);
+            internals::throw_error(error);
+            return out;
+        }
+#endif
 
         /** Retrieve this row's associated column names */
         const std::vector<std::string>& get_col_names() const {
@@ -602,12 +622,16 @@ namespace csv {
         /** Convert this CSVRow into an unordered map.
          *  The keys are the column names and the values are the corresponding field values.
          */
+#if CSV_EXCEPTIONS_ENABLED
         std::unordered_map<std::string, std::string> to_unordered_map() const;
+#endif
 
         /** Convert a selected subset of columns into an unordered map. */
+#if CSV_EXCEPTIONS_ENABLED
         std::unordered_map<std::string, std::string> to_unordered_map(
             const std::vector<std::string>& subset
         ) const;
+#endif
 
         #ifdef CSV_HAS_CXX20
         /** Convert this CSVRow into a std::ranges::input_range of string_views.
@@ -688,6 +712,11 @@ namespace csv {
         /** A reverse iterator over the contents of a CSVRow. */
         using reverse_iterator = std::reverse_iterator<iterator>;
 
+        /** Materialize named values; unknown names or absent header positions report an error. */
+        std::unordered_map<std::string, std::string> try_to_unordered_map(CSVError& error) const;
+        std::unordered_map<std::string, std::string> try_to_unordered_map(
+            CSVError& error, const std::vector<std::string>& subset) const;
+
         /** @name Iterators
          *  @brief Each iterator points to a CSVField object.
          */
@@ -699,10 +728,17 @@ namespace csv {
         ///@}
 
     private:
+        std::unordered_map<std::string, std::string> to_unordered_map_impl(
+            const std::vector<std::string>* subset, CSVError& error) const;
+
         /** Shared implementation for field access (handles quoting and caching). */
         inline csv::string_view get_field_impl(size_t index, const internals::RawCSVDataPtr& _data) const {
+#if CSV_EXCEPTIONS_ENABLED
             if (index >= this->size())
                 throw std::runtime_error(internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
+#else
+            CSV_DEBUG_ASSERT(index < this->size());
+#endif
 
             const size_t field_index = this->fields_start + index;
             const auto field = _data->fields[field_index];
@@ -762,6 +798,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region CSVField::get Specializations
 #endif
+#if CSV_EXCEPTIONS_ENABLED
     /** Retrieve this field's original string */
     template<>
     inline std::string CSVField::get<std::string>() {
@@ -787,27 +824,12 @@ namespace csv {
         return this->numeric_value_as_long_double();
     }
 
-    /** Non-throwing retrieval of field as std::string */
-    template<>
-    inline bool CSVField::try_get<std::string>(std::string& out) noexcept {
-        out = std::string(this->sv);
-        return true;
-    }
+#endif
 
-    /** Non-throwing retrieval of field as csv::string_view */
+    // Preserve the existing constexpr view-retrieval API.
     template<>
     CONSTEXPR_14 bool CSVField::try_get<csv::string_view>(csv::string_view& out) noexcept {
         out = this->sv;
-        return true;
-    }
-
-    /** Non-throwing retrieval of field as long double */
-    template<>
-    inline bool CSVField::try_get<long double>(long double& out) noexcept {
-        if (!is_num())
-            return false;
-
-        out = this->numeric_value_as_long_double();
         return true;
     }
 #ifdef _MSC_VER

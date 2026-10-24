@@ -28,23 +28,28 @@ namespace csv {
             }
 
             inline void validate_column(size_t index, size_t count) {
-                if (index >= count) { throw_column_index_out_of_range(); }
+                CSV_DEBUG_ASSERT(index < count);
+                (void)index; (void)count;
             }
 
-            inline void validate_row(const std::vector<std::string>& row, size_t columns) {
+            inline bool validate_row(const std::vector<std::string>& row, size_t columns, CSVError& error) {
+                error.clear();
                 if (columns == 0 && !row.empty()) {
-                    throw std::invalid_argument("cannot insert a non-empty row into a DataFrame without columns");
+                    return fail(error, CSVErrorCode::InvalidArgument, "cannot insert a non-empty row into a DataFrame without columns");
                 }
                 if (row.size() != columns) {
-                    throw std::invalid_argument("inserted row field count must match DataFrame column count");
+                    return fail(error, CSVErrorCode::InvalidArgument, "inserted row field count must match DataFrame column count");
                 }
+                return true;
             }
 
             inline std::vector<CSVRow> select_parsed_rows(
-                const std::vector<CSVRow>& rows, const std::vector<std::uint8_t>& mask
+                const std::vector<CSVRow>& rows, const std::vector<std::uint8_t>& mask, CSVError& error
             ) {
+                error.clear();
                 if (mask.size() != rows.size()) {
-                    throw std::invalid_argument("selected row mask size must match DataFrame row count");
+                    fail(error, CSVErrorCode::InvalidArgument, "selected row mask size must match DataFrame row count");
+                    return {};
                 }
                 std::vector<CSVRow> selected;
                 selected.reserve(static_cast<size_t>(std::count_if(mask.begin(), mask.end(),

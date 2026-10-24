@@ -10,11 +10,13 @@ namespace csv {
             const CSVFormat& format,
             const ColNamesPtr& col_names
         ) : CSVParserDriverBase(format, col_names) {
-            this->_filename = filename.data();
-            auto head_and_size = get_csv_head_mmap(filename);
+            this->_filename = std::string(filename);
+            auto head_and_size = get_csv_head_mmap(filename, error_);
+            if (error_) return;
             this->head_ = std::move(head_and_size.first);
             this->source_size_ = head_and_size.second;
             this->resolve_format_from_head(format);
+            if (error_) return;
 
             this->parse_orchestrator_ = make_csv_parse_orchestrator(
                 this->parse_flags_,
@@ -42,8 +44,9 @@ namespace csv {
                 base_offset,
                 chunk_size,
                 source_exhausted,
-                this->output()
+                this->output(), error_
             );
+            if (error_) return false;
 
             if (source_exhausted) {
                 this->eof_ = true;
@@ -60,6 +63,7 @@ namespace csv {
         }
 
         CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
+            if (error_) return;
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span
             // chunk boundaries. The 'remainder' calculation below ensures partial fields
@@ -86,7 +90,7 @@ namespace csv {
                 // still pending). Ask the parse result rather than comparing
                 // positions: a skipped UTF-8 BOM advances mmap_pos even when no
                 // row completed.
-                if (this->eof_ || completed_row) {
+                if (error_ || this->eof_ || completed_row) {
                     return;
                 }
             }
@@ -108,7 +112,10 @@ namespace csv {
             std::error_code error;
             auto mmap = mio::make_mmap_source(this->_filename, offset, length, error);
             if (error) {
-                throw_mmap_failure(error, this->_filename, offset, length);
+                fail(error_, CSVErrorCode::MappingFailed,
+                    make_mmap_failure_message(this->_filename, offset, length));
+                error_.system = error;
+                return;
             }
             auto mmap_owner = std::make_shared<mio::basic_mmap_source<char>>(std::move(mmap));
             this->mmap_pos += length;

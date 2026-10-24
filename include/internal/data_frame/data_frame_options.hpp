@@ -9,7 +9,7 @@ namespace csv {
 
         /** Policy for handling duplicate keys when creating a keyed DataFrame */
         enum class DuplicateKeyPolicy {
-            THROW,      // Throw an error if a duplicate key is encountered
+            THROW,      // Report an error if a duplicate key is encountered
             OVERWRITE,  // Overwrite the existing value with the new value
             KEEP_FIRST  // Ignore the new value and keep the existing value
         };
@@ -46,7 +46,7 @@ namespace csv {
 
         DuplicateKeyPolicy duplicate_key_policy = DuplicateKeyPolicy::OVERWRITE;
 
-        /** Whether to throw an error if a key column value is missing when creating a keyed DataFrame */
+        /** Whether missing or invalid key column values are errors when creating a keyed DataFrame */
         bool throw_on_missing_key = true;
     };
 

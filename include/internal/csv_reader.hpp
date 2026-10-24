@@ -64,6 +64,7 @@ namespace csv {
          *       See `include/internal/ARCHITECTURE.md` § "CSVReader::iterator is single-pass by design"
          *       for the full rationale.
          */
+#if CSV_EXCEPTIONS_ENABLED
         class iterator {
         public:
             #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -102,6 +103,7 @@ namespace csv {
             CSVRow row;                   // Current row
             size_t i = 0;               // Index of current row
         };
+#endif
 
         /** @name Constructors
          *  Constructors for iterating over large files and parsing in-memory sources.
@@ -119,24 +121,46 @@ namespace csv {
          * @note When writing tests that validate I/O behavior, test both filename and stream constructors.
          * @see StreamParser for the stream-based alternative.
          */
-        CSVReader(csv::string_view filename, const CSVFormat& format = CSVFormat::guess_csv())
-            : _format(format),
-              read_scheduler_(format.is_threading_enabled()) {
-#if defined(__EMSCRIPTEN__)
-            this->owned_stream = std::unique_ptr<std::istream>(
-                new std::ifstream(std::string(filename), std::ios::binary)
-            );
+        /** Open a reader, returning null on initialization failure.
+         *  A borrowed stream must outlive the reader and any pending worker.
+         *  In a no-exceptions build it must have a non-throwing exception mask.
+         */
+        static std::unique_ptr<CSVReader> try_open(
+            csv::string_view filename, CSVError& error,
+            const CSVFormat& format = CSVFormat::guess_csv());
 
-            if (!(*this->owned_stream)) {
-                internals::throw_cannot_open_file(filename);
-            }
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
+        static std::unique_ptr<CSVReader> try_open(
+            TStream& source, CSVError& error,
+            const CSVFormat& format = CSVFormat::guess_csv()) {
+            error.clear();
+            std::unique_ptr<CSVReader> reader(new CSVReader(format, initialize_tag{}));
+            reader->init_from_stream(source, format);
+            error = reader->error_;
+            return error ? nullptr : std::move(reader);
+        }
 
-            this->init_from_stream(*this->owned_stream, format);
-#else
-            this->init_parser(std::unique_ptr<internals::parser::CSVParserDriverBase>(
-                new internals::parser::MmapParser(filename, format, this->col_names)
-            ));
+        static std::unique_ptr<CSVReader> try_open(
+            std::unique_ptr<std::istream> source, CSVError& error,
+            const CSVFormat& format = CSVFormat::guess_csv());
+
+#ifdef CSV_HAS_STD_EXPECTED
+        template<typename Source>
+        static std::expected<std::unique_ptr<CSVReader>, CSVError> try_open(
+            Source&& source, const CSVFormat& format = CSVFormat::guess_csv()) {
+            CSVError error;
+            auto reader = try_open(std::forward<Source>(source), error, format);
+            if (error) return std::unexpected(std::move(error));
+            return reader;
+        }
 #endif
+
+#if CSV_EXCEPTIONS_ENABLED
+        CSVReader(csv::string_view filename, const CSVFormat& format = CSVFormat::guess_csv())
+            : CSVReader(format, initialize_tag{}) {
+            open_file(filename, format);
+            internals::throw_error(error_);
         }
 
         /** @brief Construct CSVReader from std::istream
@@ -153,10 +177,10 @@ namespace csv {
          */
         template<typename TStream,
             csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
-        CSVReader(TStream &source, const CSVFormat& format = CSVFormat::guess_csv())
-            : _format(format),
-              read_scheduler_(format.is_threading_enabled()) {
-            this->init_from_stream(source, format);
+        CSVReader(TStream& source, const CSVFormat& format = CSVFormat::guess_csv())
+            : CSVReader(format, initialize_tag{}) {
+            init_from_stream(source, format);
+            internals::throw_error(error_);
         }
 
         /** @brief Construct CSVReader from an owned std::istream
@@ -166,15 +190,14 @@ namespace csv {
          */
         CSVReader(std::unique_ptr<std::istream> source,
             const CSVFormat& format = CSVFormat::guess_csv())
-            : _format(format),
-              owned_stream(std::move(source)),
-              read_scheduler_(format.is_threading_enabled()) {
-            if (!this->owned_stream) {
+            : CSVReader(format, initialize_tag{}) {
+            owned_stream = std::move(source);
+            if (!owned_stream)
                 throw std::invalid_argument(internals::ERROR_READER_NULL_STREAM);
-            }
-
-            this->init_from_stream(*this->owned_stream, format);
+            init_from_stream(*owned_stream, format);
+            internals::throw_error(error_);
         }
+#endif
         ///@}
 
         CSVReader(const CSVReader&) = delete;             ///< Not copyable
@@ -234,7 +257,13 @@ namespace csv {
          * **Example:**
          * \snippet tests/test_read_csv.cpp CSVField Example
          */
+#if CSV_EXCEPTIONS_ENABLED
         bool read_row(CSVRow &row);
+#endif
+        /** Retrieve a row, distinguishing EOF (false, no error) from failure.
+         *  A failure is terminal. Successfully consumed rows are not rolled back.
+         */
+        bool try_read_row(CSVRow& row, CSVError& error);
 
         /** Read up to `max_rows` rows into a caller-owned batch buffer.
          *
@@ -257,9 +286,15 @@ namespace csv {
          * **Example:**
          * \snippet tests/test_read_csv_file.cpp CSVReader read_chunk Example
          */
+#if CSV_EXCEPTIONS_ENABLED
         bool read_chunk(std::vector<CSVRow>& out, size_t max_rows);
         iterator begin();
         CSV_CONST iterator end() const noexcept;
+#endif
+        /** Clear out and read a batch. Failure may leave a successfully consumed prefix.
+         *  max_rows must be nonzero. Inspect error even when out contains rows.
+         */
+        bool try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error);
 
         /** Returns true if we have reached end of file */
         bool eof() const noexcept { return this->parser->eof(); }
@@ -367,6 +402,12 @@ namespace csv {
         /**@}*/
 
     private:
+        struct initialize_tag {};
+        CSVReader(const CSVFormat& format, initialize_tag)
+            : _format(format), read_scheduler_(format.is_threading_enabled()) {}
+        CSVError error_;
+        void open_file(csv::string_view filename, const CSVFormat& format);
+
         /** Whether or not rows before header were trimmed */
         bool header_trimmed = false;
 
@@ -382,6 +423,7 @@ namespace csv {
 
         void move_state_from(CSVReader& other) noexcept {
             this->_format = std::move(other._format);
+            this->error_ = std::move(other.error_);
             this->col_names = std::move(other.col_names);
             this->parser = std::move(other.parser);
             this->records = std::move(other.records);
@@ -457,7 +499,7 @@ namespace csv {
         ///@}
     };
 
-    #ifdef CSV_HAS_CXX20
+    #if defined(CSV_HAS_CXX20) && CSV_EXCEPTIONS_ENABLED
     static_assert(
         internals::csv_write_rows_input_range<CSVReader>,
         "CSVReader must remain compatible with csv::DelimWriter::write_rows()."

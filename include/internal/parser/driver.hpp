@@ -34,7 +34,10 @@ namespace csv {
          *  BOM handling happens at the source-window level (CSVParseOrchestrator and
          *  format guessing); CSVParserCore only ever sees BOM-free bytes.
          */
+        CSV_INLINE size_t get_bom_skip(csv::string_view data, bool& utf8_bom, CSVError& error);
+#if CSV_EXCEPTIONS_ENABLED
         CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom);
+#endif
 
         namespace parser {
         struct GuessScore {
@@ -51,31 +54,85 @@ namespace csv {
             const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }
         );
 
+        CSV_INLINE CSVGuessResult guess_format(
+            csv::string_view head, const std::vector<char>& delims, CSVError& error);
+
         /** Read the first 500KB from a seekless stream source. */
         template<typename TStream,
-            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int>  = 0>
-        std::string get_csv_head_stream(TStream& source) {
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
+        std::string get_csv_head_stream(TStream& source, CSVError& error) {
+            error.clear();
+#if !CSV_EXCEPTIONS_ENABLED
+            if (source.exceptions() != std::ios::goodbit) {
+                fail(error, CSVErrorCode::InvalidArgument,
+                    "Explicit CSV reads require a non-throwing stream exception mask.");
+                return {};
+            }
+#endif
             const size_t limit = 500000;
             std::string buf(limit, '\0');
-            source.read(&buf[0], (std::streamsize)limit);
+#if CSV_EXCEPTIONS_ENABLED
+            try {
+#endif
+                source.read(&buf[0], static_cast<std::streamsize>(limit));
+#if CSV_EXCEPTIONS_ENABLED
+            } catch (const std::ios_base::failure&) {
+                if (!source.eof() || source.bad()) {
+                    fail(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                    return {};
+                }
+            }
+#endif
+            if (source.bad() || (source.fail() && !source.eof())) {
+                fail(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                return {};
+            }
             buf.resize(static_cast<size_t>(source.gcount()));
             return buf;
         }
 
+#if CSV_EXCEPTIONS_ENABLED
+        template<typename TStream,
+            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
+        std::string get_csv_head_stream(TStream& source) {
+            CSVError error;
+            auto out = get_csv_head_stream(source, error);
+            throw_error(error);
+            return out;
+        }
+#endif
+
 #if defined(__EMSCRIPTEN__)
         /** Open a file-backed source and read the first 500KB through the stream path. */
-        CSV_INLINE std::string get_csv_head_stream(csv::string_view filename);
+        CSV_INLINE std::string get_csv_head_stream(csv::string_view filename, CSVError& error);
 #endif
 
 #if !defined(__EMSCRIPTEN__)
         /** Read the first 500KB from a filename using mmap.
          *  Also returns the total file size so callers avoid a second mmap open.
          */
-        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename);
+        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename, CSVError& error);
 #endif
 
         /** Compatibility shim selecting stream on Emscripten and mmap otherwise. */
-        CSV_INLINE std::string get_csv_head(csv::string_view filename);
+        CSV_INLINE std::string get_csv_head(csv::string_view filename, CSVError& error);
+
+#if CSV_EXCEPTIONS_ENABLED
+        inline std::string get_csv_head(csv::string_view filename) {
+            CSVError error;
+            auto out = get_csv_head(filename, error);
+            throw_error(error);
+            return out;
+        }
+#if !defined(__EMSCRIPTEN__)
+        inline std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename) {
+            CSVError error;
+            auto out = get_csv_head_mmap(filename, error);
+            throw_error(error);
+            return out;
+        }
+#endif
+#endif
 
         struct ResolvedFormat {
             CSVFormat format;
@@ -103,11 +160,22 @@ namespace csv {
         *  @note Score = (row_length * count_of_rows_with_that_length)
         *  @note Also returns inferred mode-width column count (CSVGuessResult::n_cols)
          */
+    /** Infer a file's format, reporting source and encoding failures. */
+    inline CSVGuessResult try_guess_format(csv::string_view filename, CSVError& error,
+        const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }) {
+        error.clear();
+        auto head = internals::parser::get_csv_head(filename, error);
+        if (error) return {',', 0, 0};
+        return internals::parser::guess_format(head, delims, error);
+    }
+
+#if CSV_EXCEPTIONS_ENABLED
     inline CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }) {
         auto head = internals::parser::get_csv_head(filename);
         return internals::parser::guess_format(head, delims);
     }
+#endif
 
     namespace internals {
         namespace parser {
@@ -129,7 +197,7 @@ namespace csv {
                 size_t base_offset,
                 size_t serial_chunk_size,
                 bool source_exhausted,
-                RowCollection& output
+                RowCollection& output, CSVError& error
             ) = 0;
         };
 
@@ -158,6 +226,9 @@ namespace csv {
             ) : CSVParserCore<>(parse_flags, ws_flags) {}
 
             virtual ~CSVParserDriverBase() {}
+
+            /** Source errors are read by the consumer only after joining its scheduler. */
+            const CSVError& error() const noexcept { return error_; }
 
             /** Whether or not we have reached the end of source */
             bool eof() { return this->eof_; }
@@ -189,6 +260,7 @@ namespace csv {
             /** @name Current Stream/File State */
             ///@{
             bool eof_ = false;
+            CSVError error_;
 
             ResolvedFormat format;
 
