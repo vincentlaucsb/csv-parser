@@ -58,13 +58,15 @@ namespace csv {
             return frame_->try_make_cell(row_index, col_index_, false, error);
         }
         csv::string_view try_get_sv(size_t row_index, CSVError& error) const {
-            if (!this->require_valid(error)) return {};
+            // Retain the explicit owner check for GCC's object-size diagnostics
+            // when an unbound proxy and the subsequent storage access are inlined.
+            if (!this->require_valid(error) || !frame_) return {};
             const auto binding = frame_->storage_.try_bind(row_index, col_index_, error);
             (void)binding;
             return error ? csv::string_view() : frame_->cell_view(row_index, col_index_);
         }
         csv::string_view try_name(CSVError& error) const {
-            if (!this->require_valid(error)) return {};
+            if (!this->require_valid(error) || !frame_) return {};
             return csv::string_view(frame_->columns()[col_index_]);
         }
         template<typename T = std::string>

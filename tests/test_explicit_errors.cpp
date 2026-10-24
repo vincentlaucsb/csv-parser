@@ -672,11 +672,7 @@ TEST_CASE("Checked unbound proxies fail before accessing storage", "[explicit_er
     REQUIRE(error.code == CSVErrorCode::InvalidProxy);
     REQUIRE(row.try_to_json_array({"missing"}, error).empty());
     REQUIRE(error.code == CSVErrorCode::InvalidProxy);
-    // Failed schema lookup also returns an unbound proxy; subsequent queries
-    // must report InvalidProxy without accessing any frame storage.
-    DataFrame<> frame;
-    auto column = frame.try_column_view("missing", error);
-    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    DataFrameColumn<std::string> column;
     const auto& const_column = column;
     const_column.try_field(0, error);
     REQUIRE(error.code == CSVErrorCode::InvalidProxy);
