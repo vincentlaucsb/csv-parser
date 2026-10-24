@@ -26,10 +26,14 @@ namespace csv {
         }
     }
 
+#if CSV_EXCEPTIONS_ENABLED
     CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
+        if (n >= this->size()) throw std::runtime_error(internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
         return this->make_field(n, this->data);
     }
+#endif
 
+#if CSV_EXCEPTIONS_ENABLED
     CSV_INLINE CSVField CSVRow::operator[](csv::string_view col_name) const {
         auto & col_names = this->data->col_names;
         auto col_pos = col_names->index_of(col_name);
@@ -39,6 +43,27 @@ namespace csv {
 
         internals::throw_column_not_found(col_name);
     }
+#endif
+    CSV_INLINE CSVField CSVRow::try_field(size_t index, CSVError& error) const {
+        error.clear();
+        if (index >= size()) {
+            internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
+            return CSVField(csv::string_view());
+        }
+        return make_field(index, data);
+    }
+
+    CSV_INLINE CSVField CSVRow::try_field(csv::string_view name, CSVError& error) const {
+        error.clear();
+        const int index = data && data->col_names ? data->col_names->index_of(name) : CSV_NOT_FOUND;
+        if (index == CSV_NOT_FOUND) {
+            internals::fail(error, CSVErrorCode::ColumnNotFound,
+                internals::make_prefixed_message(internals::ERROR_COLUMN_NOT_FOUND, name));
+            return CSVField(csv::string_view());
+        }
+        return try_field(static_cast<size_t>(index), error);
+    }
+
     CSV_INLINE CSVRow::operator std::vector<std::string>() const {
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
@@ -65,31 +90,55 @@ namespace csv {
         return full.substr(data_start, len);
     }
 
-    /** Build a map from column names to values for a given row. */
-    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
-        std::unordered_map<std::string, std::string> row_map;
-        row_map.reserve(this->size());
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::try_to_unordered_map(CSVError& error) const {
+        return to_unordered_map_impl(nullptr, error);
+    }
 
-        for (size_t i = 0; i < this->size(); i++) {
-            auto col_name = (*this->data->col_names)[i];
-            row_map[col_name] = this->operator[](i).get<std::string>();
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::try_to_unordered_map(
+        CSVError& error, const std::vector<std::string>& subset) const {
+        return to_unordered_map_impl(&subset, error);
+    }
+
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map_impl(
+        const std::vector<std::string>* subset, CSVError& error) const {
+        error.clear();
+        std::unordered_map<std::string, std::string> out;
+        if (!subset) {
+            if (!data || !data->col_names) return out;
+            const auto& names = get_col_names();
+            if (names.size() < size()) {
+                internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_BOUNDS);
+                return out;
+            }
+            out.reserve(size());
+            for (size_t i = 0; i < size(); ++i) out[names[i]] = std::string(get_field(i));
+        } else {
+            out.reserve(subset->size());
+            for (const auto& name : *subset) {
+                auto field = try_field(name, error);
+                if (error) return out;
+                out[name] = std::string(field.get_sv());
+            }
         }
-
-        return row_map;
+        return out;
     }
 
-    /** Build a map from a subset of column names to values for a given row. */
+#if CSV_EXCEPTIONS_ENABLED
+    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
+        CSVError error;
+        auto out = try_to_unordered_map(error);
+        if (error) throw std::out_of_range(error.context);
+        return out;
+    }
+
     CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map(
-        const std::vector<std::string>& subset
-    ) const {
-        std::unordered_map<std::string, std::string> row_map;
-        row_map.reserve(subset.size());
-
-        for (const auto& col_name : subset)
-            row_map[col_name] = this->operator[](col_name).get<std::string>();
-
-        return row_map;
+        const std::vector<std::string>& subset) const {
+        CSVError error;
+        auto out = try_to_unordered_map(error, subset);
+        internals::throw_error(error);
+        return out;
     }
+#endif
 
     CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
     {

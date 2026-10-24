@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "../common.hpp"
+#include "../csv_exceptions.hpp"
 
 namespace csv {
     namespace internals {
@@ -16,7 +16,10 @@ namespace csv {
             class KeyStorage {
             public:
                 template<typename InvalidateIndex>
-                inline void preserve(std::vector<KeyType>&, const InvalidateIndex&) const noexcept {}
+                inline bool preserve(std::vector<KeyType>&, const InvalidateIndex&, CSVError& error) const {
+                    error.clear();
+                    return true;
+                }
             };
 
             /** Keep established view keys alive when their parsed rows are replaced.
@@ -26,18 +29,19 @@ namespace csv {
             class KeyStorage<csv::string_view> {
             public:
                 template<typename InvalidateIndex>
-                inline void preserve(std::vector<csv::string_view>& keys, const InvalidateIndex& invalidate_index) {
+                inline bool preserve(std::vector<csv::string_view>& keys, const InvalidateIndex& invalidate_index, CSVError& error) {
+                    error.clear();
                     if (keys.empty()) {
                         invalidate_index();
                         this->storage_.reset();
-                        return;
+                        return true;
                     }
 
                     std::unique_ptr<std::string> storage(new std::string());
                     size_t bytes = 0;
                     for (const auto& key : keys) {
                         if (key.size() > storage->max_size() - bytes) {
-                            throw std::length_error("DataFrame key storage is too large");
+                            return fail(error, CSVErrorCode::SizeLimitExceeded, "DataFrame key storage is too large");
                         }
                         bytes += key.size();
                     }
@@ -61,6 +65,7 @@ namespace csv {
                     invalidate_index();
                     keys.swap(preserved);
                     this->storage_ = std::move(storage);
+                    return true;
                 }
 
             private:

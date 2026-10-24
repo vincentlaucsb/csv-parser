@@ -110,7 +110,7 @@ namespace csv {
                 size_t base_offset,
                 size_t serial_chunk_size,
                 bool source_exhausted,
-                RowCollection& output
+                RowCollection& output, CSVError& error
             ) override {
                 // BOM handling is a source-window concern: detect it once on the
                 // first window, reject unsupported encodings before any parser
@@ -127,7 +127,8 @@ namespace csv {
                 // only at end of input.
                 size_t bom_skip = 0;
                 if (!this->bom_scanned_) {
-                    bom_skip = get_bom_skip_or_throw(chunk, this->utf8_bom_);
+                    bom_skip = get_bom_skip(chunk, this->utf8_bom_, error);
+                    if (error) return {};
                     this->bom_scanned_ = true;
                 }
 

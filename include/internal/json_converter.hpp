@@ -169,18 +169,50 @@ namespace csv {
             }
 
             template<typename FieldAt>
-            std::string row_to_json(size_t field_count, FieldAt field_at, const std::vector<std::string>& subset = {}) const {
-                return subset.empty()
-                    ? this->row_to_json_all(field_count, field_at)
-                    : this->row_to_json_subset(field_count, field_at, subset);
+            std::string row_to_json(size_t field_count, FieldAt field_at) const {
+                return row_to_json_all(field_count, field_at);
             }
 
             template<typename FieldAt>
-            std::string row_to_json_array(size_t field_count, FieldAt field_at, const std::vector<std::string>& subset = {}) const {
-                return subset.empty()
-                    ? this->row_to_json_array_all(field_count, field_at)
-                    : this->row_to_json_array_subset(field_count, field_at, subset);
+            std::string row_to_json_array(size_t field_count, FieldAt field_at) const {
+                return row_to_json_array_all(field_count, field_at);
             }
+
+            template<typename FieldAt>
+            std::string try_row_to_json(size_t field_count, FieldAt field_at,
+                const std::vector<std::string>& subset, CSVError& error) const {
+                error.clear();
+                return subset.empty() ? row_to_json_all(field_count, field_at)
+                    : row_to_json_subset(field_count, field_at, subset, error);
+            }
+
+            template<typename FieldAt>
+            std::string try_row_to_json_array(size_t field_count, FieldAt field_at,
+                const std::vector<std::string>& subset, CSVError& error) const {
+                error.clear();
+                return subset.empty() ? row_to_json_array_all(field_count, field_at)
+                    : row_to_json_array_subset(field_count, field_at, subset, error);
+            }
+
+#if CSV_EXCEPTIONS_ENABLED
+            template<typename FieldAt>
+            std::string row_to_json(size_t field_count, FieldAt field_at,
+                const std::vector<std::string>& subset) const {
+                CSVError error;
+                auto out = try_row_to_json(field_count, field_at, subset, error);
+                throw_error(error);
+                return out;
+            }
+
+            template<typename FieldAt>
+            std::string row_to_json_array(size_t field_count, FieldAt field_at,
+                const std::vector<std::string>& subset) const {
+                CSVError error;
+                auto out = try_row_to_json_array(field_count, field_at, subset, error);
+                throw_error(error);
+                return out;
+            }
+#endif
 
         private:
             template<typename FieldAt>
@@ -204,13 +236,14 @@ namespace csv {
             std::string row_to_json_subset(
                 size_t field_count,
                 FieldAt field_at,
-                const std::vector<std::string>& subset
+                const std::vector<std::string>& subset, CSVError& error
             ) const {
                 std::string out = "{";
                 bool first = true;
 
                 for (const auto& column : subset) {
-                    const size_t index = this->index_of(column);
+                    const size_t index = this->index_of(column, error);
+                    if (error) return {};
                     if (index >= field_count) {
                         continue;
                     }
@@ -248,13 +281,14 @@ namespace csv {
             std::string row_to_json_array_subset(
                 size_t field_count,
                 FieldAt field_at,
-                const std::vector<std::string>& subset
+                const std::vector<std::string>& subset, CSVError& error
             ) const {
                 std::string out = "[";
                 bool first = true;
 
                 for (const auto& column : subset) {
-                    const size_t index = this->index_of(column);
+                    const size_t index = this->index_of(column, error);
+                    if (error) return {};
                     if (index >= field_count) {
                         continue;
                     }
@@ -286,10 +320,12 @@ namespace csv {
                 }
             }
 
-            size_t index_of(const std::string& column) const {
+            size_t index_of(const std::string& column, CSVError& error) const {
                 const auto it = column_positions_.find(column);
                 if (it == column_positions_.end()) {
-                    throw_column_not_found(column);
+                    fail(error, CSVErrorCode::ColumnNotFound,
+                        make_prefixed_message(ERROR_COLUMN_NOT_FOUND, column));
+                    return 0;
                 }
 
                 return it->second;

@@ -20,6 +20,38 @@ option(BUILD_PYTHON "Build Python Binding" OFF)
 option(CSV_BUILD_SINGLE_INCLUDE_TEST "Build single-header smoke test (requires single_header)" OFF)
 option(ENABLE_CODE_COVERAGE "Enable code coverage instrumentation" OFF)
 option(CSV_ENABLE_THREADS "Enable multi-threaded CSV parsing" ON)
+option(CSV_ENABLE_EXCEPTIONS "Allow exception-based CSV APIs when compiler exceptions are enabled" ON)
+if(CSV_ENABLE_EXCEPTIONS)
+  # Respect host compiler flags, including downstream -fno-exceptions and
+  # /EHs-c-. The headers make the same decision without requiring CMake.
+  include(CheckCXXSourceCompiles)
+  unset(CSV_COMPILER_HAS_EXCEPTIONS CACHE)
+  check_cxx_source_compiles("
+#if !defined(__cpp_exceptions) && !defined(_CPPUNWIND) && !defined(__EXCEPTIONS)
+#error Exceptions are disabled
+#endif
+int main() { return 0; }
+" CSV_COMPILER_HAS_EXCEPTIONS)
+  if(NOT CSV_COMPILER_HAS_EXCEPTIONS)
+    set(CSV_ENABLE_EXCEPTIONS OFF)
+  endif()
+endif()
+message(STATUS "CSV exception-based APIs: ${CSV_ENABLE_EXCEPTIONS}")
+
+# Apply the same exception mode to the library and its consumers. The Catch2
+# framework can keep its own compiler settings; test translation units inherit
+# the CSV target's real no-exception flags.
+function(csv_configure_exceptions target visibility)
+  if(NOT CSV_ENABLE_EXCEPTIONS)
+    if(MSVC)
+      target_compile_options(${target} ${visibility} /EHs-c-)
+      target_compile_definitions(${target} ${visibility} _HAS_EXCEPTIONS=0)
+    else()
+      target_compile_options(${target} ${visibility} -fno-exceptions)
+    endif()
+  endif()
+endfunction()
+
 option(CSV_NO_SIMD "Disable SIMD fast paths at compile time" OFF)
 option(CSV_FORCE_AVX2 "Force AVX2 compiler flags for this build" OFF)
 
@@ -38,11 +70,7 @@ if(EMSCRIPTEN AND CSV_ENABLE_THREADS)
   set(CSV_ENABLE_THREADS OFF CACHE BOOL "Enable multi-threaded CSV parsing" FORCE)
 endif()
 
-if(EMSCRIPTEN)
-  message(STATUS "Emscripten target detected: enabling C++ exceptions (-fexceptions)")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fexceptions")
-endif()
+
 
 if(CSV_ENABLE_THREADS)
   message(STATUS "CSV_ENABLE_THREADS enabled: multi-threaded mode")
@@ -76,7 +104,7 @@ if(MSVC)
 	# Make Visual Studio report accurate C++ version
   # /Wall emits warnings about the C++ standard library
 	# /permissive- enables standards conformance (disables MSVC extensions)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc /GS- /W4 /permissive-")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GS- /W4 /permissive-")
 else()
 	# Ignore Visual Studio pragma regions
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
@@ -187,7 +215,9 @@ endif()
 
 ## Executables
 option(CSV_BUILD_PROGRAMS "Allow to disable building of programs" ON)
-if (CSV_BUILD_PROGRAMS)
+if(CSV_BUILD_PROGRAMS AND NOT CSV_ENABLE_EXCEPTIONS)
+    message(STATUS "Skipping command-line programs: they use exception-based CSV APIs")
+elseif(CSV_BUILD_PROGRAMS)
     add_subdirectory("programs")
 endif()
 

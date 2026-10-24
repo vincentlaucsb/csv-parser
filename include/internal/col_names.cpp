@@ -48,11 +48,13 @@ namespace csv {
             return this->_policy;
         }
 
+#if CSV_EXCEPTIONS_ENABLED
         CSV_INLINE const std::string& ColNames::operator[](size_t i) const {
             if (i >= this->col_names.size())
                 throw_column_index_out_of_bounds();
 
             return this->col_names[i];
         }
+#endif
     }
 }

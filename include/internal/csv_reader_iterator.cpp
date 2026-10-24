@@ -5,6 +5,7 @@
 #include "csv_reader.hpp"
 
 namespace csv {
+#if CSV_EXCEPTIONS_ENABLED
     /** Return an iterator to the first row in the reader */
     CSV_INLINE CSVReader::iterator CSVReader::begin() {
         CSVRow row;
@@ -50,4 +51,5 @@ namespace csv {
 
         return temp;
     }
+#endif
 }

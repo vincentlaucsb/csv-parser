@@ -2,20 +2,46 @@
 #include "data_frame.hpp"
 
 namespace csv {
+#if CSV_EXCEPTIONS_ENABLED
     CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(CSVReader& reader) {
+        CSVError error;
+        auto result = try_csv_data_types(reader, error);
+        internals::throw_dataframe_error(error);
+        return result;
+    }
+#endif
+
+    CSV_INLINE std::unordered_map<std::string, DataType> try_csv_data_types(CSVReader& reader, CSVError& error) {
+        error.clear();
         std::unordered_map<std::string, DataType> csv_dtypes;
         const auto col_names = reader.get_col_names();
         std::vector<std::unordered_map<DataType, size_t>> type_counts(col_names.size());
         constexpr size_t TYPE_CHUNK_SIZE = 5000;
 
-        chunk_parallel_apply(reader, type_counts,
-            [](DataFrame<>::column_type column, std::unordered_map<DataType, size_t>& counts) {
-                for (size_t row_index = 0; row_index < column.size(); ++row_index) {
-                    counts[internals::data_type(column.get_sv(row_index))]++;
+        // A task owns one column's count map and error slot. Collect errors only
+        // after the executor joins, rather than racing on the caller's error.
+        std::vector<CSVError> column_errors(col_names.size());
+        auto count_column = [&column_errors](DataFrame<>::column_type column,
+            std::unordered_map<DataType, size_t>& counts) {
+            CSVError& column_error = column_errors[column.index()];
+            for (size_t row_index = 0; row_index < column.size(); ++row_index) {
+                const auto value = column.try_get_sv(row_index, column_error);
+                if (column_error) return;
+                counts[internals::data_type(value)]++;
+            }
+        };
+        DataFrameExecutor executor;
+        if (!internals::try_for_each_csv_chunk(reader,
+            [&executor, &type_counts, &column_errors, &count_column](DataFrame<>& batch, CSVError& failure) {
+                if (!batch.try_column_parallel_apply(executor, type_counts, count_column, failure)) return false;
+                for (const auto& column_error : column_errors) {
+                    if (column_error) {
+                        failure = column_error;
+                        return false;
+                    }
                 }
-            },
-            TYPE_CHUNK_SIZE
-        );
+                return true;
+            }, error, TYPE_CHUNK_SIZE)) return {};
 
         for (size_t i = 0; i < col_names.size(); i++) {
             auto& col = type_counts[i];

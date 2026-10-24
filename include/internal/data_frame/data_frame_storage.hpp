@@ -42,46 +42,63 @@ namespace csv {
                 inline size_t n_cols() const noexcept { return dispatch(Count()); }
                 inline CellBinding bind(size_t row, size_t column) const { return dispatch(Bind{row, column}); }
                 inline csv::string_view view(size_t row, size_t column) const { return dispatch(View{row, column}); }
+                inline CellBinding try_bind(size_t row, size_t column, CSVError& error) const {
+                    error.clear();
+                    if (row >= rows().size() || column >= n_cols()) {
+                        fail(error, CSVErrorCode::IndexOutOfBounds, ERROR_COLUMN_INDEX_OUT_OF_RANGE);
+                        return CellBinding{nullptr, 0};
+                    }
+                    const CellBinding binding = bind(row, column);
+                    if (binding.physical_column >= rows()[row].size()) {
+                        fail(error, CSVErrorCode::IndexOutOfBounds, CSV_ERROR_INDEX_OUT_OF_BOUNDS);
+                        return CellBinding{nullptr, 0};
+                    }
+                    return binding;
+                }
+
                 inline const RowOverlay* find_edits(const CSVRow* row) const {
                     return dispatch(Edits{row_index(row)});
                 }
                 inline RowOverlay* ensure_edits(const CSVRow* row) {
                     return promote().ensure_edits(row_index(row));
                 }
-                inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {
-                    return dispatch(MakeRow{row});
+                inline CSVRow make_inserted_row(const std::vector<std::string>& row, CSVError& error) const {
+                    return dispatch(MakeRow{row, error});
                 }
                 inline void reserve_insert() { dispatch_mutable(Reserve()); }
                 inline void insert_row(size_t index, CSVRow&& row) { dispatch_mutable(Insert{index, row}); }
                 inline void erase_row(size_t index) { dispatch_mutable(Erase{index}); }
 
-                inline bool erase_column(size_t index, int key_column) {
+                inline bool erase_column(size_t index, int key_column, CSVError& error) {
+                    error.clear();
                     if (index >= n_cols()) { return false; }
-                    return promote().erase_column(index, key_column);
+                    return promote().erase_column(index, key_column, error);
                 }
 
                 template<typename BeforeReplace>
-                inline void insert_column(
+                inline bool insert_column(
                     size_t index, const std::string& name, const std::string& value,
-                    int& key_column, const BeforeReplace& before_replace
+                    int& key_column, const BeforeReplace& before_replace, CSVError& error
                 ) {
                     RowBackend* choice = active_.load(std::memory_order_acquire);
                     if (choice == &clean_) {
                         // Structural mutation is exclusive: this transient dirty backend
                         // needs no overlay slots and never becomes visible to cell readers.
                         DirtyDataFrame mutation(clean_, false);
-                        mutation.insert_column(index, name, value, key_column, before_replace);
+                        if (!mutation.insert_column(index, name, value, key_column, before_replace, error)) return false;
                     }
                     else {
-                        static_cast<DirtyDataFrame*>(choice)->insert_column(index, name, value, key_column, before_replace);
+                        if (!static_cast<DirtyDataFrame*>(choice)->insert_column(index, name, value, key_column, before_replace, error)) return false;
                         active_.store(&clean_, std::memory_order_release);
                         dirty_.reset();
                     }
+                    return true;
                 }
 
-                inline DataFrameStorage selected_rows(const std::vector<std::uint8_t>& mask) const {
+                inline DataFrameStorage selected_rows(const std::vector<std::uint8_t>& mask, CSVError& error) const {
                     DataFrameStorage selected;
-                    selected.clean_ = clean_.selected_rows(mask);
+                    selected.clean_ = clean_.selected_rows(mask, error);
+                    if (error) return selected;
                     const RowBackend* choice = active_.load(std::memory_order_acquire);
                     if (choice != &clean_) {
                         selected.dirty_ = static_cast<const DirtyDataFrame*>(choice)->selected_rows(selected.clean_, mask);
@@ -150,7 +167,8 @@ namespace csv {
                 };
                 struct MakeRow {
                     const std::vector<std::string>& row;
-                    template<typename B> CSVRow operator()(const B& b) const { return b.make_inserted_row(row); }
+                    CSVError& error;
+                    template<typename B> CSVRow operator()(const B& b) const { return b.make_inserted_row(row, error); }
                 };
                 struct Reserve { template<typename B> void operator()(B& b) const { b.reserve_insert(); } };
                 struct Insert {

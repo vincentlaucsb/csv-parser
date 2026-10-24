@@ -31,11 +31,11 @@ namespace csv {
 
                 inline csv::string_view view(size_t row, size_t column) const {
                     validate_column(column, n_cols());
-                    return RowViewAccessor::view(rows_.at(row), column);
+                    return RowViewAccessor::view(rows_[row], column);
                 }
 
-                inline CSVRow make_inserted_row(const std::vector<std::string>& row) const {
-                    validate_row(row, n_cols());
+                inline CSVRow make_inserted_row(const std::vector<std::string>& row, CSVError& error) const {
+                    if (!validate_row(row, n_cols(), error)) return {};
                     return RowStorageBuilder::make_row(row, names_);
                 }
 
@@ -45,10 +45,10 @@ namespace csv {
                 }
                 inline void erase_row(size_t index) { rows_.erase(rows_.begin() + index); }
 
-                inline CleanDataFrame selected_rows(const std::vector<std::uint8_t>& mask) const {
+                inline CleanDataFrame selected_rows(const std::vector<std::uint8_t>& mask, CSVError& error) const {
                     CleanDataFrame selected;
                     selected.names_ = names_;
-                    selected.rows_ = select_parsed_rows(rows_, mask);
+                    selected.rows_ = select_parsed_rows(rows_, mask, error);
                     return selected;
                 }
 

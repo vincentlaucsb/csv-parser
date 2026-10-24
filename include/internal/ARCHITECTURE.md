@@ -33,11 +33,11 @@ Two independent parser paths exist and must be kept behaviorally aligned:
 
 - CSVReader
   - Orchestrates parser lifecycle, worker cycle, and row retrieval.
-  - Holds parser, queue, format, and exception propagation state.
+  - Holds parser, queue, format, and terminal operational-error state.
 
 - CSVReadScheduler
   - Internal concrete scheduler selected from sync/thread-capable implementations.
-  - Owns worker-thread launch/join and exception transfer so CSVReader does not
+  - Owns worker-thread launch/join and optional user-exception transfer so CSVReader does not
     intermix public facade logic with compile-time threading branches.
 
 - CSVRow
@@ -366,3 +366,24 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
 
 For full testing strategy, checklist, and conventions, see:
 - ../../tests/AGENTS.md
+
+## Explicit errors and optional exceptions
+
+- `csv_error.hpp` defines `CSVErrorCode`, `CSVError`, and `CSVConversionError`.
+  Reading, DataFrame validation, serialization and writing share this error model.
+- `common.hpp` detects compiler exception support. Throwing API declarations and
+  definitions are guarded; explicit-error implementations remain shared by both modes.
+  `CSVField::try_get()` and C++23 `as<T>()` use the same typed conversion dispatch,
+  including string, view and long-double cases.
+- Reader factories create privately initialized readers and return no object on failure;
+  no public closed-reader state is introduced. Source adapters own read-operation error
+  state. Only the read worker writes it, and the consumer copies it after joining.
+  Consumer-side row-policy errors are recorded separately as terminal reader errors.
+- Exceptions from user callbacks retain their existing transport in enabled builds;
+  no-exceptions task execution calls the same callbacks without exception machinery.
+- DataFrame validation stays in its storage/backend boundary; checked facade and proxy
+  operations propagate errors while preserving edit permissions, overlays and key lifetimes.
+- Writer checked operations observe stream status and preserve borrowed exception masks.
+  File close is explicit when failure must be observed; destructors do best-effort cleanup.
+- Errors do not promise rollback of consumed input or emitted output. Allocation and
+  resource-failure recovery is outside the explicit-error contract.

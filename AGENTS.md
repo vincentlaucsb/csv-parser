@@ -33,7 +33,7 @@ CSVReader reader(infile, format);
 
 - Worker thread reads in 10MB chunks (`CSV_CHUNK_SIZE_DEFAULT`)
 - Communicates via `ThreadSafeDeque<CSVRow>`
-- Exceptions propagate via `std::exception_ptr`
+- Operational errors propagate explicitly as `CSVError`; exception-enabled builds also transport user exceptions via `std::exception_ptr`
 - Critical: Fields spanning chunk boundaries must not corrupt
 
 **Testing requirement:** Use ≥500K rows to cross 10MB boundary.
@@ -47,7 +47,7 @@ For Codecov/API-based coverage review workflow, see `CODECOV_AGENTS.md`.
 1. **Don't assume one code path:** Mmap and stream paths are different. Always test both.
 2. **Don't write tiny tests:** Need ≥500K rows to cross 10MB chunk boundary.
 3. **Don't use uniform values:** Each column needs distinct values to detect corruption.
-4. **Don't ignore async:** Worker thread means exceptions must use `exception_ptr`.
+4. **Don't ignore async:** Read parser errors only after joining the worker; exception-enabled builds must transport user exceptions with `exception_ptr`.
 5. **Don't change one constructor:** Likely affects both mmap and stream paths.
 6. **`CSVReader` is non-copyable and move-enabled.** Prefer explicit ownership transfer (`std::move`) or `std::unique_ptr<CSVReader>` when sharing/handing off parser ownership across APIs.
 7. **Prefer user-friendly API constraints.** Do not narrow template constraints unless required for correctness, safety, or a measured performance win. If an implementation already handles common standard-library containers/ranges correctly, keep those inputs accepted instead of over-constraining APIs for aesthetic purity.
@@ -55,6 +55,11 @@ For Codecov/API-based coverage review workflow, see `CODECOV_AGENTS.md`.
 9. **When proposing changes that affect compile-time behavior, explain the tradeoff clearly.** Call out any impact to codegen, performance, portability, and readability before applying the change.
 10. **If a build fix appears to require more than ~3 files or ~60 changed lines, pause and confirm scope first.** Provide a short justification before expanding further.
 11. **`CSVReader::iterator` is intentionally single-pass.** Do not cache all `RawCSVDataPtr` chunks to make it behave like a forward iterator; that defeats bounded-memory streaming for large CSV files. Algorithms that need multi-pass access should first materialize rows into a container such as `std::vector<CSVRow>`.
+
+Exception support is detected in `common.hpp` from compiler macros. Keep explicit-error
+operations usable in both modes; guard throwing conveniences with `CSV_EXCEPTIONS_ENABLED`.
+Do not introduce abort-based substitutes for recoverable CSV errors. Test both real
+exception-enabled and compiler-disabled builds, including DataFrame and writing.
 
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 
