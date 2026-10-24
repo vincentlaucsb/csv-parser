@@ -507,3 +507,40 @@ TEST_CASE("Explicit file helpers distinguish absent columns from I/O failures", 
     REQUIRE(info.n_rows == 1);
     REQUIRE(info.n_cols == 2);
 }
+
+TEST_CASE("Checked column names reject out-of-range proxy positions", "[explicit_errors][data_frame]") {
+    // Public proxy construction must not turn name lookup into unchecked vector access,
+    // including an empty frame where checked writing otherwise emits an empty record.
+    DataFrame<> frame;
+    DataFrameColumn<std::string> column(&frame, 999);
+    CSVError error;
+    REQUIRE_FALSE(column.is_valid());
+    REQUIRE(column.try_name(error).empty());
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(column.name(), std::out_of_range);
+#endif
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    REQUIRE_FALSE(writer.try_write_row(error, column));
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(output.str().empty());
+}
+
+TEST_CASE("Checked map serialization preserves explicit empty subsets", "[explicit_errors]") {
+    // Full-map and explicit-subset overloads must keep their distinct empty-subset semantics.
+    CSVError error;
+    auto reader = try_parse("left,right\n3,7\n", error);
+    REQUIRE(reader);
+    CSVRow row;
+    REQUIRE(reader->try_read_row(row, error));
+    REQUIRE(row.try_to_unordered_map(error).size() == 2);
+    REQUIRE_FALSE(error);
+    REQUIRE(row.try_to_unordered_map(error, {}).empty());
+    REQUIRE_FALSE(error);
+    REQUIRE(CSVRow().try_to_unordered_map(error).empty());
+    REQUIRE_FALSE(error);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE(row.to_unordered_map({}).empty());
+#endif
+}

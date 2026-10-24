@@ -93,9 +93,10 @@ namespace csv {
             return mutable_frame_->erase_column_at_index(col_index_, error);
         }
 
-        /** Whether this column still belongs to the active schema generation. */
+        /** Whether this column is bound to an existing position in the active schema. */
         bool is_valid() const noexcept {
-            return generation_ && *generation_ == generation_value_;
+            return frame_ && generation_ && *generation_ == generation_value_
+                && col_index_ < frame_->n_cols();
         }
 
         /** Zero-based column position. */
@@ -223,8 +224,11 @@ namespace csv {
 
         bool require_valid(CSVError& error) const {
             error.clear();
-            return this->is_valid() || internals::fail(error, CSVErrorCode::InvalidProxy,
-                "DataFrameColumn proxy is invalid after structural column mutation");
+            if (!frame_ || !generation_ || *generation_ != generation_value_)
+                return internals::fail(error, CSVErrorCode::InvalidProxy,
+                    "DataFrameColumn proxy is invalid after structural column mutation");
+            return col_index_ < frame_->n_cols() || internals::fail(
+                error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
         }
 
         const DataFrame<KeyType>* frame_;
