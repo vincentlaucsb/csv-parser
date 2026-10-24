@@ -70,6 +70,14 @@ namespace {
         int sync() override { return -1; }
     };
 
+#if CSV_EXCEPTIONS_ENABLED
+    class FailingReadBuffer : public std::streambuf {
+        std::streamsize xsgetn(char*, std::streamsize) override {
+            throw std::ios_base::failure("read failed");
+        }
+    };
+#endif
+
     void require_closed_writer(CSVWriter<std::ofstream>& writer) {
         CSVError error;
         REQUIRE_FALSE(writer.try_flush(error));
@@ -268,6 +276,10 @@ TEST_CASE("Explicit reads report late row errors and remain failed", "[explicit_
 TEST_CASE("A worker read failure is returned after the initial window", "[explicit_errors][chunk_boundary]") {
     const bool threaded = GENERATE(false, true);
     LateFailStream input(large_csv(false));
+#if CSV_EXCEPTIONS_ENABLED
+    // Exercise both badbit reporting and a throwing borrowed stream in the worker.
+    if (GENERATE(false, true)) input.exceptions(std::ios::badbit);
+#endif
     CSVError error;
     auto reader = CSVReader::try_open(input, error, large_format(threaded));
     REQUIRE(reader);
@@ -543,4 +555,310 @@ TEST_CASE("Checked map serialization preserves explicit empty subsets", "[explic
 #if CSV_EXCEPTIONS_ENABLED
     REQUIRE(row.to_unordered_map({}).empty());
 #endif
+}
+
+TEST_CASE("Checked format conflicts preserve quote and delimiter settings", "[explicit_errors]") {
+    CSVFormat format;
+    CSVError error;
+    REQUIRE_FALSE(format.try_quote(',', error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(format.get_quote_char() == '"');
+    REQUIRE(format.try_trim({' '}, error));
+    REQUIRE_FALSE(format.try_quote(' ', error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(format.try_delimiter(std::vector<char>{',', '|'}, error));
+    char delimiter = '?';
+    REQUIRE_FALSE(format.try_get_delim(delimiter, error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(delimiter == '?');
+}
+
+TEST_CASE("Checked reads reject zero chunks without consuming rows", "[explicit_errors]") {
+    CSVError error;
+    auto reader = try_parse("a,b\n3,7\n", error);
+    REQUIRE(reader);
+    std::vector<CSVRow> rows;
+    REQUIRE_FALSE(reader->try_read_chunk(rows, 0, error));
+    REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    std::vector<size_t> states(2);
+    const auto count = [](const DataFrameColumn<std::string>& column, size_t& state) {
+        state += column.size();
+    };
+    REQUIRE_FALSE(try_chunk_parallel_apply(*reader, states, count, error, 0));
+    REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    REQUIRE(reader->n_rows() == 0);
+    REQUIRE(try_chunk_parallel_apply(*reader, states, count, error, 1));
+    REQUIRE_FALSE(error);
+    REQUIRE(states == std::vector<size_t>{1, 1});
+}
+
+TEST_CASE("Checked stream reads distinguish throwing EOF from hard errors", "[explicit_errors]") {
+    CSVError error;
+    SECTION("EOF exception mask") {
+        std::istringstream input("a,b\n3,7\n");
+        input.exceptions(std::ios::failbit | std::ios::badbit);
+        auto reader = CSVReader::try_open(input, error);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE(reader);
+        CSVRow row;
+        REQUIRE(reader->try_read_row(row, error));
+        REQUIRE(row.try_field("b", error).get_sv() == "7");
+        REQUIRE_FALSE(reader->try_read_row(row, error));
+        REQUIRE_FALSE(error);
+#else
+        REQUIRE_FALSE(reader);
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+#endif
+        REQUIRE(input.exceptions() == (std::ios::failbit | std::ios::badbit));
+    }
+#if CSV_EXCEPTIONS_ENABLED
+    SECTION("Initial read failure") {
+        FailingReadBuffer buffer;
+        std::istream input(&buffer);
+        input.exceptions(std::ios::badbit);
+        REQUIRE_FALSE(CSVReader::try_open(input, error));
+        REQUIRE(error.code == CSVErrorCode::ReadFailed);
+        REQUIRE(input.exceptions() == std::ios::badbit);
+    }
+    SECTION("Owned stream constructor uses the same initialization") {
+        std::unique_ptr<std::istream> input(new std::istringstream("a,b\n3,7\n"));
+        CSVReader reader(std::move(input));
+        CSVRow row;
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row["b"].get<int>() == 7);
+    }
+#endif
+}
+
+TEST_CASE("Checked column conversions keep partial values and the precise cause", "[explicit_errors][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n2,text\n", error);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    const auto& view = *frame;
+    const auto column = view.try_column_view("value", error);
+    REQUIRE(column.try_name(error) == "value");
+    auto values = column.try_to_vector<int>(error);
+    REQUIRE(values == std::vector<int>{17});
+    REQUIRE(error.code == CSVErrorCode::ConversionFailed);
+    REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    column.try_field(99, error);
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    auto read_only_cell = column.try_field(0, error);
+    REQUIRE_FALSE(read_only_cell.try_assign("changed", error));
+    REQUIRE(error.code == CSVErrorCode::ReadOnlyProxy);
+    auto read_only_column = view.try_column_view("value", error);
+    REQUIRE_FALSE(read_only_column.try_erase(error));
+    REQUIRE(error.code == CSVErrorCode::ReadOnlyProxy);
+    REQUIRE(frame->try_column<std::string>("missing", error).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    REQUIRE_FALSE(frame->try_contains("unused", error));
+    REQUIRE(error);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(column[99], std::out_of_range);
+#endif
+}
+
+TEST_CASE("Checked unbound proxies fail before accessing storage", "[explicit_errors][data_frame]") {
+    CSVError error;
+    DataFrameRow<std::string> row;
+    const auto& const_row = row;
+    row.try_field(size_t{0}, error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    const_row.try_field("missing", error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(row.try_to_json({}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(row.try_to_json_array({"missing"}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    DataFrameColumn<std::string> column;
+    const auto& const_column = column;
+    const_column.try_field(0, error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(column.try_get_sv(0, error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(column.try_to_vector(error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(column.try_name(error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+}
+
+TEST_CASE("Checked key insertion validates conversions before mutation", "[explicit_errors][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n", error);
+    REQUIRE(reader);
+    DataFrameOptions options;
+    options.set_key_column("id");
+    auto frame = DataFrame<int>::try_create(*reader, options, error);
+    REQUIRE(frame);
+    REQUIRE_FALSE(frame->try_insert_row(1, {"text", "29"}, error));
+    REQUIRE(error.code == CSVErrorCode::ConversionFailed);
+    REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    REQUIRE(frame->size() == 1);
+    REQUIRE(frame->try_insert_row(1, {"2", "29"}, error));
+    const auto& view = *frame;
+    REQUIRE(view.try_contains(2, error));
+    REQUIRE_FALSE(error);
+    REQUIRE(view.try_find(2, error).try_field("value", error).get_sv() == "29");
+    view.try_find(99, error);
+    REQUIRE(error.code == CSVErrorCode::KeyNotFound);
+    view.try_at(99, error);
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+}
+
+TEST_CASE("Optional numeric keys use the default key on conversion failure", "[explicit_errors][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\ntext,17\n2,29\n", error);
+    REQUIRE(reader);
+    DataFrameOptions options;
+    options.set_key_column("id").set_throw_on_missing_key(false);
+    auto frame = DataFrame<int>::try_create(*reader, options, error);
+    REQUIRE(frame);
+    REQUIRE_FALSE(error);
+    REQUIRE(frame->try_find(0, error).try_field("value", error).get_sv() == "17");
+    REQUIRE(frame->try_find(2, error).try_field("value", error).get_sv() == "29");
+}
+
+TEST_CASE("Checked serialization reports unknown names and mismatched widths", "[explicit_errors]") {
+    CSVError error;
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    auto reader = try_parse("a,b\n3,7,11\n", error, format);
+    REQUIRE(reader);
+    CSVRow row;
+    REQUIRE(reader->try_read_row(row, error));
+    REQUIRE(row.try_to_unordered_map(error).empty());
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    REQUIRE(row.try_to_unordered_map(error, {"missing"}).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    REQUIRE(row.try_to_json({"missing"}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    REQUIRE(row.try_to_json_array({"missing"}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(row.to_unordered_map(), std::out_of_range);
+#endif
+}
+
+TEST_CASE("Checked DataFrame writing retains edits and escapes every record", "[explicit_errors][writer][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n2,29\n", error);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    auto row = frame->try_at(0, error);
+    auto cell = row.try_field("value", error);
+    REQUIRE(cell.try_assign("x,y", error));
+    auto column = frame->try_column_view("value", error);
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    writer.set_auto_flush(false);
+    REQUIRE(writer.try_write_row(error, *frame));
+    REQUIRE(writer.try_write_row(error, row));
+    REQUIRE(writer.try_write_row(error, column));
+    REQUIRE(writer.try_flush(error));
+    REQUIRE_FALSE(error);
+    REQUIRE(output.str() == "id,value\n1,\"x,y\"\n2,29\n1,\"x,y\"\n\"x,y\",29\n");
+}
+
+TEST_CASE("Checked writers reject failed and borrowed close operations", "[explicit_errors][writer]") {
+    CSVError error;
+    SECTION("Already failed output") {
+        std::ostringstream output;
+        output.setstate(std::ios::badbit);
+        CSVWriter<std::ostringstream> writer(output);
+        REQUIRE_FALSE(writer.try_write_row(error, "left", 23));
+        REQUIRE(error.code == CSVErrorCode::WriteFailed);
+        REQUIRE(output.str().empty());
+    }
+    SECTION("Borrowed file and repeated close") {
+        FileGuard file("tests/data/fake_data/explicit_errors_borrowed_close.csv");
+        std::ofstream output(file.filename);
+        CSVWriter<std::ofstream> writer(output);
+        REQUIRE_FALSE(writer.try_close(error));
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+        REQUIRE(output.is_open());
+        REQUIRE(writer.try_write_row(error, "left", 23));
+        FileGuard owned_file("tests/data/fake_data/explicit_errors_repeated_close.csv");
+        auto owned = CSVWriter<std::ofstream>::try_open(owned_file.filename, error);
+        REQUIRE(owned);
+        REQUIRE(owned->try_close(error));
+        REQUIRE_FALSE(owned->try_close(error));
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    }
+#if CSV_EXCEPTIONS_ENABLED
+    SECTION("Destructor contains a buffered stream exception") {
+        FailingWriteBuffer buffer;
+        std::ostream output(&buffer);
+        output.exceptions(std::ios::badbit);
+        {
+            CSVWriter<std::ostream> writer(output);
+            writer.set_auto_flush(false);
+            REQUIRE(writer.try_write_row(error, "buffered", 23));
+        }
+        REQUIRE(output.bad());
+    }
+#endif
+}
+
+TEST_CASE("Checked file helpers retain opening failures", "[explicit_errors]") {
+    const std::string missing = "tests/data/fake_data/explicit_errors_missing_directory/file.csv";
+    CSVError error;
+    try_get_file_info(missing, error);
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    REQUIRE(try_get_col_names(missing, error).empty());
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    REQUIRE(try_get_col_pos(missing, "a", error) == CSV_NOT_FOUND);
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    REQUIRE(try_csv_data_types(missing, error).empty());
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+}
+
+TEST_CASE("Checked DataFrame operations validate retained short rows", "[explicit_errors][data_frame]") {
+    // KEEP rows have a wider visible schema than their physical storage. These
+    // APIs must report the missing field before serialization or materialization.
+    FileGuard file("tests/data/fake_data/explicit_errors_short_operations.csv");
+    { std::ofstream out(file.filename); out << "a,b\n1,17\n2\n"; }
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    CSVError error;
+    const auto validate = [&](CSVReader& reader) {
+        auto frame = DataFrame<>::try_create(reader, error);
+        REQUIRE(frame);
+        auto row = frame->try_at(1, error);
+        REQUIRE(row.try_to_json({}, error).empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(row.try_to_json_array({"b"}, error).empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(row.try_to_json({"missing"}, error).empty());
+        REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+        auto column = frame->try_column_view("b", error);
+        REQUIRE(column.try_to_vector<int>(error) == std::vector<int>{17});
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(frame->try_group_by("b", error).empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE_FALSE(frame->try_append_column("extra", "new", error));
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(frame->n_cols() == 2);
+        REQUIRE(frame->size() == 2);
+        auto valid = frame->try_at(0, error).try_field("b", error);
+        REQUIRE(valid.get_sv() == "17");
+        REQUIRE(valid.try_assign("edited", error));
+        // Exercise the same validation after promotion to sparse edit storage.
+        REQUIRE_FALSE(frame->try_append_column("extra", error));
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(frame->try_at(0, error).try_field("b", error).get_sv() == "edited");
+    };
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(file.filename, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
 }
