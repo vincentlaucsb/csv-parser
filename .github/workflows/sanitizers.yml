@@ -79,7 +79,7 @@ jobs:
     - name: Test with ${{ matrix.name }}
       working-directory: build
       run: ctest --output-on-failure -V
-      timeout-minutes: 20
+      timeout-minutes: ${{ matrix.sanitizer == 'thread' && 40 || 20 }}
     
     - name: Upload sanitizer logs
       if: failure()
