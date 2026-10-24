@@ -147,15 +147,9 @@ namespace csv {
 #endif
 
         /** Convert to JSON. */
+
 #if CSV_EXCEPTIONS_ENABLED
-        std::string to_json() const {
-            const field_string_accessor field_at(this);
-            return frame ? this->get_frame_json_converter().row_to_json(this->size(), field_at)
-                : this->make_detached_json_converter().row_to_json(this->size(), field_at);
-        }
-#endif
-#if CSV_EXCEPTIONS_ENABLED
-        std::string to_json(const std::vector<std::string>& subset) const {
+        std::string to_json(const std::vector<std::string>& subset = {}) const {
             CSVError error;
             auto result = this->try_to_json(subset, error);
             // JSON subset lookups historically use runtime_error.
@@ -173,15 +167,9 @@ namespace csv {
         }
 
         /** Convert to JSON array. */
+
 #if CSV_EXCEPTIONS_ENABLED
-        std::string to_json_array() const {
-            const field_string_accessor field_at(this);
-            return frame ? this->get_frame_json_converter().row_to_json_array(this->size(), field_at)
-                : this->make_detached_json_converter().row_to_json_array(this->size(), field_at);
-        }
-#endif
-#if CSV_EXCEPTIONS_ENABLED
-        std::string to_json_array(const std::vector<std::string>& subset) const {
+        std::string to_json_array(const std::vector<std::string>& subset = {}) const {
             CSVError error;
             auto result = this->try_to_json_array(subset, error);
             // JSON subset lookups historically use runtime_error.

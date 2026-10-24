@@ -569,6 +569,7 @@ namespace csv {
         /** Return the field named @p col_name. Throws std::runtime_error if the name is absent. */
         CSVField operator[](csv::string_view col_name) const;
 #endif
+#if !CSV_EXCEPTIONS_ENABLED
         /** Serialize all named fields. */
         inline std::string to_json() const {
             const auto* converter = this->get_json_converter();
@@ -581,6 +582,7 @@ namespace csv {
             return converter ? converter->row_to_json_array(this->size(),
                 [this](size_t i) { return this->get_field(i); }) : "[]";
         }
+#endif
         /** Serialize a subset, reporting unknown column names. */
         inline std::string try_to_json(const std::vector<std::string>& subset, CSVError& error) const {
             error.clear();
@@ -595,13 +597,13 @@ namespace csv {
                 [this](size_t i) { return this->get_field(i); }, subset, error) : "[]";
         }
 #if CSV_EXCEPTIONS_ENABLED
-        inline std::string to_json(const std::vector<std::string>& subset) const {
+        inline std::string to_json(const std::vector<std::string>& subset = {}) const {
             CSVError error;
             auto out = try_to_json(subset, error);
             internals::throw_error(error);
             return out;
         }
-        inline std::string to_json_array(const std::vector<std::string>& subset) const {
+        inline std::string to_json_array(const std::vector<std::string>& subset = {}) const {
             CSVError error;
             auto out = try_to_json_array(subset, error);
             internals::throw_error(error);

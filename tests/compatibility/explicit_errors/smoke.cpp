@@ -43,6 +43,13 @@ static_assert(decltype(has_begin<csv::DataFrame<>::column_type>(0))::value
 static_assert(decltype(has_begin<csv::DataFrame<>>(0))::value,
     "Materialized DataFrame row iteration must remain available.");
 
+#if CSV_EXCEPTIONS_ENABLED
+static_assert(std::is_member_function_pointer<decltype(&csv::CSVRow::to_json)>::value,
+    "Preserve the single JSON overload used by bindings and pointer-to-member consumers.");
+static_assert(std::is_member_function_pointer<decltype(&csv::DataFrameRow<std::string>::to_json)>::value,
+    "DataFrame row JSON must preserve its original enabled signature too.");
+#endif
+
 #ifdef CSV_TEST_EXPECT_EXPECTED
 #ifndef CSV_HAS_STD_EXPECTED
 #error "The C++23 consumer must exercise std::expected conversions."
