@@ -79,9 +79,9 @@ void init_CSVRow(nb::module_& m){
     &CSVRow::get_col_names,
     "Retrieve this row's associated column names")
 
-    .def("to_json", &CSVRow::to_json, "subset"_a=std::vector<std::string>{})
+    .def("to_json", nb::overload_cast<const std::vector<std::string>&>(&CSVRow::to_json, nb::const_), "subset"_a=std::vector<std::string>{})
 
-    .def("to_json_array", &CSVRow::to_json_array, "subset"_a=std::vector<std::string>{})
+    .def("to_json_array", nb::overload_cast<const std::vector<std::string>&>(&CSVRow::to_json_array, nb::const_), "subset"_a=std::vector<std::string>{})
 
     .def("__getitem__", [](const CSVRow& row, size_t idx){
         if(idx >= row.size()){

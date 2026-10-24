@@ -32,6 +32,27 @@ endif()
 # Suppress warnings originating from Catch2 headers (they are not our code)
 get_target_property(_catch2_inc Catch2::Catch2 INTERFACE_INCLUDE_DIRECTORIES)
 
+# Catch2 v3 upgrades its consumers to C++14. Do not mix standard-dependent
+# inline definitions from those TUs with a C++11 library. The separate smoke
+# consumer below still links the real C++11 target and uses no test framework.
+set(_csv_catch_library csv)
+if(CMAKE_CXX_STANDARD LESS 14)
+    get_target_property(_csv_catch_sources csv SOURCES)
+    get_target_property(_csv_source_root csv SOURCE_DIR)
+    list(TRANSFORM _csv_catch_sources PREPEND "${_csv_source_root}/")
+    add_library(csv_catch_cxx14 STATIC ${_csv_catch_sources})
+    set_target_properties(csv_catch_cxx14 PROPERTIES CXX_STANDARD 14)
+    target_include_directories(csv_catch_cxx14 PUBLIC "${CSV_INCLUDE_DIR}")
+    target_compile_definitions(csv_catch_cxx14 PUBLIC
+        $<TARGET_PROPERTY:csv,INTERFACE_COMPILE_DEFINITIONS>)
+    target_compile_options(csv_catch_cxx14 PUBLIC
+        $<TARGET_PROPERTY:csv,INTERFACE_COMPILE_OPTIONS>)
+    if(CSV_ENABLE_THREADS)
+        target_link_libraries(csv_catch_cxx14 PUBLIC Threads::Threads)
+    endif()
+    set(_csv_catch_library csv_catch_cxx14)
+endif()
+
 function(add_csv_parser_test_target target_name)
     add_executable(${target_name} "")
     target_sources(${target_name}
@@ -41,7 +62,7 @@ function(add_csv_parser_test_target target_name)
             ${ARGN}
         )
 
-    target_link_libraries(${target_name} csv)
+    target_link_libraries(${target_name} ${_csv_catch_library})
     target_link_libraries(${target_name} Catch2::Catch2WithMain)
 
     if(_catch2_inc)
