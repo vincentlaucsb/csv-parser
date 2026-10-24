@@ -224,13 +224,9 @@ namespace csv {
 
         bool require_valid(CSVError& error) const {
             error.clear();
-            if (!frame_ || !generation_ || *generation_ != generation_value_) {
-                internals::fail(error, CSVErrorCode::InvalidProxy,
+            if (!frame_ || !generation_ || *generation_ != generation_value_)
+                return internals::fail(error, CSVErrorCode::InvalidProxy,
                     "DataFrameColumn proxy is invalid after structural column mutation");
-                // Keep the unconditional failure visible even if the diagnostic
-                // helper is not inlined (GCC otherwise warns on unbound proxies).
-                return false;
-            }
             return col_index_ < frame_->n_cols() || internals::fail(
                 error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
         }
