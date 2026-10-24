@@ -194,7 +194,7 @@ writes may have emitted bytes; operations do not roll back partial progress.
 Use `DataFrame<>::try_create(...)` for file/reader construction, `try_at()`,
 `try_find()`, `try_column_view()` and row/column `try_field()` for access, and
 `try_assign()` / `try_insert_*()` / `try_erase()` for editing. Default and row-batch
-DataFrame construction and valid materialized iteration remain available.
+DataFrame construction and valid frame-row iteration remain available.
 Writers provide `try_open()`, `try_write_row(error, ...)`, `try_flush(error)` and
 file-owning `try_close(error)`. Buffered writes are complete only after an
 explicit successful flush/close; destruction is best effort.

@@ -250,7 +250,8 @@ namespace csv {
         // 2. parser->next() - reads and parses bytes (10MB chunks)
         // 3. kill_all() - signals read_row() that worker is done
         //
-        // Exception handling: CSVReadScheduler catches exceptions and rethrows
+        // Operational errors stay on the source adapter until the consumer joins.
+        // In exception-enabled builds, CSVReadScheduler catches exceptions and rethrows
         // them on the consumer thread. Bug #282 fixed cases where worker
         // exceptions were swallowed, causing std::terminate().
         

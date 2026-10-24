@@ -429,7 +429,7 @@ namespace csv {
          *       operator[](const KeyType&). Use at(size_t) for positional access
          *       on integer-keyed DataFrames.
          *
-         * @throws std::out_of_range if index is out of bounds (via std::vector::at)
+         * @throws std::out_of_range if index is out of bounds
          */
 #if CSV_EXCEPTIONS_ENABLED
         template<typename K = KeyType,

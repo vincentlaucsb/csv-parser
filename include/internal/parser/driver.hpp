@@ -29,7 +29,7 @@
 
 namespace csv {
     namespace internals {
-        /** Return the number of leading BOM bytes to skip, or throw for unsupported Unicode encodings.
+        /** Return leading BOM bytes to skip, reporting unsupported Unicode encodings.
          *
          *  BOM handling happens at the source-window level (CSVParseOrchestrator and
          *  format guessing); CSVParserCore only ever sees BOM-free bytes.
