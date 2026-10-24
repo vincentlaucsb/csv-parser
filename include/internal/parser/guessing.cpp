@@ -112,14 +112,6 @@ namespace csv {
 
             return { current_delim, (int)header, n_cols };
         }
-#if CSV_EXCEPTIONS_ENABLED
-        CSV_INLINE CSVGuessResult guess_format(csv::string_view head, const std::vector<char>& delims) {
-            CSVError error;
-            auto out = guess_format(head, delims, error);
-            throw_error(error);
-            return out;
-        }
-#endif
         }
     }
 }

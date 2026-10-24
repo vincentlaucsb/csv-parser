@@ -85,15 +85,6 @@ namespace csv {
             return 0;
         }
 
-#if CSV_EXCEPTIONS_ENABLED
-        CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom) {
-            CSVError error;
-            const size_t skip = get_bom_skip(data, utf8_bom, error);
-            throw_error(error);
-            return skip;
-        }
-#endif
-
         namespace parser {
 
 #ifdef _MSC_VER

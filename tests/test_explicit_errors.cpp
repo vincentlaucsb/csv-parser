@@ -862,3 +862,71 @@ TEST_CASE("Checked DataFrame operations validate retained short rows", "[explici
         validate(*reader);
     }
 }
+
+TEST_CASE("Internal BOM detection reports encoding errors", "[explicit_errors][read_unicode_bom]") {
+    CSVError error(CSVErrorCode::ReadFailed, "previous failure");
+    bool utf8_bom = true;
+    SECTION("UTF-8 clears an earlier error") {
+        REQUIRE(internals::get_bom_skip(csv::string_view("\xEF\xBB\xBF" "A,B\n", 7), utf8_bom, error) == 3);
+        REQUIRE_FALSE(error);
+        REQUIRE(utf8_bom);
+    }
+    SECTION("UTF-16") {
+        REQUIRE(internals::get_bom_skip(csv::string_view("\xFF\xFE" "A\0", 4), utf8_bom, error) == 0);
+        REQUIRE(error.code == CSVErrorCode::UnsupportedEncoding);
+        REQUIRE(error.context.find("UTF-16") != std::string::npos);
+        REQUIRE_FALSE(utf8_bom);
+    }
+    SECTION("UTF-32") {
+        REQUIRE(internals::get_bom_skip(csv::string_view("\x00\x00\xFE\xFF", 4), utf8_bom, error) == 0);
+        REQUIRE(error.code == CSVErrorCode::UnsupportedEncoding);
+        REQUIRE(error.context.find("UTF-32") != std::string::npos);
+        REQUIRE_FALSE(utf8_bom);
+    }
+}
+
+TEST_CASE("Format guessing translates errors only at the public boundary", "[explicit_errors][guess_format]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_guess_format.csv");
+    { std::ofstream out(file.filename); out << "left|right\n3|7\n"; }
+    CSVError error;
+    SECTION("Successful format") {
+        auto format = try_guess_format(file.filename, error, {'|'});
+        REQUIRE_FALSE(error);
+        REQUIRE(format.delim == '|');
+        REQUIRE(format.header_row == 0);
+        REQUIRE(format.n_cols == 2);
+#if CSV_EXCEPTIONS_ENABLED
+        auto throwing = guess_format(file.filename, {'|'});
+        REQUIRE(throwing.delim == format.delim);
+        REQUIRE(throwing.header_row == format.header_row);
+        REQUIRE(throwing.n_cols == format.n_cols);
+#endif
+    }
+    SECTION("Missing source") {
+        const auto missing = file.filename + ".missing";
+        try_guess_format(missing, error);
+        REQUIRE(error.code == CSVErrorCode::OpenFailed);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_AS(guess_format(missing), std::runtime_error);
+#endif
+    }
+    SECTION("No delimiter candidates") {
+        try_guess_format(file.filename, error, {});
+        REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_AS(guess_format(file.filename, {}), std::runtime_error);
+#endif
+    }
+    SECTION("Unsupported encoding") {
+        {
+            std::ofstream out(file.filename, std::ios::binary);
+            const char bytes[] = {'\xFF', '\xFE', 'A', '\0'};
+            out.write(bytes, sizeof(bytes));
+        }
+        try_guess_format(file.filename, error);
+        REQUIRE(error.code == CSVErrorCode::UnsupportedEncoding);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_WITH(guess_format(file.filename), Catch::Matchers::ContainsSubstring("UTF-16"));
+#endif
+    }
+}

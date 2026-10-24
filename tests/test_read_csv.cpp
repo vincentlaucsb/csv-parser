@@ -131,24 +131,6 @@ TEST_CASE("Assert UTF-8 Handling Works", "[read_utf8_direct]") {
 }
 
 TEST_CASE("Unicode BOM handling", "[read_unicode_bom]") {
-    SECTION("Free utility strips UTF-8 BOM") {
-        bool utf8_bom = false;
-        REQUIRE(internals::get_bom_skip_or_throw(csv::string_view("\xEF\xBB\xBF" "A,B\n", 7), utf8_bom) == 3);
-        REQUIRE(utf8_bom);
-    }
-
-    SECTION("Free utility rejects UTF-16 and UTF-32 BOMs") {
-        bool utf8_bom = false;
-        REQUIRE_THROWS_WITH(
-            internals::get_bom_skip_or_throw(csv::string_view("\xFF\xFE" "A\0", 4), utf8_bom),
-            Catch::Matchers::ContainsSubstring("UTF-16")
-        );
-        REQUIRE_THROWS_WITH(
-            internals::get_bom_skip_or_throw(csv::string_view("\x00\x00\xFE\xFF", 4), utf8_bom),
-            Catch::Matchers::ContainsSubstring("UTF-32")
-        );
-    }
-
     SECTION("Direct input rejects UTF-16 before parsing corrupted rows") {
         REQUIRE_THROWS_WITH([] {
             return csv::parse_unsafe(csv::string_view("\xFF\xFE" "A\0,\0B\0\n\0", 10));

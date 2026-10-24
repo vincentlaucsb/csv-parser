@@ -35,9 +35,6 @@ namespace csv {
          *  format guessing); CSVParserCore only ever sees BOM-free bytes.
          */
         CSV_INLINE size_t get_bom_skip(csv::string_view data, bool& utf8_bom, CSVError& error);
-#if CSV_EXCEPTIONS_ENABLED
-        CSV_INLINE size_t get_bom_skip_or_throw(csv::string_view data, bool& utf8_bom);
-#endif
 
         namespace parser {
         struct GuessScore {
@@ -49,11 +46,6 @@ namespace csv {
         CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
 
         /** Guess the delimiter used by a delimiter-separated values file. */
-        CSV_INLINE CSVGuessResult guess_format(
-            csv::string_view head,
-            const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }
-        );
-
         CSV_INLINE CSVGuessResult guess_format(
             csv::string_view head, const std::vector<char>& delims, CSVError& error);
 
@@ -91,17 +83,6 @@ namespace csv {
             return buf;
         }
 
-#if CSV_EXCEPTIONS_ENABLED
-        template<typename TStream,
-            csv::enable_if_t<std::is_base_of<std::istream, TStream>::value, int> = 0>
-        std::string get_csv_head_stream(TStream& source) {
-            CSVError error;
-            auto out = get_csv_head_stream(source, error);
-            throw_error(error);
-            return out;
-        }
-#endif
-
 #if defined(__EMSCRIPTEN__)
         /** Open a file-backed source and read the first 500KB through the stream path. */
         CSV_INLINE std::string get_csv_head_stream(csv::string_view filename, CSVError& error);
@@ -116,23 +97,6 @@ namespace csv {
 
         /** Compatibility shim selecting stream on Emscripten and mmap otherwise. */
         CSV_INLINE std::string get_csv_head(csv::string_view filename, CSVError& error);
-
-#if CSV_EXCEPTIONS_ENABLED
-        inline std::string get_csv_head(csv::string_view filename) {
-            CSVError error;
-            auto out = get_csv_head(filename, error);
-            throw_error(error);
-            return out;
-        }
-#if !defined(__EMSCRIPTEN__)
-        inline std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename) {
-            CSVError error;
-            auto out = get_csv_head_mmap(filename, error);
-            throw_error(error);
-            return out;
-        }
-#endif
-#endif
 
         struct ResolvedFormat {
             CSVFormat format;
@@ -172,8 +136,10 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
     inline CSVGuessResult guess_format(csv::string_view filename,
         const std::vector<char>& delims = { ',', '|', '\t', ';', '^', '~' }) {
-        auto head = internals::parser::get_csv_head(filename);
-        return internals::parser::guess_format(head, delims);
+        CSVError error;
+        auto result = try_guess_format(filename, error, delims);
+        internals::throw_error(error);
+        return result;
     }
 #endif
 
