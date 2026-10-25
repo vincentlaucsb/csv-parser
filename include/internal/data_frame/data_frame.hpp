@@ -339,9 +339,7 @@ namespace csv {
                 KeyType key{};
                 CSVConversionError conversion;
                 if (!field.try_get(key, conversion)) {
-                    internals::fail(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
-                    error.conversion = conversion;
-                    return false;
+                    return internals::fail(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
                 }
                 this->ensure_key_index();
                 if (this->key_index_->find(key) != this->key_index_->end())
@@ -867,7 +865,6 @@ namespace csv {
                 }
                 if (!failure) {
                     internals::fail(failure, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
-                    failure.conversion = conversion;
                 }
                 failure.context = std::string(internals::ERROR_KEY_COLUMN_VALUE) + failure.context;
                 return false;

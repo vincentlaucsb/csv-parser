@@ -1087,7 +1087,7 @@ TEST_CASE("Explicit keyed DataFrames retain key and conversion failure categorie
         auto frame = DataFrame<int>::try_create(*reader, options, error);
         REQUIRE_FALSE(frame);
         REQUIRE(error.code == CSVErrorCode::ConversionFailed);
-        REQUIRE(error.conversion == CSVConversionError::NotANumber);
+        REQUIRE(error.context == "Error retrieving key column value: Not a number.");
     }
     SECTION("Key lookup and protected key column") {
         std::istringstream input("id,value\n1,10\n2,20\n");
@@ -1125,7 +1125,7 @@ TEST_CASE("Checked column names reject out-of-range proxy positions", "[explicit
     REQUIRE(output.str().empty());
 }
 
-TEST_CASE("Checked column conversions keep partial values and the precise cause", "[explicit_errors][data_frame]") {
+TEST_CASE("Checked column conversions keep partial values and diagnostic text", "[explicit_errors][data_frame]") {
     CSVError error;
     auto reader = try_parse("id,value\n1,17\n2,text\n", error);
     REQUIRE(reader);
@@ -1137,7 +1137,7 @@ TEST_CASE("Checked column conversions keep partial values and the precise cause"
     auto values = column.try_to_vector<int>(error);
     REQUIRE(values == std::vector<int>{17});
     REQUIRE(error.code == CSVErrorCode::ConversionFailed);
-    REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    REQUIRE(error.context == "Not a number.");
     column.try_field(99, error);
     REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
     auto read_only_cell = column.try_field(0, error);
@@ -1189,7 +1189,7 @@ TEST_CASE("Checked key insertion validates conversions before mutation", "[expli
     REQUIRE(frame);
     REQUIRE_FALSE(frame->try_insert_row(1, {"text", "29"}, error));
     REQUIRE(error.code == CSVErrorCode::ConversionFailed);
-    REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    REQUIRE(error.context == "Not a number.");
     REQUIRE(frame->size() == 1);
     REQUIRE(frame->try_insert_row(1, {"2", "29"}, error));
     const auto& view = *frame;

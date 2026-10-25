@@ -81,7 +81,6 @@ namespace csv {
                 CSVConversionError conversion;
                 if (!cell.try_get(value, conversion)) {
                     internals::fail(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
-                    error.conversion = conversion;
                     return values;
                 }
                 values.push_back(std::move(value));

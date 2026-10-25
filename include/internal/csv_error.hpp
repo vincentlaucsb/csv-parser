@@ -55,7 +55,7 @@ namespace csv {
             : internals::CSV_CONVERSION_ERROR_MESSAGES[static_cast<size_t>(CSVConversionError::NotANumber)];
     }
 
-    /** Operational failures. Conversion failures retain their CSVConversionError cause. */
+    /** Operational failures reported through CSVError. */
     enum class CSVErrorCode {
         None,                /**< Success, including end-of-stream without a row. */
         InvalidArgument,     /**< Invalid operation input, such as a null stream or zero batch size. */
@@ -70,7 +70,7 @@ namespace csv {
         RowLengthMismatch,   /**< A record's field count violates the configured variable-column policy. */
         ColumnNotFound,      /**< A requested name is absent from the visible column schema. */
         IndexOutOfBounds,    /**< A row/column position exceeds the visible schema or physical record width. */
-        ConversionFailed,   /**< A typed field/key conversion failed; see CSVError::conversion for its exact cause. */
+        ConversionFailed,   /**< A DataFrame field/key conversion failed; context describes the cause. */
         MissingKeyColumn,    /**< Keyed construction has an empty key-column name or a name absent from the schema. */
         KeyNotFound,         /**< A requested row key is absent from the frame's key index. */
         DuplicateKey,        /**< A key conflicts with an existing row under the requested insertion/duplicate policy. */
@@ -88,7 +88,6 @@ namespace csv {
      */
     struct CSVError {
         CSVErrorCode code = CSVErrorCode::None;
-        CSVConversionError conversion = CSVConversionError::None;
         std::error_code system;
         std::string context;
 

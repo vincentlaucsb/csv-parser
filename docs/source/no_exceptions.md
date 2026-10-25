@@ -67,8 +67,9 @@ terminal; further reads report that failure. The same distinction applies to
 
 Each checked operation clears stale errors before reporting its own result.
 Inspect an error before making another checked call. `CSVError` owns
-its diagnostic text; `message()` includes an available OS error, and `conversion`
-preserves a typed conversion cause when the operation reports `ConversionFailed`.
+its diagnostic text, and `message()` includes an available OS error. DataFrame
+conversion failures report `ConversionFailed` with details in `context`.
+Field-conversion APIs report `CSVConversionError` directly.
 
 ## Godot resources and exported games
 
