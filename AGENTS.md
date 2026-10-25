@@ -64,6 +64,12 @@ exception-enabled and compiler-disabled builds, including DataFrame and writing.
 See `tests/AGENTS.md` for test strategy, checklist, and conventions.
 
 ### Rules for Coding
+Keep `CSVError` lightweight: it is created and cleared throughout ordinary reading,
+writing, and DataFrame operations. Success and explicitly borrowed static messages
+must not allocate. Own runtime messages (including `exception::what()`); never infer
+static lifetime from a pointer or array type. Keep formatting and dynamic allocation
+on failure paths, and preserve copy/move lifetimes when changing diagnostic storage.
+
 Keep `include/external/classify_scalar.hpp` identical to its pinned upstream source. Fix it in `vincentlaucsb/classify_scalar`, then use `python tools/sync_classify_scalar.py --ref <tag-or-commit>` and `--check`; do not patch the vendored copy. See `include/external/README.md` for the release/sync workflow.
 
 1. **Use compatibility macros defined in `common.hpp`** for cross-compiler or cross-standard concerns. If it doesn't exist, consider creating one.

@@ -19,6 +19,10 @@ namespace csv {
         CONSTEXPR_VALUE_14 char ERROR_STREAM_READ_FAILURE[] = "StreamParser read failure";
         CONSTEXPR_VALUE_14 char ERROR_UNSUPPORTED_ENCODING_SUFFIX[] =
             " encoded CSV input is not supported directly. Please transcode to UTF-8 before parsing.";
+        CONSTEXPR_VALUE_14 char ERROR_UNSUPPORTED_UTF16[] =
+            "UTF-16 encoded CSV input is not supported directly. Please transcode to UTF-8 before parsing.";
+        CONSTEXPR_VALUE_14 char ERROR_UNSUPPORTED_UTF32[] =
+            "UTF-32 encoded CSV input is not supported directly. Please transcode to UTF-8 before parsing.";
         CONSTEXPR_VALUE_14 char ERROR_ROW_TOO_SHORT[] = "Line too short ";
         CONSTEXPR_VALUE_14 char ERROR_ROW_TOO_LONG[] = "Line too long ";
         CONSTEXPR_VALUE_14 char ERROR_ROW_LARGER_THAN_CHUNK_PREFIX[] =
@@ -122,14 +126,14 @@ namespace csv {
             case CSVErrorCode::None:
                 return;
             case CSVErrorCode::MappingFailed:
-                throw std::system_error(error.system, error.context);
+                throw std::system_error(error.system, std::string(error.context));
             case CSVErrorCode::InvalidArgument:
             case CSVErrorCode::InvalidChunkSize:
-                throw std::invalid_argument(error.context);
+                throw std::invalid_argument(std::string(error.context));
             case CSVErrorCode::SizeLimitExceeded:
-                throw std::length_error(error.context);
+                throw std::length_error(std::string(error.context));
             default:
-                throw std::runtime_error(error.context);
+                throw std::runtime_error(std::string(error.context));
             }
         }
         [[noreturn]] inline void throw_cannot_open_file(csv::string_view filename) {

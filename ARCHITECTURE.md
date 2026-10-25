@@ -41,3 +41,6 @@ Notes:
 - Explicit operational errors use the shared `CSVError` model in both build modes;
   compiler exception macros select optional throwing conveniences automatically.
   Reader worker errors must only be observed after joining the scheduler.
+- Keep `CSVError` lightweight on ordinary calls: success and explicitly static
+  diagnostics allocate nothing; runtime diagnostics own their text. See AGENTS.md
+  for lifetime, formatting, and copy/move requirements.

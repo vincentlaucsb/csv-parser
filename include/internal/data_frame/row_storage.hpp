@@ -35,10 +35,10 @@ namespace csv {
             inline bool validate_row(const std::vector<std::string>& row, size_t columns, CSVError& error) {
                 error.clear();
                 if (columns == 0 && !row.empty()) {
-                    return fail(error, CSVErrorCode::InvalidArgument, "cannot insert a non-empty row into a DataFrame without columns");
+                    return fail_static(error, CSVErrorCode::InvalidArgument, "cannot insert a non-empty row into a DataFrame without columns");
                 }
                 if (row.size() != columns) {
-                    return fail(error, CSVErrorCode::InvalidArgument, "inserted row field count must match DataFrame column count");
+                    return fail_static(error, CSVErrorCode::InvalidArgument, "inserted row field count must match DataFrame column count");
                 }
                 return true;
             }
@@ -48,7 +48,7 @@ namespace csv {
             ) {
                 error.clear();
                 if (mask.size() != rows.size()) {
-                    fail(error, CSVErrorCode::InvalidArgument, "selected row mask size must match DataFrame row count");
+                    fail_static(error, CSVErrorCode::InvalidArgument, "selected row mask size must match DataFrame row count");
                     return {};
                 }
                 std::vector<CSVRow> selected;

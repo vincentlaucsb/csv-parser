@@ -95,7 +95,7 @@ namespace csv {
                 std::unique_ptr<char[]> buf(new char[read_size]);
 #if !CSV_EXCEPTIONS_ENABLED
                 if (source_.exceptions() != std::ios::goodbit) {
-                    fail(this->error_, CSVErrorCode::InvalidArgument,
+                    fail_static(this->error_, CSVErrorCode::InvalidArgument,
                         "Explicit CSV reads require a non-throwing stream exception mask.");
                     return;
                 }
@@ -107,7 +107,7 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
                 } catch (const std::ios_base::failure&) {
                     if (!source_.eof() || source_.bad()) {
-                        fail(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                        fail_static(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                         return;
                     }
                 }
@@ -121,7 +121,7 @@ namespace csv {
                 // failbit alone is not fatal - it's set on EOF or when requesting bytes
                 // beyond available data, which is normal behavior for stringstreams.
                 if (source_.bad() || (source_.fail() && !source_.eof())) {
-                    fail(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                    fail_static(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                     return;
                 }
 

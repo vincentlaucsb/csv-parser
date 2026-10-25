@@ -590,7 +590,7 @@ namespace internals {
         bool try_close(CSVError& error) {
             error.clear();
             if (!owned_out || !out) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument,
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument,
                     "try_close() requires an open, owned output file.");
             }
 
@@ -611,7 +611,7 @@ namespace internals {
 #endif
             if (!flushed) return false;
             if (owned_out->fail()) {
-                return internals::fail(error, CSVErrorCode::WriteFailed, "Failed to close CSV output.");
+                return internals::fail_static(error, CSVErrorCode::WriteFailed, "Failed to close CSV output.");
             }
             return true;
         }
@@ -648,16 +648,16 @@ namespace internals {
         bool checked_operation(CSVError& error, Fn&& operation) {
             error.clear();
             if (!out) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument, "CSV output is closed.");
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument, "CSV output is closed.");
             }
 #if !CSV_EXCEPTIONS_ENABLED
             if (!exceptions_disabled(*out, 0)) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument,
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument,
                     "Checked CSV output requires a stream with exceptions disabled.");
             }
 #endif
             if (out->fail()) {
-                return internals::fail(error, CSVErrorCode::WriteFailed, "CSV output stream has failed.");
+                return internals::fail_static(error, CSVErrorCode::WriteFailed, "CSV output stream has failed.");
             }
 #if CSV_EXCEPTIONS_ENABLED
             try {
@@ -673,7 +673,7 @@ namespace internals {
         }
 
         bool check_write_status(CSVError& error) const {
-            return !out->fail() || internals::fail(error, CSVErrorCode::WriteFailed,
+            return !out->fail() || internals::fail_static(error, CSVErrorCode::WriteFailed,
                 "CSV output stream has failed.");
         }
 
@@ -750,7 +750,7 @@ namespace internals {
         auto append_checked_row(Row&& row, CSVError& error, int)
             -> decltype(row.try_field(size_t{0}, error).get_sv(), bool()) {
             if (!checked_record_valid(row, 0)) {
-                return internals::fail(error, CSVErrorCode::InvalidProxy, "CSV row or column proxy is invalid.");
+                return internals::fail_static(error, CSVErrorCode::InvalidProxy, "CSV row or column proxy is invalid.");
             }
             const size_t row_start = batch_buffer_.size();
             for (size_t i = 0; i < row.size(); ++i) {

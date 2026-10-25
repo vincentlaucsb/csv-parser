@@ -109,6 +109,7 @@ jobs:
             -I build/error-api/single_include_generated "${flags[@]}" \
             tests/compatibility/explicit_errors/smoke.cpp \
             tests/compatibility/explicit_errors/second.cpp \
+            tests/compatibility/explicit_errors/error_storage.cpp \
             -o build/error-api/standalone
           ./build/error-api/standalone
 
@@ -116,5 +117,5 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          cl /nologo /std:c++20 /EHs-c- /D_HAS_EXCEPTIONS=0 /DCSV_TEST_EXCEPTIONS=0 /DCSV_TEST_CXX_STANDARD=20 /DCSV_ENABLE_THREADS=1 /I build\error-api\single_include_generated tests\compatibility\explicit_errors\smoke.cpp tests\compatibility\explicit_errors\second.cpp /Fe:build\error-api\standalone.exe /Fo:build\error-api\
+          cl /nologo /std:c++20 /EHs-c- /D_HAS_EXCEPTIONS=0 /DCSV_TEST_EXCEPTIONS=0 /DCSV_TEST_CXX_STANDARD=20 /DCSV_ENABLE_THREADS=1 /I build\error-api\single_include_generated tests\compatibility\explicit_errors\smoke.cpp tests\compatibility\explicit_errors\second.cpp tests\compatibility\explicit_errors\error_storage.cpp /Fe:build\error-api\standalone.exe /Fo:build\error-api\
           build\error-api\standalone.exe

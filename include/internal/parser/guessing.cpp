@@ -73,7 +73,7 @@ namespace csv {
         CSV_INLINE CSVGuessResult guess_format(csv::string_view head, const std::vector<char>& delims, CSVError& error) {
             error.clear();
             if (delims.empty()) {
-                fail(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+                fail_static(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
                 return {',', 0, 0};
             }
             /** For each delimiter, find out which row length was most common (mode).

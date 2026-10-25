@@ -106,6 +106,7 @@ endfunction()
 # standard, including C++11, and checks cross-TU linkage.
 add_executable(csv_error_api_smoke
     compatibility/explicit_errors/smoke.cpp
+    compatibility/explicit_errors/error_storage.cpp
     compatibility/explicit_errors/second.cpp)
 target_link_libraries(csv_error_api_smoke PRIVATE csv)
 target_compile_definitions(csv_error_api_smoke PRIVATE

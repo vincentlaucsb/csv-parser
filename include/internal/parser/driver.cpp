@@ -56,7 +56,7 @@ namespace csv {
 
                 if ((b0 == 0xFF && b1 == 0xFE && b2 == 0x00 && b3 == 0x00)
                     || (b0 == 0x00 && b1 == 0x00 && b2 == 0xFE && b3 == 0xFF)) {
-                    fail(error, CSVErrorCode::UnsupportedEncoding, make_unsupported_encoding_message("UTF-32"));
+                    fail_static(error, CSVErrorCode::UnsupportedEncoding, ERROR_UNSUPPORTED_UTF32);
                     return 0;
                 }
             }
@@ -77,7 +77,7 @@ namespace csv {
                 const unsigned char b1 = static_cast<unsigned char>(data[1]);
 
                 if ((b0 == 0xFF && b1 == 0xFE) || (b0 == 0xFE && b1 == 0xFF)) {
-                    fail(error, CSVErrorCode::UnsupportedEncoding, make_unsupported_encoding_message("UTF-16"));
+                    fail_static(error, CSVErrorCode::UnsupportedEncoding, ERROR_UNSUPPORTED_UTF16);
                     return 0;
                 }
             }
@@ -102,7 +102,7 @@ namespace csv {
             // Setters reject empty candidates, but moving a format can leave its
             // source vector empty. Validate that boundary before using resolved access.
             if (source_format.possible_delimiters.empty()) {
-                fail(error_, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+                fail_static(error_, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
                 return;
             }
 

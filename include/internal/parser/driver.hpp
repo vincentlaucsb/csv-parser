@@ -56,7 +56,7 @@ namespace csv {
             error.clear();
 #if !CSV_EXCEPTIONS_ENABLED
             if (source.exceptions() != std::ios::goodbit) {
-                fail(error, CSVErrorCode::InvalidArgument,
+                fail_static(error, CSVErrorCode::InvalidArgument,
                     "Explicit CSV reads require a non-throwing stream exception mask.");
                 return {};
             }
@@ -70,13 +70,13 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
             } catch (const std::ios_base::failure&) {
                 if (!source.eof() || source.bad()) {
-                    fail(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                    fail_static(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                     return {};
                 }
             }
 #endif
             if (source.bad() || (source.fail() && !source.eof())) {
-                fail(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                fail_static(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                 return {};
             }
             buf.resize(static_cast<size_t>(source.gcount()));

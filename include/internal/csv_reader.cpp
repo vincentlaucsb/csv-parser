@@ -33,7 +33,7 @@ namespace csv {
         std::unique_ptr<std::istream> source, CSVError& error, const CSVFormat& format) {
         error.clear();
         if (!source) {
-            internals::fail(error, CSVErrorCode::InvalidArgument, internals::ERROR_READER_NULL_STREAM);
+            internals::fail_static(error, CSVErrorCode::InvalidArgument, internals::ERROR_READER_NULL_STREAM);
             return nullptr;
         }
         std::unique_ptr<CSVReader> reader(new CSVReader(format, initialize_tag{}));
@@ -300,7 +300,7 @@ namespace csv {
         out.clear();
 
         if (max_rows == 0) {
-            return internals::fail(error, CSVErrorCode::InvalidArgument, "read_chunk() requires a non-zero row count.");
+            return internals::fail_static(error, CSVErrorCode::InvalidArgument, "read_chunk() requires a non-zero row count.");
         }
 
         while (out.size() < max_rows) {

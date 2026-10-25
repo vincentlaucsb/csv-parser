@@ -81,7 +81,7 @@ namespace csv {
     CSV_INLINE bool CSVFormat::try_get_delim(char& out, CSVError& error) const {
         error.clear();
         if (this->possible_delimiters.size() != 1) {
-            return internals::fail(error, CSVErrorCode::InvalidFormat,
+            return internals::fail_static(error, CSVErrorCode::InvalidFormat,
                 this->possible_delimiters.empty() ? "At least one delimiter is required."
                     : internals::ERROR_MULTIPLE_DELIMITERS);
         }
@@ -136,7 +136,7 @@ namespace csv {
     ) {
         error.clear();
         if (candidates.empty()) {
-            return internals::fail(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+            return internals::fail_static(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
         }
         const std::set<char> delims(candidates.begin(), candidates.end());
         const std::set<char> trims(whitespace.begin(), whitespace.end());

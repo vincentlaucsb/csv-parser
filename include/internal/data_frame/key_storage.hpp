@@ -41,7 +41,7 @@ namespace csv {
                     size_t bytes = 0;
                     for (const auto& key : keys) {
                         if (key.size() > storage->max_size() - bytes) {
-                            return fail(error, CSVErrorCode::SizeLimitExceeded, "DataFrame key storage is too large");
+                            return fail_static(error, CSVErrorCode::SizeLimitExceeded, "DataFrame key storage is too large");
                         }
                         bytes += key.size();
                     }

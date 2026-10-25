@@ -47,7 +47,7 @@ namespace csv {
     CSV_INLINE CSVField CSVRow::try_field(size_t index, CSVError& error) const {
         error.clear();
         if (index >= size()) {
-            internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
+            internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
             return CSVField(csv::string_view());
         }
         return make_field(index, data);
@@ -107,7 +107,7 @@ namespace csv {
             if (!data || !data->col_names) return out;
             const auto& names = get_col_names();
             if (names.size() < size()) {
-                internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_BOUNDS);
+                internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_BOUNDS);
                 return out;
             }
             out.reserve(size());
@@ -127,7 +127,7 @@ namespace csv {
     CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
         CSVError error;
         auto out = try_to_unordered_map(error);
-        if (error) throw std::out_of_range(error.context);
+        if (error) throw std::out_of_range(std::string(error.context));
         return out;
     }
 

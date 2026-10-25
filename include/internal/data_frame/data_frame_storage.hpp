@@ -45,12 +45,12 @@ namespace csv {
                 inline CellBinding try_bind(size_t row, size_t column, CSVError& error) const {
                     error.clear();
                     if (row >= rows().size() || column >= n_cols()) {
-                        fail(error, CSVErrorCode::IndexOutOfBounds, ERROR_COLUMN_INDEX_OUT_OF_RANGE);
+                        fail_static(error, CSVErrorCode::IndexOutOfBounds, ERROR_COLUMN_INDEX_OUT_OF_RANGE);
                         return CellBinding{nullptr, 0};
                     }
                     const CellBinding binding = bind(row, column);
                     if (binding.physical_column >= rows()[row].size()) {
-                        fail(error, CSVErrorCode::IndexOutOfBounds, CSV_ERROR_INDEX_OUT_OF_BOUNDS);
+                        fail_static(error, CSVErrorCode::IndexOutOfBounds, CSV_ERROR_INDEX_OUT_OF_BOUNDS);
                         return CellBinding{nullptr, 0};
                     }
                     return binding;
