@@ -5,10 +5,49 @@
 #include "csv_reader.hpp"
 
 namespace csv {
+    CSV_INLINE void CSVReader::open_file(csv::string_view filename, const CSVFormat& format) {
+#if defined(__EMSCRIPTEN__)
+        owned_stream.reset(new std::ifstream(std::string(filename), std::ios::binary));
+        if (!*owned_stream) {
+            internals::fail(error_, CSVErrorCode::OpenFailed,
+                internals::make_prefixed_message(internals::ERROR_CANNOT_OPEN_FILE, filename));
+            return;
+        }
+        init_from_stream(*owned_stream, format);
+#else
+        init_parser(std::unique_ptr<internals::parser::CSVParserDriverBase>(
+            new internals::parser::MmapParser(filename, format, col_names)));
+#endif
+    }
+
+    CSV_INLINE std::unique_ptr<CSVReader> CSVReader::try_open(
+        csv::string_view filename, CSVError& error, const CSVFormat& format) {
+        error.clear();
+        std::unique_ptr<CSVReader> reader(new CSVReader(format, initialize_tag{}));
+        reader->open_file(filename, format);
+        error = reader->error_;
+        return error ? nullptr : std::move(reader);
+    }
+
+    CSV_INLINE std::unique_ptr<CSVReader> CSVReader::try_open(
+        std::unique_ptr<std::istream> source, CSVError& error, const CSVFormat& format) {
+        error.clear();
+        if (!source) {
+            internals::fail(error, CSVErrorCode::InvalidArgument, internals::ERROR_READER_NULL_STREAM);
+            return nullptr;
+        }
+        std::unique_ptr<CSVReader> reader(new CSVReader(format, initialize_tag{}));
+        reader->owned_stream = std::move(source);
+        reader->init_from_stream(*reader->owned_stream, format);
+        error = reader->error_;
+        return error ? nullptr : std::move(reader);
+    }
+
 #ifdef _MSC_VER
 #pragma region Reading helpers
 #endif
     CSV_INLINE bool CSVReader::check_for_rows() {
+        if (error_) return false;
         if (!this->records->empty()) return true;
 
         if (this->read_scheduler_.wait_if_active(
@@ -20,11 +59,16 @@ namespace csv {
 
         this->read_scheduler_.join();
         this->read_scheduler_.rethrow_exception_if_any();
+        if (parser->error()) {
+            error_ = parser->error();
+            return false;
+        }
 
         if (this->parser->eof()) return false;
 
         if (this->_read_requested && this->records->empty()) {
-            internals::throw_row_too_large_for_chunk(this->_chunk_size);
+            return internals::fail(error_, CSVErrorCode::RowTooLarge,
+                internals::make_row_larger_than_chunk_message(this->_chunk_size));
         }
 
         this->read_scheduler_.run(
@@ -32,6 +76,7 @@ namespace csv {
             [this] { this->records->notify_all(); }
         );
         this->read_scheduler_.rethrow_exception_if_any();
+        // The parser may still be running. Inspect its error only after join().
         this->_read_requested = true;
         return true;
     }
@@ -46,6 +91,10 @@ namespace csv {
     CSV_INLINE void CSVReader::init_parser(
         std::unique_ptr<internals::parser::CSVParserDriverBase> parser_impl
     ) {
+        if (parser_impl->error()) {
+            error_ = parser_impl->error();
+            return;
+        }
         auto resolved = parser_impl->get_resolved_format();
         this->_format = resolved.format;
         this->_chunk_size = this->_format.get_chunk_size();
@@ -79,12 +128,18 @@ namespace csv {
             this->read_scheduler_.run([this] { this->read_csv(this->_chunk_size); });
             this->read_scheduler_.join();
             this->read_scheduler_.rethrow_exception_if_any();
+            if (parser->error()) {
+                error_ = parser->error();
+                return;
+            }
 
             // trim_header() drains the queue until the header is consumed, so an
             // untrimmed header with no progress means the read produced no rows.
             if (!this->header_trimmed && !this->parser->eof()
                 && this->header_rows_trimmed_ == trimmed_before) {
-                internals::throw_row_too_large_for_chunk(this->_chunk_size);
+                internals::fail(error_, CSVErrorCode::RowTooLarge,
+                    internals::make_row_larger_than_chunk_message(this->_chunk_size));
+                return;
             }
         } while (!this->header_trimmed && !this->parser->eof());
     }
@@ -134,10 +189,12 @@ namespace csv {
             (policy == VariableColumnPolicy::THROW || policy == VariableColumnPolicy::IGNORE_ROW)) {
             if (policy == VariableColumnPolicy::THROW) {
                 if (candidate.size() < this->n_cols) {
-                    internals::throw_line_too_short(candidate.raw_str());
+                    return internals::fail(error_, CSVErrorCode::RowLengthMismatch,
+                        internals::make_prefixed_message(internals::ERROR_ROW_TOO_SHORT, candidate.raw_str()));
                 }
 
-                internals::throw_line_too_long(candidate.raw_str());
+                return internals::fail(error_, CSVErrorCode::RowLengthMismatch,
+                    internals::make_prefixed_message(internals::ERROR_ROW_TOO_LONG, candidate.raw_str()));
             }
 
             return false;
@@ -163,6 +220,7 @@ namespace csv {
 
         for (size_t i = 0; i < drained.size(); ++i) {
             this->accept_row(std::move(drained[i]), nullptr, &out);
+            if (error_) break;
         }
     }
 #ifdef _MSC_VER
@@ -192,25 +250,30 @@ namespace csv {
         // 2. parser->next() - reads and parses bytes (10MB chunks)
         // 3. kill_all() - signals read_row() that worker is done
         //
-        // Exception handling: CSVReadScheduler catches exceptions and rethrows
+        // Operational errors stay on the source adapter until the consumer joins.
+        // In exception-enabled builds, CSVReadScheduler catches exceptions and rethrows
         // them on the consumer thread. Bug #282 fixed cases where worker
         // exceptions were swallowed, causing std::terminate().
         
         // Tell read_row() to listen for CSV rows
         this->records->notify_all();
 
+#if CSV_EXCEPTIONS_ENABLED
         try {
+#endif
             this->parser->set_output(*this->records);
             this->parser->next(bytes);
 
-            if (!this->header_trimmed) {
+            if (!parser->error() && !this->header_trimmed) {
                 this->trim_header();
             }
+#if CSV_EXCEPTIONS_ENABLED
         }
         catch (...) {
             this->records->kill_all();
             throw;
         }
+#endif
 
         // Tell read_row() to stop waiting
         this->records->kill_all();
@@ -218,7 +281,8 @@ namespace csv {
         return true;
     }
 
-    CSV_INLINE bool CSVReader::read_row(CSVRow &row) {
+    CSV_INLINE bool CSVReader::try_read_row(CSVRow& row, CSVError& error) {
+        error.clear();
         while (this->check_for_rows()) {
             if (this->records->empty())
                 continue;
@@ -227,14 +291,16 @@ namespace csv {
                 return true;
         }
 
+        error = error_;
         return false;
     }
 
-    CSV_INLINE bool CSVReader::read_chunk(std::vector<CSVRow>& out, size_t max_rows) {
+    CSV_INLINE bool CSVReader::try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error) {
+        error.clear();
         out.clear();
 
         if (max_rows == 0) {
-            return false;
+            return internals::fail(error, CSVErrorCode::InvalidArgument, "read_chunk() requires a non-zero row count.");
         }
 
         while (out.size() < max_rows) {
@@ -245,16 +311,33 @@ namespace csv {
 
                 const size_t before_size = out.size();
                 this->drain_rows_into_chunk(out, max_rows);
+                if (error_) { error = error_; return false; }
 
                 if (out.size() == before_size) {
                     continue;
                 }
             }
-            else return !out.empty();
+            else { error = error_; return !error && !out.empty(); }
         }
 
         return true;
     }
+#if CSV_EXCEPTIONS_ENABLED
+    CSV_INLINE bool CSVReader::read_row(CSVRow& row) {
+        CSVError error;
+        const bool read = try_read_row(row, error);
+        internals::throw_error(error);
+        return read;
+    }
+
+    CSV_INLINE bool CSVReader::read_chunk(std::vector<CSVRow>& out, size_t max_rows) {
+        if (max_rows == 0) { out.clear(); return false; }
+        CSVError error;
+        const bool read = try_read_chunk(out, max_rows, error);
+        internals::throw_error(error);
+        return read;
+    }
+#endif
 #ifdef _MSC_VER
 #pragma endregion Worker reading methods
 #endif

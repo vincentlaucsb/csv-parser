@@ -3,6 +3,7 @@
   */
 
 #pragma once
+#include "common.hpp"
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -193,6 +194,21 @@ inline static void set_decimal_places(int precision) {
 }
 
 namespace internals {
+    template<typename T, typename = void>
+    struct has_checked_csv_fields : std::false_type {};
+
+    template<typename T>
+    struct has_checked_csv_fields<T, csv::void_t<
+        decltype(std::declval<const typename std::remove_reference<T>::type&>().size()),
+        decltype(std::declval<const typename std::remove_reference<T>::type&>()
+            .try_field(size_t{0}, std::declval<CSVError&>()).get_sv())>> : std::true_type {};
+
+    template<typename T>
+    struct is_data_frame : std::false_type {};
+
+    template<typename KeyType>
+    struct is_data_frame<DataFrame<KeyType>> : std::true_type {};
+
     /** SFINAE trait: detects if a type is iterable (has std::begin/end). */
     template<typename T, typename = void>
     struct is_iterable : std::false_type {};
@@ -261,14 +277,33 @@ namespace internals {
             : out(&_out), quote_minimal(_quote_minimal) {}
 
         /** Construct a DelimWriter that owns an output file stream. */
+#if CSV_EXCEPTIONS_ENABLED
         template<typename T = OutputStream,
             csv::enable_if_t<std::is_same<T, std::ofstream>::value, int> = 0>
         DelimWriter(const std::string& filename, bool _quote_minimal = true)
-            : owned_out(new std::ofstream(filename, std::ios::out)),
-            out(owned_out.get()),
-            quote_minimal(_quote_minimal) {
+            : DelimWriter(std::unique_ptr<OutputStream>(new OutputStream(filename, std::ios::out)),
+                _quote_minimal) {
             if (!owned_out->is_open())
                 internals::throw_failed_open_for_writing(filename);
+        }
+#endif
+
+        /** Open an owned output file, returning null on failure.
+         *  The returned writer owns its stream. Use try_close() to observe final I/O errors.
+         */
+        template<typename T = OutputStream,
+            csv::enable_if_t<std::is_same<T, std::ofstream>::value, int> = 0>
+        static std::unique_ptr<DelimWriter> try_open(
+            const std::string& filename, CSVError& error, bool quote_minimal = true
+        ) {
+            error.clear();
+            std::unique_ptr<OutputStream> stream(new OutputStream(filename, std::ios::out));
+            if (!stream->is_open()) {
+                internals::fail(error, CSVErrorCode::OpenFailed,
+                    std::string(internals::ERROR_FAILED_OPEN_WRITE) + filename);
+                return nullptr;
+            }
+            return std::unique_ptr<DelimWriter>(new DelimWriter(std::move(stream), quote_minimal));
         }
 
         DelimWriter(const DelimWriter&) = delete;
@@ -280,7 +315,7 @@ namespace internals {
             quote_minimal(other.quote_minimal),
             auto_flush_(other.auto_flush_),
             batch_buffer_(std::move(other.batch_buffer_)) {
-            if (owned_out) {
+            if (owned_out && out) {
                 out = owned_out.get();
             }
             other.out = nullptr;
@@ -296,7 +331,7 @@ namespace internals {
             auto_flush_ = other.auto_flush_;
             batch_buffer_ = std::move(other.batch_buffer_);
 
-            if (owned_out) {
+            if (owned_out && out) {
                 out = owned_out.get();
             }
 
@@ -322,12 +357,23 @@ namespace internals {
             return this->auto_flush_;
         }
 
-        /** Destructor will flush remaining data. */
+        /** Best-effort flush. Use try_flush() or try_close() to observe errors. */
         ~DelimWriter() {
-            if (out) {
+            // A failed write can have emitted a prefix. Never retry its buffered bytes
+            // during destruction; the caller has already received the I/O failure.
+            if (!out || !ready_for_destruction(*out, 0)) return;
+#if CSV_EXCEPTIONS_ENABLED
+            try {
+#endif
                 flush_batch();
                 out->flush();
+#if CSV_EXCEPTIONS_ENABLED
             }
+            catch (...) {
+                // Destruction must not replace an active exception or terminate a caller
+                // that already handled a checked I/O failure.
+            }
+#endif
         }
 
         /** Write a C-style array of strings as one delimited row. */
@@ -349,6 +395,7 @@ namespace internals {
          *  writes its header. The writer's delimiter, quoting, and buffering settings
          *  apply, and auto-flush flushes the stream once at the end of the document.
          */
+#if CSV_EXCEPTIONS_ENABLED
         template<typename KeyType>
         DelimWriter& operator<<(const DataFrame<KeyType>& frame) {
             append_range_fields(frame.columns());
@@ -368,6 +415,8 @@ namespace internals {
             return *this;
 #endif
         }
+
+#endif
 
         /** Write a row from any single argument accepted by operator<<
          *  (std::vector, std::array, std::tuple, C-array, C++20 range, etc.).
@@ -487,7 +536,246 @@ namespace internals {
             out->flush();
         }
 
+        /** Write the same inputs accepted by write_row(), reporting stream failures.
+         *  With buffering enabled, success means accepted into the buffer; try_flush()
+         *  or try_close() observes completion. Output already written is not rolled back.
+         *  Checked operations require a stream exposing fail(). In exception-disabled
+         *  builds, standard streams must have their exception mask disabled.
+         */
+        template<typename T,
+            csv::enable_if_t<internals::has_checked_csv_fields<T>::value
+                || internals::is_data_frame<typename std::decay<T>::type>::value, int> = 0>
+        bool try_write_row(CSVError& error, T&& record) {
+            return this->checked_write(error, std::forward<T>(record));
+        }
+
+        template<typename... Args>
+        auto try_write_row(CSVError& error, Args&&... args)
+            -> decltype(this->write_row(std::forward<Args>(args)...), bool()) {
+            return this->checked_write(error, std::forward<Args>(args)...);
+        }
+
+#ifdef CSV_HAS_CXX20
+        /** Write a batch using the same accepted row ranges and buffering policy as write_rows(). */
+        template<std::ranges::input_range Rows>
+            requires (internals::csv_write_rows_input_range<Rows>
+                || internals::has_checked_csv_fields<std::ranges::range_reference_t<Rows>>::value)
+        bool try_write_rows(Rows&& rows, CSVError& error) {
+            return this->checked_operation(error, [this, &rows, &error]() {
+                for (auto&& row : rows) {
+                    if (!this->append_checked_row(row, error, 0)) return false;
+                    this->flush_batch_if_needed();
+                    if (!this->check_write_status(error)) return false;
+                }
+                this->finish_write_call();
+                return true;
+            });
+        }
+#endif
+
+        /** Flush buffered data and the stream, reporting I/O errors. */
+        bool try_flush(CSVError& error) {
+            return this->checked_operation(error, [this]() {
+                this->flush();
+                return true;
+            });
+        }
+
+        /** Flush and close an owned output file, including after a flush failure.
+         *  Borrowed streams remain the caller's responsibility to close.
+         *  Further checked operations on a closed writer report InvalidArgument.
+         */
+        template<typename T = OutputStream,
+            csv::enable_if_t<std::is_same<T, std::ofstream>::value, int> = 0>
+        bool try_close(CSVError& error) {
+            error.clear();
+            if (!owned_out || !out) {
+                return internals::fail(error, CSVErrorCode::InvalidArgument,
+                    "try_close() requires an open, owned output file.");
+            }
+
+            const bool flushed = this->try_flush(error);
+            // Detach before closing so neither close errors nor a failed flush can
+            // trigger a second write from the writer's destructor.
+            out = nullptr;
+#if CSV_EXCEPTIONS_ENABLED
+            try {
+#endif
+                owned_out->close();
+#if CSV_EXCEPTIONS_ENABLED
+            }
+            catch (const std::ios_base::failure& failure) {
+                if (flushed) internals::fail(error, CSVErrorCode::WriteFailed, failure.what());
+                return false;
+            }
+#endif
+            if (!flushed) return false;
+            if (owned_out->fail()) {
+                return internals::fail(error, CSVErrorCode::WriteFailed, "Failed to close CSV output.");
+            }
+            return true;
+        }
+
     private:
+        DelimWriter(std::unique_ptr<OutputStream> stream, bool quote_minimal)
+            : owned_out(std::move(stream)), out(owned_out.get()), quote_minimal(quote_minimal) {}
+
+        // These probes preserve support for lightweight custom output streams in
+        // the existing unchecked API. Only checked calls require fail().
+        template<typename Stream>
+        static auto exceptions_disabled(const Stream& stream, int)
+            -> decltype(stream.exceptions(), bool()) {
+            return stream.exceptions() == std::ios_base::goodbit;
+        }
+
+        template<typename Stream>
+        static bool exceptions_disabled(const Stream&, long) { return true; }
+
+        template<typename Stream>
+        static auto ready_for_destruction(const Stream& stream, int)
+            -> decltype(stream.fail(), bool()) {
+#if CSV_EXCEPTIONS_ENABLED
+            return !stream.fail();
+#else
+            return !stream.fail() && exceptions_disabled(stream, 0);
+#endif
+        }
+
+        template<typename Stream>
+        static bool ready_for_destruction(const Stream&, long) { return true; }
+
+        template<typename Fn>
+        bool checked_operation(CSVError& error, Fn&& operation) {
+            error.clear();
+            if (!out) {
+                return internals::fail(error, CSVErrorCode::InvalidArgument, "CSV output is closed.");
+            }
+#if !CSV_EXCEPTIONS_ENABLED
+            if (!exceptions_disabled(*out, 0)) {
+                return internals::fail(error, CSVErrorCode::InvalidArgument,
+                    "Checked CSV output requires a stream with exceptions disabled.");
+            }
+#endif
+            if (out->fail()) {
+                return internals::fail(error, CSVErrorCode::WriteFailed, "CSV output stream has failed.");
+            }
+#if CSV_EXCEPTIONS_ENABLED
+            try {
+#endif
+                if (!std::forward<Fn>(operation)()) return false;
+#if CSV_EXCEPTIONS_ENABLED
+            }
+            catch (const std::ios_base::failure& failure) {
+                return internals::fail(error, CSVErrorCode::WriteFailed, failure.what());
+            }
+#endif
+            return this->check_write_status(error);
+        }
+
+        bool check_write_status(CSVError& error) const {
+            return !out->fail() || internals::fail(error, CSVErrorCode::WriteFailed,
+                "CSV output stream has failed.");
+        }
+
+        template<typename... Args>
+        bool checked_write(CSVError& error, Args&&... args) {
+            return this->checked_operation(error, [&]() {
+                return this->checked_write_call(error, std::forward<Args>(args)...);
+            });
+        }
+
+        template<typename Row>
+        static auto checked_record_valid(const Row& row, int)
+            -> decltype(row.is_valid(), bool()) {
+            return row.is_valid();
+        }
+
+        template<typename Row>
+        static bool checked_record_valid(const Row&, long) { return true; }
+
+        template<typename T>
+        bool checked_write_call(CSVError& error, T&& record) {
+            return this->checked_write_record(std::forward<T>(record), error, 0);
+        }
+
+        template<typename T, typename U, typename... Rest>
+        bool checked_write_call(CSVError&, T&& first, U&& second, Rest&&... rest) {
+            this->write_row(std::forward<T>(first), std::forward<U>(second), std::forward<Rest>(rest)...);
+            return true;
+        }
+
+        template<typename KeyType>
+        bool checked_write_record(DataFrame<KeyType>& frame, CSVError& error, int) {
+            return this->checked_write_record(static_cast<const DataFrame<KeyType>&>(frame), error, 0);
+        }
+
+        template<typename KeyType>
+        bool checked_write_record(DataFrame<KeyType>&& frame, CSVError& error, int) {
+            return this->checked_write_record(static_cast<const DataFrame<KeyType>&>(frame), error, 0);
+        }
+
+        template<typename KeyType>
+        bool checked_write_record(const DataFrame<KeyType>& frame, CSVError& error, int) {
+            append_range_fields(frame.columns());
+            end_record();
+            flush_batch_if_needed();
+            if (!this->check_write_status(error)) return false;
+            for (const auto& row : frame) {
+                if (!this->append_checked_row(row, error, 0)) return false;
+                flush_batch_if_needed();
+                if (!this->check_write_status(error)) return false;
+            }
+            finish_write_call();
+            return true;
+        }
+
+        template<typename Row>
+        auto checked_write_record(Row&& row, CSVError& error, int)
+            -> decltype(row.try_field(size_t{0}, error).get_sv(), bool()) {
+            if (!this->append_checked_row(row, error, 0)) return false;
+            finish_write_call();
+            return true;
+        }
+
+        template<typename Row>
+        bool checked_write_record(Row&& row, CSVError&, long) {
+            this->write_row(std::forward<Row>(row));
+            return true;
+        }
+
+        // Logical rows need checked physical-width access: KEEP permits native
+        // rows shorter than the schema. Generic string ranges use their iterator
+        // contract instead, so this indexed validation cannot share that loop.
+        template<typename Row>
+        auto append_checked_row(Row&& row, CSVError& error, int)
+            -> decltype(row.try_field(size_t{0}, error).get_sv(), bool()) {
+            if (!checked_record_valid(row, 0)) {
+                return internals::fail(error, CSVErrorCode::InvalidProxy, "CSV row or column proxy is invalid.");
+            }
+            const size_t row_start = batch_buffer_.size();
+            for (size_t i = 0; i < row.size(); ++i) {
+                const auto field = row.try_field(i, error);
+                if (error) {
+                    // No bytes from this row have been sent yet. Discard its
+                    // incomplete buffered record while retaining earlier rows.
+                    batch_buffer_.resize(row_start);
+                    return false;
+                }
+                if (i != 0) batch_buffer_.push_back(Delim);
+                write_escaped_field(field.get_sv());
+            }
+            end_record();
+            return true;
+        }
+
+#ifdef CSV_HAS_CXX20
+        template<typename Row>
+        bool append_checked_row(Row&& row, CSVError&, long) {
+            append_row_like(std::forward<Row>(row));
+            return true;
+        }
+#endif
+
         /** Append delimited fields from a range without terminating the record.
          *
          *  Shared by single-row writes and bulk row appends so escaping and

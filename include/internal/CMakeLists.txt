@@ -8,6 +8,7 @@ target_sources(csv
 		csv_format.hpp
 		csv_format.cpp
 		csv_exceptions.hpp
+		csv_error.hpp
 		parser/core.hpp
 		parser/driver.hpp
 		parser/driver.cpp
@@ -81,3 +82,8 @@ else()
 	target_compile_definitions(csv_no_simd PUBLIC CSV_ENABLE_THREADS=0)
 endif()
 target_include_directories(csv_no_simd INTERFACE ../)
+
+# PUBLIC options keep downstream headers and the compiled library in one mode.
+foreach(_csv_target csv csv_no_simd)
+    csv_configure_exceptions(${_csv_target} PUBLIC)
+endforeach()

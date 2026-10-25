@@ -12,7 +12,10 @@
 #include "csv_exceptions.hpp"
 
 namespace csv {
+    class CSVFormat;
     namespace internals {
+        /** Read a delimiter after configuration has been validated and resolved to one candidate. */
+        CSV_INLINE char resolved_delimiter(const CSVFormat& format) noexcept;
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         class CSVParserCore;
         namespace parser {
@@ -59,7 +62,9 @@ namespace csv {
          *
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          */
+#if CSV_EXCEPTIONS_ENABLED
         CSVFormat& delimiter(char delim);
+#endif
 
         /** Sets a list of potential delimiters
          *
@@ -67,19 +72,40 @@ namespace csv {
          *  
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          */
+#if CSV_EXCEPTIONS_ENABLED
         CSVFormat& delimiter(const std::vector<char> & delim);
+#endif
 
         /** Sets the whitespace characters to be trimmed
          *
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          */
+#if CSV_EXCEPTIONS_ENABLED
         CSVFormat& trim(const std::vector<char> & ws);
+#endif
 
         /** Sets the quote character
          *
          *  @throws `std::runtime_error` thrown if trim, quote, or possible delimiting characters overlap
          */
+#if CSV_EXCEPTIONS_ENABLED
         CSVFormat& quote(char quote);
+#else
+        // Prevent a char from silently selecting quote(bool).
+        CSVFormat& quote(char) = delete;
+#endif
+
+        /** Set parsing characters, returning false and preserving the format on invalid input. */
+        bool try_delimiter(char delim, CSVError& error);
+        bool try_delimiter(const std::vector<char>& delims, CSVError& error);
+        bool try_trim(const std::vector<char>& whitespace, CSVError& error);
+        bool try_quote(char quote, CSVError& error);
+
+        /** Set a valid chunk size, preserving the previous value on failure. */
+        bool try_chunk_size(size_t size, CSVError& error);
+
+        /** Retrieve a resolved delimiter; unresolved candidate lists report InvalidFormat. */
+        bool try_get_delim(char& out, CSVError& error) const;
 
         /** Sets the column names.
          *
@@ -142,7 +168,9 @@ namespace csv {
          *  may exceed the default 10MB chunk size. The value is passed to CSVReader at
          *  construction time, before any data is read.
          */
+#if CSV_EXCEPTIONS_ENABLED
         CSVFormat& chunk_size(size_t size);
+#endif
 
         /** Enable or disable parser threading at runtime.
          *
@@ -184,14 +212,9 @@ namespace csv {
         }
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-        char get_delim() const {
-            // This error should never be received by end users.
-            if (this->possible_delimiters.size() > 1) {
-                throw std::runtime_error(internals::ERROR_MULTIPLE_DELIMITERS);
-            }
-
-            return this->possible_delimiters.at(0);
-        }
+#if CSV_EXCEPTIONS_ENABLED
+        char get_delim() const;
+#endif
 
         CONSTEXPR bool is_quoting_enabled() const { return !this->no_quote; }
         CONSTEXPR char get_quote_char() const { return this->quote_char; }
@@ -226,17 +249,7 @@ namespace csv {
 #endif
         
         /** CSVFormat preset for delimiter inference with header/n_cols inference enabled. */
-        CSV_INLINE static CSVFormat guess_csv() {
-            CSVFormat format;
-            format.delimiter({ ',', '|', '\t', ';', '^' })
-                .quote('"');
-            // Assign header directly rather than via header_row() so that
-            // header_explicitly_set_ remains false — the guesser must be free
-            // to detect the real header row at construction time.
-            format.header = 0;
-
-            return format;
-        }
+        static CSVFormat guess_csv();
 
         bool guess_delim() const {
             return this->possible_delimiters.size() > 1;
@@ -246,10 +259,12 @@ namespace csv {
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         friend class internals::CSVParserCore;
         friend internals::parser::CSVParserDriverBase;
+        friend char internals::resolved_delimiter(const CSVFormat& format) noexcept;
         
     private:
-        /**< Throws an error if delimiters and trim characters overlap */
-        void assert_no_char_overlap();
+        static bool validate_characters(
+            const std::vector<char>& delims, const std::vector<char>& whitespace,
+            char quote, CSVError& error);
 
         /**< Set of possible delimiters */
         std::vector<char> possible_delimiters = { ',' };

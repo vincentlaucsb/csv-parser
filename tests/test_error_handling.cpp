@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 /** @file
  *  Tests for error handling and exception propagation (PR #282)
  *  
@@ -378,4 +381,83 @@ TEST_CASE("System error contains diagnostic information", "[error_handling][diag
             REQUIRE(error_msg.find("file=") != std::string::npos);
         }
     }
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+using namespace csv_test::explicit_errors;
+
+namespace {
+    // Hide read() so the source adapter encounters a failure after a full 10MB
+    // window, exercising both error-state and exception-mask reporting.
+    class LateFailStream : public std::ifstream {
+    public:
+        explicit LateFailStream(const std::string& filename)
+            : std::ifstream(filename, std::ios::binary) {}
+        LateFailStream& read(char* destination, std::streamsize size) {
+            if (bytes_read_ >= internals::CSV_CHUNK_SIZE_DEFAULT) {
+                this->setstate(std::ios::badbit);
+                return *this;
+            }
+            const size_t remaining = internals::CSV_CHUNK_SIZE_DEFAULT - bytes_read_;
+            const auto limited = std::min(size, static_cast<std::streamsize>(remaining));
+            std::ifstream::read(destination, limited);
+            bytes_read_ += static_cast<size_t>(this->gcount());
+            return *this;
+        }
+    private:
+        size_t bytes_read_ = 0;
+    };
+}
+
+TEST_CASE("Explicit reads report late row errors and remain failed", "[explicit_errors][chunk_boundary]") {
+    // The malformed row lies after 500K rows, beyond the first 10MB read.
+    const bool threaded = GENERATE(false, true);
+    const std::string& filename = large_csv(true);
+    CSVError error;
+    const CSVFormat format = large_format(threaded);
+    const auto validate = [&](CSVReader& reader) {
+        CSVRow row;
+        size_t count = 0;
+        while (reader.try_read_row(row, error)) ++count;
+        REQUIRE(count == large_row_count);
+        REQUIRE(error.code == CSVErrorCode::RowLengthMismatch);
+        const std::string message = error.message();
+        REQUIRE_FALSE(reader.try_read_row(row, error));
+        REQUIRE(error.code == CSVErrorCode::RowLengthMismatch);
+        REQUIRE(error.message() == message);
+    };
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(filename, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("A worker read failure is returned after the initial window", "[explicit_errors][chunk_boundary]") {
+    const bool threaded = GENERATE(false, true);
+    LateFailStream input(large_csv(false));
+#if CSV_EXCEPTIONS_ENABLED
+    // Exercise both badbit reporting and a throwing borrowed stream in the worker.
+    if (GENERATE(false, true)) input.exceptions(std::ios::badbit);
+#endif
+    CSVError error;
+    auto reader = CSVReader::try_open(input, error, large_format(threaded));
+    REQUIRE(reader);
+    CSVRow row;
+    size_t count = 0;
+    while (reader->try_read_row(row, error)) ++count;
+    REQUIRE(count > 0);
+    REQUIRE(count < large_row_count);
+    REQUIRE(error.code == CSVErrorCode::ReadFailed);
+    REQUIRE_FALSE(reader->try_read_row(row, error));
+    REQUIRE(error.code == CSVErrorCode::ReadFailed);
 }

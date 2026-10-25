@@ -37,6 +37,7 @@ namespace csv {
             ) : CSVParserDriverBase(format, col_names),
                 source_(source) {
                 this->resolve_format_from_head(format);
+                if (this->error_) return;
                 this->parse_orchestrator_ = make_csv_parse_orchestrator(
                     this->parse_flags_,
                     this->whitespace_flags(),
@@ -68,12 +69,12 @@ namespace csv {
             ~StreamParser() {}
 
             std::string& get_csv_head() override {
-                leftover_ = get_csv_head_stream(this->source_);
+                leftover_ = get_csv_head_stream(this->source_, this->error_);
                 return this->leftover_;
             }
 
             void next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) override {
-                if (this->eof()) return;
+                if (this->eof() || this->error_) return;
 
                 auto chunk_owner = std::make_shared<std::string>();
                 auto& chunk = *chunk_owner;
@@ -92,7 +93,25 @@ namespace csv {
                     ? window_size - chunk.size()
                     : bytes;
                 std::unique_ptr<char[]> buf(new char[read_size]);
-                source_.read(buf.get(), (std::streamsize)read_size);
+#if !CSV_EXCEPTIONS_ENABLED
+                if (source_.exceptions() != std::ios::goodbit) {
+                    fail(this->error_, CSVErrorCode::InvalidArgument,
+                        "Explicit CSV reads require a non-throwing stream exception mask.");
+                    return;
+                }
+#endif
+#if CSV_EXCEPTIONS_ENABLED
+                try {
+#endif
+                    source_.read(buf.get(), static_cast<std::streamsize>(read_size));
+#if CSV_EXCEPTIONS_ENABLED
+                } catch (const std::ios_base::failure&) {
+                    if (!source_.eof() || source_.bad()) {
+                        fail(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                        return;
+                    }
+                }
+#endif
 
                 const size_t n = static_cast<size_t>(source_.gcount());
 
@@ -101,8 +120,9 @@ namespace csv {
                 // Check for real I/O errors only (bad bit indicates unrecoverable error).
                 // failbit alone is not fatal - it's set on EOF or when requesting bytes
                 // beyond available data, which is normal behavior for stringstreams.
-                if (source_.bad()) {
-                    throw_stream_read_failure();
+                if (source_.bad() || (source_.fail() && !source_.eof())) {
+                    fail(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                    return;
                 }
 
                 const bool source_exhausted = source_.eof() || chunk.empty();
@@ -112,8 +132,9 @@ namespace csv {
                     this->stream_pos_,
                     bytes,
                     source_exhausted,
-                    this->output()
+                    this->output(), this->error_
                 );
+                if (this->error_) return;
 
                 if (source_exhausted) {
                     this->eof_ = true;

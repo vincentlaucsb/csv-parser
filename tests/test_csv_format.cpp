@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
 #include "shared/file_guard.hpp"
@@ -302,3 +305,48 @@ TEST_CASE("CSVReader honors runtime threading opt-out for filename inputs", "[cs
     REQUIRE(reader.speculative_diagnostics().chunks == 0);
 }
 #endif
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Explicit format validation preserves the last valid configuration", "[explicit_errors]") {
+    CSVFormat format;
+    CSVError error;
+    REQUIRE(format.try_delimiter('|', error));
+    REQUIRE_FALSE(error);
+    REQUIRE_FALSE(format.try_trim(std::vector<char>{'|'}, error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(format.get_trim_chars().empty());
+    char delimiter = '\0';
+    REQUIRE(format.try_get_delim(delimiter, error));
+    REQUIRE(delimiter == '|');
+    REQUIRE_FALSE(error);
+    REQUIRE_FALSE(format.try_chunk_size(1, error));
+    REQUIRE(error.code == CSVErrorCode::InvalidChunkSize);
+    REQUIRE(format.get_chunk_size() == internals::CSV_CHUNK_SIZE_DEFAULT);
+    REQUIRE(format.try_quote('\'', error));
+    REQUIRE_FALSE(error);
+    REQUIRE_FALSE(format.try_delimiter(std::vector<char>{}, error));
+    REQUIRE(error);
+    REQUIRE(format.try_get_delim(delimiter, error));
+    REQUIRE(delimiter == '|');
+    REQUIRE_FALSE(error);
+}
+
+TEST_CASE("Checked format conflicts preserve quote and delimiter settings", "[explicit_errors]") {
+    CSVFormat format;
+    CSVError error;
+    REQUIRE_FALSE(format.try_quote(',', error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(format.get_quote_char() == '"');
+    REQUIRE(format.try_trim({' '}, error));
+    REQUIRE_FALSE(format.try_quote(' ', error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(format.try_delimiter(std::vector<char>{',', '|'}, error));
+    char delimiter = '?';
+    REQUIRE_FALSE(format.try_get_delim(delimiter, error));
+    REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+    REQUIRE(delimiter == '?');
+}

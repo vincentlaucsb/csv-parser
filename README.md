@@ -154,7 +154,22 @@ Shameless plug: If you like this library, check out my side project
 While C++20 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
-This library requires C++ exceptions to be enabled (for example, do not compile with `-fno-exceptions`).
+Exception support is detected automatically. Use `-DCSV_ENABLE_EXCEPTIONS=OFF`
+with CMake, or your compiler's exception-disabled flags, to select the explicit-error
+API. The same operations are also available in exception-enabled builds:
+
+```cpp
+csv::CSVError error;
+auto reader = csv::CSVReader::try_open("items.csv", error);
+if (reader) {
+    csv::CSVRow row;
+    while (reader->try_read_row(row, error)) { /* process row */ }
+}
+if (error) std::cerr << error.message() << '\n';
+```
+
+See the [Godot / no-exceptions guide](https://vincentlaucsb.github.io/csv-parser/no_exceptions.html)
+for engine-owned resources, conversions, DataFrames, writing, and error semantics.
 
 SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
 
@@ -217,7 +232,7 @@ Single-threaded mode is useful for embedded targets, environments where `std::th
 ### Emscripten / WebAssembly
 On Emscripten, `CSV_ENABLE_THREADS` is forced off and memory-mapped parsing is replaced by the stream-based parser. The filename constructor (`CSVReader("file.csv")`) still works—it opens an `std::ifstream` internally instead of using mmap.
 
-Emscripten builds must keep C++ exceptions enabled. In practice, compile/link with exception support (for example, `-fexceptions`) and do not disable exception catching.
+Emscripten builds support the same explicit-error APIs with exceptions disabled. CMake no longer forces exception handling on; use the compiler settings appropriate for the application.
 
 ### Single Header
 **[📥 Download csv.hpp](https://vincentlaucsb.github.io/csv-parser/csv.hpp)** — Available on GitHub Pages

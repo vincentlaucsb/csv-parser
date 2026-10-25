@@ -1,0 +1,120 @@
+name: Explicit error API
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  error-api:
+    name: ${{ matrix.os }} C++${{ matrix.standard }} exceptions=${{ matrix.exceptions }} threads=${{ matrix.threads }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, standard: 11, exceptions: "ON", threads: "ON"}
+          - {os: ubuntu-latest, standard: 11, exceptions: "OFF", threads: "OFF"}
+          - {os: ubuntu-latest, standard: 20, exceptions: "ON", threads: "OFF"}
+          - {os: ubuntu-latest, standard: 20, exceptions: "OFF", threads: "ON", autodetect: true}
+          - {os: ubuntu-latest, standard: 23, exceptions: "ON", threads: "ON"}
+          - {os: ubuntu-latest, standard: 23, exceptions: "OFF", threads: "ON"}
+          - {os: ubuntu-latest, standard: 23, exceptions: "OFF", threads: "OFF"}
+          - {os: windows-latest, standard: 20, exceptions: "OFF", threads: "ON"}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      - name: Select GCC 14 for C++23 expected coverage
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if ! command -v g++-14 >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y g++-14
+          fi
+
+      - name: Install single_header
+        id: single-header
+        uses: vincentlaucsb/single_header@0.1.0
+        with:
+          run: "false"
+
+      - name: Cache Catch2 source
+        uses: actions/cache@v5
+        with:
+          path: .cache/fetchcontent
+          key: explicit-error-deps-${{ runner.os }}-${{ hashFiles('tests/CMakeLists.txt') }}
+
+      - name: Configure
+        shell: bash
+        run: |
+          flags=(-DCSV_ENABLE_EXCEPTIONS=${{ matrix.exceptions }})
+          compiler_flags=()
+          if [ "$RUNNER_OS" != Windows ]; then
+            compiler_flags=(-DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14)
+          fi
+          if [ "${{ matrix.autodetect }}" = true ]; then
+            flags=(-DCSV_ENABLE_EXCEPTIONS=ON -DCMAKE_CXX_FLAGS=-fno-exceptions)
+          fi
+          cmake -S . -B build/error-api -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCSV_CXX_STANDARD=${{ matrix.standard }} \
+            -DCSV_ENABLE_THREADS=${{ matrix.threads }} \
+            -DCSV_BUILD_PROGRAMS=OFF \
+            -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON \
+            -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/.cache/fetchcontent" \
+            -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}" \
+            "${flags[@]}" "${compiler_flags[@]}"
+
+      - name: Build linked and generated-header consumers
+        run: cmake --build build/error-api --target csv_test csv_write_test data_frame_test csv_error_api_smoke single_include_test --parallel 2
+
+      - name: Test categorical suites and exact-standard consumer
+        run: ctest --test-dir build/error-api --output-on-failure
+
+      - name: Run generated-header consumer
+        shell: bash
+        run: ./build/error-api/single_include_test/single_include_test
+
+      - name: Verify standalone compiler-flag detection
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          flags=(-DCSV_TEST_EXCEPTIONS=1)
+          if [ "${{ matrix.exceptions }}" = OFF ]; then
+            flags=(-fno-exceptions -DCSV_TEST_EXCEPTIONS=0)
+          fi
+          if [ "${{ matrix.standard }}" = 23 ]; then
+            flags+=(-DCSV_TEST_EXPECT_EXPECTED=1)
+          fi
+          threads=0
+          if [ "${{ matrix.threads }}" = ON ]; then threads=1; fi
+          g++-14 -std=c++${{ matrix.standard }} -pthread \
+            -DCSV_ENABLE_THREADS="$threads" \
+            -DCSV_TEST_CXX_STANDARD=${{ matrix.standard }} \
+            -I build/error-api/single_include_generated "${flags[@]}" \
+            tests/compatibility/explicit_errors/smoke.cpp \
+            tests/compatibility/explicit_errors/second.cpp \
+            -o build/error-api/standalone
+          ./build/error-api/standalone
+
+      - name: Verify standalone MSVC flag detection
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          cl /nologo /std:c++20 /EHs-c- /D_HAS_EXCEPTIONS=0 /DCSV_TEST_EXCEPTIONS=0 /DCSV_TEST_CXX_STANDARD=20 /DCSV_ENABLE_THREADS=1 /I build\error-api\single_include_generated tests\compatibility\explicit_errors\smoke.cpp tests\compatibility\explicit_errors\second.cpp /Fe:build\error-api\standalone.exe /Fo:build\error-api\
+          build\error-api\standalone.exe

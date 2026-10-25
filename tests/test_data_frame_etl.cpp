@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -617,3 +620,54 @@ TEST_CASE("ETL stats helper: persons.csv", "[data_frame][etl][stats]") {
     REQUIRE(ceill(stats.means()[2]) == 42);
 }
 #endif
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+using namespace csv_test::explicit_errors;
+
+TEST_CASE("Type inference stops after the first failed batch", "[explicit_errors][chunk_boundary]") {
+    // A short KEEP row must fail inference before consuming the remaining
+    // 500K-row source, including when a worker prefetched later windows.
+    const std::string& filename = large_csv(false, true);
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    CSVError error;
+    const auto validate = [&](CSVReader& reader) {
+        auto types = try_csv_data_types(reader, error);
+        REQUIRE(types.empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(reader.n_rows() <= 5000);
+    };
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(filename, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("Checked reads reject zero chunks without consuming rows", "[explicit_errors]") {
+    CSVError error;
+    auto reader = try_parse("a,b\n3,7\n", error);
+    REQUIRE(reader);
+    std::vector<CSVRow> rows;
+    REQUIRE_FALSE(reader->try_read_chunk(rows, 0, error));
+    REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    std::vector<size_t> states(2);
+    const auto count = [](const DataFrameColumn<std::string>& column, size_t& state) {
+        state += column.size();
+    };
+    REQUIRE_FALSE(try_chunk_parallel_apply(*reader, states, count, error, 0));
+    REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    REQUIRE(reader->n_rows() == 0);
+    REQUIRE(try_chunk_parallel_apply(*reader, states, count, error, 1));
+    REQUIRE_FALSE(error);
+    REQUIRE(states == std::vector<size_t>{1, 1});
+}

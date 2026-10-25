@@ -20,9 +20,10 @@ namespace csv {
             // into guess_format.
             std::vector<CSVRow> rows;
 
+            const char delimiter = resolved_delimiter(format);
             const auto parse_flags = format.is_quoting_enabled()
-                ? make_parse_flags(format.get_delim(), format.get_quote_char())
-                : make_parse_flags(format.get_delim());
+                ? make_parse_flags(delimiter, format.get_quote_char())
+                : make_parse_flags(delimiter);
             const auto ws_flags = make_ws_flags(format.get_trim_chars());
             auto head_owner = std::make_shared<std::string>(std::string(head));
             CSVParserCore<std::vector<CSVRow>> parser(parse_flags, ws_flags);
@@ -69,7 +70,12 @@ namespace csv {
             return { header_row, mode_row_length, final_score };
         }
 
-        CSV_INLINE CSVGuessResult guess_format(csv::string_view head, const std::vector<char>& delims) {
+        CSV_INLINE CSVGuessResult guess_format(csv::string_view head, const std::vector<char>& delims, CSVError& error) {
+            error.clear();
+            if (delims.empty()) {
+                fail(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+                return {',', 0, 0};
+            }
             /** For each delimiter, find out which row length was most common (mode).
              *  The delimiter with the highest score (row_length * count) wins.
              *
@@ -80,7 +86,9 @@ namespace csv {
             // per candidate). This also rejects UTF-16/UTF-32 before guessing
             // scores mis-decoded bytes.
             bool utf8_bom = false;
-            head = head.substr(get_bom_skip_or_throw(head, utf8_bom));
+            const size_t bom_skip = get_bom_skip(head, utf8_bom, error);
+            if (error) return {',', 0, 0};
+            head = head.substr(bom_skip);
 
             CSVFormat format;
             size_t max_score = 0;
@@ -89,7 +97,8 @@ namespace csv {
             char current_delim = delims[0];
 
             for (char cand_delim : delims) {
-                auto result = calculate_score(head, format.delimiter(cand_delim));
+                if (!format.try_delimiter(cand_delim, error)) return {',', 0, 0};
+                auto result = calculate_score(head, format);
 
                 if ((size_t)result.score > max_score) {
                     max_score = (size_t)result.score;

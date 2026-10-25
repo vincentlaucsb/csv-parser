@@ -5,6 +5,9 @@ For quick examples, go to this project's [GitHub page](https://github.com/vincen
 
 Python users should start with the [fastpycsv Python bindings](python/index.html).
 
+For exception-disabled builds and engine-owned resources, see
+[No-exceptions and Godot integration](@ref no_exceptions).
+
 ## Outline
 
 ### CSV Reading

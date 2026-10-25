@@ -146,9 +146,11 @@ namespace csv {
             }
 
             void rethrow_exception_if_any() {
+#if CSV_EXCEPTIONS_ENABLED
                 if (auto eptr = this->take_exception()) {
                     std::rethrow_exception(eptr);
                 }
+#endif
             }
 
         private:
@@ -157,12 +159,16 @@ namespace csv {
             std::mutex exception_lock_;
 
             void run_now(std::function<void()> task) noexcept {
+#if CSV_EXCEPTIONS_ENABLED
                 try {
+#endif
                     task();
+#if CSV_EXCEPTIONS_ENABLED
                 }
                 catch (...) {
                     this->adopt_exception(std::current_exception());
                 }
+#endif
             }
         };
 
@@ -243,9 +249,11 @@ namespace csv {
             }
 
             void rethrow_exception_if_any() {
+#if CSV_EXCEPTIONS_ENABLED
                 if (auto eptr = this->take_exception()) {
                     std::rethrow_exception(eptr);
                 }
+#endif
             }
 
         private:
