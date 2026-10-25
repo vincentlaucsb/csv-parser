@@ -38,40 +38,28 @@ namespace csv {
         /** Access a field by column name, preserving edit support. */
 #if CSV_EXCEPTIONS_ENABLED
         DataFrameCell operator[](const std::string& col) {
-            CSVError error;
-            auto result = this->try_field(col, error);
-            internals::throw_dataframe_error(error);
-            return result;
+            return field_or_throw(*this, col);
         }
 #endif
 
         /** Access a field by position, preserving edit support. */
 #if CSV_EXCEPTIONS_ENABLED
         DataFrameCell operator[](size_t n) {
-            CSVError error;
-            auto result = this->try_field(n, error);
-            internals::throw_dataframe_error(error);
-            return result;
+            return field_or_throw(*this, n);
         }
 #endif
 
         /** Access a field by column name, checking edits first. */
 #if CSV_EXCEPTIONS_ENABLED
         DataFrameCell operator[](const std::string& col) const {
-            CSVError error;
-            auto result = this->try_field(col, error);
-            internals::throw_dataframe_error(error);
-            return result;
+            return field_or_throw(*this, col);
         }
 #endif
 
         /** Access a field by position, checking edits first. */
 #if CSV_EXCEPTIONS_ENABLED
         DataFrameCell operator[](size_t n) const {
-            CSVError error;
-            auto result = this->try_field(n, error);
-            internals::throw_dataframe_error(error);
-            return result;
+            return field_or_throw(*this, n);
         }
 #endif
 
@@ -199,6 +187,17 @@ namespace csv {
 #endif
 
     private:
+#if CSV_EXCEPTIONS_ENABLED
+        // Preserve the proxy's constness when selecting checked access.
+        template<typename Self, typename Column>
+        static DataFrameCell field_or_throw(Self& self, const Column& column) {
+            CSVError error;
+            auto result = self.try_field(column, error);
+            internals::throw_dataframe_error(error);
+            return result;
+        }
+#endif
+
         bool validate_field(size_t index, CSVError& error) const {
             error.clear();
             if (!row)

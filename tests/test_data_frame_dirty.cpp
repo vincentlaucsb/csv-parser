@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 #include <cstdint>
 #include <atomic>
 #include <fstream>
@@ -603,5 +606,119 @@ TEST_CASE("DataFrame: direct column views preserve parsed and edited field bytes
         std::ifstream input(filename, std::ios::binary);
         CSVReader reader(input, format);
         validate(reader);
+    }
+}
+
+TEST_CASE("DataFrame: const row access preserves read-only cells for both selectors", "[data_frame]") {
+    // Const access to a mutable proxy must select read-only cells, including
+    // after sparse edits. Sharing the throwing adapters must retain that choice.
+    DataFrame<> frame;
+    frame.append_column("name");
+    frame.append_column("value");
+    frame.insert_row(0, {"original", "17"});
+    auto row = frame.at(0);
+    row[size_t{0}] = "edited";
+    row["value"] = "29";
+
+    const auto& read_only = row;
+    REQUIRE(read_only[size_t{0}].get<std::string>() == "edited");
+    REQUIRE(read_only["value"].get<int>() == 29);
+    REQUIRE_THROWS_AS(read_only[size_t{0}] = "blocked", std::runtime_error);
+    REQUIRE_THROWS_AS(read_only["value"] = "blocked", std::runtime_error);
+    REQUIRE_THROWS_AS(row[size_t{2}], std::out_of_range);
+    REQUIRE_THROWS_AS(read_only[size_t{2}], std::out_of_range);
+    REQUIRE_THROWS_AS(row["missing"], std::out_of_range);
+    REQUIRE_THROWS_AS(read_only["missing"], std::out_of_range);
+    REQUIRE(row["name"].get<std::string>() == "edited");
+    REQUIRE(row[size_t{1}].get<int>() == 29);
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Explicit DataFrame operations preserve edits and report invalid operations", "[explicit_errors][data_frame]") {
+    std::istringstream input("id,name,value\n1,Alice,10\n2,Bob,20\n");
+    CSVError error;
+    auto reader = CSVReader::try_open(input, error);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    auto row = frame->try_at(0, error);
+    auto cell = row.try_field("name", error);
+    REQUIRE_FALSE(error);
+    REQUIRE(cell.try_assign("Alicia", error));
+    REQUIRE(frame->try_append_column("extra", "new", error));
+    row = frame->try_at(0, error);
+    cell = row.try_field("name", error);
+    REQUIRE_FALSE(error);
+    REQUIRE(cell.get_sv() == "Alicia");
+    auto added = row.try_field("extra", error);
+    REQUIRE(added.get_sv() == "new");
+    REQUIRE_FALSE(frame->try_insert_row(99, std::vector<std::string>{}, error));
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    REQUIRE_FALSE(frame->try_append_column("name", error));
+    REQUIRE(error);
+    REQUIRE(frame->n_cols() == 4);
+    frame->try_at(99, error);
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    const auto& read_only = *frame;
+    auto const_row = read_only.try_at(0, error);
+    auto const_cell = const_row.try_field("name", error);
+    REQUIRE_FALSE(const_cell.try_assign("bad", error));
+    REQUIRE(error.code == CSVErrorCode::ReadOnlyProxy);
+    auto column = frame->try_column_view("name", error);
+    REQUIRE_FALSE(error);
+    REQUIRE(frame->try_append_column("last", error));
+    column.try_get_sv(0, error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+}
+
+TEST_CASE("Checked DataFrame operations validate retained short rows", "[explicit_errors][data_frame]") {
+    // KEEP rows have a wider visible schema than their physical storage. These
+    // APIs must report the missing field before serialization or materialization.
+    FileGuard file("tests/data/fake_data/explicit_errors_short_operations.csv");
+    { std::ofstream out(file.filename); out << "a,b\n1,17\n2\n"; }
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    CSVError error;
+    const auto validate = [&](CSVReader& reader) {
+        auto frame = DataFrame<>::try_create(reader, error);
+        REQUIRE(frame);
+        auto row = frame->try_at(1, error);
+        REQUIRE(row.try_to_json({}, error).empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(row.try_to_json_array({"b"}, error).empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(row.try_to_json({"missing"}, error).empty());
+        REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+        auto column = frame->try_column_view("b", error);
+        REQUIRE(column.try_to_vector<int>(error) == std::vector<int>{17});
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(frame->try_group_by("b", error).empty());
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE_FALSE(frame->try_append_column("extra", "new", error));
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(frame->n_cols() == 2);
+        REQUIRE(frame->size() == 2);
+        auto valid = frame->try_at(0, error).try_field("b", error);
+        REQUIRE(valid.get_sv() == "17");
+        REQUIRE(valid.try_assign("edited", error));
+        // Exercise the same validation after promotion to sparse edit storage.
+        REQUIRE_FALSE(frame->try_append_column("extra", error));
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE(frame->try_at(0, error).try_field("b", error).get_sv() == "edited");
+    };
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(file.filename, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        validate(*reader);
     }
 }

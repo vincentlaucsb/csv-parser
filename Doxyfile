@@ -924,7 +924,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE = Doxy.md
+USE_MDFILE_AS_MAINPAGE = docs/source/Doxy.md
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -2045,6 +2045,7 @@ INCLUDE_FILE_PATTERNS  =
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
 PREDEFINED             = DOXYGEN_SHOULD_SKIP_THIS \
+                         CSV_EXCEPTIONS_ENABLED:=1 \
                          CSV_HAS_CXX17=1 \
                          CSV_HAS_CXX20=1 \
                          CSV_HAS_CXX23=1 \

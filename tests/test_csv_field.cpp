@@ -1,4 +1,7 @@
 #include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
+#include "csv.hpp"
 #include <chrono>
 #include <catch2/catch_all.hpp>
 #ifdef CSV_HAS_CXX17
@@ -458,4 +461,46 @@ TEST_CASE("CSVField Equality Operator", "[test_csv_field_operator==]") {
     REQUIRE(field == "3.14");
     REQUIRE(field == 3.14f);
     REQUIRE(field == 3.14);
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Explicit conversion errors share the expected error model", "[explicit_errors]") {
+    CSVConversionError error = CSVConversionError::Overflow;
+    int value = 42;
+    REQUIRE(CSVField("17").try_get(value, error));
+    REQUIRE(value == 17);
+    REQUIRE(error == CSVConversionError::None);
+    REQUIRE_FALSE(CSVField("text").try_get(value, error));
+    REQUIRE(error == CSVConversionError::NotANumber);
+    REQUIRE(value == 17);
+    REQUIRE_FALSE(CSVField("1.5").try_get(value, error));
+    REQUIRE(error == CSVConversionError::FloatToInt);
+    unsigned positive = 12;
+    REQUIRE_FALSE(CSVField("-1").try_get(positive, error));
+    REQUIRE(error == CSVConversionError::NegativeToUnsigned);
+    signed char small = 0;
+    REQUIRE_FALSE(CSVField("128").try_get(small, error));
+    REQUIRE(error == CSVConversionError::Overflow);
+    std::string text;
+    REQUIRE(CSVField("hello").try_get(text, error));
+    REQUIRE(text == "hello");
+    REQUIRE(error == CSVConversionError::None);
+    csv::string_view view;
+    REQUIRE(CSVField("view").try_get(view, error));
+    REQUIRE(view == "view");
+    long double number = 0;
+    REQUIRE(CSVField("2.5").try_get(number, error));
+    REQUIRE(number == 2.5L);
+#ifdef CSV_HAS_STD_EXPECTED
+    auto converted = CSVField("1.5").as<int>();
+    REQUIRE_FALSE(converted);
+    REQUIRE(converted.error() == CSVConversionError::FloatToInt);
+#endif
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(CSVField("text").get<int>(), std::runtime_error);
+#endif
 }

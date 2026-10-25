@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 /** @file
  *  Tests for CSV parsing
  */
@@ -115,3 +118,54 @@ TEST_CASE("get_col_names(filename, format)", "[test_get_col_names_filename_forma
     }
 }
 #endif
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Format guessing translates errors only at the public boundary", "[explicit_errors][guess_format]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_guess_format.csv");
+    { std::ofstream out(file.filename); out << "left|right\n3|7\n"; }
+    CSVError error;
+    SECTION("Successful format") {
+        auto format = try_guess_format(file.filename, error, {'|'});
+        REQUIRE_FALSE(error);
+        REQUIRE(format.delim == '|');
+        REQUIRE(format.header_row == 0);
+        REQUIRE(format.n_cols == 2);
+#if CSV_EXCEPTIONS_ENABLED
+        auto throwing = guess_format(file.filename, {'|'});
+        REQUIRE(throwing.delim == format.delim);
+        REQUIRE(throwing.header_row == format.header_row);
+        REQUIRE(throwing.n_cols == format.n_cols);
+#endif
+    }
+    SECTION("Missing source") {
+        const auto missing = file.filename + ".missing";
+        try_guess_format(missing, error);
+        REQUIRE(error.code == CSVErrorCode::OpenFailed);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_AS(guess_format(missing), std::runtime_error);
+#endif
+    }
+    SECTION("No delimiter candidates") {
+        try_guess_format(file.filename, error, {});
+        REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_AS(guess_format(file.filename, {}), std::runtime_error);
+#endif
+    }
+    SECTION("Unsupported encoding") {
+        {
+            std::ofstream out(file.filename, std::ios::binary);
+            const char bytes[] = {'\xFF', '\xFE', 'A', '\0'};
+            out.write(bytes, sizeof(bytes));
+        }
+        try_guess_format(file.filename, error);
+        REQUIRE(error.code == CSVErrorCode::UnsupportedEncoding);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_WITH(guess_format(file.filename), Catch::Matchers::ContainsSubstring("UTF-16"));
+#endif
+    }
+}

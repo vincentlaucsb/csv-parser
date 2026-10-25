@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 //
 // Tests for third-party stream compatibility
 // Issue #259: StreamParser compilation error with some stream sources
@@ -260,4 +263,57 @@ TEST_CASE("StringViewStreamBuf seek coverage", "[stream_sources][string_view_str
         REQUIRE(xs == std::vector<int>{10, 30});
         REQUIRE(ys == std::vector<int>{20, 40});
     }
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+#if CSV_EXCEPTIONS_ENABLED
+namespace {
+    class FailingReadBuffer : public std::streambuf {
+        std::streamsize xsgetn(char*, std::streamsize) override {
+            throw std::ios_base::failure("read failed");
+        }
+    };
+}
+#endif
+
+TEST_CASE("Checked stream reads distinguish throwing EOF from hard errors", "[explicit_errors]") {
+    CSVError error;
+    SECTION("EOF exception mask") {
+        std::istringstream input("a,b\n3,7\n");
+        input.exceptions(std::ios::failbit | std::ios::badbit);
+        auto reader = CSVReader::try_open(input, error);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE(reader);
+        CSVRow row;
+        REQUIRE(reader->try_read_row(row, error));
+        REQUIRE(row.try_field("b", error).get_sv() == "7");
+        REQUIRE_FALSE(reader->try_read_row(row, error));
+        REQUIRE_FALSE(error);
+#else
+        REQUIRE_FALSE(reader);
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+#endif
+        REQUIRE(input.exceptions() == (std::ios::failbit | std::ios::badbit));
+    }
+#if CSV_EXCEPTIONS_ENABLED
+    SECTION("Initial read failure") {
+        FailingReadBuffer buffer;
+        std::istream input(&buffer);
+        input.exceptions(std::ios::badbit);
+        REQUIRE_FALSE(CSVReader::try_open(input, error));
+        REQUIRE(error.code == CSVErrorCode::ReadFailed);
+        REQUIRE(input.exceptions() == std::ios::badbit);
+    }
+    SECTION("Owned stream constructor uses the same initialization") {
+        std::unique_ptr<std::istream> input(new std::istringstream("a,b\n3,7\n"));
+        CSVReader reader(std::move(input));
+        CSVRow row;
+        REQUIRE(reader.read_row(row));
+        REQUIRE(row["b"].get<int>() == 7);
+    }
+#endif
 }

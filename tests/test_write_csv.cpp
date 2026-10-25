@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -547,4 +550,201 @@ TEST_CASE("CSV Writer: DataFrame document obeys flush policy", "[test_csv_writer
         REQUIRE(buffer.sync_calls == 1);
         REQUIRE(buffer.str() == "a,b\n1,2\n3,4\n");
     }
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+namespace {
+    class FailingWriteBuffer : public std::streambuf {
+        std::streamsize xsputn(const char*, std::streamsize) override { return 0; }
+        int_type overflow(int_type) override { return traits_type::eof(); }
+    };
+
+    class FailingFlushBuffer : public std::stringbuf {
+        int sync() override { return -1; }
+    };
+
+    void require_closed_writer(CSVWriter<std::ofstream>& writer) {
+        CSVError error;
+        REQUIRE_FALSE(writer.try_flush(error));
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+        REQUIRE_FALSE(writer.try_write_row(error, "closed", 1));
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    }
+}
+
+TEST_CASE("Explicit writers report write flush and file-opening failures", "[explicit_errors][writer]") {
+    CSVError error;
+    SECTION("Write failure") {
+        FailingWriteBuffer buffer;
+        std::ostream output(&buffer);
+        CSVWriter<std::ostream> writer(output);
+        REQUIRE_FALSE(writer.try_write_row(error, "left", 23));
+        REQUIRE(error.code == CSVErrorCode::WriteFailed);
+    }
+    SECTION("Flush failure") {
+        FailingFlushBuffer buffer;
+        std::ostream output(&buffer);
+        CSVWriter<std::ostream> writer(output);
+        writer.set_auto_flush(false);
+        REQUIRE(writer.try_write_row(error, "left", 23));
+        REQUIRE_FALSE(error);
+        REQUIRE_FALSE(writer.try_flush(error));
+        REQUIRE(error.code == CSVErrorCode::WriteFailed);
+    }
+    SECTION("Missing output directory") {
+        auto writer = CSVWriter<std::ofstream>::try_open(
+            "tests/data/fake_data/explicit_errors_missing_directory/out.csv", error);
+        REQUIRE_FALSE(writer);
+        REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    }
+    SECTION("Borrowed stream exception settings are preserved") {
+        FailingWriteBuffer buffer;
+        std::ostream output(&buffer);
+        output.exceptions(std::ios::badbit);
+        CSVWriter<std::ostream> writer(output);
+        REQUIRE_FALSE(writer.try_write_row(error, "left", 23));
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE(error.code == CSVErrorCode::WriteFailed);
+#else
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+#endif
+        REQUIRE(output.exceptions() == std::ios::badbit);
+    }
+    SECTION("Owned output can be explicitly completed") {
+        FileGuard file("tests/data/fake_data/explicit_errors_output.csv");
+        auto writer = CSVWriter<std::ofstream>::try_open(file.filename, error);
+        REQUIRE(writer);
+        REQUIRE(writer->try_write_row(error, "a,b", "quoted\"value"));
+        REQUIRE(writer->try_close(error));
+        REQUIRE_FALSE(error);
+        std::ifstream input(file.filename);
+        std::stringstream content;
+        content << input.rdbuf();
+        REQUIRE(content.str() == "\"a,b\",\"quoted\"\"value\"\n");
+    }
+}
+
+TEST_CASE("Checked DataFrame writing reports short native rows", "[explicit_errors][writer][data_frame]") {
+    // KEEP intentionally retains a row shorter than the visible schema. The
+    // checked writer must report it rather than asserting in a row view.
+    std::istringstream input("a,b\n1\n");
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    CSVError error;
+    auto reader = CSVReader::try_open(input, error, format);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    SECTION("Complete frame including header") {
+        REQUIRE_FALSE(writer.try_write_row(error, *frame));
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    }
+#ifdef CSV_HAS_CXX20
+    SECTION("Bulk visible rows") {
+        REQUIRE_FALSE(writer.try_write_rows(*frame, error));
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    }
+#endif
+}
+
+TEST_CASE("Moving a closed writer does not reopen its output", "[explicit_errors][writer]") {
+    FileGuard first("tests/data/fake_data/explicit_errors_closed_first.csv");
+    FileGuard second("tests/data/fake_data/explicit_errors_closed_second.csv");
+    CSVError error;
+    auto writer = CSVWriter<std::ofstream>::try_open(first.filename, error);
+    REQUIRE(writer);
+    REQUIRE(writer->try_close(error));
+    CSVWriter<std::ofstream> moved(std::move(*writer));
+    require_closed_writer(moved);
+    auto assigned = CSVWriter<std::ofstream>::try_open(second.filename, error);
+    REQUIRE(assigned);
+    *assigned = std::move(moved);
+    require_closed_writer(*assigned);
+}
+
+#ifdef __linux__
+TEST_CASE("Moving a writer after failed close keeps it closed", "[explicit_errors][writer]") {
+    // /dev/full provides a deterministic owned-file write failure on Linux.
+    CSVError error;
+    auto writer = CSVWriter<std::ofstream>::try_open("/dev/full", error);
+    REQUIRE(writer);
+    writer->set_auto_flush(false);
+    REQUIRE(writer->try_write_row(error, "buffered", 1));
+    REQUIRE_FALSE(writer->try_close(error));
+    REQUIRE(error.code == CSVErrorCode::WriteFailed);
+    CSVWriter<std::ofstream> moved(std::move(*writer));
+    require_closed_writer(moved);
+    FileGuard file("tests/data/fake_data/explicit_errors_closed_after_failure.csv");
+    auto assigned = CSVWriter<std::ofstream>::try_open(file.filename, error);
+    REQUIRE(assigned);
+    *assigned = std::move(moved);
+    require_closed_writer(*assigned);
+}
+#endif
+
+TEST_CASE("Checked DataFrame writing retains edits and escapes every record", "[explicit_errors][writer][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n2,29\n", error);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    auto row = frame->try_at(0, error);
+    auto cell = row.try_field("value", error);
+    REQUIRE(cell.try_assign("x,y", error));
+    auto column = frame->try_column_view("value", error);
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    writer.set_auto_flush(false);
+    REQUIRE(writer.try_write_row(error, *frame));
+    REQUIRE(writer.try_write_row(error, row));
+    REQUIRE(writer.try_write_row(error, column));
+    REQUIRE(writer.try_flush(error));
+    REQUIRE_FALSE(error);
+    REQUIRE(output.str() == "id,value\n1,\"x,y\"\n2,29\n1,\"x,y\"\n\"x,y\",29\n");
+}
+
+TEST_CASE("Checked writers reject failed and borrowed close operations", "[explicit_errors][writer]") {
+    CSVError error;
+    SECTION("Already failed output") {
+        std::ostringstream output;
+        output.setstate(std::ios::badbit);
+        CSVWriter<std::ostringstream> writer(output);
+        REQUIRE_FALSE(writer.try_write_row(error, "left", 23));
+        REQUIRE(error.code == CSVErrorCode::WriteFailed);
+        REQUIRE(output.str().empty());
+    }
+    SECTION("Borrowed file and repeated close") {
+        FileGuard file("tests/data/fake_data/explicit_errors_borrowed_close.csv");
+        std::ofstream output(file.filename);
+        CSVWriter<std::ofstream> writer(output);
+        REQUIRE_FALSE(writer.try_close(error));
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+        REQUIRE(output.is_open());
+        REQUIRE(writer.try_write_row(error, "left", 23));
+        FileGuard owned_file("tests/data/fake_data/explicit_errors_repeated_close.csv");
+        auto owned = CSVWriter<std::ofstream>::try_open(owned_file.filename, error);
+        REQUIRE(owned);
+        REQUIRE(owned->try_close(error));
+        REQUIRE_FALSE(owned->try_close(error));
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    }
+#if CSV_EXCEPTIONS_ENABLED
+    SECTION("Destructor contains a buffered stream exception") {
+        FailingWriteBuffer buffer;
+        std::ostream output(&buffer);
+        output.exceptions(std::ios::badbit);
+        {
+            CSVWriter<std::ostream> writer(output);
+            writer.set_auto_flush(false);
+            REQUIRE(writer.try_write_row(error, "buffered", 23));
+        }
+        REQUIRE(output.bad());
+    }
+#endif
 }

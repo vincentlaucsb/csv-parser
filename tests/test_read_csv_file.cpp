@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 /** @file
  *  Tests for CSV parsing
  */
@@ -838,3 +841,160 @@ TEST_CASE("No-header n_cols inference with explicit delimiter", "[no_header_ncol
     }
 }
 #endif
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+using namespace csv_test::explicit_errors;
+
+TEST_CASE("Reader factories report initialization failure without partial objects", "[explicit_errors]") {
+    CSVError error;
+    SECTION("Missing filename") {
+        auto reader = CSVReader::try_open(
+            "tests/data/fake_data/explicit_errors_missing_directory/file.csv", error);
+        REQUIRE_FALSE(reader);
+        REQUIRE(error.code == CSVErrorCode::OpenFailed);
+        REQUIRE_FALSE(error.message().empty());
+    }
+    SECTION("Failed borrowed stream") {
+        std::ifstream input("tests/data/fake_data/explicit_errors_missing_directory/file.csv");
+        auto reader = CSVReader::try_open(input, error);
+        REQUIRE_FALSE(reader);
+        REQUIRE(error);
+    }
+    SECTION("Null owned stream") {
+        auto reader = CSVReader::try_open(std::unique_ptr<std::istream>(), error);
+        REQUIRE_FALSE(reader);
+        REQUIRE(error.code == CSVErrorCode::InvalidArgument);
+    }
+}
+
+TEST_CASE("Explicit row reads distinguish missing fields, failure and EOF", "[explicit_errors]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_rows.csv");
+    { std::ofstream out(file.filename); out << "left,right\n11,29\n"; }
+    CSVError error;
+    const auto validate = [&](CSVReader& reader) {
+        CSVRow row;
+        REQUIRE(reader.try_read_row(row, error));
+        REQUIRE_FALSE(error);
+        row.try_field("missing", error);
+        REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+        auto field = row.try_field("right", error);
+        REQUIRE_FALSE(error);
+        int value = 0;
+        REQUIRE(field.try_get(value));
+        REQUIRE(value == 29);
+        row.try_field(size_t{2}, error);
+        REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+        REQUIRE_FALSE(reader.try_read_row(row, error));
+        REQUIRE_FALSE(error);
+    };
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(file.filename, error);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("Explicit reads preserve distinct fields across 10MB", "[explicit_errors][chunk_boundary]") {
+    // Catches a no-exception path accidentally bypassing chunk ownership or
+    // consumer filtering while preserving all 500K distinct-value rows.
+    const bool threaded = GENERATE(false, true);
+    const std::string& filename = large_csv(false);
+    CSVError error;
+    const CSVFormat format = large_format(threaded);
+    const auto validate = [&](CSVReader& reader) {
+        std::vector<CSVRow> rows;
+        size_t count = 0;
+        while (reader.try_read_chunk(rows, 8192, error)) {
+            for (const auto& row : rows) {
+                if (row.size() != 5) FAIL("A row lost fields at a chunk boundary");
+                for (size_t column = 0; column < 5; ++column) {
+                    auto field = row.try_field(column, error);
+                    size_t value = 0;
+                    if (error || !field.try_get(value) || value != count * 5 + column) {
+                        CAPTURE(count, column, value);
+                        FAIL("A field was corrupted at a chunk boundary");
+                    }
+                }
+                ++count;
+            }
+        }
+        REQUIRE_FALSE(error);
+        REQUIRE(count == large_row_count);
+    };
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(filename, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("Explicit file helpers distinguish absent columns from I/O failures", "[explicit_errors]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_helpers.csv");
+    { std::ofstream out(file.filename); out << "left,right\n3,7\n"; }
+    CSVError error;
+    REQUIRE(try_get_col_pos(file.filename, "missing", error) == CSV_NOT_FOUND);
+    REQUIRE_FALSE(error);
+    REQUIRE(try_get_col_pos(file.filename, "right", error) == 1);
+    REQUIRE_FALSE(error);
+    auto info = try_get_file_info(file.filename, error);
+    REQUIRE_FALSE(error);
+    REQUIRE(info.n_rows == 1);
+    REQUIRE(info.n_cols == 2);
+}
+
+TEST_CASE("Checked file helpers retain opening failures", "[explicit_errors]") {
+    const std::string missing = "tests/data/fake_data/explicit_errors_missing_directory/file.csv";
+    CSVError error;
+    try_get_file_info(missing, error);
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    REQUIRE(try_get_col_names(missing, error).empty());
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    REQUIRE(try_get_col_pos(missing, "a", error) == CSV_NOT_FOUND);
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+    REQUIRE(try_csv_data_types(missing, error).empty());
+    REQUIRE(error.code == CSVErrorCode::OpenFailed);
+}
+
+TEST_CASE("Moved-from formats are validated before resolved delimiter access", "[explicit_errors][csv_format]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_moved_format.csv");
+    { std::ofstream out(file.filename); out << "left,right\n3,7\n"; }
+    CSVFormat format;
+    format.header_row(0);
+    CSVFormat destination(std::move(format));
+    REQUIRE(destination.get_possible_delims() == std::vector<char>{','});
+    // A moved-from vector is valid but may be empty. An explicitly configured
+    // header must not let that state bypass validation and reach unchecked access.
+    const bool empty_candidates = format.get_possible_delims().empty();
+    CSVError error;
+    const auto validate = [&](const std::unique_ptr<CSVReader>& reader) {
+        if (empty_candidates) {
+            REQUIRE_FALSE(reader);
+            REQUIRE(error.code == CSVErrorCode::InvalidFormat);
+        } else {
+            REQUIRE(reader);
+            REQUIRE_FALSE(error);
+        }
+    };
+    SECTION("Memory-mapped file") {
+        validate(CSVReader::try_open(file.filename, error, format));
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        validate(CSVReader::try_open(input, error, format));
+    }
+}

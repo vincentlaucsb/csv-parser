@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 /** @file
  *  Tests for CSV parsing
  */
@@ -997,4 +1000,31 @@ TEST_CASE("Trailing newline at EOF (stringstream)", "[trailing_newline_stringstr
     check("A,B,C\r\n1,2,3\r\n");   // CRLF
     check("A,B,C\n1,2,3\n");       // LF
     check("A,B,C\n1,2,3");         // no trailing newline (control)
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Internal BOM detection reports encoding errors", "[explicit_errors][read_unicode_bom]") {
+    CSVError error(CSVErrorCode::ReadFailed, "previous failure");
+    bool utf8_bom = true;
+    SECTION("UTF-8 clears an earlier error") {
+        REQUIRE(internals::get_bom_skip(csv::string_view("\xEF\xBB\xBF" "A,B\n", 7), utf8_bom, error) == 3);
+        REQUIRE_FALSE(error);
+        REQUIRE(utf8_bom);
+    }
+    SECTION("UTF-16") {
+        REQUIRE(internals::get_bom_skip(csv::string_view("\xFF\xFE" "A\0", 4), utf8_bom, error) == 0);
+        REQUIRE(error.code == CSVErrorCode::UnsupportedEncoding);
+        REQUIRE(error.context.find("UTF-16") != std::string::npos);
+        REQUIRE_FALSE(utf8_bom);
+    }
+    SECTION("UTF-32") {
+        REQUIRE(internals::get_bom_skip(csv::string_view("\x00\x00\xFE\xFF", 4), utf8_bom, error) == 0);
+        REQUIRE(error.code == CSVErrorCode::UnsupportedEncoding);
+        REQUIRE(error.context.find("UTF-32") != std::string::npos);
+        REQUIRE_FALSE(utf8_bom);
+    }
 }

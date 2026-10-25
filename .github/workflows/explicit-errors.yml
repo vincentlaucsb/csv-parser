@@ -81,10 +81,10 @@ jobs:
             "${flags[@]}" "${compiler_flags[@]}"
 
       - name: Build linked and generated-header consumers
-        run: cmake --build build/error-api --target csv_error_test csv_error_api_smoke single_include_test --parallel 2
+        run: cmake --build build/error-api --target csv_test csv_write_test data_frame_test csv_error_api_smoke single_include_test --parallel 2
 
-      - name: Test explicit errors and exact-standard consumer
-        run: ctest --test-dir build/error-api --output-on-failure -R "^csv_error_(test|api_smoke)$"
+      - name: Test categorical suites and exact-standard consumer
+        run: ctest --test-dir build/error-api --output-on-failure
 
       - name: Run generated-header consumer
         shell: bash

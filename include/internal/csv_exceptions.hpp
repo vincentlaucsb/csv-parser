@@ -118,14 +118,19 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
         /** Translate explicit library failures while preserving legacy exception categories. */
         inline void throw_error(const CSVError& error) {
-            if (!error) return;
-            if (error.code == CSVErrorCode::MappingFailed)
+            switch (error.code) {
+            case CSVErrorCode::None:
+                return;
+            case CSVErrorCode::MappingFailed:
                 throw std::system_error(error.system, error.context);
-            if (error.code == CSVErrorCode::InvalidArgument || error.code == CSVErrorCode::InvalidChunkSize)
+            case CSVErrorCode::InvalidArgument:
+            case CSVErrorCode::InvalidChunkSize:
                 throw std::invalid_argument(error.context);
-            if (error.code == CSVErrorCode::SizeLimitExceeded)
+            case CSVErrorCode::SizeLimitExceeded:
                 throw std::length_error(error.context);
-            throw std::runtime_error(error.context);
+            default:
+                throw std::runtime_error(error.context);
+            }
         }
         [[noreturn]] inline void throw_cannot_open_file(csv::string_view filename) {
             throw std::runtime_error(make_prefixed_message(ERROR_CANNOT_OPEN_FILE, filename));

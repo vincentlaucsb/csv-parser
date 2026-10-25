@@ -260,8 +260,7 @@ namespace csv {
         if (!reader) return {};
 
         CSVFormat format = reader->get_format();
-        char delimiter = 0;
-        if (!format.try_get_delim(delimiter, error)) return {};
+        const char delimiter = internals::resolved_delimiter(format);
 
         std::vector<CSVRow> rows;
         while (reader->try_read_chunk(rows, 50000, error)) {}

@@ -20,9 +20,7 @@ namespace csv {
             // into guess_format.
             std::vector<CSVRow> rows;
 
-            char delimiter = ',';
-            CSVError format_error;
-            if (!format.try_get_delim(delimiter, format_error)) return {0, 0, 0};
+            const char delimiter = resolved_delimiter(format);
             const auto parse_flags = format.is_quoting_enabled()
                 ? make_parse_flags(delimiter, format.get_quote_char())
                 : make_parse_flags(delimiter);

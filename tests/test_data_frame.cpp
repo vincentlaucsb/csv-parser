@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 #include <sstream>
 
 #include <catch2/catch_all.hpp>
@@ -1058,4 +1061,156 @@ TEST_CASE("DataFrame: document round trip across parser chunks", "[data_frame][d
         const DataFrame<> frame(reader);
         validate(frame);
     }
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Explicit keyed DataFrames retain key and conversion failure categories", "[explicit_errors][data_frame]") {
+    CSVError error;
+    DataFrameOptions options;
+    options.set_key_column("id").set_duplicate_key_policy(DataFrameOptions::DuplicateKeyPolicy::THROW);
+    SECTION("Duplicate key") {
+        std::istringstream input("id,value\n1,10\n1,20\n");
+        auto reader = CSVReader::try_open(input, error);
+        REQUIRE(reader);
+        auto frame = DataFrame<>::try_create(*reader, options, error);
+        REQUIRE_FALSE(frame);
+        REQUIRE(error.code == CSVErrorCode::DuplicateKey);
+    }
+    SECTION("Numeric key conversion") {
+        std::istringstream input("id,value\nbad,10\n");
+        auto reader = CSVReader::try_open(input, error);
+        REQUIRE(reader);
+        auto frame = DataFrame<int>::try_create(*reader, options, error);
+        REQUIRE_FALSE(frame);
+        REQUIRE(error.code == CSVErrorCode::ConversionFailed);
+        REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    }
+    SECTION("Key lookup and protected key column") {
+        std::istringstream input("id,value\n1,10\n2,20\n");
+        auto reader = CSVReader::try_open(input, error);
+        REQUIRE(reader);
+        auto frame = DataFrame<>::try_create(*reader, options, error);
+        REQUIRE(frame);
+        frame->try_find("missing", error);
+        REQUIRE(error.code == CSVErrorCode::KeyNotFound);
+        auto row = frame->try_find("2", error);
+        REQUIRE_FALSE(error);
+        REQUIRE(row.try_field("value", error).get_sv() == "20");
+        auto key_column = frame->try_column_view("id", error);
+        REQUIRE_FALSE(key_column.try_erase(error));
+        REQUIRE(error.code == CSVErrorCode::KeyColumnProtected);
+    }
+}
+
+TEST_CASE("Checked column names reject out-of-range proxy positions", "[explicit_errors][data_frame]") {
+    // Public proxy construction must not turn name lookup into unchecked vector access,
+    // including an empty frame where checked writing otherwise emits an empty record.
+    DataFrame<> frame;
+    DataFrameColumn<std::string> column(&frame, 999);
+    CSVError error;
+    REQUIRE_FALSE(column.is_valid());
+    REQUIRE(column.try_name(error).empty());
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(column.name(), std::out_of_range);
+#endif
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    REQUIRE_FALSE(writer.try_write_row(error, column));
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(output.str().empty());
+}
+
+TEST_CASE("Checked column conversions keep partial values and the precise cause", "[explicit_errors][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n2,text\n", error);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    const auto& view = *frame;
+    const auto column = view.try_column_view("value", error);
+    REQUIRE(column.try_name(error) == "value");
+    auto values = column.try_to_vector<int>(error);
+    REQUIRE(values == std::vector<int>{17});
+    REQUIRE(error.code == CSVErrorCode::ConversionFailed);
+    REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    column.try_field(99, error);
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    auto read_only_cell = column.try_field(0, error);
+    REQUIRE_FALSE(read_only_cell.try_assign("changed", error));
+    REQUIRE(error.code == CSVErrorCode::ReadOnlyProxy);
+    auto read_only_column = view.try_column_view("value", error);
+    REQUIRE_FALSE(read_only_column.try_erase(error));
+    REQUIRE(error.code == CSVErrorCode::ReadOnlyProxy);
+    REQUIRE(frame->try_column<std::string>("missing", error).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    REQUIRE_FALSE(frame->try_contains("unused", error));
+    REQUIRE(error);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(column[99], std::out_of_range);
+#endif
+}
+
+TEST_CASE("Checked unbound proxies fail before accessing storage", "[explicit_errors][data_frame]") {
+    CSVError error;
+    DataFrameRow<std::string> row;
+    const auto& const_row = row;
+    row.try_field(size_t{0}, error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    const_row.try_field("missing", error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(row.try_to_json({}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(row.try_to_json_array({"missing"}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    DataFrameColumn<std::string> column;
+    const auto& const_column = column;
+    const_column.try_field(0, error);
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(column.try_get_sv(0, error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(column.try_to_vector(error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(column.try_name(error).empty());
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+}
+
+TEST_CASE("Checked key insertion validates conversions before mutation", "[explicit_errors][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n", error);
+    REQUIRE(reader);
+    DataFrameOptions options;
+    options.set_key_column("id");
+    auto frame = DataFrame<int>::try_create(*reader, options, error);
+    REQUIRE(frame);
+    REQUIRE_FALSE(frame->try_insert_row(1, {"text", "29"}, error));
+    REQUIRE(error.code == CSVErrorCode::ConversionFailed);
+    REQUIRE(error.conversion == CSVConversionError::NotANumber);
+    REQUIRE(frame->size() == 1);
+    REQUIRE(frame->try_insert_row(1, {"2", "29"}, error));
+    const auto& view = *frame;
+    REQUIRE(view.try_contains(2, error));
+    REQUIRE_FALSE(error);
+    REQUIRE(view.try_find(2, error).try_field("value", error).get_sv() == "29");
+    view.try_find(99, error);
+    REQUIRE(error.code == CSVErrorCode::KeyNotFound);
+    view.try_at(99, error);
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+}
+
+TEST_CASE("Optional numeric keys use the default key on conversion failure", "[explicit_errors][data_frame]") {
+    CSVError error;
+    auto reader = try_parse("id,value\ntext,17\n2,29\n", error);
+    REQUIRE(reader);
+    DataFrameOptions options;
+    options.set_key_column("id").set_throw_on_missing_key(false);
+    auto frame = DataFrame<int>::try_create(*reader, options, error);
+    REQUIRE(frame);
+    REQUIRE_FALSE(error);
+    REQUIRE(frame->try_find(0, error).try_field("value", error).get_sv() == "17");
+    REQUIRE(frame->try_find(2, error).try_field("value", error).get_sv() == "29");
 }

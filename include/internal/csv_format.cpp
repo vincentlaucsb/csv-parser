@@ -8,6 +8,13 @@
 #include "csv_format.hpp"
 
 namespace csv {
+    namespace internals {
+        CSV_INLINE char resolved_delimiter(const CSVFormat& format) noexcept {
+            CSV_DEBUG_ASSERT(format.possible_delimiters.size() == 1);
+            return format.possible_delimiters.front();
+        }
+    }
+
 #if CSV_EXCEPTIONS_ENABLED
     CSV_INLINE CSVFormat& CSVFormat::delimiter(char delim) {
         CSVError error;

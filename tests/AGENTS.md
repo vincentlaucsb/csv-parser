@@ -38,6 +38,8 @@ When adding, removing, or renaming a utility in `tests/shared/`, update this tab
 | `shared/file_guard.hpp` | RAII temp-file cleanup — **use this for every temp file** |
 | `shared/float_test_cases.hpp` | Shared floating-point edge-case data |
 | `shared/generated_file.hpp` | Memoized generated-file fixture for expensive Catch2 `SECTION` matrices |
+| `shared/explicit_error_helpers.hpp` | Compiler-mode assertion and shared 500K-row fixtures for checked API cases |
+| `shared/copy_test_data.cmake` | Serialized MSVC post-build fixture copying for IDE debugging |
 | `shared/timeout_helper.hpp` | Timeout wrapper for race/stress tests to prevent hangs |
 
 #### FileGuard — RAII temp file cleanup
@@ -64,6 +66,11 @@ TEST_CASE("My test") {
 ### Test Organization
 
 ### Testing Conventions
+
+Checked API cases live in their feature's categorical test file and run through
+`csv_test`, `csv_write_test`, or `data_frame_test` in both exception modes.
+Legacy cases that require throwing APIs are guarded by `CSV_EXCEPTIONS_ENABLED`.
+Keep shared fixtures in `tests/shared/`; do not create a monolithic error-test suite.
 
 Tests tagged `[stress]` run in normal and sanitizer configurations but are
 excluded from CTest runs when `ENABLE_CODE_COVERAGE=ON`. Repeated timing-sensitive

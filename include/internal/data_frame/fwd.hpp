@@ -13,12 +13,18 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
 namespace csv { namespace internals {
     inline void throw_dataframe_error(const CSVError& error) {
-        if (!error) return;
-        if ((error.code == CSVErrorCode::IndexOutOfBounds
-                && error.context != CSV_ERROR_INDEX_OUT_OF_BOUNDS)
-            || error.code == CSVErrorCode::ColumnNotFound
-            || error.code == CSVErrorCode::KeyNotFound)
+        switch (error.code) {
+        case CSVErrorCode::None:
+            return;
+        case CSVErrorCode::IndexOutOfBounds:
+            if (error.context == CSV_ERROR_INDEX_OUT_OF_BOUNDS) break;
             throw std::out_of_range(error.context);
+        case CSVErrorCode::ColumnNotFound:
+        case CSVErrorCode::KeyNotFound:
+            throw std::out_of_range(error.context);
+        default:
+            break;
+        }
         throw_error(error);
     }
 }}

@@ -99,6 +99,12 @@ namespace csv {
         CSV_INLINE void CSVParserDriverBase::resolve_format_from_head(const CSVFormat& source_format) {
             auto head = this->get_csv_head();
             if (error_) return;
+            // Setters reject empty candidates, but moving a format can leave its
+            // source vector empty. Validate that boundary before using resolved access.
+            if (source_format.possible_delimiters.empty()) {
+                fail(error_, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+                return;
+            }
 
             ResolvedFormat resolved;
             resolved.format = source_format;
@@ -123,8 +129,7 @@ namespace csv {
                 resolved.n_cols = guess_result.n_cols;
             }
 
-            char delimiter = ',';
-            if (!resolved.format.try_get_delim(delimiter, error_)) return;
+            const char delimiter = resolved_delimiter(resolved.format);
             if (resolved.format.no_quote) {
                 this->set_parse_flags(
                     make_parse_flags(delimiter),

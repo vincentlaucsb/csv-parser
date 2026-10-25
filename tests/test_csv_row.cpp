@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 // Tests for the CSVRow and CSVField Data Structures
 
 #include <catch2/catch_all.hpp>
@@ -117,3 +120,26 @@ TEST_CASE("CSVRow::to_unordered_map", "[test_csv_row]") {
     }
 }
 #endif
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Checked map serialization preserves explicit empty subsets", "[explicit_errors]") {
+    // Full-map and explicit-subset overloads must keep their distinct empty-subset semantics.
+    CSVError error;
+    auto reader = try_parse("left,right\n3,7\n", error);
+    REQUIRE(reader);
+    CSVRow row;
+    REQUIRE(reader->try_read_row(row, error));
+    REQUIRE(row.try_to_unordered_map(error).size() == 2);
+    REQUIRE_FALSE(error);
+    REQUIRE(row.try_to_unordered_map(error, {}).empty());
+    REQUIRE_FALSE(error);
+    REQUIRE(CSVRow().try_to_unordered_map(error).empty());
+    REQUIRE_FALSE(error);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE(row.to_unordered_map({}).empty());
+#endif
+}

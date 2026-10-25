@@ -12,7 +12,10 @@
 #include "csv_exceptions.hpp"
 
 namespace csv {
+    class CSVFormat;
     namespace internals {
+        /** Read a delimiter after configuration has been validated and resolved to one candidate. */
+        CSV_INLINE char resolved_delimiter(const CSVFormat& format) noexcept;
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         class CSVParserCore;
         namespace parser {
@@ -256,6 +259,7 @@ namespace csv {
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         friend class internals::CSVParserCore;
         friend internals::parser::CSVParserDriverBase;
+        friend char internals::resolved_delimiter(const CSVFormat& format) noexcept;
         
     private:
         static bool validate_characters(

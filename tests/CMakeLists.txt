@@ -64,6 +64,8 @@ function(add_csv_parser_test_target target_name)
 
     target_link_libraries(${target_name} ${_csv_catch_library})
     target_link_libraries(${target_name} Catch2::Catch2WithMain)
+    target_compile_definitions(${target_name} PRIVATE
+        CSV_TEST_EXCEPTIONS=$<BOOL:${CSV_ENABLE_EXCEPTIONS}>)
 
     if(_catch2_inc)
         target_include_directories(${target_name} SYSTEM PRIVATE ${_catch2_inc})
@@ -78,8 +80,11 @@ function(add_csv_parser_test_target target_name)
         # Workaround to enable debugging unit tests in Visual Studio
         add_custom_command(
             TARGET ${target_name} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CSV_TEST_DIR}/data $<TARGET_FILE_DIR:${target_name}>/tests/data
+            COMMAND ${CMAKE_COMMAND}
+                "-DCSV_TEST_SOURCE=${CSV_TEST_DIR}/data"
+                "-DCSV_TEST_DESTINATION=$<TARGET_FILE_DIR:${target_name}>/tests/data"
+                -P ${CSV_TEST_DIR}/shared/copy_test_data.cmake
+            VERBATIM
         )
     endif()
 
@@ -97,13 +102,6 @@ function(add_csv_parser_test_target target_name)
     )
 endfunction()
 
-# Exercise the explicit-error API in both compiler modes.
-add_csv_parser_test_target(csv_error_test test_explicit_errors.cpp)
-set_tests_properties(csv_error_test PROPERTIES TIMEOUT 120)
-target_compile_definitions(csv_error_test PRIVATE
-    CSV_TEST_EXCEPTIONS=$<BOOL:${CSV_ENABLE_EXCEPTIONS}>
-    CSV_TEST_CXX_STANDARD=${CMAKE_CXX_STANDARD})
-
 # Catch2 v3 requires C++14. This separate consumer really uses the requested
 # standard, including C++11, and checks cross-TU linkage.
 add_executable(csv_error_api_smoke
@@ -118,30 +116,35 @@ if(CMAKE_CXX_STANDARD GREATER_EQUAL 23)
 endif()
 add_test(NAME csv_error_api_smoke COMMAND csv_error_api_smoke)
 
-if(CSV_ENABLE_EXCEPTIONS)
+# Category suites run their checked cases in both compiler modes. Exception-only
+# cases in these files remain guarded; additional legacy-only files follow below.
 add_csv_parser_test_target(csv_test
+    test_csv_field.cpp
+    test_csv_format.cpp
+    test_csv_row.cpp
+    test_csv_row_json.cpp
+    test_error_handling.cpp
+    test_guess_csv.cpp
+    test_read_csv.cpp
+    test_read_csv_file.cpp
+    test_stream_sources.cpp
+)
+
+if(CSV_ENABLE_EXCEPTIONS)
+target_sources(csv_test PRIVATE
     test_col_names.cpp
     test_csv_delimiter.cpp
-    test_csv_field.cpp
     test_csv_field_array.cpp
-    test_csv_format.cpp
     test_csv_iterator.cpp
     test_csv_ranges.cpp
     test_csv_row_offsets.cpp
-    test_csv_row.cpp
-    test_csv_row_json.cpp
     test_speculative_parser.cpp
     test_data_type.cpp
     test_edge_cases_large_rows.cpp
-    test_error_handling.cpp
-    test_guess_csv.cpp
     test_indexed_task_pool.cpp
     test_parser_edge_cases.cpp
     test_raw_csv_data.cpp
-    test_read_csv.cpp
-    test_read_csv_file.cpp
     test_round_trip.cpp
-    test_stream_sources.cpp
 )
 
 if(NOT CSV_NO_SIMD)
@@ -150,6 +153,7 @@ endif()
 
 if(CSV_ENABLE_THREADS)
     target_sources(csv_test PRIVATE test_threadsafe_deque_race.cpp)
+endif()
 endif()
 
 add_csv_parser_test_target(csv_write_test
@@ -161,5 +165,3 @@ add_csv_parser_test_target(data_frame_test
     test_data_frame_dirty.cpp
     test_data_frame_etl.cpp
 )
-
-endif()

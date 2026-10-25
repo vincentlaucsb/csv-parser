@@ -154,63 +154,22 @@ Shameless plug: If you like this library, check out my side project
 While C++20 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
-Exception support is detected automatically from the compiler. Builds using
-`-fno-exceptions` (GCC/Clang) or `/EHs-c- /D_HAS_EXCEPTIONS=0` (MSVC) expose
-the explicit-error APIs without requiring a library-specific define. In CMake,
-`-DCSV_ENABLE_EXCEPTIONS=OFF` selects these compiler flags for the library and
-its consumers; the default also respects compiler flags that already disable exceptions.
-
-The same explicit-error operations are available when exceptions are enabled:
+Exception support is detected automatically. Use `-DCSV_ENABLE_EXCEPTIONS=OFF`
+with CMake, or your compiler's exception-disabled flags, to select the explicit-error
+API. The same operations are also available in exception-enabled builds:
 
 ```cpp
 csv::CSVError error;
 auto reader = csv::CSVReader::try_open("items.csv", error);
-if (!reader) {
-    std::cerr << error.message() << '\n';
-    return;
-}
-
-csv::CSVRow row;
-while (reader->try_read_row(row, error)) {
-    auto field = row.try_field("damage", error);
-    if (error) break;
-
-    int damage = 0;
-    csv::CSVConversionError conversion;
-    if (!field.try_get(damage, conversion)) {
-        // Inspect conversion (Overflow, NotANumber, etc.).
-        break;
-    }
+if (reader) {
+    csv::CSVRow row;
+    while (reader->try_read_row(row, error)) { /* process row */ }
 }
 if (error) std::cerr << error.message() << '\n';
 ```
 
-`CSVError` owns its diagnostic and preserves an OS error or exact conversion
-cause when available. Each checked operation clears stale errors on success;
-a row read returning `false` without an error means EOF. Reader failures are
-terminal. Failed batch reads may contain an already consumed prefix, and failed
-writes may have emitted bytes; operations do not roll back partial progress.
-
-Use `DataFrame<>::try_create(...)` for file/reader construction, `try_at()`,
-`try_find()`, `try_column_view()` and row/column `try_field()` for access, and
-`try_assign()` / `try_insert_*()` / `try_erase()` for editing. Default and row-batch
-DataFrame construction and valid frame-row iteration remain available.
-Writers provide `try_open()`, `try_write_row(error, ...)`, `try_flush(error)` and
-file-owning `try_close(error)`. Buffered writes are complete only after an
-explicit successful flush/close; destruction is best effort.
-
-Throwing constructors, `get<T>()`, checked convenience accessors, and reader
-iteration are unavailable when exceptions are disabled. Use explicit reads for
-streaming. `try_get()` and C++23 `as<T>()` retain the same conversion rules;
-C++23 also offers an expected-returning reader factory. No custom result type
-or additional dependency is required.
-
-Explicit errors cover library validation and I/O failures. Allocation failures,
-resource exhaustion, and exceptions from user callbacks are outside this contract.
-Borrowed input/output streams must use non-throwing exception masks in a
-no-exceptions build; checked operations reject incompatible masks without changing
-the caller's settings. All translation units using the library must use consistent
-exception and threading settings.
+See the [Godot / no-exceptions guide](https://vincentlaucsb.github.io/csv-parser/no_exceptions.html)
+for engine-owned resources, conversions, DataFrames, writing, and error semantics.
 
 SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
 

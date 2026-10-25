@@ -1,3 +1,6 @@
+#include "csv.hpp"
+
+#if CSV_EXCEPTIONS_ENABLED
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
 
@@ -153,4 +156,30 @@ TEST_CASE("CSVRow to_json() with Wrong Columns", "[csv_json_wrong_cols]") {
     // to_json() method should then produce an empty object instead of segfaulting.
     REQUIRE(first_row.to_json() == "{}");
     REQUIRE(first_row.to_json_array() == "[]");
+}
+#endif
+
+#include "shared/explicit_error_helpers.hpp"
+
+using namespace csv;
+
+TEST_CASE("Checked serialization reports unknown names and mismatched widths", "[explicit_errors]") {
+    CSVError error;
+    CSVFormat format;
+    format.header_row(0).variable_columns(VariableColumnPolicy::KEEP);
+    auto reader = try_parse("a,b\n3,7,11\n", error, format);
+    REQUIRE(reader);
+    CSVRow row;
+    REQUIRE(reader->try_read_row(row, error));
+    REQUIRE(row.try_to_unordered_map(error).empty());
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    REQUIRE(row.try_to_unordered_map(error, {"missing"}).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    REQUIRE(row.try_to_json({"missing"}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+    REQUIRE(row.try_to_json_array({"missing"}, error).empty());
+    REQUIRE(error.code == CSVErrorCode::ColumnNotFound);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE_THROWS_AS(row.to_unordered_map(), std::out_of_range);
+#endif
 }
