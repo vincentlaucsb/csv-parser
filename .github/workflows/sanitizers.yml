@@ -21,6 +21,7 @@ env:
 
 jobs:
   linux-sanitizers:
+    name: linux-sanitizers (${{ matrix.sanitizer }}, ${{ matrix.cxx_standard }}, ${{ matrix.flag }}, ${{ matrix.name }})
     runs-on: ubuntu-latest
     
     strategy:
@@ -35,10 +36,19 @@ jobs:
             cxx_standard: 20
             flag: "-fsanitize=address -fno-omit-frame-pointer"
             name: "AddressSanitizer"
+          # Keep the two expensive suites on separate runners without reducing coverage.
           - sanitizer: thread
             cxx_standard: 20
             flag: "-fsanitize=thread"
-            name: "ThreadSanitizer"
+            name: "ThreadSanitizer parser"
+            shard: parser
+            test_filter: '^(csv_error_api_smoke|csv_test|csv_write_test)$'
+          - sanitizer: thread
+            cxx_standard: 20
+            flag: "-fsanitize=thread"
+            name: "ThreadSanitizer DataFrame"
+            shard: dataframe
+            test_filter: '^data_frame_test$'
           - sanitizer: undefined
             cxx_standard: 17
             flag: "-fsanitize=undefined -fno-omit-frame-pointer"
@@ -78,14 +88,14 @@ jobs:
     
     - name: Test with ${{ matrix.name }}
       working-directory: build
-      run: ctest --output-on-failure -V
+      run: ctest --output-on-failure -V --no-tests=error -R "${{ matrix.test_filter || '.*' }}"
       timeout-minutes: ${{ matrix.sanitizer == 'thread' && 40 || 20 }}
     
     - name: Upload sanitizer logs
       if: failure()
       uses: actions/upload-artifact@v7
       with:
-        name: linux-sanitizer-logs-${{ matrix.sanitizer }}-std${{ matrix.cxx_standard }}
+        name: linux-sanitizer-logs-${{ matrix.sanitizer }}-std${{ matrix.cxx_standard }}-${{ matrix.shard || 'all' }}
         path: build/Testing/
 
   windows-asan-msvc:

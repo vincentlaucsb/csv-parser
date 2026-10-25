@@ -409,8 +409,8 @@ Type checking is performed on conversions to prevent undefined behavior and inte
 | --- | --- | --- |
 | `get<T>()` | On success, returns `T`. On failure, throws `std::runtime_error`. | Supports integral, floating point, `bool`, and `std::chrono` targets. |
 | `try_get<T>(out)` | On success, writes `out` and returns `true`. On failure, returns `false`. | Non-throwing equivalent to `get<T>()`. |
-| `std::optional<T> value = field` | On success, returns a populated optional. On failure, returns `std::nullopt`. | C++17 and later; uses the same conversion rules as `try_get<T>()`. |
-| `field.as<T>()` | On success, returns `std::expected<T, CSVConversionError>`. On failure, returns `std::unexpected(CSVConversionError)`. | C++23 and later when `std::expected` is available; use when callers need a structured conversion error such as not-a-number, overflow, float-to-int, or negative-to-unsigned. |
+| `std::optional<T> value = field`<br>![C++17 or later](docs/assets/badges/cpp17.svg) | On success, returns a populated optional. On failure, returns `std::nullopt`. | Uses the same conversion rules as `try_get<T>()`. |
+| `field.as<T>()`<br>![C++23 or later](docs/assets/badges/cpp23.svg) | On success, returns `std::expected<T, CSVConversionError>`. On failure, returns `std::unexpected(CSVConversionError)`. | Requires `std::expected` availability; use when callers need a structured conversion error such as not-a-number, overflow, float-to-int, or negative-to-unsigned. |
 | `try_parse_hex<T>(out)` | On success, writes an integral `T` and returns `true`. On failure, returns `false`. | Allows hex with or without the `0x` prefix. |
 | `try_parse_decimal(out, decimal_symbol)` | On success, writes `long double` and returns `true`. On failure, returns `false`. | Parses decimal numbers that use a non-`.` decimal separator. |
 | `try_parse_timestamp<T>(out)` | On success, writes a timestamp/duration target and returns `true`. On failure, returns `false`. | `uint64_t` Unix timestamps and `std::chrono` targets work in all supported C++ versions. |
