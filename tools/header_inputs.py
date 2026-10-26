@@ -14,7 +14,9 @@ def source_tree_sha256(root):
     digest = hashlib.sha256()
     for path in sorted(paths, key=lambda item: item.relative_to(root).as_posix()):
         relative = path.relative_to(root).as_posix()
-        content_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        # Physical checkout newlines do not change these C++/JSON inputs.
+        content = path.read_bytes().replace(b"\r\n", b"\n")
+        content_hash = hashlib.sha256(content).hexdigest()
         digest.update(f"{relative}:{content_hash}\n".encode("utf-8"))
     return digest.hexdigest()
 

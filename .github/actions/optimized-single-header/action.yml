@@ -10,6 +10,10 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Verify portable artifact fingerprints
+      shell: bash
+      run: python3 tools/test_header_inputs.py
+
     - name: Install LLVM 20 and consumer compilers
       shell: bash
       run: |
