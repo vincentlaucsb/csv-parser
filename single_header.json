@@ -2,13 +2,22 @@
   "includeRoots": [
     "include"
   ],
-  "output": "csv.hpp",
+  "output": "build/distribution/csv.hpp",
+  "stitchingReport": "build/distribution/csv.hpp.stitching.json",
   "entry": "include/csv.hpp",
   "implementationMarker": "/** INSERT_CSV_SOURCES **/",
   "deduplicateIncludes": true,
   "includeGuard": "CSV_HPP",
   "mergeNamespaces": true,
   "inlineFunctions": true,
+  "functionStitching": "all",
+  "frontendArgs": ["-std=c++20", "-Iinclude", "-fexceptions", "-DNDEBUG", "-DCSV_ENABLE_THREADS=1"],
+  "frontendVariants": [
+    {
+      "sources": ["include/internal/parser/driver.cpp"],
+      "args": ["-D__EMSCRIPTEN__=1"]
+    }
+  ],
   "allowMixedIncludes": [
     "<algorithm>",
     "<array>",

@@ -1,64 +1,22 @@
 name: Optimized CSV distribution
-description: Build single_header 1.1.0 with Clang, enable every optimization, and test the artifact.
+description: Generate csv.hpp using the released compiler-backed single_header package.
 inputs:
   output:
     description: Generated csv.hpp path relative to the repository root.
     required: true
-  skip-consumer-tests:
-    description: Skip duplicate runtime tests when caller jobs compile the generated artifact.
-    default: "false"
 runs:
   using: composite
   steps:
-    - name: Verify portable artifact fingerprints
-      shell: bash
-      run: python3 tools/test_header_inputs.py
-
-    - name: Install LLVM 20 and consumer compilers
-      shell: bash
-      run: |
-        wget -q https://apt.llvm.org/llvm.sh -O "$RUNNER_TEMP/csv-llvm.sh"
-        sudo bash "$RUNNER_TEMP/csv-llvm.sh" 20
-        sudo apt-get install -y llvm-20-dev libclang-20-dev libclang-rt-20-dev ninja-build g++-14
-
-    - name: Checkout the released generator
-      uses: actions/checkout@v5
+    - uses: vincentlaucsb/single_header@1.1.1
       with:
-        repository: vincentlaucsb/single_header
-        ref: 1.1.0
-        path: build/single-header-tool/source
-        persist-credentials: false
-
-    - name: Build the compiler-backed generator
-      shell: bash
-      run: |
-        cmake -S build/single-header-tool/source -B build/single-header-tool/binary -G Ninja \
-          -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++-20 \
-          -DBUILD_TESTING=OFF -DSINGLE_HEADER_WITH_CLANG=ON \
-          -DLLVM_DIR=/usr/lib/llvm-20/lib/cmake/llvm \
-          -DClang_DIR=/usr/lib/llvm-20/lib/cmake/clang
-        cmake --build build/single-header-tool/binary --parallel 2
-
-    - name: Generate with every optimization and verify the report
+        backend: clang
+        config: single_header.json
+        output: ${{ inputs.output }}
+        stitching-report: ${{ inputs.output }}.stitching.json
+    - name: Write checksum
       shell: bash
       env:
         CSV_GENERATED_OUTPUT: ${{ inputs.output }}
       run: |
-        python3 tools/generate_optimized_header.py \
-          --executable build/single-header-tool/binary/single_header \
-          --output "$CSV_GENERATED_OUTPUT"
-
-    - name: Test the exact generated artifact
-      if: inputs.skip-consumer-tests != 'true'
-      shell: bash
-      env:
-        CSV_GENERATED_OUTPUT: ${{ inputs.output }}
-      run: |
-        bash tools/test_generated_header.sh build/optimized-header/analysis/single_include_generated
-
-    - name: Verify distribution copy
-      shell: bash
-      env:
-        CSV_GENERATED_OUTPUT: ${{ inputs.output }}
-      run: |
-        cmp build/optimized-header/analysis/single_include_generated/csv.hpp "$CSV_GENERATED_OUTPUT"
+        cd "$(dirname "$CSV_GENERATED_OUTPUT")"
+        sha256sum "$(basename "$CSV_GENERATED_OUTPUT")" > "$(basename "$CSV_GENERATED_OUTPUT").sha256"

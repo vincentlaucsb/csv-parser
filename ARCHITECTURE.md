@@ -30,7 +30,7 @@ Notes:
 - Internal folder namespaces should match folder structure when practical; for example `include/internal/parser/` maps to `csv::internals::parser`.
 - Compatibility macros defined in `common.hpp` must only be referenced after including `common.hpp`. See AGENTS.md for details.
 - Ordinary definitions in implementation files use normal compiled-library linkage. The Clang-backed distribution generator owns `inline` insertion for stitched and residual functions; all emitted source declarations must be covered by frontend contexts. Definitions authored directly in headers retain their own explicit/implicit inline and template ODR rules.
-- CI distributes one verified generated header to each compiler matrix. CMake's `generate_single_header` target checks source-input and header hashes before accepting a pregenerated artifact; never substitute an unchecked or stale header.
+- CI generates the header once per workflow and distributes those bytes to its compiler matrix. CMake's `generate_single_header` target either invokes the generator or copies that workflow's pregenerated artifact; generation needs no Python interpreter.
 - API constraints should be user-friendly: do not over-constrain templates unless needed for correctness, safety, or a measured performance win.
 - `CSVReader` is intentionally non-copyable and move-enabled; use explicit ownership transfer patterns (`std::move`, `std::unique_ptr`) at API boundaries.
 - Respect existing compile-time compatibility macros (`IF_CONSTEXPR`, `CONSTEXPR_VALUE`, etc.) unless correctness requires change.
