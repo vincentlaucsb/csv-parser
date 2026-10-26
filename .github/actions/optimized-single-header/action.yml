@@ -9,6 +9,8 @@ runs:
   steps:
     - uses: vincentlaucsb/single_header@1.1.1
       with:
+        version: 1.1.1
+        repository: vincentlaucsb/single_header
         backend: clang
         config: single_header.json
         output: ${{ inputs.output }}
