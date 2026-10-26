@@ -57,8 +57,10 @@ static_assert(std::is_member_function_pointer<decltype(&csv::DataFrameRow<std::s
 #endif
 
 int csv_error_second_tu();
+int csv_error_storage_test();
 
 int main() {
+    if (const int failure = csv_error_storage_test()) return failure;
     csv::CSVError error;
     std::istringstream input("id,name,value\n1,Alice,10\n2,Bob,20\n");
     auto reader = csv::CSVReader::try_open(input, error);

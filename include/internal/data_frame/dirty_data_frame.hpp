@@ -77,7 +77,7 @@ namespace csv {
                     if (index >= n_cols()) { return false; }
                     const size_t physical = physical_column(index);
                     if (key_column != CSV_NOT_FOUND && physical == static_cast<size_t>(key_column)) {
-                        return fail(error, CSVErrorCode::KeyColumnProtected, "cannot erase key column from DataFrame");
+                        return fail_static(error, CSVErrorCode::KeyColumnProtected, "cannot erase key column from DataFrame");
                     }
                     std::vector<std::string> columns = names_->get_col_names();
                     columns.erase(columns.begin() + index);
@@ -118,10 +118,10 @@ namespace csv {
                     int& key_column, const BeforeReplace& before_replace, CSVError& error
                 ) {
                     error.clear();
-                    if (index > n_cols()) { return fail(error, CSVErrorCode::IndexOutOfBounds, "DataFrame insert_column index out of range"); }
-                    if (name.empty()) { return fail(error, CSVErrorCode::InvalidArgument, "inserted column name must not be empty"); }
+                    if (index > n_cols()) { return fail_static(error, CSVErrorCode::IndexOutOfBounds, "DataFrame insert_column index out of range"); }
+                    if (name.empty()) { return fail_static(error, CSVErrorCode::InvalidArgument, "inserted column name must not be empty"); }
                     if (names_->index_of(name) != CSV_NOT_FOUND) {
-                        return fail(error, CSVErrorCode::InvalidArgument, "inserted column name must not duplicate an existing column");
+                        return fail_static(error, CSVErrorCode::InvalidArgument, "inserted column name must not duplicate an existing column");
                     }
                     // A retained short CSV row cannot supply every visible source field.
                     // Check before materializing or preserving keys, so no unchecked field
@@ -132,7 +132,7 @@ namespace csv {
                             last_physical = std::max(last_physical, physical_column(column));
                         for (const auto& row : backing_->rows()) {
                             if (last_physical >= row.size())
-                                return fail(error, CSVErrorCode::IndexOutOfBounds, CSV_ERROR_INDEX_OUT_OF_BOUNDS);
+                                return fail_static(error, CSVErrorCode::IndexOutOfBounds, CSV_ERROR_INDEX_OUT_OF_BOUNDS);
                         }
                     }
                     std::vector<std::string> columns = names_->get_col_names();

@@ -9,35 +9,35 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE char resolved_delimiter(const CSVFormat& format) noexcept {
+        char resolved_delimiter(const CSVFormat& format) noexcept {
             CSV_DEBUG_ASSERT(format.possible_delimiters.size() == 1);
             return format.possible_delimiters.front();
         }
     }
 
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE CSVFormat& CSVFormat::delimiter(char delim) {
+    CSVFormat& CSVFormat::delimiter(char delim) {
         CSVError error;
         this->try_delimiter(delim, error);
         internals::throw_error(error);
         return *this;
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::delimiter(const std::vector<char>& delims) {
+    CSVFormat& CSVFormat::delimiter(const std::vector<char>& delims) {
         CSVError error;
         this->try_delimiter(delims, error);
         internals::throw_error(error);
         return *this;
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::quote(char quote) {
+    CSVFormat& CSVFormat::quote(char quote) {
         CSVError error;
         this->try_quote(quote, error);
         internals::throw_error(error);
         return *this;
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::trim(const std::vector<char>& whitespace) {
+    CSVFormat& CSVFormat::trim(const std::vector<char>& whitespace) {
         CSVError error;
         this->try_trim(whitespace, error);
         internals::throw_error(error);
@@ -46,7 +46,7 @@ namespace csv {
 #endif
 
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE char CSVFormat::get_delim() const {
+    char CSVFormat::get_delim() const {
         CSVError error;
         char value = 0;
         this->try_get_delim(value, error);
@@ -55,33 +55,33 @@ namespace csv {
     }
 #endif
 
-    CSV_INLINE bool CSVFormat::try_delimiter(char delim, CSVError& error) {
+    bool CSVFormat::try_delimiter(char delim, CSVError& error) {
         return this->try_delimiter(std::vector<char>{delim}, error);
     }
 
-    CSV_INLINE bool CSVFormat::try_delimiter(const std::vector<char>& delims, CSVError& error) {
+    bool CSVFormat::try_delimiter(const std::vector<char>& delims, CSVError& error) {
         if (!validate_characters(delims, this->trim_chars, this->quote_char, error)) return false;
         this->possible_delimiters = delims;
         return true;
     }
 
-    CSV_INLINE bool CSVFormat::try_quote(char quote, CSVError& error) {
+    bool CSVFormat::try_quote(char quote, CSVError& error) {
         if (!validate_characters(this->possible_delimiters, this->trim_chars, quote, error)) return false;
         this->no_quote = false;
         this->quote_char = quote;
         return true;
     }
 
-    CSV_INLINE bool CSVFormat::try_trim(const std::vector<char>& whitespace, CSVError& error) {
+    bool CSVFormat::try_trim(const std::vector<char>& whitespace, CSVError& error) {
         if (!validate_characters(this->possible_delimiters, whitespace, this->quote_char, error)) return false;
         this->trim_chars = whitespace;
         return true;
     }
 
-    CSV_INLINE bool CSVFormat::try_get_delim(char& out, CSVError& error) const {
+    bool CSVFormat::try_get_delim(char& out, CSVError& error) const {
         error.clear();
         if (this->possible_delimiters.size() != 1) {
-            return internals::fail(error, CSVErrorCode::InvalidFormat,
+            return internals::fail_static(error, CSVErrorCode::InvalidFormat,
                 this->possible_delimiters.empty() ? "At least one delimiter is required."
                     : internals::ERROR_MULTIPLE_DELIMITERS);
         }
@@ -89,14 +89,14 @@ namespace csv {
         return true;
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
+    CSVFormat& CSVFormat::column_names(const std::vector<std::string>& names) {
         this->col_names = names;
         this->header = -1;
         this->col_names_explicitly_set_ = true;
         return *this;
     }
 
-    CSV_INLINE CSVFormat& CSVFormat::header_row(int row) {
+    CSVFormat& CSVFormat::header_row(int row) {
         if (row < 0) this->variable_column_policy = VariableColumnPolicy::KEEP;
 
         this->header = row;
@@ -107,7 +107,7 @@ namespace csv {
     }
 
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE CSVFormat& CSVFormat::chunk_size(size_t size) {
+    CSVFormat& CSVFormat::chunk_size(size_t size) {
         CSVError error;
         this->try_chunk_size(size, error);
         internals::throw_error(error);
@@ -115,7 +115,7 @@ namespace csv {
     }
 #endif
 
-    CSV_INLINE bool CSVFormat::try_chunk_size(size_t size, CSVError& error) {
+    bool CSVFormat::try_chunk_size(size_t size, CSVError& error) {
         error.clear();
         if (size < internals::CSV_CHUNK_SIZE_FLOOR) {
             return internals::fail(error, CSVErrorCode::InvalidChunkSize,
@@ -130,13 +130,13 @@ namespace csv {
         return true;
     }
 
-    CSV_INLINE bool CSVFormat::validate_characters(
+    bool CSVFormat::validate_characters(
         const std::vector<char>& candidates, const std::vector<char>& whitespace,
         char quote, CSVError& error
     ) {
         error.clear();
         if (candidates.empty()) {
-            return internals::fail(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+            return internals::fail_static(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
         }
         const std::set<char> delims(candidates.begin(), candidates.end());
         const std::set<char> trims(whitespace.begin(), whitespace.end());
@@ -156,7 +156,7 @@ namespace csv {
         }
         return true;
     }
-    CSV_INLINE CSVFormat CSVFormat::guess_csv() {
+    CSVFormat CSVFormat::guess_csv() {
         CSVFormat format;
         format.possible_delimiters = { ',', '|', '\t', ';', '^' };
         // Assign header directly rather than via header_row() so that

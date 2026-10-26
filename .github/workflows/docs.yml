@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout repository
@@ -47,9 +47,8 @@ jobs:
     - name: Generate single header
       # Drops csv.hpp into docs/html so it is served at the same Pages URL
       # as the Doxygen docs: https://<owner>.github.io/csv-parser/csv.hpp
-      uses: vincentlaucsb/single_header@0.1.0
+      uses: ./.github/actions/optimized-single-header
       with:
-        config: single_header.json
         output: docs/html/csv.hpp
 
     - name: Upload Pages artifact

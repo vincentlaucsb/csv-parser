@@ -27,10 +27,6 @@
 # include <unistd.h>
 #endif
 
- /** Helper macro which should be #defined as "inline"
-  *  in the single header version
-  */
-#define CSV_INLINE
 #include <type_traits>
 
 #if defined(__EMSCRIPTEN__)
@@ -83,9 +79,22 @@
 
 // Detect compiler exception support to select the optional throwing APIs.
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND) || defined(__EXCEPTIONS)
-    #define CSV_EXCEPTIONS_ENABLED 1
+#define CSV_EXCEPTIONS_ENABLED 1
 #else
-    #define CSV_EXCEPTIONS_ENABLED 0
+#define CSV_EXCEPTIONS_ENABLED 0
+#endif
+
+// Keep complete handlers out of compiler-disabled builds: unreachable branches
+// would still need named catch variables and exception-only declarations.
+// Usage: CSV_TRY { ... } CSV_CATCH((const Error& error), { ... })
+// Parenthesize the catch declaration so template commas remain one argument.
+// Keep preprocessing directives outside the catch-body macro argument.
+#if CSV_EXCEPTIONS_ENABLED
+#define CSV_TRY try
+#define CSV_CATCH(exception_declaration, ...) catch exception_declaration __VA_ARGS__
+#else
+#define CSV_TRY
+#define CSV_CATCH(exception_declaration, ...)
 #endif
 
 

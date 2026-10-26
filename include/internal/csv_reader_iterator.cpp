@@ -7,7 +7,7 @@
 namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
     /** Return an iterator to the first row in the reader */
-    CSV_INLINE CSVReader::iterator CSVReader::begin() {
+    CSVReader::iterator CSVReader::begin() {
         CSVRow row;
         if (!this->read_row(row)) {
             return this->end();
@@ -18,11 +18,11 @@ namespace csv {
     /** A placeholder for the imaginary past-the-end row in a CSV.
      *  Attempting to dereference this iterator is undefined.
      */
-    CSV_INLINE CSV_CONST CSVReader::iterator CSVReader::end() const noexcept {
+    CSV_CONST CSVReader::iterator CSVReader::end() const noexcept {
         return CSVReader::iterator();
     }
 
-    CSV_INLINE CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
+    CSVReader::iterator::iterator(CSVReader* _daddy, CSVRow&& _row) :
         daddy(_daddy) {
         row = std::move(_row);
     }
@@ -34,7 +34,7 @@ namespace csv {
      *  @note This iterator does **not** block the thread responsible for parsing CSV.
      *
      */
-    CSV_INLINE CSVReader::iterator& CSVReader::iterator::operator++() {
+    CSVReader::iterator& CSVReader::iterator::operator++() {
         if (!daddy->read_row(this->row)) {
             this->daddy = nullptr; // this == end()
         }
@@ -43,7 +43,7 @@ namespace csv {
     }
 
     /** Post-increment iterator */
-    CSV_INLINE CSVReader::iterator CSVReader::iterator::operator++(int) {
+    CSVReader::iterator CSVReader::iterator::operator++(int) {
         auto temp = *this;
         if (!daddy->read_row(this->row)) {
             this->daddy = nullptr; // this == end()

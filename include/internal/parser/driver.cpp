@@ -7,7 +7,7 @@ namespace csv {
         namespace parser {
 #if defined(__EMSCRIPTEN__)
         // Opens the file and delegates to the template overload to avoid duplicating the read/resize logic.
-        CSV_INLINE std::string get_csv_head_stream(csv::string_view filename, CSVError& error) {
+        std::string get_csv_head_stream(csv::string_view filename, CSVError& error) {
             error.clear();
             std::ifstream infile(std::string(filename), std::ios::binary);
             if (!infile.is_open()) {
@@ -19,7 +19,7 @@ namespace csv {
 #endif
 
 #if !defined(__EMSCRIPTEN__)
-        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename, CSVError& failure) {
+        std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename, CSVError& failure) {
             failure.clear();
             const size_t bytes = 500000;
             std::error_code error;
@@ -35,7 +35,7 @@ namespace csv {
         }
 #endif
 
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, CSVError& error) {
+        std::string get_csv_head(csv::string_view filename, CSVError& error) {
 #if defined(__EMSCRIPTEN__)
             return get_csv_head_stream(filename, error);
 #else
@@ -44,7 +44,7 @@ namespace csv {
         }
         }
 
-        CSV_INLINE size_t get_bom_skip(csv::string_view data, bool& utf8_bom, CSVError& error) {
+        size_t get_bom_skip(csv::string_view data, bool& utf8_bom, CSVError& error) {
             error.clear();
             utf8_bom = false;
 
@@ -56,7 +56,7 @@ namespace csv {
 
                 if ((b0 == 0xFF && b1 == 0xFE && b2 == 0x00 && b3 == 0x00)
                     || (b0 == 0x00 && b1 == 0x00 && b2 == 0xFE && b3 == 0xFF)) {
-                    fail(error, CSVErrorCode::UnsupportedEncoding, make_unsupported_encoding_message("UTF-32"));
+                    fail_static(error, CSVErrorCode::UnsupportedEncoding, ERROR_UNSUPPORTED_UTF32);
                     return 0;
                 }
             }
@@ -77,7 +77,7 @@ namespace csv {
                 const unsigned char b1 = static_cast<unsigned char>(data[1]);
 
                 if ((b0 == 0xFF && b1 == 0xFE) || (b0 == 0xFE && b1 == 0xFF)) {
-                    fail(error, CSVErrorCode::UnsupportedEncoding, make_unsupported_encoding_message("UTF-16"));
+                    fail_static(error, CSVErrorCode::UnsupportedEncoding, ERROR_UNSUPPORTED_UTF16);
                     return 0;
                 }
             }
@@ -91,18 +91,18 @@ namespace csv {
 #pragma region CSVParserDriverBase
 #endif
 
-        CSV_INLINE CSVParserDriverBase::CSVParserDriverBase(
+        CSVParserDriverBase::CSVParserDriverBase(
             const CSVFormat& source_format,
             const ColNamesPtr& col_names
         ) : CSVParserCore<>(source_format, col_names) {}
 
-        CSV_INLINE void CSVParserDriverBase::resolve_format_from_head(const CSVFormat& source_format) {
+        void CSVParserDriverBase::resolve_format_from_head(const CSVFormat& source_format) {
             auto head = this->get_csv_head();
             if (error_) return;
             // Setters reject empty candidates, but moving a format can leave its
             // source vector empty. Validate that boundary before using resolved access.
             if (source_format.possible_delimiters.empty()) {
-                fail(error_, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
+                fail_static(error_, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
                 return;
             }
 

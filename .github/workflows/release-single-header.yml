@@ -1,10 +1,13 @@
 name: Release Single Header Asset
 
 on:
-  push:
-    tags:
-      - "*"
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to upload assets to
+        required: true
 
 permissions:
   contents: write
@@ -12,33 +15,29 @@ permissions:
 jobs:
   publish-single-header:
     name: Generate and upload csv.hpp release asset
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
 
     steps:
     - name: Checkout repository and submodules
       uses: actions/checkout@v5
       with:
+        ref: ${{ github.event.release.tag_name || inputs.tag }}
         submodules: recursive
 
     - name: Create release asset directory
       run: mkdir -p release-assets
 
     - name: Generate single header
-      uses: vincentlaucsb/single_header@0.1.0
+      uses: ./.github/actions/optimized-single-header
       with:
-        config: single_header.json
         output: release-assets/csv.hpp
 
-    - name: Generate SHA256 checksum
-      run: |
-        cd release-assets
-        sha256sum csv.hpp > csv.hpp.sha256
-
     - name: Upload release assets
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          release-assets/csv.hpp
-          release-assets/csv.hpp.sha256
-        fail_on_unmatched_files: true
-        generate_release_notes: true
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      run: |
+        gh release upload "$RELEASE_TAG" release-assets/csv.hpp \
+          release-assets/csv.hpp.sha256 release-assets/csv.hpp.stitching.json \
+          release-assets/csv.hpp.manifest.json --clobber

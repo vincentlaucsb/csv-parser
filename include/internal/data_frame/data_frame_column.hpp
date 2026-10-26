@@ -80,8 +80,7 @@ namespace csv {
                 T value{};
                 CSVConversionError conversion;
                 if (!cell.try_get(value, conversion)) {
-                    internals::fail(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
-                    error.conversion = conversion;
+                    internals::fail_static(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
                     return values;
                 }
                 values.push_back(std::move(value));
@@ -91,7 +90,7 @@ namespace csv {
         bool try_erase(CSVError& error) {
             if (!this->require_valid(error)) return false;
             if (!mutable_frame_)
-                return internals::fail(error, CSVErrorCode::ReadOnlyProxy, "cannot erase column from const DataFrame");
+                return internals::fail_static(error, CSVErrorCode::ReadOnlyProxy, "cannot erase column from const DataFrame");
             return mutable_frame_->erase_column_at_index(col_index_, error);
         }
 
@@ -227,9 +226,9 @@ namespace csv {
         bool require_valid(CSVError& error) const {
             error.clear();
             if (!frame_ || !generation_ || *generation_ != generation_value_)
-                return internals::fail(error, CSVErrorCode::InvalidProxy,
+                return internals::fail_static(error, CSVErrorCode::InvalidProxy,
                     "DataFrameColumn proxy is invalid after structural column mutation");
-            return col_index_ < frame_->n_cols() || internals::fail(
+            return col_index_ < frame_->n_cols() || internals::fail_static(
                 error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
         }
 

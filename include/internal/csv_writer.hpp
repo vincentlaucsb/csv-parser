@@ -362,18 +362,14 @@ namespace internals {
             // A failed write can have emitted a prefix. Never retry its buffered bytes
             // during destruction; the caller has already received the I/O failure.
             if (!out || !ready_for_destruction(*out, 0)) return;
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 flush_batch();
                 out->flush();
-#if CSV_EXCEPTIONS_ENABLED
             }
-            catch (...) {
+            CSV_CATCH((...), {
                 // Destruction must not replace an active exception or terminate a caller
                 // that already handled a checked I/O failure.
-            }
-#endif
+            })
         }
 
         /** Write a C-style array of strings as one delimited row. */
@@ -590,7 +586,7 @@ namespace internals {
         bool try_close(CSVError& error) {
             error.clear();
             if (!owned_out || !out) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument,
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument,
                     "try_close() requires an open, owned output file.");
             }
 
@@ -598,20 +594,16 @@ namespace internals {
             // Detach before closing so neither close errors nor a failed flush can
             // trigger a second write from the writer's destructor.
             out = nullptr;
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 owned_out->close();
-#if CSV_EXCEPTIONS_ENABLED
             }
-            catch (const std::ios_base::failure& failure) {
+            CSV_CATCH((const std::ios_base::failure& failure), {
                 if (flushed) internals::fail(error, CSVErrorCode::WriteFailed, failure.what());
                 return false;
-            }
-#endif
+            })
             if (!flushed) return false;
             if (owned_out->fail()) {
-                return internals::fail(error, CSVErrorCode::WriteFailed, "Failed to close CSV output.");
+                return internals::fail_static(error, CSVErrorCode::WriteFailed, "Failed to close CSV output.");
             }
             return true;
         }
@@ -648,32 +640,28 @@ namespace internals {
         bool checked_operation(CSVError& error, Fn&& operation) {
             error.clear();
             if (!out) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument, "CSV output is closed.");
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument, "CSV output is closed.");
             }
 #if !CSV_EXCEPTIONS_ENABLED
             if (!exceptions_disabled(*out, 0)) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument,
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument,
                     "Checked CSV output requires a stream with exceptions disabled.");
             }
 #endif
             if (out->fail()) {
-                return internals::fail(error, CSVErrorCode::WriteFailed, "CSV output stream has failed.");
+                return internals::fail_static(error, CSVErrorCode::WriteFailed, "CSV output stream has failed.");
             }
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 if (!std::forward<Fn>(operation)()) return false;
-#if CSV_EXCEPTIONS_ENABLED
             }
-            catch (const std::ios_base::failure& failure) {
+            CSV_CATCH((const std::ios_base::failure& failure), {
                 return internals::fail(error, CSVErrorCode::WriteFailed, failure.what());
-            }
-#endif
+            })
             return this->check_write_status(error);
         }
 
         bool check_write_status(CSVError& error) const {
-            return !out->fail() || internals::fail(error, CSVErrorCode::WriteFailed,
+            return !out->fail() || internals::fail_static(error, CSVErrorCode::WriteFailed,
                 "CSV output stream has failed.");
         }
 
@@ -750,7 +738,7 @@ namespace internals {
         auto append_checked_row(Row&& row, CSVError& error, int)
             -> decltype(row.try_field(size_t{0}, error).get_sv(), bool()) {
             if (!checked_record_valid(row, 0)) {
-                return internals::fail(error, CSVErrorCode::InvalidProxy, "CSV row or column proxy is invalid.");
+                return internals::fail_static(error, CSVErrorCode::InvalidProxy, "CSV row or column proxy is invalid.");
             }
             const size_t row_start = batch_buffer_.size();
             for (size_t i = 0; i < row.size(); ++i) {

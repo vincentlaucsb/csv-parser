@@ -3,6 +3,7 @@ add_executable(single_include_test "")
 target_sources(single_include_test
     PRIVATE
         ${CSV_ROOT_DIR}/tests/compatibility/explicit_errors/smoke.cpp
+        ${CSV_ROOT_DIR}/tests/compatibility/explicit_errors/error_storage.cpp
         ${CSV_ROOT_DIR}/tests/compatibility/explicit_errors/second.cpp
 )
 add_dependencies(single_include_test generate_single_header)

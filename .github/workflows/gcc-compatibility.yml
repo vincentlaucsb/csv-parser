@@ -29,7 +29,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  header-distribution:
+    uses: ./.github/workflows/optimized-single-header.yml
+    with:
+      skip-consumer-tests: true
+
   gcc:
+    needs: header-distribution
     name: GCC ${{ matrix.version }} / C++17
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -53,17 +59,17 @@ jobs:
       # Keep JavaScript actions on the host; old images may lack Node's glibc.
       - uses: actions/checkout@v5
 
-      - name: Install single_header
-        id: single-header
-        uses: vincentlaucsb/single_header@0.1.0
+      - name: Download optimized header
+        uses: actions/download-artifact@v5
         with:
-          run: "false"
+          name: optimized-csv-header
+          path: build/distribution
 
       - name: Generate canonical single header
         run: |
           cmake -S . -B build/gcc-header -DCSV_CXX_STANDARD=17 \
             -DCSV_BUILD_TESTS=OFF -DCSV_BUILD_PROGRAMS=OFF \
-            -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
+            -DCSV_SINGLE_HEADER_PREGENERATED_HEADER="${{ github.workspace }}/build/distribution/csv.hpp"
           cmake --build build/gcc-header --target generate_single_header
 
       - name: Prepare portable CMake and compiler

@@ -18,10 +18,10 @@ namespace csv { namespace internals {
             return;
         case CSVErrorCode::IndexOutOfBounds:
             if (error.context == CSV_ERROR_INDEX_OUT_OF_BOUNDS) break;
-            throw std::out_of_range(error.context);
+            throw std::out_of_range(std::string(error.context));
         case CSVErrorCode::ColumnNotFound:
         case CSVErrorCode::KeyNotFound:
-            throw std::out_of_range(error.context);
+            throw std::out_of_range(std::string(error.context));
         default:
             break;
         }

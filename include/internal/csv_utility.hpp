@@ -169,7 +169,7 @@ namespace csv {
             CSVReader& reader, Fn&& fn, CSVError& error, size_t chunk_size) {
             error.clear();
             if (chunk_size == 0)
-                return fail(error, CSVErrorCode::InvalidArgument, ERROR_CHUNK_PARALLEL_APPLY_ZERO);
+                return fail_static(error, CSVErrorCode::InvalidArgument, ERROR_CHUNK_PARALLEL_APPLY_ZERO);
             std::vector<CSVRow> rows;
             while (reader.try_read_chunk(rows, chunk_size, error)) {
                 DataFrame<> batch(std::move(rows));

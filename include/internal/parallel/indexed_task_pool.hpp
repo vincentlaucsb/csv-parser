@@ -149,21 +149,17 @@ namespace csv {
                             break;
                         }
 
-#if CSV_EXCEPTIONS_ENABLED
-                        try {
-#endif
+                        CSV_TRY {
                             this->current_task_(worker_index, task_index);
-#if CSV_EXCEPTIONS_ENABLED
                         }
-                        catch (...) {
+                        CSV_CATCH((...), {
                             std::lock_guard<std::mutex> lock(this->mutex_);
                             if (!this->task_exception_) {
                                 this->task_exception_ = std::current_exception();
                                 this->next_task_.store(this->task_count_);
                             }
                             break;
-                        }
-#endif
+                        })
                     }
 
                     {

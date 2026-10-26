@@ -66,9 +66,15 @@ terminal; further reads report that failure. The same distinction applies to
 `try_read_chunk()`, whose output may contain an already consumed prefix on error.
 
 Each checked operation clears stale errors before reporting its own result.
-Inspect an error before making another checked call. `CSVError` owns
-its diagnostic text; `message()` includes an available OS error, and `conversion`
-preserves a typed conversion cause when the operation reports `ConversionFailed`.
+Inspect an error before making another checked call. `CSVError::context` is a
+`csv::string_view`: static diagnostics are borrowed, and runtime text is copied
+into a private owned buffer. Copies retain valid text independently of the source;
+moves clear the source. Use `set_context()` to replace text with an owned copy,
+or `from_static()` only for text that remains valid for the program's lifetime.
+Success and static diagnostics do not allocate. `message()` formats a string on
+demand, including an available OS error. DataFrame
+conversion failures report `ConversionFailed` with details in `context`.
+Field-conversion APIs report `CSVConversionError` directly.
 
 ## Godot resources and exported games
 

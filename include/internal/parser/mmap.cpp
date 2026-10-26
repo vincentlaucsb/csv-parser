@@ -5,7 +5,7 @@
 namespace csv {
     namespace internals {
         namespace parser {
-        CSV_INLINE MmapParser::MmapParser(
+        MmapParser::MmapParser(
             csv::string_view filename,
             const CSVFormat& format,
             const ColNamesPtr& col_names
@@ -28,9 +28,9 @@ namespace csv {
             );
         }
 
-        CSV_INLINE MmapParser::~MmapParser() = default;
+        MmapParser::~MmapParser() = default;
 
-        CSV_INLINE bool MmapParser::finalize_loaded_chunk(
+        bool MmapParser::finalize_loaded_chunk(
             csv::string_view chunk,
             std::shared_ptr<void> owner,
             size_t length,
@@ -56,13 +56,13 @@ namespace csv {
             return result.completed_row();
         }
 
-        CSV_INLINE size_t MmapParser::read_window_size(size_t chunk_size) const noexcept {
+        size_t MmapParser::read_window_size(size_t chunk_size) const noexcept {
             return this->parse_orchestrator_
                 ? this->parse_orchestrator_->read_window_size(chunk_size)
                 : chunk_size;
         }
 
-        CSV_INLINE void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
+        void MmapParser::next(size_t bytes = CSV_CHUNK_SIZE_DEFAULT) {
             if (error_) return;
             // CRITICAL SECTION: Chunk Transition Logic
             // This function reads 10MB chunks and must correctly handle fields that span

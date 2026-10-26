@@ -84,7 +84,7 @@ namespace csv {
         bool try_erase(CSVError& error) {
             error.clear();
             if (!can_mutate || !frame)
-                return internals::fail(error, CSVErrorCode::ReadOnlyProxy, internals::ERROR_CANNOT_ERASE_CONST_DF_ROW);
+                return internals::fail_static(error, CSVErrorCode::ReadOnlyProxy, internals::ERROR_CANNOT_ERASE_CONST_DF_ROW);
             return const_cast<DataFrame<KeyType>*>(frame)->erase_at_index(row_index);
         }
 
@@ -201,9 +201,9 @@ namespace csv {
         bool validate_field(size_t index, CSVError& error) const {
             error.clear();
             if (!row)
-                return internals::fail(error, CSVErrorCode::InvalidProxy, "DataFrameRow proxy is unbound");
+                return internals::fail_static(error, CSVErrorCode::InvalidProxy, "DataFrameRow proxy is unbound");
             if (index >= this->size())
-                return internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
+                return internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
             return true;
         }
 
@@ -248,7 +248,7 @@ namespace csv {
         size_t try_find_column(const std::string& col, CSVError& error) const {
             error.clear();
             if (!row) {
-                internals::fail(error, CSVErrorCode::InvalidProxy, "DataFrameRow proxy is unbound");
+                internals::fail_static(error, CSVErrorCode::InvalidProxy, "DataFrameRow proxy is unbound");
                 return 0;
             }
             if (frame) return frame->try_find_column(col, error);
@@ -273,7 +273,7 @@ namespace csv {
                     if (error) return false;
                 }
             }
-            return row || internals::fail(error, CSVErrorCode::InvalidProxy, "DataFrameRow proxy is unbound");
+            return row || internals::fail_static(error, CSVErrorCode::InvalidProxy, "DataFrameRow proxy is unbound");
         }
 
         const CSVRow* row;

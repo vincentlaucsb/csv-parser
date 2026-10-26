@@ -3,6 +3,8 @@
  */
 #pragma once
 #include "common.hpp"
+#include <cstring>
+#include <memory>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -55,7 +57,7 @@ namespace csv {
             : internals::CSV_CONVERSION_ERROR_MESSAGES[static_cast<size_t>(CSVConversionError::NotANumber)];
     }
 
-    /** Operational failures. Conversion failures retain their CSVConversionError cause. */
+    /** Operational failures reported through CSVError. */
     enum class CSVErrorCode {
         None,                /**< Success, including end-of-stream without a row. */
         InvalidArgument,     /**< Invalid operation input, such as a null stream or zero batch size. */
@@ -70,7 +72,7 @@ namespace csv {
         RowLengthMismatch,   /**< A record's field count violates the configured variable-column policy. */
         ColumnNotFound,      /**< A requested name is absent from the visible column schema. */
         IndexOutOfBounds,    /**< A row/column position exceeds the visible schema or physical record width. */
-        ConversionFailed,   /**< A typed field/key conversion failed; see CSVError::conversion for its exact cause. */
+        ConversionFailed,   /**< A DataFrame field/key conversion failed; context describes the cause. */
         MissingKeyColumn,    /**< Keyed construction has an empty key-column name or a name absent from the schema. */
         KeyNotFound,         /**< A requested row key is absent from the frame's key index. */
         DuplicateKey,        /**< A key conflicts with an existing row under the requested insertion/duplicate policy. */
@@ -82,29 +84,97 @@ namespace csv {
         SizeLimitExceeded    /**< Combined preserved string-view key bytes exceed std::string::max_size(). */
     };
 
-    /** An owned diagnostic; success and EOF clear the error.
+    /** A diagnostic whose text remains valid for the lifetime of the error.
+     *  Static messages are borrowed; dynamic messages are owned. Copies preserve
+     *  that lifetime, and moved-from errors are cleared. Success and EOF clear
+     *  the error without allocating.
      *  Explicit errors cover library validation and I/O, not allocation failures
      *  or exceptions thrown by user callbacks. Partial progress is not rolled back.
      */
     struct CSVError {
         CSVErrorCode code = CSVErrorCode::None;
-        CSVConversionError conversion = CSVConversionError::None;
         std::error_code system;
-        std::string context;
+        /** Diagnostic text; use set_context() to replace it with an owned copy. */
+        csv::string_view context;
 
         CSVError() = default;
-        CSVError(CSVErrorCode value, std::string message)
-            : code(value), context(std::move(message)) {}
-        explicit operator bool() const noexcept { return code != CSVErrorCode::None; }
-        void clear() { *this = CSVError(); }
-        std::string message() const {
-            return system ? context + ": " + system.message() : context;
+        /** Copy runtime text, including temporary strings and exception messages. */
+        CSVError(CSVErrorCode value, csv::string_view message) : code(value) {
+            this->set_context(message);
         }
+        CSVError(const CSVError& other)
+            : code(other.code), system(other.system), context(other.context) {
+            if (other.owned_context_) this->set_context(other.context);
+        }
+        CSVError(CSVError&& other) noexcept
+            : code(other.code), system(other.system), context(other.context),
+              owned_context_(std::move(other.owned_context_)) {
+            other.clear();
+        }
+        CSVError& operator=(const CSVError& other) {
+            if (this != &other) {
+                CSVError copy(other);
+                *this = std::move(copy);
+            }
+            return *this;
+        }
+        CSVError& operator=(CSVError&& other) noexcept {
+            if (this != &other) {
+                code = other.code;
+                system = other.system;
+                context = other.context;
+                owned_context_ = std::move(other.owned_context_);
+                other.clear();
+            }
+            return *this;
+        }
+
+        /** Borrow text that must remain valid for the program's lifetime. */
+        static CSVError from_static(CSVErrorCode value, csv::string_view message) noexcept {
+            CSVError error;
+            error.code = value;
+            error.context = message;
+            return error;
+        }
+
+        /** Replace the context with an owned copy; accepts views into this error. */
+        void set_context(csv::string_view message) {
+            std::unique_ptr<char[]> buffer;
+            if (!message.empty()) {
+                buffer.reset(new char[message.size()]);
+                std::memcpy(buffer.get(), message.data(), message.size());
+            }
+            context = message.empty() ? csv::string_view()
+                : csv::string_view(buffer.get(), message.size());
+            owned_context_ = std::move(buffer);
+        }
+        explicit operator bool() const noexcept { return code != CSVErrorCode::None; }
+        void clear() noexcept {
+            code = CSVErrorCode::None;
+            system.clear();
+            context = csv::string_view();
+            owned_context_.reset();
+        }
+        std::string message() const {
+            const std::string text = context.empty() ? std::string() : std::string(context);
+            return system ? text + ": " + system.message() : text;
+        }
+
+    private:
+        // Keep success and borrowed static diagnostics allocation-free.
+        std::unique_ptr<char[]> owned_context_;
     };
 
     namespace internals {
-        inline bool fail(CSVError& error, CSVErrorCode code, std::string message) {
-            error = CSVError(code, std::move(message));
+        inline bool fail(CSVError& error, CSVErrorCode code, csv::string_view message) {
+            error = CSVError(code, message);
+            return false;
+        }
+
+        // Use only for literals or other text with static lifetime. Runtime
+        // pointers (notably exception::what()) must use the owning fail().
+        inline bool fail_static(CSVError& error, CSVErrorCode code, csv::string_view message) noexcept {
+            error = CSVError::from_static(code, message);
             return false;
         }
     }

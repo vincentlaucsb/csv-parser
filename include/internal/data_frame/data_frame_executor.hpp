@@ -1,10 +1,13 @@
 #pragma once
 
-#include <thread>
 #include <utility>
 
 #include "../common.hpp"
 #include "../parallel/indexed_task_pool.hpp"
+
+#if CSV_ENABLE_THREADS
+#include <thread>
+#endif
 
 namespace csv {
     class DataFrameExecutor {

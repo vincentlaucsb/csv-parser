@@ -114,7 +114,7 @@ namespace csv {
         bool try_assign(csv::string_view value, CSVError& error) {
             error.clear();
             if (!can_mutate_ || !edit_context_)
-                return internals::fail(error, CSVErrorCode::ReadOnlyProxy, internals::ERROR_CANNOT_EDIT_CONST_DF_CELL);
+                return internals::fail_static(error, CSVErrorCode::ReadOnlyProxy, internals::ERROR_CANNOT_EDIT_CONST_DF_CELL);
             this->assign(std::string(value));
             return true;
         }

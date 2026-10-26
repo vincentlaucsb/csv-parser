@@ -34,7 +34,7 @@ namespace csv {
          *  BOM handling happens at the source-window level (CSVParseOrchestrator and
          *  format guessing); CSVParserCore only ever sees BOM-free bytes.
          */
-        CSV_INLINE size_t get_bom_skip(csv::string_view data, bool& utf8_bom, CSVError& error);
+        size_t get_bom_skip(csv::string_view data, bool& utf8_bom, CSVError& error);
 
         namespace parser {
         struct GuessScore {
@@ -43,10 +43,10 @@ namespace csv {
             double score;
         };
 
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
+        GuessScore calculate_score(csv::string_view head, const CSVFormat& format);
 
         /** Guess the delimiter used by a delimiter-separated values file. */
-        CSV_INLINE CSVGuessResult guess_format(
+        CSVGuessResult guess_format(
             csv::string_view head, const std::vector<char>& delims, CSVError& error);
 
         /** Read the first 500KB from a seekless stream source. */
@@ -56,27 +56,24 @@ namespace csv {
             error.clear();
 #if !CSV_EXCEPTIONS_ENABLED
             if (source.exceptions() != std::ios::goodbit) {
-                fail(error, CSVErrorCode::InvalidArgument,
+                fail_static(error, CSVErrorCode::InvalidArgument,
                     "Explicit CSV reads require a non-throwing stream exception mask.");
                 return {};
             }
 #endif
             const size_t limit = 500000;
             std::string buf(limit, '\0');
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 source.read(&buf[0], static_cast<std::streamsize>(limit));
-#if CSV_EXCEPTIONS_ENABLED
-            } catch (const std::ios_base::failure&) {
+            }
+            CSV_CATCH((const std::ios_base::failure&), {
                 if (!source.eof() || source.bad()) {
-                    fail(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                    fail_static(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                     return {};
                 }
-            }
-#endif
+            })
             if (source.bad() || (source.fail() && !source.eof())) {
-                fail(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
+                fail_static(error, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                 return {};
             }
             buf.resize(static_cast<size_t>(source.gcount()));
@@ -85,18 +82,18 @@ namespace csv {
 
 #if defined(__EMSCRIPTEN__)
         /** Open a file-backed source and read the first 500KB through the stream path. */
-        CSV_INLINE std::string get_csv_head_stream(csv::string_view filename, CSVError& error);
+        std::string get_csv_head_stream(csv::string_view filename, CSVError& error);
 #endif
 
 #if !defined(__EMSCRIPTEN__)
         /** Read the first 500KB from a filename using mmap.
          *  Also returns the total file size so callers avoid a second mmap open.
          */
-        CSV_INLINE std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename, CSVError& error);
+        std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename, CSVError& error);
 #endif
 
         /** Compatibility shim selecting stream on Emscripten and mmap otherwise. */
-        CSV_INLINE std::string get_csv_head(csv::string_view filename, CSVError& error);
+        std::string get_csv_head(csv::string_view filename, CSVError& error);
 
         struct ResolvedFormat {
             CSVFormat format;

@@ -328,24 +328,22 @@ namespace csv {
         bool try_insert_row(size_t index, const std::vector<std::string>& row, CSVError& error) {
             error.clear();
             if (index > this->size())
-                return internals::fail(error, CSVErrorCode::IndexOutOfBounds, "DataFrame insert_row index out of range");
+                return internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, "DataFrame insert_row index out of range");
             CSVRow inserted_row = this->storage_.make_inserted_row(row, error);
             if (error) return false;
             if (this->is_keyed_) {
                 if (this->key_column_index_ == CSV_NOT_FOUND)
-                    return internals::fail(error, CSVErrorCode::UnsupportedOperation, "insert_row requires a column-keyed DataFrame");
+                    return internals::fail_static(error, CSVErrorCode::UnsupportedOperation, "insert_row requires a column-keyed DataFrame");
                 CSVField field = inserted_row.try_field(static_cast<size_t>(this->key_column_index_), error);
                 if (error) return false;
                 KeyType key{};
                 CSVConversionError conversion;
                 if (!field.try_get(key, conversion)) {
-                    internals::fail(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
-                    error.conversion = conversion;
-                    return false;
+                    return internals::fail_static(error, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
                 }
                 this->ensure_key_index();
                 if (this->key_index_->find(key) != this->key_index_->end())
-                    return internals::fail(error, CSVErrorCode::DuplicateKey, internals::ERROR_DUPLICATE_KEY);
+                    return internals::fail_static(error, CSVErrorCode::DuplicateKey, internals::ERROR_DUPLICATE_KEY);
                 this->storage_.reserve_insert();
                 reserve_for_append(this->keys_, 1);
                 this->keys_.insert(this->keys_.begin() + index, std::move(key));
@@ -613,7 +611,7 @@ namespace csv {
         ) const {
             error.clear();
             if (states.size() != this->n_cols()) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument, internals::ERROR_COLUMN_APPLY_STATE_COUNT);
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument, internals::ERROR_COLUMN_APPLY_STATE_COUNT);
             }
 
             executor.parallel_for(this->n_cols(), [this, &states, &fn](size_t column_index) {
@@ -654,7 +652,7 @@ namespace csv {
         ) const {
             error.clear();
             if (states.size() != column_indices.size()) {
-                return internals::fail(error, CSVErrorCode::InvalidArgument, internals::ERROR_COLUMN_APPLY_SUBSET_STATE_COUNT);
+                return internals::fail_static(error, CSVErrorCode::InvalidArgument, internals::ERROR_COLUMN_APPLY_SUBSET_STATE_COUNT);
             }
 
             if (!this->validate_selected_columns(column_indices, error)) return false;
@@ -851,7 +849,7 @@ namespace csv {
             this->storage_.set_names(reader.col_names_ptr());
             const std::string& name = options.get_key_column();
             if (name.empty())
-                return internals::fail(error, CSVErrorCode::MissingKeyColumn, internals::ERROR_KEY_COLUMN_EMPTY);
+                return internals::fail_static(error, CSVErrorCode::MissingKeyColumn, internals::ERROR_KEY_COLUMN_EMPTY);
             const int index = this->storage_.names()->index_of(name);
             if (index == CSV_NOT_FOUND)
                 return internals::fail(error, CSVErrorCode::MissingKeyColumn, std::string(internals::ERROR_KEY_COLUMN_NOT_FOUND) + name);
@@ -866,10 +864,9 @@ namespace csv {
                     return true;
                 }
                 if (!failure) {
-                    internals::fail(failure, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
-                    failure.conversion = conversion;
+                    internals::fail_static(failure, CSVErrorCode::ConversionFailed, csv_conversion_error_message(conversion));
                 }
-                failure.context = std::string(internals::ERROR_KEY_COLUMN_VALUE) + failure.context;
+                failure.set_context(std::string(internals::ERROR_KEY_COLUMN_VALUE) + std::string(failure.context));
                 return false;
             };
             return this->build_from_key_function(reader, extract, options.get_duplicate_key_policy(), error);
@@ -949,7 +946,7 @@ namespace csv {
                 auto existing = key_to_pos.find(key);
                 if (existing != key_to_pos.end()) {
                     if (policy == DuplicateKeyPolicy::THROW)
-                        return internals::fail(error, CSVErrorCode::DuplicateKey, internals::ERROR_DUPLICATE_KEY);
+                        return internals::fail_static(error, CSVErrorCode::DuplicateKey, internals::ERROR_DUPLICATE_KEY);
                     if (policy == DuplicateKeyPolicy::OVERWRITE)
                         storage_.rows()[existing->second] = std::move(row);
                     continue;
@@ -974,11 +971,11 @@ namespace csv {
 
         bool validate_row_index(size_t index, CSVError& error) const {
             error.clear();
-            return index < this->size() || internals::fail(error, CSVErrorCode::IndexOutOfBounds, "DataFrame row index out of range");
+            return index < this->size() || internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, "DataFrame row index out of range");
         }
         bool validate_column_index(size_t index, CSVError& error) const {
             error.clear();
-            return index < this->n_cols() || internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
+            return index < this->n_cols() || internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_INDEX_OUT_OF_RANGE);
         }
         DataFrameCell try_make_cell(size_t row_index, size_t column_index, bool mutable_access, CSVError& error) const {
             const auto binding = this->storage_.try_bind(row_index, column_index, error);
@@ -1038,7 +1035,7 @@ namespace csv {
             error.clear();
             for (size_t index : column_indices) {
                 if (index >= this->n_cols())
-                    return internals::fail(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_APPLY_INVALID_INDEX);
+                    return internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, internals::ERROR_COLUMN_APPLY_INVALID_INDEX);
             }
             return true;
         }
@@ -1046,7 +1043,7 @@ namespace csv {
         /** Validate that this DataFrame was created with a key column. */
         bool require_keyed_frame(CSVError& error) const {
             if (!this->is_keyed_)
-                return internals::fail(error, CSVErrorCode::UnkeyedFrame, internals::ERROR_UNKEYED_DATA_FRAME);
+                return internals::fail_static(error, CSVErrorCode::UnkeyedFrame, internals::ERROR_UNKEYED_DATA_FRAME);
             return true;
         }
 
@@ -1095,7 +1092,7 @@ namespace csv {
             this->ensure_key_index();
             const auto found = this->key_index_->find(key);
             if (found == this->key_index_->end()) {
-                internals::fail(error, CSVErrorCode::KeyNotFound, internals::ERROR_KEY_NOT_FOUND);
+                internals::fail_static(error, CSVErrorCode::KeyNotFound, internals::ERROR_KEY_NOT_FOUND);
                 return 0;
             }
             return found->second;

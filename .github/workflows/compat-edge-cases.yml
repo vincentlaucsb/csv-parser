@@ -31,7 +31,13 @@ on:
   workflow_dispatch:
 
 jobs:
+  header-distribution:
+    uses: ./.github/workflows/optimized-single-header.yml
+    with:
+      skip-consumer-tests: true
+
   msvc-without-zc-cplusplus:
+    needs: header-distribution
     name: MSVC without /Zc:__cplusplus
     runs-on: windows-latest
 
@@ -42,11 +48,11 @@ jobs:
     - name: Set up MSVC developer command prompt
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Install single_header
-      id: single-header
-      uses: vincentlaucsb/single_header@0.1.0
+    - name: Download optimized header
+      uses: actions/download-artifact@v5
       with:
-        run: "false"
+        name: optimized-csv-header
+        path: build/distribution
 
     - name: Configure CMake (for single-header generation)
       run: >
@@ -56,7 +62,7 @@ jobs:
         -DCSV_BUILD_PROGRAMS=OFF
         -DCSV_BUILD_TESTS=OFF
         -DBUILD_PYTHON=OFF
-        -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
+        -DCSV_SINGLE_HEADER_PREGENERATED_HEADER="${{ github.workspace }}/build/distribution/csv.hpp"
 
     - name: Generate amalgamated single-header
       run: cmake --build ${{ github.workspace }}/build/no-zc-cplusplus --config Release --target generate_single_header

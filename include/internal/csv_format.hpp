@@ -15,7 +15,7 @@ namespace csv {
     class CSVFormat;
     namespace internals {
         /** Read a delimiter after configuration has been validated and resolved to one candidate. */
-        CSV_INLINE char resolved_delimiter(const CSVFormat& format) noexcept;
+        char resolved_delimiter(const CSVFormat& format) noexcept;
         template<typename RowSink, typename ParsePolicy, typename FieldPolicy, typename RowPolicy>
         class CSVParserCore;
         namespace parser {
