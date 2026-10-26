@@ -20,6 +20,8 @@ on:
       - "include/**"
       - "single_header.json"
       - "CMakeLists.txt"
+      - ".github/actions/optimized-single-header/**"
+      - ".github/workflows/optimized-single-header.yml"
       - ".github/workflows/compat-edge-cases.yml"
   pull_request:
     branches: [ "master" ]
@@ -27,14 +29,14 @@ on:
       - "include/**"
       - "single_header.json"
       - "CMakeLists.txt"
+      - ".github/actions/optimized-single-header/**"
+      - ".github/workflows/optimized-single-header.yml"
       - ".github/workflows/compat-edge-cases.yml"
   workflow_dispatch:
 
 jobs:
   header-distribution:
     uses: ./.github/workflows/optimized-single-header.yml
-    with:
-      skip-consumer-tests: true
 
   msvc-without-zc-cplusplus:
     needs: header-distribution

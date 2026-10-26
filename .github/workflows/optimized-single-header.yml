@@ -6,10 +6,6 @@ on:
     branches: [master]
   workflow_dispatch:
   workflow_call:
-    inputs:
-      skip-consumer-tests:
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
@@ -17,9 +13,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   optimized-header:
-    name: Generate and validate optimized csv.hpp
+    name: Generate optimized csv.hpp
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
@@ -27,7 +23,6 @@ jobs:
       - uses: ./.github/actions/optimized-single-header
         with:
           output: build/distribution/csv.hpp
-          skip-consumer-tests: ${{ inputs.skip-consumer-tests || false }}
       - uses: actions/upload-artifact@v4
         with:
           name: optimized-csv-header

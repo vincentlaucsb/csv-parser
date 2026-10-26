@@ -31,8 +31,6 @@ concurrency:
 jobs:
   header-distribution:
     uses: ./.github/workflows/optimized-single-header.yml
-    with:
-      skip-consumer-tests: true
 
   gcc:
     needs: header-distribution

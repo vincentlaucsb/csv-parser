@@ -244,13 +244,9 @@ if (CSV_DEVELOPER)
     # Generate a single header library
     set(CSV_SINGLE_HEADER_EXECUTABLE "" CACHE FILEPATH "Path to the single_header executable")
     set(CSV_SINGLE_HEADER_EXTRA_ARGS "" CACHE STRING "Additional single_header CLI arguments (CMake list)")
-    set(CSV_SINGLE_HEADER_PREGENERATED_HEADER "" CACHE FILEPATH "Previously generated csv.hpp with matching source manifest")
-    if(CSV_SINGLE_HEADER_PREGENERATED_HEADER)
-      if(NOT EXISTS "${CSV_SINGLE_HEADER_PREGENERATED_HEADER}" OR
-          NOT EXISTS "${CSV_SINGLE_HEADER_PREGENERATED_HEADER}.manifest.json")
-        message(FATAL_ERROR "CSV_SINGLE_HEADER_PREGENERATED_HEADER requires csv.hpp and its manifest")
-      endif()
-      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(CSV_SINGLE_HEADER_PREGENERATED_HEADER "" CACHE FILEPATH "Previously generated csv.hpp from this build's source revision")
+    if(CSV_SINGLE_HEADER_PREGENERATED_HEADER AND NOT EXISTS "${CSV_SINGLE_HEADER_PREGENERATED_HEADER}")
+      message(FATAL_ERROR "CSV_SINGLE_HEADER_PREGENERATED_HEADER does not exist")
     endif()
     if(CSV_SINGLE_HEADER_EXECUTABLE AND NOT EXISTS "${CSV_SINGLE_HEADER_EXECUTABLE}")
       message(STATUS "Ignoring missing CSV_SINGLE_HEADER_EXECUTABLE=${CSV_SINGLE_HEADER_EXECUTABLE}")
@@ -270,38 +266,32 @@ if (CSV_DEVELOPER)
     if(CSV_SINGLE_HEADER_EXECUTABLE OR CSV_SINGLE_HEADER_PREGENERATED_HEADER)
       set(CSV_SINGLE_INCLUDE_GENERATED_DIR ${CSV_BUILD_DIR}/single_include_generated)
       set(CSV_SINGLE_INCLUDE_GENERATED_HEADER ${CSV_SINGLE_INCLUDE_GENERATED_DIR}/csv.hpp)
-          file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
-            ${CSV_INCLUDE_DIR}/*.hpp
-            ${CSV_INCLUDE_DIR}/*.h
-            ${CSV_INCLUDE_DIR}/*.cpp
-          )
+      file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
+        ${CSV_INCLUDE_DIR}/*.hpp
+        ${CSV_INCLUDE_DIR}/*.h
+        ${CSV_INCLUDE_DIR}/*.cpp
+      )
 
       if(CSV_SINGLE_HEADER_PREGENERATED_HEADER)
         set(_CSV_HEADER_COMMAND
             ${CMAKE_COMMAND} -E copy_if_different ${CSV_SINGLE_HEADER_PREGENERATED_HEADER}
             ${CSV_SINGLE_INCLUDE_GENERATED_HEADER})
-        set(_CSV_HEADER_VERIFICATION
-            ${Python3_EXECUTABLE} ${CSV_ROOT_DIR}/tools/header_inputs.py
-            --root ${CSV_ROOT_DIR} --header ${CSV_SINGLE_HEADER_PREGENERATED_HEADER})
-        set(_CSV_HEADER_EXTRA_DEPENDS ${CSV_SINGLE_HEADER_PREGENERATED_HEADER}
-            ${CSV_SINGLE_HEADER_PREGENERATED_HEADER}.manifest.json
-            ${CSV_ROOT_DIR}/tools/header_inputs.py)
+        set(_CSV_HEADER_EXTRA_DEPENDS ${CSV_SINGLE_HEADER_PREGENERATED_HEADER})
       else()
         set(_CSV_HEADER_COMMAND ${CSV_SINGLE_HEADER_EXECUTABLE}
             --config ${CSV_ROOT_DIR}/single_header.json
-            --output ${CSV_SINGLE_INCLUDE_GENERATED_HEADER} ${CSV_SINGLE_HEADER_EXTRA_ARGS}
-            --inline-functions)
-        set(_CSV_HEADER_VERIFICATION ${CMAKE_COMMAND} -E echo_append "")
-        set(_CSV_HEADER_EXTRA_DEPENDS "")
+            --output ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+            --stitching-report ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}.stitching.json
+            ${CSV_SINGLE_HEADER_EXTRA_ARGS})
+        set(_CSV_HEADER_EXTRA_DEPENDS ${CSV_SINGLE_HEADER_EXECUTABLE})
       endif()
       add_custom_command(
           OUTPUT ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           COMMAND ${CMAKE_COMMAND} -E make_directory ${CSV_SINGLE_INCLUDE_GENERATED_DIR}
-          COMMAND ${_CSV_HEADER_VERIFICATION}
           COMMAND ${_CSV_HEADER_COMMAND}
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
-            DEPENDS ${CSV_ROOT_DIR}/single_header.json ${CSV_SINGLE_HEADER_INPUTS}
-              ${_CSV_HEADER_EXTRA_DEPENDS}
+          DEPENDS ${CSV_ROOT_DIR}/single_header.json ${CSV_SINGLE_HEADER_INPUTS}
+            ${_CSV_HEADER_EXTRA_DEPENDS}
           COMMENT "Generating single-header csv.hpp"
           VERBATIM
       )
@@ -319,7 +309,7 @@ if (CSV_DEVELOPER)
     else()
       message(WARNING "single_header executable not found, skipping target 'generate_single_header'.")
       if(CSV_BUILD_SINGLE_INCLUDE_TEST)
-        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a generator or verified pregenerated header.")
+        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a generator or pregenerated header.")
       endif()
     endif()
 

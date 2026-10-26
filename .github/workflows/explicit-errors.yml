@@ -16,8 +16,6 @@ concurrency:
 jobs:
   header-distribution:
     uses: ./.github/workflows/optimized-single-header.yml
-    with:
-      skip-consumer-tests: true
 
   error-api:
     needs: header-distribution

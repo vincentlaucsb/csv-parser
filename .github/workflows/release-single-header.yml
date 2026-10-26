@@ -16,7 +16,7 @@ jobs:
   publish-single-header:
     name: Generate and upload csv.hpp release asset
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 15
 
     steps:
     - name: Checkout repository and submodules
@@ -39,5 +39,4 @@ jobs:
         RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
       run: |
         gh release upload "$RELEASE_TAG" release-assets/csv.hpp \
-          release-assets/csv.hpp.sha256 release-assets/csv.hpp.stitching.json \
-          release-assets/csv.hpp.manifest.json --clobber
+          release-assets/csv.hpp.sha256 release-assets/csv.hpp.stitching.json --clobber

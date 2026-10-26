@@ -24,8 +24,6 @@ env:
 jobs:
   header-distribution:
     uses: ./.github/workflows/optimized-single-header.yml
-    with:
-      skip-consumer-tests: true
 
   build:
     needs: header-distribution
