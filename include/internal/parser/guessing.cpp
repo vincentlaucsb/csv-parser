@@ -8,7 +8,7 @@
 namespace csv {
     namespace internals {
         namespace parser {
-        CSV_INLINE GuessScore calculate_score(csv::string_view head, const CSVFormat& format) {
+        GuessScore calculate_score(csv::string_view head, const CSVFormat& format) {
             // Frequency counter of row length
             std::unordered_map<size_t, size_t> row_tally = { { 0, 0 } };
 
@@ -70,7 +70,7 @@ namespace csv {
             return { header_row, mode_row_length, final_score };
         }
 
-        CSV_INLINE CSVGuessResult guess_format(csv::string_view head, const std::vector<char>& delims, CSVError& error) {
+        CSVGuessResult guess_format(csv::string_view head, const std::vector<char>& delims, CSVError& error) {
             error.clear();
             if (delims.empty()) {
                 fail_static(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");

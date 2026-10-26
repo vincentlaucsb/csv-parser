@@ -4,8 +4,32 @@
   ],
   "output": "csv.hpp",
   "entry": "include/csv.hpp",
-  "rewriteMacros": {
-    "CSV_INLINE": "inline"
-  },
-  "implementationMarker": "/** INSERT_CSV_SOURCES **/"
+  "implementationMarker": "/** INSERT_CSV_SOURCES **/",
+  "deduplicateIncludes": true,
+  "includeGuard": "CSV_HPP",
+  "mergeNamespaces": true,
+  "inlineFunctions": true,
+  "allowMixedIncludes": [
+    "<algorithm>",
+    "<array>",
+    "<atomic>",
+    "<cassert>",
+    "<cmath>",
+    "<cstddef>",
+    "<cstdint>",
+    "<cstring>",
+    "<deque>",
+    "<functional>",
+    "<iterator>",
+    "<limits>",
+    "<memory>",
+    "<mutex>",
+    "<stdexcept>",
+    "<string>",
+    "<system_error>",
+    "<tuple>",
+    "<type_traits>",
+    "<utility>",
+    "<vector>"
+  ]
 }

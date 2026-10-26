@@ -243,11 +243,20 @@ if (CSV_DEVELOPER)
 
     # Generate a single header library
     set(CSV_SINGLE_HEADER_EXECUTABLE "" CACHE FILEPATH "Path to the single_header executable")
+    set(CSV_SINGLE_HEADER_EXTRA_ARGS "" CACHE STRING "Additional single_header CLI arguments (CMake list)")
+    set(CSV_SINGLE_HEADER_PREGENERATED_HEADER "" CACHE FILEPATH "Previously generated csv.hpp with matching source manifest")
+    if(CSV_SINGLE_HEADER_PREGENERATED_HEADER)
+      if(NOT EXISTS "${CSV_SINGLE_HEADER_PREGENERATED_HEADER}" OR
+          NOT EXISTS "${CSV_SINGLE_HEADER_PREGENERATED_HEADER}.manifest.json")
+        message(FATAL_ERROR "CSV_SINGLE_HEADER_PREGENERATED_HEADER requires csv.hpp and its manifest")
+      endif()
+      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    endif()
     if(CSV_SINGLE_HEADER_EXECUTABLE AND NOT EXISTS "${CSV_SINGLE_HEADER_EXECUTABLE}")
       message(STATUS "Ignoring missing CSV_SINGLE_HEADER_EXECUTABLE=${CSV_SINGLE_HEADER_EXECUTABLE}")
       set(CSV_SINGLE_HEADER_EXECUTABLE "" CACHE FILEPATH "Path to the single_header executable" FORCE)
     endif()
-    if(NOT CSV_SINGLE_HEADER_EXECUTABLE)
+    if(NOT CSV_SINGLE_HEADER_EXECUTABLE AND NOT CSV_SINGLE_HEADER_PREGENERATED_HEADER)
       find_program(_CSV_SINGLE_HEADER_EXECUTABLE_FOUND
           NAMES single_header single_header.exe
           HINTS ${CSV_ROOT_DIR}
@@ -258,7 +267,7 @@ if (CSV_DEVELOPER)
       unset(_CSV_SINGLE_HEADER_EXECUTABLE_FOUND CACHE)
     endif()
 
-    if(CSV_SINGLE_HEADER_EXECUTABLE)
+    if(CSV_SINGLE_HEADER_EXECUTABLE OR CSV_SINGLE_HEADER_PREGENERATED_HEADER)
       set(CSV_SINGLE_INCLUDE_GENERATED_DIR ${CSV_BUILD_DIR}/single_include_generated)
       set(CSV_SINGLE_INCLUDE_GENERATED_HEADER ${CSV_SINGLE_INCLUDE_GENERATED_DIR}/csv.hpp)
           file(GLOB_RECURSE CSV_SINGLE_HEADER_INPUTS CONFIGURE_DEPENDS
@@ -267,15 +276,34 @@ if (CSV_DEVELOPER)
             ${CSV_INCLUDE_DIR}/*.cpp
           )
 
+      if(CSV_SINGLE_HEADER_PREGENERATED_HEADER)
+        set(_CSV_HEADER_COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different ${CSV_SINGLE_HEADER_PREGENERATED_HEADER}
+            ${CSV_SINGLE_INCLUDE_GENERATED_HEADER})
+        set(_CSV_HEADER_VERIFICATION
+            ${Python3_EXECUTABLE} ${CSV_ROOT_DIR}/tools/header_inputs.py
+            --root ${CSV_ROOT_DIR} --header ${CSV_SINGLE_HEADER_PREGENERATED_HEADER})
+        set(_CSV_HEADER_EXTRA_DEPENDS ${CSV_SINGLE_HEADER_PREGENERATED_HEADER}
+            ${CSV_SINGLE_HEADER_PREGENERATED_HEADER}.manifest.json
+            ${CSV_ROOT_DIR}/tools/header_inputs.py)
+      else()
+        set(_CSV_HEADER_COMMAND ${CSV_SINGLE_HEADER_EXECUTABLE}
+            --config ${CSV_ROOT_DIR}/single_header.json
+            --output ${CSV_SINGLE_INCLUDE_GENERATED_HEADER} ${CSV_SINGLE_HEADER_EXTRA_ARGS}
+            --inline-functions)
+        set(_CSV_HEADER_VERIFICATION ${CMAKE_COMMAND} -E echo_append "")
+        set(_CSV_HEADER_EXTRA_DEPENDS "")
+      endif()
       add_custom_command(
           OUTPUT ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
           COMMAND ${CMAKE_COMMAND} -E make_directory ${CSV_SINGLE_INCLUDE_GENERATED_DIR}
-          COMMAND ${CSV_SINGLE_HEADER_EXECUTABLE}
-            --config ${CSV_ROOT_DIR}/single_header.json
-            --output ${CSV_SINGLE_INCLUDE_GENERATED_HEADER}
+          COMMAND ${_CSV_HEADER_VERIFICATION}
+          COMMAND ${_CSV_HEADER_COMMAND}
           WORKING_DIRECTORY ${CSV_ROOT_DIR}
             DEPENDS ${CSV_ROOT_DIR}/single_header.json ${CSV_SINGLE_HEADER_INPUTS}
+              ${_CSV_HEADER_EXTRA_DEPENDS}
           COMMENT "Generating single-header csv.hpp"
+          VERBATIM
       )
 
       add_custom_target(generate_single_header
@@ -291,7 +319,7 @@ if (CSV_DEVELOPER)
     else()
       message(WARNING "single_header executable not found, skipping target 'generate_single_header'.")
       if(CSV_BUILD_SINGLE_INCLUDE_TEST)
-        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires the single_header executable.")
+        message(FATAL_ERROR "CSV_BUILD_SINGLE_INCLUDE_TEST=ON requires a generator or verified pregenerated header.")
       endif()
     endif()
 

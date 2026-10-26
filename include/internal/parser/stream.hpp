@@ -100,18 +100,15 @@ namespace csv {
                     return;
                 }
 #endif
-#if CSV_EXCEPTIONS_ENABLED
-                try {
-#endif
+                CSV_TRY {
                     source_.read(buf.get(), static_cast<std::streamsize>(read_size));
-#if CSV_EXCEPTIONS_ENABLED
-                } catch (const std::ios_base::failure&) {
+                }
+                CSV_CATCH((const std::ios_base::failure&), {
                     if (!source_.eof() || source_.bad()) {
                         fail_static(this->error_, CSVErrorCode::ReadFailed, ERROR_STREAM_READ_FAILURE);
                         return;
                     }
-                }
-#endif
+                })
 
                 const size_t n = static_cast<size_t>(source_.gcount());
 

@@ -22,7 +22,13 @@ env:
   CSV_FETCHCONTENT_BASE_DIR: ${{ github.workspace }}/.cache/fetchcontent
 
 jobs:
+  header-distribution:
+    uses: ./.github/workflows/optimized-single-header.yml
+    with:
+      skip-consumer-tests: true
+
   build:
+    needs: header-distribution
     name: ${{ matrix.job_name || format('{0} {1} C++{2}', matrix.os, matrix.cpp_compiler, matrix.cxx_standard) }}
     runs-on: ${{ matrix.os }}
 
@@ -89,11 +95,11 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install single_header
-      id: single-header
-      uses: vincentlaucsb/single_header@0.1.0
+    - name: Download optimized header
+      uses: actions/download-artifact@v5
       with:
-        run: "false"
+        name: optimized-csv-header
+        path: build/distribution
 
     - name: Cache CMake FetchContent dependencies
       uses: actions/cache@v5
@@ -115,7 +121,7 @@ jobs:
         cmake -B ${{ steps.strings.outputs.build-output-dir }}
         -DCSV_CXX_STANDARD=${{ matrix.cxx_standard }}
         -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
-        -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
+        -DCSV_SINGLE_HEADER_PREGENERATED_HEADER="${{ github.workspace }}/build/distribution/csv.hpp"
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
@@ -183,6 +189,7 @@ jobs:
       run: ctest --build-config Release --output-on-failure
 
   single-threaded-emscripten:
+    needs: header-distribution
     name: Single-threaded Emscripten build (CSV_ENABLE_THREADS=OFF)
     runs-on: ubuntu-latest
     env:
@@ -196,11 +203,11 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Install single_header
-      id: single-header
-      uses: vincentlaucsb/single_header@0.1.0
+    - name: Download optimized header
+      uses: actions/download-artifact@v5
       with:
-        run: "false"
+        name: optimized-csv-header
+        path: build/distribution
 
     - name: Cache CMake FetchContent dependencies
       uses: actions/cache@v5
@@ -219,7 +226,7 @@ jobs:
         -DCSV_ENABLE_THREADS=OFF
         -DCSV_CXX_STANDARD=20
         -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON
-        -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}"
+        -DCSV_SINGLE_HEADER_PREGENERATED_HEADER="${{ github.workspace }}/build/distribution/csv.hpp"
         -DCMAKE_CROSSCOMPILING_EMULATOR=node
         -DCMAKE_BUILD_TYPE=Release
         -S ${{ github.workspace }}

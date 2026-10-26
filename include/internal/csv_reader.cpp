@@ -5,7 +5,7 @@
 #include "csv_reader.hpp"
 
 namespace csv {
-    CSV_INLINE void CSVReader::open_file(csv::string_view filename, const CSVFormat& format) {
+    void CSVReader::open_file(csv::string_view filename, const CSVFormat& format) {
 #if defined(__EMSCRIPTEN__)
         owned_stream.reset(new std::ifstream(std::string(filename), std::ios::binary));
         if (!*owned_stream) {
@@ -20,7 +20,7 @@ namespace csv {
 #endif
     }
 
-    CSV_INLINE std::unique_ptr<CSVReader> CSVReader::try_open(
+    std::unique_ptr<CSVReader> CSVReader::try_open(
         csv::string_view filename, CSVError& error, const CSVFormat& format) {
         error.clear();
         std::unique_ptr<CSVReader> reader(new CSVReader(format, initialize_tag{}));
@@ -29,7 +29,7 @@ namespace csv {
         return error ? nullptr : std::move(reader);
     }
 
-    CSV_INLINE std::unique_ptr<CSVReader> CSVReader::try_open(
+    std::unique_ptr<CSVReader> CSVReader::try_open(
         std::unique_ptr<std::istream> source, CSVError& error, const CSVFormat& format) {
         error.clear();
         if (!source) {
@@ -46,7 +46,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Reading helpers
 #endif
-    CSV_INLINE bool CSVReader::check_for_rows() {
+    bool CSVReader::check_for_rows() {
         if (error_) return false;
         if (!this->records->empty()) return true;
 
@@ -88,7 +88,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Format and header helpers
 #endif
-    CSV_INLINE void CSVReader::init_parser(
+    void CSVReader::init_parser(
         std::unique_ptr<internals::parser::CSVParserDriverBase> parser_impl
     ) {
         if (parser_impl->error()) {
@@ -108,7 +108,7 @@ namespace csv {
         this->initial_read();
     }
 
-    CSV_INLINE CSVFormat CSVReader::get_format() const {
+    CSVFormat CSVReader::get_format() const {
         CSVFormat new_format = this->_format;
 
         // Since users are normally not allowed to set
@@ -120,7 +120,7 @@ namespace csv {
         return new_format;
     }
 
-    CSV_INLINE void CSVReader::initial_read() {
+    void CSVReader::initial_read() {
         // Issue #337: A single read window may end before the header row when
         // earlier rows are long, so keep reading until the header is consumed.
         do {
@@ -144,7 +144,7 @@ namespace csv {
         } while (!this->header_trimmed && !this->parser->eof());
     }
 
-    CSV_INLINE void CSVReader::trim_header() {
+    void CSVReader::trim_header() {
         if (!this->header_trimmed) {
             // The rows up to and including the header may arrive over several
             // reads, so track progress instead of assuming one read holds them all.
@@ -164,7 +164,7 @@ namespace csv {
     }
 
     /** Install the active column names for this reader. */
-    CSV_INLINE void CSVReader::set_col_names(const std::vector<std::string>& names)
+    void CSVReader::set_col_names(const std::vector<std::string>& names)
     {
         this->col_names->set_policy(this->_format.get_column_name_policy());
         this->col_names->set_col_names(names);
@@ -177,7 +177,7 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Reading helpers
 #endif
-    CSV_INLINE bool CSVReader::accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows) {
+    bool CSVReader::accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows) {
         const auto policy = this->_format.variable_column_policy;
         const size_t next_row_size = candidate.size();
 
@@ -213,7 +213,7 @@ namespace csv {
         return true;
     }
 
-    CSV_INLINE void CSVReader::drain_rows_into_chunk(std::vector<CSVRow>& out, size_t max_rows) {
+    void CSVReader::drain_rows_into_chunk(std::vector<CSVRow>& out, size_t max_rows) {
         std::vector<CSVRow> drained;
         drained.reserve(max_rows - out.size());
         this->records->drain_front(drained, max_rows - out.size());
@@ -241,7 +241,7 @@ namespace csv {
      * @see csv::internals::CSVReadScheduler
      * @see CSVReader::read_row()
      */
-    CSV_INLINE bool CSVReader::read_csv(size_t bytes) {
+    bool CSVReader::read_csv(size_t bytes) {
         // SCHEDULED READ FUNCTION: Runs asynchronously when runtime threading
         // is enabled, or synchronously when CSVFormat::threading(false) is active.
         //
@@ -258,22 +258,18 @@ namespace csv {
         // Tell read_row() to listen for CSV rows
         this->records->notify_all();
 
-#if CSV_EXCEPTIONS_ENABLED
-        try {
-#endif
+        CSV_TRY {
             this->parser->set_output(*this->records);
             this->parser->next(bytes);
 
             if (!parser->error() && !this->header_trimmed) {
                 this->trim_header();
             }
-#if CSV_EXCEPTIONS_ENABLED
         }
-        catch (...) {
+        CSV_CATCH((...), {
             this->records->kill_all();
             throw;
-        }
-#endif
+        })
 
         // Tell read_row() to stop waiting
         this->records->kill_all();
@@ -281,7 +277,7 @@ namespace csv {
         return true;
     }
 
-    CSV_INLINE bool CSVReader::try_read_row(CSVRow& row, CSVError& error) {
+    bool CSVReader::try_read_row(CSVRow& row, CSVError& error) {
         error.clear();
         while (this->check_for_rows()) {
             if (this->records->empty())
@@ -295,7 +291,7 @@ namespace csv {
         return false;
     }
 
-    CSV_INLINE bool CSVReader::try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error) {
+    bool CSVReader::try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error) {
         error.clear();
         out.clear();
 
@@ -323,14 +319,14 @@ namespace csv {
         return true;
     }
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE bool CSVReader::read_row(CSVRow& row) {
+    bool CSVReader::read_row(CSVRow& row) {
         CSVError error;
         const bool read = try_read_row(row, error);
         internals::throw_error(error);
         return read;
     }
 
-    CSV_INLINE bool CSVReader::read_chunk(std::vector<CSVRow>& out, size_t max_rows) {
+    bool CSVReader::read_chunk(std::vector<CSVRow>& out, size_t max_rows) {
         if (max_rows == 0) { out.clear(); return false; }
         CSVError error;
         const bool read = try_read_chunk(out, max_rows, error);

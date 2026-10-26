@@ -362,18 +362,14 @@ namespace internals {
             // A failed write can have emitted a prefix. Never retry its buffered bytes
             // during destruction; the caller has already received the I/O failure.
             if (!out || !ready_for_destruction(*out, 0)) return;
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 flush_batch();
                 out->flush();
-#if CSV_EXCEPTIONS_ENABLED
             }
-            catch (...) {
+            CSV_CATCH((...), {
                 // Destruction must not replace an active exception or terminate a caller
                 // that already handled a checked I/O failure.
-            }
-#endif
+            })
         }
 
         /** Write a C-style array of strings as one delimited row. */
@@ -598,17 +594,13 @@ namespace internals {
             // Detach before closing so neither close errors nor a failed flush can
             // trigger a second write from the writer's destructor.
             out = nullptr;
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 owned_out->close();
-#if CSV_EXCEPTIONS_ENABLED
             }
-            catch (const std::ios_base::failure& failure) {
+            CSV_CATCH((const std::ios_base::failure& failure), {
                 if (flushed) internals::fail(error, CSVErrorCode::WriteFailed, failure.what());
                 return false;
-            }
-#endif
+            })
             if (!flushed) return false;
             if (owned_out->fail()) {
                 return internals::fail_static(error, CSVErrorCode::WriteFailed, "Failed to close CSV output.");
@@ -659,16 +651,12 @@ namespace internals {
             if (out->fail()) {
                 return internals::fail_static(error, CSVErrorCode::WriteFailed, "CSV output stream has failed.");
             }
-#if CSV_EXCEPTIONS_ENABLED
-            try {
-#endif
+            CSV_TRY {
                 if (!std::forward<Fn>(operation)()) return false;
-#if CSV_EXCEPTIONS_ENABLED
             }
-            catch (const std::ios_base::failure& failure) {
+            CSV_CATCH((const std::ios_base::failure& failure), {
                 return internals::fail(error, CSVErrorCode::WriteFailed, failure.what());
-            }
-#endif
+            })
             return this->check_write_status(error);
         }
 

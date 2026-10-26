@@ -9,7 +9,7 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept
+        csv::string_view get_trimmed(csv::string_view sv, const WhitespaceMap& ws_flags) noexcept
         {
             // Lazy trim only when requested
             size_t start = 0;
@@ -27,14 +27,14 @@ namespace csv {
     }
 
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE CSVField CSVRow::operator[](size_t n) const {
+    CSVField CSVRow::operator[](size_t n) const {
         if (n >= this->size()) throw std::runtime_error(internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
         return this->make_field(n, this->data);
     }
 #endif
 
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE CSVField CSVRow::operator[](csv::string_view col_name) const {
+    CSVField CSVRow::operator[](csv::string_view col_name) const {
         auto & col_names = this->data->col_names;
         auto col_pos = col_names->index_of(col_name);
         if (col_pos > -1) {
@@ -44,7 +44,7 @@ namespace csv {
         internals::throw_column_not_found(col_name);
     }
 #endif
-    CSV_INLINE CSVField CSVRow::try_field(size_t index, CSVError& error) const {
+    CSVField CSVRow::try_field(size_t index, CSVError& error) const {
         error.clear();
         if (index >= size()) {
             internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, internals::CSV_ERROR_INDEX_OUT_OF_BOUNDS);
@@ -53,7 +53,7 @@ namespace csv {
         return make_field(index, data);
     }
 
-    CSV_INLINE CSVField CSVRow::try_field(csv::string_view name, CSVError& error) const {
+    CSVField CSVRow::try_field(csv::string_view name, CSVError& error) const {
         error.clear();
         const int index = data && data->col_names ? data->col_names->index_of(name) : CSV_NOT_FOUND;
         if (index == CSV_NOT_FOUND) {
@@ -64,7 +64,7 @@ namespace csv {
         return try_field(static_cast<size_t>(index), error);
     }
 
-    CSV_INLINE CSVRow::operator std::vector<std::string>() const {
+    CSVRow::operator std::vector<std::string>() const {
         std::vector<std::string> ret;
         for (size_t i = 0; i < size(); i++)
             ret.push_back(std::string(this->get_field(i)));
@@ -72,7 +72,7 @@ namespace csv {
         return ret;
     }
 
-    CSV_INLINE csv::string_view CSVRow::raw_str() const noexcept {
+    csv::string_view CSVRow::raw_str() const noexcept {
         if (!data) return csv::string_view();
         const csv::string_view full = data->data;
         if (data_start >= full.size()) return csv::string_view();
@@ -90,16 +90,16 @@ namespace csv {
         return full.substr(data_start, len);
     }
 
-    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::try_to_unordered_map(CSVError& error) const {
+    std::unordered_map<std::string, std::string> CSVRow::try_to_unordered_map(CSVError& error) const {
         return to_unordered_map_impl(nullptr, error);
     }
 
-    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::try_to_unordered_map(
+    std::unordered_map<std::string, std::string> CSVRow::try_to_unordered_map(
         CSVError& error, const std::vector<std::string>& subset) const {
         return to_unordered_map_impl(&subset, error);
     }
 
-    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map_impl(
+    std::unordered_map<std::string, std::string> CSVRow::to_unordered_map_impl(
         const std::vector<std::string>* subset, CSVError& error) const {
         error.clear();
         std::unordered_map<std::string, std::string> out;
@@ -124,14 +124,14 @@ namespace csv {
     }
 
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
+    std::unordered_map<std::string, std::string> CSVRow::to_unordered_map() const {
         CSVError error;
         auto out = try_to_unordered_map(error);
         if (error) throw std::out_of_range(std::string(error.context));
         return out;
     }
 
-    CSV_INLINE std::unordered_map<std::string, std::string> CSVRow::to_unordered_map(
+    std::unordered_map<std::string, std::string> CSVRow::to_unordered_map(
         const std::vector<std::string>& subset) const {
         CSVError error;
         auto out = try_to_unordered_map(error, subset);
@@ -140,17 +140,17 @@ namespace csv {
     }
 #endif
 
-    CSV_INLINE csv::string_view CSVRow::get_field(size_t index) const
+    csv::string_view CSVRow::get_field(size_t index) const
     {
         return this->get_field_impl(index, this->data);
     }
 
-    CSV_INLINE csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
+    csv::string_view CSVRow::get_field_safe(size_t index, internals::RawCSVDataPtr _data) const
     {
         return this->get_field_impl(index, _data);
     }
 
-    CSV_INLINE CSVField CSVRow::make_field(size_t index, const internals::RawCSVDataPtr& _data) const
+    CSVField CSVRow::make_field(size_t index, const internals::RawCSVDataPtr& _data) const
     {
         const csv::string_view field = this->get_field_impl(index, _data);
         const size_t field_index = this->fields_start + index;
@@ -161,7 +161,7 @@ namespace csv {
         return CSVField(field);
     }
 
-    CSV_INLINE bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
+    bool CSVField::try_parse_decimal(long double& dVal, const char decimalSymbol) {
         // If field has already been parsed to empty, no need to do it aagin:
         if (this->type_ == DataType::CSV_NULL)
                     return false;
@@ -195,7 +195,7 @@ namespace csv {
         return false;
     }
 
-    CSV_INLINE bool CSVField::try_parse_timestamp(std::uint64_t& out) noexcept {
+    bool CSVField::try_parse_timestamp(std::uint64_t& out) noexcept {
         if (this->type_ == DataType::UNKNOWN)
             this->get_value();
 
@@ -216,7 +216,7 @@ namespace csv {
 #pragma region CSVRow Iterator
 #endif
     /** Return an iterator pointing to the first field. */
-    CSV_INLINE CSVRow::iterator CSVRow::begin() const {
+    CSVRow::iterator CSVRow::begin() const {
         return CSVRow::iterator(this, 0);
     }
 
@@ -225,19 +225,19 @@ namespace csv {
      *  @warning Attempting to dereference the end iterator results
      *           in dereferencing a null pointer.
      */
-    CSV_INLINE CSVRow::iterator CSVRow::end() const noexcept {
+    CSVRow::iterator CSVRow::end() const noexcept {
         return CSVRow::iterator(this, (int)this->size());
     }
 
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rbegin() const noexcept {
+    CSVRow::reverse_iterator CSVRow::rbegin() const noexcept {
         return std::reverse_iterator<CSVRow::iterator>(this->end());
     }
 
-    CSV_INLINE CSVRow::reverse_iterator CSVRow::rend() const {
+    CSVRow::reverse_iterator CSVRow::rend() const {
         return std::reverse_iterator<CSVRow::iterator>(this->begin());
     }
 
-    CSV_INLINE CSV_NON_NULL(2)
+    CSV_NON_NULL(2)
     CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
         : daddy(_reader), data(_reader->data), i(_i) {
         if (_i < (int)this->daddy->size())
@@ -247,15 +247,15 @@ namespace csv {
             this->field = nullptr;
     }
 
-    CSV_INLINE CSVRow::iterator::reference CSVRow::iterator::operator*() const {
+    CSVRow::iterator::reference CSVRow::iterator::operator*() const {
         return *(this->field.get());
     }
 
-    CSV_INLINE CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
+    CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
         return this->field;
     }
 
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator++() {
+    CSVRow::iterator& CSVRow::iterator::operator++() {
         // Pre-increment operator
         this->i++;
         if (this->i < (int)this->daddy->size())
@@ -266,14 +266,14 @@ namespace csv {
         return *this;
     }
 
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator++(int) {
+    CSVRow::iterator CSVRow::iterator::operator++(int) {
         // Post-increment operator
         auto temp = *this;
         this->operator++();
         return temp;
     }
 
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator--() {
+    CSVRow::iterator& CSVRow::iterator::operator--() {
         // Pre-decrement operator
         this->i--;
         this->field = std::make_shared<CSVField>(
@@ -281,34 +281,34 @@ namespace csv {
         return *this;
     }
 
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator--(int) {
+    CSVRow::iterator CSVRow::iterator::operator--(int) {
         // Post-decrement operator
         auto temp = *this;
         this->operator--();
         return temp;
     }
     
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
+    CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
         // Allows for iterator arithmetic
         return CSVRow::iterator(this->daddy, i + (int)n);
     }
 
-    CSV_INLINE CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
+    CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
         // Allows for iterator arithmetic
         return CSVRow::iterator::operator+(-n);
     }
 
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator+=(difference_type n) {
+    CSVRow::iterator& CSVRow::iterator::operator+=(difference_type n) {
         *this = *this + n;
         return *this;
     }
 
-    CSV_INLINE CSVRow::iterator& CSVRow::iterator::operator-=(difference_type n) {
+    CSVRow::iterator& CSVRow::iterator::operator-=(difference_type n) {
         *this = *this - n;
         return *this;
     }
 
-    CSV_INLINE CSVRow::iterator::difference_type CSVRow::iterator::operator-(const iterator& other) const noexcept {
+    CSVRow::iterator::difference_type CSVRow::iterator::operator-(const iterator& other) const noexcept {
         return this->i - other.i;
     }
 #ifdef _MSC_VER

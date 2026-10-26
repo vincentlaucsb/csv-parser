@@ -14,7 +14,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  header-distribution:
+    uses: ./.github/workflows/optimized-single-header.yml
+    with:
+      skip-consumer-tests: true
+
   error-api:
+    needs: header-distribution
     name: ${{ matrix.os }} C++${{ matrix.standard }} exceptions=${{ matrix.exceptions }} threads=${{ matrix.threads }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -47,11 +53,11 @@ jobs:
             sudo apt-get install -y g++-14
           fi
 
-      - name: Install single_header
-        id: single-header
-        uses: vincentlaucsb/single_header@0.1.0
+      - name: Download optimized header
+        uses: actions/download-artifact@v5
         with:
-          run: "false"
+          name: optimized-csv-header
+          path: build/distribution
 
       - name: Cache Catch2 source
         uses: actions/cache@v5
@@ -77,7 +83,7 @@ jobs:
             -DCSV_BUILD_PROGRAMS=OFF \
             -DCSV_BUILD_SINGLE_INCLUDE_TEST=ON \
             -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/.cache/fetchcontent" \
-            -DCSV_SINGLE_HEADER_EXECUTABLE="${{ steps.single-header.outputs.executable }}" \
+            -DCSV_SINGLE_HEADER_PREGENERATED_HEADER="${{ github.workspace }}/build/distribution/csv.hpp" \
             "${flags[@]}" "${compiler_flags[@]}"
 
       - name: Build linked and generated-header consumers

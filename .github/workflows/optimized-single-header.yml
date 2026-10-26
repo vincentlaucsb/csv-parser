@@ -1,0 +1,35 @@
+name: Optimized single header
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      skip-consumer-tests:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: optimized-header-${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  optimized-header:
+    name: Generate and validate optimized csv.hpp
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/optimized-single-header
+        with:
+          output: build/distribution/csv.hpp
+          skip-consumer-tests: ${{ inputs.skip-consumer-tests || false }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optimized-csv-header
+          path: build/distribution/csv.hpp*
+          if-no-files-found: error

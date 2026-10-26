@@ -3,7 +3,7 @@
 
 namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
-    CSV_INLINE std::unordered_map<std::string, DataType> csv_data_types(CSVReader& reader) {
+    std::unordered_map<std::string, DataType> csv_data_types(CSVReader& reader) {
         CSVError error;
         auto result = try_csv_data_types(reader, error);
         internals::throw_dataframe_error(error);
@@ -11,7 +11,7 @@ namespace csv {
     }
 #endif
 
-    CSV_INLINE std::unordered_map<std::string, DataType> try_csv_data_types(CSVReader& reader, CSVError& error) {
+    std::unordered_map<std::string, DataType> try_csv_data_types(CSVReader& reader, CSVError& error) {
         error.clear();
         std::unordered_map<std::string, DataType> csv_dtypes;
         const auto col_names = reader.get_col_names();

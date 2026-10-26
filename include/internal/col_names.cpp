@@ -5,11 +5,11 @@
 
 namespace csv {
     namespace internals {
-        CSV_INLINE const std::vector<std::string>& ColNames::get_col_names() const noexcept {
+        const std::vector<std::string>& ColNames::get_col_names() const noexcept {
             return this->col_names;
         }
 
-        CSV_INLINE void ColNames::set_col_names(const std::vector<std::string>& cnames) {
+        void ColNames::set_col_names(const std::vector<std::string>& cnames) {
             this->col_names = cnames;
             this->col_pos.clear();
 
@@ -27,7 +27,7 @@ namespace csv {
             }
         }
 
-        CSV_INLINE int ColNames::index_of(csv::string_view col_name) const {
+        int ColNames::index_of(csv::string_view col_name) const {
             if (this->_policy == csv::ColumnNamePolicy::CASE_INSENSITIVE) {
                 std::string lower(col_name);
                 std::transform(lower.begin(), lower.end(), lower.begin(),
@@ -40,16 +40,16 @@ namespace csv {
             return (pos != this->col_pos.end()) ? (int)pos->second : CSV_NOT_FOUND;
         }
 
-        CSV_INLINE void ColNames::set_policy(csv::ColumnNamePolicy policy) {
+        void ColNames::set_policy(csv::ColumnNamePolicy policy) {
             this->_policy = policy;
         }
 
-        CSV_INLINE csv::ColumnNamePolicy ColNames::get_policy() const noexcept {
+        csv::ColumnNamePolicy ColNames::get_policy() const noexcept {
             return this->_policy;
         }
 
 #if CSV_EXCEPTIONS_ENABLED
-        CSV_INLINE const std::string& ColNames::operator[](size_t i) const {
+        const std::string& ColNames::operator[](size_t i) const {
             if (i >= this->col_names.size())
                 throw_column_index_out_of_bounds();
 

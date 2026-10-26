@@ -159,16 +159,12 @@ namespace csv {
             std::mutex exception_lock_;
 
             void run_now(std::function<void()> task) noexcept {
-#if CSV_EXCEPTIONS_ENABLED
-                try {
-#endif
+                CSV_TRY {
                     task();
-#if CSV_EXCEPTIONS_ENABLED
                 }
-                catch (...) {
+                CSV_CATCH((...), {
                     this->adopt_exception(std::current_exception());
-                }
-#endif
+                })
             }
         };
 
