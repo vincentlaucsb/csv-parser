@@ -245,7 +245,7 @@ https://vincentlaucsb.github.io/csv-parser/csv.hpp
  * The file is automatically generated and deployed on every commit to `master`, ensuring you always have the latest version
  * If you need a pinned version, check the **Releases** page
 
-The published header uses `single_header` 1.1.1 with generator-owned `inline`
+The published header uses `single_header` 1.2.0 with generator-owned `inline`
 definitions, include deduplication, recursive namespace merging, and
 compiler-backed free-function/method stitching.
 The release includes its checksum and stitching report.
