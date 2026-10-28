@@ -667,7 +667,7 @@ namespace csv {
         ///@}
 
         /** A random access iterator over the contents of a CSV row.
-         *  Each iterator points to a CSVField.
+         *  Each iterator owns the CSVField it points at.
          */
         class iterator {
         public:
@@ -711,8 +711,72 @@ namespace csv {
             int i = 0;                                           // Index of current field
         };
 
-        /** A reverse iterator over the contents of a CSVRow. */
-        using reverse_iterator = std::reverse_iterator<iterator>;
+        /** Reverse random-access iterator over the fields in a CSVRow.
+         *
+         *  The CSVField from operator* is owned by this iterator and stays
+         *  valid until the iterator is destroyed or repositioned.
+         *  This is not std::reverse_iterator. That adaptor dereferences a
+         *  temporary of the forward iterator, which frees the field before
+         *  the caller can use it.
+         */
+        class reverse_iterator {
+        public:
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+            using value_type = CSVField;
+            using difference_type = int;
+            using pointer = std::shared_ptr<CSVField>;
+            using reference = CSVField&;
+            using iterator_category = std::random_access_iterator_tag;
+#endif
+            explicit reverse_iterator(iterator base) noexcept;
+
+            reference operator*() const;
+            pointer operator->() const;
+
+            reverse_iterator operator++(int);
+            reverse_iterator& operator++();
+            reverse_iterator operator--(int);
+            reverse_iterator& operator--();
+            reverse_iterator operator+(difference_type n) const;
+            reverse_iterator operator-(difference_type n) const;
+            reverse_iterator& operator+=(difference_type n);
+            reverse_iterator& operator-=(difference_type n);
+            difference_type operator-(const reverse_iterator& other) const noexcept;
+
+            /** The forward iterator one past the field this iterator references. */
+            iterator base() const;
+
+            CONSTEXPR bool operator==(const reverse_iterator& other) const noexcept {
+                return this->base_ == other.base_;
+            }
+
+            CONSTEXPR bool operator!=(const reverse_iterator& other) const noexcept {
+                return !(*this == other);
+            }
+
+            bool operator<(const reverse_iterator& other) const noexcept {
+                return (this->base_ - other.base_) > 0;
+            }
+
+            bool operator>(const reverse_iterator& other) const noexcept {
+                return other < *this;
+            }
+
+            bool operator<=(const reverse_iterator& other) const noexcept {
+                return !(*this > other);
+            }
+
+            bool operator>=(const reverse_iterator& other) const noexcept {
+                return !(*this < other);
+            }
+
+        private:
+            void ensure() const;
+
+            iterator base_;
+            mutable iterator current_;
+            mutable bool ready_ = false;
+        };
 
         /** Materialize named values; unknown names or absent header positions report an error. */
         std::unordered_map<std::string, std::string> try_to_unordered_map(CSVError& error) const;
