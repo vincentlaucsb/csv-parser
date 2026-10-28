@@ -10,7 +10,7 @@ using namespace csv;
 // CSVRow Iterators //
 //////////////////////
 
-TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
+TEST_CASE("Test CSVRow Iterator", "[test_csv_row_iter]") {
     auto rows = "A,B,C\r\n" // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
@@ -74,7 +74,7 @@ TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
 
     SECTION("Range Based For") {
         size_t i = 0;
-        for (auto& field : row) {
+        for (auto field : row) {
             if (i == 0) REQUIRE(field.get<>() == "123");
             else if (i == 1) REQUIRE(field.get<>() == "234");
             else  REQUIRE(field.get<>() == "345");
@@ -173,10 +173,9 @@ TEST_CASE("CSVReader Iterator + Algorithms Requiring ForwardIterator", "[iter_al
 #endif
 //! [CSVReader Iterator 2]
 
-// std::reverse_iterator::operator* dereferences a temporary copy of the base
-// iterator. CSVRow::iterator owns its CSVField, so that temporary freed the
-// field before the caller could read it.
-TEST_CASE("CSVRow reverse iterator keeps its field alive", "[test_csv_row_iter]") {
+// Regression: dereferencing reverse traversal must produce a live field value,
+// even when the reverse iterator itself is a temporary.
+TEST_CASE("CSVRow reverse iterator returns live field values", "[test_csv_row_iter]") {
     auto rows = "A,B,C\r\n"
         "123,234,345\r\n"_csv;
 
@@ -191,12 +190,13 @@ TEST_CASE("CSVRow reverse iterator keeps its field alive", "[test_csv_row_iter]"
         REQUIRE(first.get<std::string>() == "123");
     }
 
-    SECTION("Reference stays valid while the reverse iterator is unchanged") {
+    SECTION("Field value survives iterator movement") {
         auto it = row.rbegin();
-        CSVField& field = *it;
+        CSVField field = *it;
+        ++it;
         REQUIRE(field.get<int>() == 345);
         REQUIRE(field.get<std::string>() == "345");
-        REQUIRE(it->get<int>() == 345);
+        REQUIRE(it->get<int>() == 234);
     }
 
     SECTION("Walks fields from back to front") {

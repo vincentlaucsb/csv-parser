@@ -4,6 +4,7 @@
 
 #pragma once
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cmath>
 #include <iterator>
@@ -666,116 +667,118 @@ namespace csv {
         csv::string_view raw_str() const noexcept;
         ///@}
 
-        /** A random access iterator over the contents of a CSV row.
-         *  Each iterator owns the CSVField it points at.
+        /** Iterator producing short-lived CSVField values with independent lazy
+         *  conversion caches. Use `auto field`, rather than `auto&`, in field loops.
+         *  Returned fields borrow their text; retain a row or iterator for that chunk.
+         *  Iterators retain their original row span even if the source row is reused.
+         *
+         *  The legacy category is input_iterator_tag because C++11 forward iterators
+         *  require references. C++20 iterator_concept supports random access, including
+         *  standard reverse adaptors. Navigation never materializes a field wrapper.
          */
         class iterator {
         public:
+            /** Temporary arrow proxy owning a field value, without a heap allocation.
+             *  Its field borrows the same chunk storage as a dereferenced field.
+             */
+            class pointer {
+            public:
+                explicit pointer(CSVField field) noexcept;
+                CSVField* operator->() noexcept;
+                const CSVField* operator->() const noexcept;
+
+            private:
+                CSVField field_;
+            };
+
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVField;
-            using difference_type = int;
-            using pointer = std::shared_ptr<CSVField>;
-            using reference = CSVField & ;
-            using iterator_category = std::random_access_iterator_tag;
+            using difference_type = std::ptrdiff_t;
+            using reference = CSVField;
+            using iterator_category = std::input_iterator_tag;
+#ifdef CSV_HAS_CXX20
+            using iterator_concept = std::random_access_iterator_tag;
 #endif
-            iterator(const CSVRow*, int i);
+#endif
+            iterator() = default;
+            iterator(const CSVRow* row, difference_type index) noexcept;
 
             reference operator*() const;
             pointer operator->() const;
+            reference operator[](difference_type n) const;
 
-            iterator operator++(int);
-            iterator& operator++();
-            iterator operator--(int);
-            iterator& operator--();
-            iterator operator+(difference_type n) const;
-            iterator operator-(difference_type n) const;
-            iterator& operator+=(difference_type n);
-            iterator& operator-=(difference_type n);
+            iterator operator++(int) noexcept;
+            iterator& operator++() noexcept;
+            iterator operator--(int) noexcept;
+            iterator& operator--() noexcept;
+            iterator operator+(difference_type n) const noexcept;
+            iterator operator-(difference_type n) const noexcept;
+            iterator& operator+=(difference_type n) noexcept;
+            iterator& operator-=(difference_type n) noexcept;
             difference_type operator-(const iterator& other) const noexcept;
+            friend iterator operator+(difference_type n, const iterator& it) noexcept;
 
-            /** Two iterators are equal if they point to the same field */
-            CONSTEXPR bool operator==(const iterator& other) const noexcept {
-                return this->i == other.i;
-            };
-
-            CONSTEXPR bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
-
-#ifndef NDEBUG
-            friend CSVRow;
-#endif
+            bool operator==(const iterator& other) const noexcept;
+            bool operator!=(const iterator& other) const noexcept;
+            bool operator<(const iterator& other) const noexcept;
+            bool operator>(const iterator& other) const noexcept;
+            bool operator<=(const iterator& other) const noexcept;
+            bool operator>=(const iterator& other) const noexcept;
 
         private:
-            const CSVRow * daddy = nullptr;                      // Pointer to parent
-            internals::RawCSVDataPtr data = nullptr;             // Keep data alive for lifetime of iterator
-            std::shared_ptr<CSVField> field = nullptr;           // Current field pointed at
-            int i = 0;                                           // Index of current field
+            internals::RawCSVDataPtr data_;
+            size_t data_start_ = 0;
+            size_t fields_start_ = 0;
+            size_t row_length_ = 0;
+            difference_type index_ = 0;
         };
 
-        /** Reverse random-access iterator over the fields in a CSVRow.
-         *
-         *  The CSVField from operator* is owned by this iterator and stays
-         *  valid until the iterator is destroyed or repositioned.
-         *  This is not std::reverse_iterator. That adaptor dereferences a
-         *  temporary of the forward iterator, which frees the field before
-         *  the caller can use it.
+        /** Reverse field-value iterator available since C++11. Uses the same
+         *  temporary-field semantics as iterator, without a persistent field cache.
+         *  Use this type in C++11-17: legacy std::reverse_iterator requires references.
          */
         class reverse_iterator {
         public:
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
-            using value_type = CSVField;
-            using difference_type = int;
-            using pointer = std::shared_ptr<CSVField>;
-            using reference = CSVField&;
-            using iterator_category = std::random_access_iterator_tag;
+            using value_type = iterator::value_type;
+            using difference_type = iterator::difference_type;
+            using pointer = iterator::pointer;
+            using reference = iterator::reference;
+            using iterator_category = std::input_iterator_tag;
+#ifdef CSV_HAS_CXX20
+            using iterator_concept = std::random_access_iterator_tag;
 #endif
+#endif
+            reverse_iterator() = default;
             explicit reverse_iterator(iterator base) noexcept;
 
             reference operator*() const;
             pointer operator->() const;
+            reference operator[](difference_type n) const;
 
-            reverse_iterator operator++(int);
-            reverse_iterator& operator++();
-            reverse_iterator operator--(int);
-            reverse_iterator& operator--();
-            reverse_iterator operator+(difference_type n) const;
-            reverse_iterator operator-(difference_type n) const;
-            reverse_iterator& operator+=(difference_type n);
-            reverse_iterator& operator-=(difference_type n);
+            reverse_iterator operator++(int) noexcept;
+            reverse_iterator& operator++() noexcept;
+            reverse_iterator operator--(int) noexcept;
+            reverse_iterator& operator--() noexcept;
+            reverse_iterator operator+(difference_type n) const noexcept;
+            reverse_iterator operator-(difference_type n) const noexcept;
+            reverse_iterator& operator+=(difference_type n) noexcept;
+            reverse_iterator& operator-=(difference_type n) noexcept;
             difference_type operator-(const reverse_iterator& other) const noexcept;
+            friend reverse_iterator operator+(difference_type n, const reverse_iterator& it) noexcept;
 
-            /** The forward iterator one past the field this iterator references. */
-            iterator base() const;
+            bool operator==(const reverse_iterator& other) const noexcept;
+            bool operator!=(const reverse_iterator& other) const noexcept;
+            bool operator<(const reverse_iterator& other) const noexcept;
+            bool operator>(const reverse_iterator& other) const noexcept;
+            bool operator<=(const reverse_iterator& other) const noexcept;
+            bool operator>=(const reverse_iterator& other) const noexcept;
 
-            CONSTEXPR bool operator==(const reverse_iterator& other) const noexcept {
-                return this->base_ == other.base_;
-            }
-
-            CONSTEXPR bool operator!=(const reverse_iterator& other) const noexcept {
-                return !(*this == other);
-            }
-
-            bool operator<(const reverse_iterator& other) const noexcept {
-                return (this->base_ - other.base_) > 0;
-            }
-
-            bool operator>(const reverse_iterator& other) const noexcept {
-                return other < *this;
-            }
-
-            bool operator<=(const reverse_iterator& other) const noexcept {
-                return !(*this > other);
-            }
-
-            bool operator>=(const reverse_iterator& other) const noexcept {
-                return !(*this < other);
-            }
+            /** The forward iterator one past the field this iterator produces. */
+            iterator base() const noexcept;
 
         private:
-            void ensure() const;
-
             iterator base_;
-            mutable iterator current_;
-            mutable bool ready_ = false;
         };
 
         /** Materialize named values; unknown names or absent header positions report an error. */
@@ -784,13 +787,13 @@ namespace csv {
             CSVError& error, const std::vector<std::string>& subset) const;
 
         /** @name Iterators
-         *  @brief Each iterator points to a CSVField object.
+         *  @brief Iteration produces field values with independent conversion caches.
          */
          ///@{
-        iterator begin() const;
+        iterator begin() const noexcept;
         iterator end() const noexcept;
         reverse_iterator rbegin() const noexcept;
-        reverse_iterator rend() const;
+        reverse_iterator rend() const noexcept;
         ///@}
 
     private:

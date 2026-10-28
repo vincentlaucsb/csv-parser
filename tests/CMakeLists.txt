@@ -124,6 +124,7 @@ add_csv_parser_test_target(csv_test
     test_csv_format.cpp
     test_csv_row.cpp
     test_csv_row_json.cpp
+    test_csv_ranges.cpp
     test_error_handling.cpp
     test_guess_csv.cpp
     test_read_csv.cpp
@@ -137,7 +138,6 @@ target_sources(csv_test PRIVATE
     test_csv_delimiter.cpp
     test_csv_field_array.cpp
     test_csv_iterator.cpp
-    test_csv_ranges.cpp
     test_csv_row_offsets.cpp
     test_speculative_parser.cpp
     test_data_type.cpp

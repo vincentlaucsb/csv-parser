@@ -46,3 +46,7 @@ Notes:
 - Keep `CSVError` lightweight on ordinary calls: success and explicitly static
   diagnostics allocate nothing; runtime diagnostics own their text. See AGENTS.md
   for lifetime, formatting, and copy/move requirements.
+
+- CSVRow field iterators return temporary field values with independent lazy caches.
+  They retain a captured row span and chunk, use a legacy input category, and model
+  C++20 random access. See docs/source/row_iterators.md for the design and migration.

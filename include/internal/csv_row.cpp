@@ -215,89 +215,180 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region CSVRow Iterator
 #endif
-    /** Return an iterator pointing to the first field. */
-    CSVRow::iterator CSVRow::begin() const {
-        return CSVRow::iterator(this, 0);
+    CSVRow::iterator CSVRow::begin() const noexcept {
+        return iterator(this, 0);
     }
 
-    /** Return an iterator pointing to just after the end of the CSVRow.
-     *
-     *  @warning Attempting to dereference the end iterator results
-     *           in dereferencing a null pointer.
-     */
     CSVRow::iterator CSVRow::end() const noexcept {
-        return CSVRow::iterator(this, (int)this->size());
+        return iterator(this, static_cast<iterator::difference_type>(this->size()));
     }
 
     CSVRow::reverse_iterator CSVRow::rbegin() const noexcept {
         return reverse_iterator(this->end());
     }
 
-    CSVRow::reverse_iterator CSVRow::rend() const {
+    CSVRow::reverse_iterator CSVRow::rend() const noexcept {
         return reverse_iterator(this->begin());
     }
 
-    CSVRow::reverse_iterator::reverse_iterator(iterator base) noexcept
-        : base_(base), current_(base), ready_(false) {}
+    CSVRow::iterator::pointer::pointer(CSVField field) noexcept
+        : field_(std::move(field)) {}
 
-    CSVRow::reverse_iterator::reference CSVRow::reverse_iterator::operator*() const {
-        this->ensure();
-        return *this->current_;
+    CSVField* CSVRow::iterator::pointer::operator->() noexcept {
+        return &this->field_;
     }
 
-    CSVRow::reverse_iterator::pointer CSVRow::reverse_iterator::operator->() const {
-        this->ensure();
-        return this->current_.operator->();
+    const CSVField* CSVRow::iterator::pointer::operator->() const noexcept {
+        return &this->field_;
     }
 
-    void CSVRow::reverse_iterator::ensure() const {
-        if (this->ready_) {
-            return;
-        }
+    CSV_NON_NULL(2)
+    CSVRow::iterator::iterator(const CSVRow* row, difference_type index) noexcept
+        : data_(row->data), data_start_(row->data_start),
+          fields_start_(row->fields_start), row_length_(row->row_length), index_(index) {}
 
-        // Keep the decremented iterator in current_. A temporary would destroy
-        // the CSVField before operator* returned.
-        iterator stepped = this->current_;
-        --stepped;
-        this->current_ = stepped;
-        this->ready_ = true;
+    CSVRow::iterator::reference CSVRow::iterator::operator*() const {
+        // Reuse row decoding, trimming and eager-scalar handling with an immutable
+        // span snapshot. Never consult the source CSVRow: readers reuse that object.
+        const CSVRow snapshot(this->data_, this->data_start_, this->fields_start_, this->row_length_);
+        return snapshot.make_field(static_cast<size_t>(this->index_), this->data_);
     }
 
-    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator++() {
+    CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
+        return pointer(**this);
+    }
+
+    CSVRow::iterator::reference CSVRow::iterator::operator[](difference_type n) const {
+        return *(*this + n);
+    }
+
+    CSVRow::iterator& CSVRow::iterator::operator++() noexcept {
         return *this += 1;
     }
 
-    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator++(int) {
+    CSVRow::iterator CSVRow::iterator::operator++(int) noexcept {
+        iterator previous = *this;
+        ++(*this);
+        return previous;
+    }
+
+    CSVRow::iterator& CSVRow::iterator::operator--() noexcept {
+        return *this -= 1;
+    }
+
+    CSVRow::iterator CSVRow::iterator::operator--(int) noexcept {
+        iterator previous = *this;
+        --(*this);
+        return previous;
+    }
+
+    CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const noexcept {
+        iterator result = *this;
+        result += n;
+        return result;
+    }
+
+    CSVRow::iterator& CSVRow::iterator::operator+=(difference_type n) noexcept {
+        this->index_ += n;
+        return *this;
+    }
+
+    CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const noexcept {
+        iterator result = *this;
+        result -= n;
+        return result;
+    }
+
+    CSVRow::iterator& CSVRow::iterator::operator-=(difference_type n) noexcept {
+        this->index_ -= n;
+        return *this;
+    }
+
+    CSVRow::iterator::difference_type CSVRow::iterator::operator-(const iterator& other) const noexcept {
+        return this->index_ - other.index_;
+    }
+
+    CSVRow::iterator operator+(CSVRow::iterator::difference_type n, const CSVRow::iterator& it) noexcept {
+        return it + n;
+    }
+
+    bool CSVRow::iterator::operator==(const iterator& other) const noexcept {
+        return this->data_ == other.data_ && this->data_start_ == other.data_start_
+            && this->fields_start_ == other.fields_start_ && this->row_length_ == other.row_length_
+            && this->index_ == other.index_;
+    }
+
+    bool CSVRow::iterator::operator!=(const iterator& other) const noexcept {
+        return !(*this == other);
+    }
+
+    bool CSVRow::iterator::operator<(const iterator& other) const noexcept {
+        return this->index_ < other.index_;
+    }
+
+    bool CSVRow::iterator::operator>(const iterator& other) const noexcept {
+        return other < *this;
+    }
+
+    bool CSVRow::iterator::operator<=(const iterator& other) const noexcept {
+        return !(other < *this);
+    }
+
+    bool CSVRow::iterator::operator>=(const iterator& other) const noexcept {
+        return !(*this < other);
+    }
+
+    CSVRow::reverse_iterator::reverse_iterator(iterator base) noexcept
+        : base_(std::move(base)) {}
+
+    CSVRow::reverse_iterator::reference CSVRow::reverse_iterator::operator*() const {
+        return this->base_[-1];
+    }
+
+    CSVRow::reverse_iterator::pointer CSVRow::reverse_iterator::operator->() const {
+        return pointer(**this);
+    }
+
+    CSVRow::reverse_iterator::reference CSVRow::reverse_iterator::operator[](difference_type n) const {
+        return *(*this + n);
+    }
+
+    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator++() noexcept {
+        return *this += 1;
+    }
+
+    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator++(int) noexcept {
         reverse_iterator previous = *this;
         ++(*this);
         return previous;
     }
 
-    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator--() {
+    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator--() noexcept {
         return *this -= 1;
     }
 
-    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator--(int) {
+    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator--(int) noexcept {
         reverse_iterator previous = *this;
         --(*this);
         return previous;
     }
 
-    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator+(difference_type n) const {
+    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator+(difference_type n) const noexcept {
         return reverse_iterator(this->base_ - n);
     }
 
-    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator-(difference_type n) const {
-        return reverse_iterator(this->base_ + n);
-    }
-
-    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator+=(difference_type n) {
-        *this = *this + n;
+    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator+=(difference_type n) noexcept {
+        this->base_ -= n;
         return *this;
     }
 
-    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator-=(difference_type n) {
-        return *this += -n;
+    CSVRow::reverse_iterator CSVRow::reverse_iterator::operator-(difference_type n) const noexcept {
+        return reverse_iterator(this->base_ + n);
+    }
+
+    CSVRow::reverse_iterator& CSVRow::reverse_iterator::operator-=(difference_type n) noexcept {
+        this->base_ += n;
+        return *this;
     }
 
     CSVRow::reverse_iterator::difference_type
@@ -305,83 +396,37 @@ namespace csv {
         return other.base_ - this->base_;
     }
 
-    CSVRow::iterator CSVRow::reverse_iterator::base() const {
+    CSVRow::reverse_iterator operator+(
+        CSVRow::reverse_iterator::difference_type n, const CSVRow::reverse_iterator& it) noexcept {
+        return it + n;
+    }
+
+    bool CSVRow::reverse_iterator::operator==(const reverse_iterator& other) const noexcept {
+        return this->base_ == other.base_;
+    }
+
+    bool CSVRow::reverse_iterator::operator!=(const reverse_iterator& other) const noexcept {
+        return !(*this == other);
+    }
+
+    bool CSVRow::reverse_iterator::operator<(const reverse_iterator& other) const noexcept {
+        return other.base_ < this->base_;
+    }
+
+    bool CSVRow::reverse_iterator::operator>(const reverse_iterator& other) const noexcept {
+        return other < *this;
+    }
+
+    bool CSVRow::reverse_iterator::operator<=(const reverse_iterator& other) const noexcept {
+        return !(other < *this);
+    }
+
+    bool CSVRow::reverse_iterator::operator>=(const reverse_iterator& other) const noexcept {
+        return !(*this < other);
+    }
+
+    CSVRow::iterator CSVRow::reverse_iterator::base() const noexcept {
         return this->base_;
-    }
-
-    CSV_NON_NULL(2)
-    CSVRow::iterator::iterator(const CSVRow* _reader, int _i)
-        : daddy(_reader), data(_reader->data), i(_i) {
-        if (_i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->make_field(_i, this->data));
-        else
-            this->field = nullptr;
-    }
-
-    CSVRow::iterator::reference CSVRow::iterator::operator*() const {
-        return *(this->field.get());
-    }
-
-    CSVRow::iterator::pointer CSVRow::iterator::operator->() const {
-        return this->field;
-    }
-
-    CSVRow::iterator& CSVRow::iterator::operator++() {
-        // Pre-increment operator
-        this->i++;
-        if (this->i < (int)this->daddy->size())
-            this->field = std::make_shared<CSVField>(
-                this->daddy->make_field(i, this->data));
-        else // Reached the end of row
-            this->field = nullptr;
-        return *this;
-    }
-
-    CSVRow::iterator CSVRow::iterator::operator++(int) {
-        // Post-increment operator
-        auto temp = *this;
-        this->operator++();
-        return temp;
-    }
-
-    CSVRow::iterator& CSVRow::iterator::operator--() {
-        // Pre-decrement operator
-        this->i--;
-        this->field = std::make_shared<CSVField>(
-            this->daddy->make_field(this->i, this->data));
-        return *this;
-    }
-
-    CSVRow::iterator CSVRow::iterator::operator--(int) {
-        // Post-decrement operator
-        auto temp = *this;
-        this->operator--();
-        return temp;
-    }
-    
-    CSVRow::iterator CSVRow::iterator::operator+(difference_type n) const {
-        // Allows for iterator arithmetic
-        return CSVRow::iterator(this->daddy, i + (int)n);
-    }
-
-    CSVRow::iterator CSVRow::iterator::operator-(difference_type n) const {
-        // Allows for iterator arithmetic
-        return CSVRow::iterator::operator+(-n);
-    }
-
-    CSVRow::iterator& CSVRow::iterator::operator+=(difference_type n) {
-        *this = *this + n;
-        return *this;
-    }
-
-    CSVRow::iterator& CSVRow::iterator::operator-=(difference_type n) {
-        *this = *this - n;
-        return *this;
-    }
-
-    CSVRow::iterator::difference_type CSVRow::iterator::operator-(const iterator& other) const noexcept {
-        return this->i - other.i;
     }
 #ifdef _MSC_VER
 #pragma endregion CSVRow Iterator
