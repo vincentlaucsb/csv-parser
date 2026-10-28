@@ -172,3 +172,45 @@ TEST_CASE("CSVReader Iterator + Algorithms Requiring ForwardIterator", "[iter_al
 }
 #endif
 //! [CSVReader Iterator 2]
+
+// std::reverse_iterator::operator* dereferences a temporary copy of the base
+// iterator. CSVRow::iterator owns its CSVField, so that temporary freed the
+// field before the caller could read it.
+TEST_CASE("CSVRow reverse iterator keeps its field alive", "[test_csv_row_iter]") {
+    auto rows = "A,B,C\r\n"
+        "123,234,345\r\n"_csv;
+
+    CSVRow row;
+    rows.read_row(row);
+
+    SECTION("Dereference copies a live field") {
+        CSVField last = *row.rbegin();
+        REQUIRE(last.get<int>() == 345);
+
+        CSVField first = *(row.rend() - 1);
+        REQUIRE(first.get<std::string>() == "123");
+    }
+
+    SECTION("Reference stays valid while the reverse iterator is unchanged") {
+        auto it = row.rbegin();
+        CSVField& field = *it;
+        REQUIRE(field.get<int>() == 345);
+        REQUIRE(field.get<std::string>() == "345");
+        REQUIRE(it->get<int>() == 345);
+    }
+
+    SECTION("Walks fields from back to front") {
+        auto it = row.rbegin();
+        REQUIRE((*it).get<int>() == 345);
+        REQUIRE(it.base() == row.end());
+
+        ++it;
+        REQUIRE((*it).get<std::string>() == "234");
+        ++it;
+        REQUIRE((*it).get<std::string>() == "123");
+        REQUIRE((it++)->get<int>() == 123);
+        REQUIRE(it == row.rend());
+        REQUIRE(row.rend() - row.rbegin() == 3);
+        REQUIRE(row.rend().base() == row.begin());
+    }
+}
