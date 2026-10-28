@@ -154,24 +154,12 @@ Shameless plug: If you like this library, check out my side project
 While C++20 is recommended, C++11 is the minimum version required. This library makes extensive use of string views, and uses
 [Martin Moene's string view library](https://github.com/martinmoene/string-view-lite) if `std::string_view` is not available.
 
+SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
+
 Exception support is detected automatically. Use `-DCSV_ENABLE_EXCEPTIONS=OFF`
 with CMake, or your compiler's exception-disabled flags, to select the explicit-error
-API. The same operations are also available in exception-enabled builds:
-
-```cpp
-csv::CSVError error;
-auto reader = csv::CSVReader::try_open("items.csv", error);
-if (reader) {
-    csv::CSVRow row;
-    while (reader->try_read_row(row, error)) { /* process row */ }
-}
-if (error) std::cerr << error.message() << '\n';
-```
-
-See the [Godot / no-exceptions guide](https://vincentlaucsb.github.io/csv-parser/no_exceptions.html)
+API. See the [Godot / no-exceptions guide](https://vincentlaucsb.github.io/csv-parser/no_exceptions.html)
 for engine-owned resources, conversions, DataFrames, writing, and error semantics.
-
-SIMD acceleration is enabled by default when the build/compiler flags support it. If needed, you can force scalar-only parsing with `CSV_NO_SIMD=ON` in CMake or by defining `CSV_NO_SIMD 1` before including the library headers.
 
 ### Threading Modes
 By default, `csv-parser` uses threads. If CMake cannot find a thread library, threading is disabled
@@ -245,15 +233,7 @@ https://vincentlaucsb.github.io/csv-parser/csv.hpp
  * The file is automatically generated and deployed on every commit to `master`, ensuring you always have the latest version
  * If you need a pinned version, check the **Releases** page
 
-The published header uses `single_header` 1.2.0 with generator-owned `inline`
-definitions, include deduplication, recursive namespace merging, and
-compiler-backed free-function/method stitching.
-The release includes its checksum and stitching report.
-See the [distribution build guide](.github/workflows/README.md#optimized-single-header-distribution)
-to reproduce generation and validation. Generation requires the Clang 20 backend
-and frontend contexts covering the source's conditional declarations, including
-when stitching is off. Compiling or using the downloaded header requires no Clang
-dependency.
+Please see the [single_header](https://github.com/vincentlaucsb/single_header) project if you are interested in using the same C++ amalgamator this library uses. It is a Clang-backed executable that supports stitching (collapsing a method's declaration and implementation), namespace collapsing, `#include` hoisting/deduplication and other optimizations.
 
 ### CMake Instructions
 If you're including this in another CMake project, you can simply clone this repo into your project directory, 
@@ -329,7 +309,7 @@ using namespace csv;
 CSVReader reader("very_big_file.csv");
 
 for (CSVRow& row: reader) { // Input iterator
-    for (CSVField& field: row) {
+    for (CSVField field: row) {
         // By default, get<>() produces a std::string.
         // A more efficient get<string_view>() is also available, where the resulting
         // string_view is valid as long as the parent CSVRow is alive
@@ -359,6 +339,13 @@ while (reader.read_row(row)) {
 This design enables streaming large CSV files (50+ GB) without loading them entirely into memory, but may fail with some standard algorithms that require forward iterators.
 
 If you need to get around this, I suggest either loading all rows into an STL container, e.g. `std::vector<CSVRow>`, or using the `DataFrame` class which supports row and column random access.
+
+`CSVRow` field iterators return short-lived `CSVField` values with independent
+lazy conversion caches. Use `auto field`, rather than `auto&`, for field loops.
+Reverse traversal through `row.rbegin()`/`rend()` works since C++11; standard
+reverse adaptors and `std::views::reverse` are supported in C++20 and later.
+See the [field iteration guide](docs/source/row_iterators.md) for lifetimes,
+iterator categories, and migration details.
 
 ### Memory-Mapped I/O and Streams
 When passing in a file path to `CSVReader`, memory-mapped I/O is used as it is the most performant.
