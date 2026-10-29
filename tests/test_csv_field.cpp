@@ -504,3 +504,125 @@ TEST_CASE("Explicit conversion errors share the expected error model", "[explici
     REQUIRE_THROWS_AS(CSVField("text").get<int>(), std::runtime_error);
 #endif
 }
+
+TEST_CASE("Const CSVField reads preserve lazy conversion semantics", "[const_csv_field]") {
+    // These objects are genuinely const, not just references to mutable fields.
+    // All classification writes must therefore be confined to mutable caches.
+    SECTION("Predicates followed by repeated numeric conversions") {
+        const CSVField field("123");
+        REQUIRE(field.is_num());
+        REQUIRE(field.is_int());
+        REQUIRE_FALSE(field.is_float());
+        REQUIRE_FALSE(field.is_str());
+        REQUIRE_FALSE(field.is_null());
+        REQUIRE(field == 123);
+        int integer = 0;
+        double floating = 0;
+        long double wide = 0;
+        REQUIRE(field.try_get(integer));
+        REQUIRE(integer == 123);
+        REQUIRE(field.try_get(floating));
+        REQUIRE(floating == 123.0);
+        REQUIRE(field.try_get(wide));
+        REQUIRE(wide == 123.0L);
+        REQUIRE(field.type() == DataType::CSV_INT8);
+        REQUIRE(field.get_sv() == "123");
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE(field.get<int>() == 123);
+        REQUIRE(field.get<double>() == 123.0);
+        REQUIRE(field.get<long double>() == 123.0L);
+        REQUIRE(field.get<std::string>() == "123");
+        REQUIRE(field.get<csv::string_view>() == "123");
+#endif
+    }
+    SECTION("Float, text, null and bool classification") {
+        const CSVField number("2.5");
+        const CSVField text("hello");
+        const CSVField empty("");
+        const CSVField boolean("true");
+        REQUIRE(number.is_float());
+        REQUIRE(text.is_str());
+        REQUIRE(empty.is_null());
+        REQUIRE(boolean.is_bool());
+        bool value = false;
+        REQUIRE(boolean.try_get(value));
+        REQUIRE(value);
+        std::string copied;
+        csv::string_view view;
+        REQUIRE(text.try_get(copied));
+        REQUIRE(copied == "hello");
+        REQUIRE(text.try_get(view));
+        REQUIRE(view == "hello");
+    }
+    SECTION("Conversion failures preserve outputs and interpretation") {
+        const CSVField fractional("1.5");
+        int integer = 99;
+        CSVConversionError error;
+        REQUIRE_FALSE(fractional.try_get(integer, error));
+        REQUIRE(error == CSVConversionError::FloatToInt);
+        REQUIRE(integer == 99);
+        double floating = 0;
+        REQUIRE(fractional.try_get(floating, error));
+        REQUIRE(error == CSVConversionError::None);
+        REQUIRE(floating == 1.5);
+        REQUIRE(fractional.is_float());
+        REQUIRE(fractional.get_sv() == "1.5");
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS_AS(fractional.get<int>(), std::runtime_error);
+#endif
+    }
+    SECTION("Const timestamp and hexadecimal readers") {
+        const CSVField timestamp("2024-01-31T23:59:58Z");
+        REQUIRE(timestamp.is_timestamp());
+        std::uint64_t milliseconds = 0;
+        unsigned long long wide = 0;
+        REQUIRE(timestamp.try_parse_timestamp(milliseconds));
+        REQUIRE(milliseconds == 1706745598000ULL);
+        REQUIRE(timestamp.try_parse_timestamp(wide));
+        REQUIRE(wide == milliseconds);
+        std::chrono::milliseconds duration;
+        REQUIRE(timestamp.try_parse_timestamp(duration));
+        REQUIRE(duration.count() == static_cast<std::int64_t>(milliseconds));
+        std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> point;
+        REQUIRE(timestamp.try_parse_timestamp(point));
+        REQUIRE(point.time_since_epoch() == duration);
+        REQUIRE(timestamp.try_get(duration));
+        REQUIRE(timestamp.try_get(point));
+        const CSVField hex("ff");
+        int value = 0;
+        REQUIRE(hex.try_parse_hex(value));
+        REQUIRE(value == 255);
+        REQUIRE(hex.is_str());
+    }
+    SECTION("Explicit decimal interpretation is retained in a const view") {
+        CSVField decimal("1,5");
+        long double value = 0;
+        REQUIRE(decimal.try_parse_decimal(value, ','));
+        const CSVField& field = decimal;
+        REQUIRE(field.is_float());
+        REQUIRE(field.try_get(value));
+        REQUIRE(value == 1.5L);
+        REQUIRE(field.get_sv() == "1,5");
+    }
+#ifdef CSV_HAS_CXX17
+    SECTION("Const optional conversions") {
+        const CSVField field("123");
+        const CSVField text("hello");
+        std::optional<int> number = field;
+        std::optional<int> invalid = text;
+        REQUIRE(number);
+        REQUIRE(*number == 123);
+        REQUIRE_FALSE(invalid);
+    }
+#endif
+#ifdef CSV_HAS_STD_EXPECTED
+    SECTION("Const expected conversions") {
+        const CSVField field("123");
+        const CSVField invalid("text");
+        const auto number = field.as<int>();
+        REQUIRE(number);
+        REQUIRE(*number == 123);
+        REQUIRE(invalid.as<int>().error() == CSVConversionError::NotANumber);
+    }
+#endif
+}

@@ -123,42 +123,42 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
         template<typename T = std::string>
         T get() const {
-            return const_cast<DataFrameCell*>(this)->CSVField::template get<T>();
+            return CSVField::template get<T>();
         }
 #endif
 
         bool is_null() const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::is_null();
+            return CSVField::is_null();
         }
 
         bool is_str() const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::is_str();
+            return CSVField::is_str();
         }
 
         bool is_num() const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::is_num();
+            return CSVField::is_num();
         }
 
         bool is_int() const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::is_int();
+            return CSVField::is_int();
         }
 
         bool is_float() const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::is_float();
+            return CSVField::is_float();
         }
 
         DataType type() const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::type();
+            return CSVField::type();
         }
 
         template<typename T>
         bool try_get(T& out) const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::template try_get<T>(out);
+            return CSVField::template try_get<T>(out);
         }
 
         template<typename T>
         bool try_get(T& out, CSVConversionError& error) const noexcept {
-            return const_cast<DataFrameCell*>(this)->CSVField::template try_get<T>(out, error);
+            return CSVField::template try_get<T>(out, error);
         }
 
     private:

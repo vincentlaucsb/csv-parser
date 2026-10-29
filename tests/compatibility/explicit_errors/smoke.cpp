@@ -56,15 +56,67 @@ static_assert(std::is_member_function_pointer<decltype(&csv::DataFrameRow<std::s
 #endif
 #endif
 
+template<typename T>
+auto has_const_decimal_parse(int) -> decltype(
+    std::declval<const T&>().try_parse_decimal(std::declval<long double&>()), std::true_type());
+template<typename>
+std::false_type has_const_decimal_parse(...);
+static_assert(!decltype(has_const_decimal_parse<csv::CSVField>(0))::value,
+    "Changing decimal interpretation must require a mutable field.");
+static_assert(std::is_same<decltype(std::declval<const csv::CSVField&>().is_num()), bool>::value,
+    "Classification is logically const.");
+#ifdef CSV_HAS_CXX17
+constexpr csv::CSVField constant_text("text");
+static_assert(constant_text.get_sv().size() == 4, "Text views retain constexpr support.");
+#endif
+
+// Keep these checks in the exact-standard consumer, including genuine C++11.
+static_assert(std::is_same<std::iterator_traits<csv::CSVRow::iterator>::reference,
+    csv::CSVField>::value, "Field iteration returns values, not dangling references.");
+static_assert(std::is_same<std::iterator_traits<csv::CSVRow::iterator>::iterator_category,
+    std::input_iterator_tag>::value, "Legacy forward iterators require actual references.");
+#ifdef CSV_HAS_CXX20
+static_assert(std::random_access_iterator<csv::CSVRow::iterator>);
+static_assert(std::random_access_iterator<csv::CSVRow::reverse_iterator>);
+#endif
+
 int csv_error_second_tu();
 int csv_error_storage_test();
+int csv_row_iterator_allocation_test();
 
 int main() {
     if (const int failure = csv_error_storage_test()) return failure;
+    if (const int failure = csv_row_iterator_allocation_test()) return failure;
     csv::CSVError error;
     std::istringstream input("id,name,value\n1,Alice,10\n2,Bob,20\n");
     auto reader = csv::CSVReader::try_open(input, error);
     if (!reader || error) return 1;
+    // Separate input leaves the DataFrame fixture untouched. Iterator navigation
+    // survives source-row reuse; field wrappers retain independent lazy caches.
+    {
+        auto fields = csv::try_parse("a,b,c\n123,234,345\n", error);
+        if (!fields || error) return 20;
+        csv::CSVRow csv_row;
+        if (!fields->try_read_row(csv_row, error) || error) return 21;
+        auto first = csv_row.begin();
+        auto reverse = csv_row.rbegin();
+        csv_row = csv::CSVRow();
+        fields.reset();
+        const auto saved = *first;
+        if (saved.get_sv() != "123" || (++first)->get_sv() != "234"
+            || (1 + first)->get_sv() != "345" || first[-1].get_sv() != "123") return 22;
+        if (reverse->get_sv() != "345" || reverse[1].get_sv() != "234"
+            || (++reverse)->get_sv() != "234") return 23;
+        int parsed = 0;
+        if (!saved.is_num() || !saved.try_get(parsed) || parsed != 123) return 24;
+#if CSV_EXCEPTIONS_ENABLED
+        if (saved.get<int>() != 123) return 26;
+#endif
+#ifdef CSV_HAS_CXX20
+        auto standard = std::make_reverse_iterator(reverse.base());
+        if ((*standard).get_sv() != "234" || standard->get_sv() != "234") return 25;
+#endif
+    }
     auto frame = csv::DataFrame<>::try_create(*reader, error);
     if (!frame || error || frame->size() != 2) return 2;
     auto row = frame->try_at(1, error);
@@ -81,7 +133,8 @@ int main() {
     if (!writer.try_write_row(error, std::vector<std::string>{"A", "B"})) return 7;
     if (!writer.try_flush(error) || error || output.str() != "A,B\n") return 8;
 #ifdef CSV_HAS_STD_EXPECTED
-    auto number = csv::CSVField("12").as<int>();
+    const csv::CSVField expected_number("12");
+    auto number = expected_number.as<int>();
     auto invalid = csv::CSVField("bad").as<int>();
     if (!number || *number != 12 || invalid
         || invalid.error() != csv::CSVConversionError::NotANumber) return 9;

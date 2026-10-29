@@ -948,7 +948,7 @@ TEST_CASE("Long Row Test", "[long_row_regression]") {
     int i = 0;
 
     // Make sure all CSV fields are correct
-    for (auto& field : row) {
+    for (auto field : row) {
         std::stringstream temp;
         temp << (double)i * 0.000001;
         REQUIRE(field.get<>() == temp.str());

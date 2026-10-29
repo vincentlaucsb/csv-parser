@@ -167,3 +167,29 @@ int csv_error_storage_test() {
 #endif
     return 0;
 }
+
+// Guard the field-iterator design against accidentally reintroducing wrapper
+// allocations on construction, navigation, dereference or arrow access.
+int csv_row_iterator_allocation_test() {
+    auto data = std::make_shared<csv::internals::RawCSVData>();
+    data->data = "123,234,345";
+    for (size_t offset : {size_t(0), size_t(4), size_t(8)})
+        data->fields.emplace_back(offset, size_t(3));
+    csv::CSVRow row(data, 0, 0, 3);
+    start_counting();
+    auto it = row.begin();
+    auto reverse = row.rbegin();
+    const auto first = *it;
+    const auto middle = (1 + it)[0];
+    const auto arrow = reverse.operator->();
+    ++it;
+    reverse += 3;
+    --reverse;
+    reverse -= 2;
+    int value = 0;
+    const bool correct = first.try_get(value) && value == 123
+        && middle.get_sv() == "234" && arrow->get_sv() == "345"
+        && it->get_sv() == "234" && reverse->get_sv() == "345";
+    const size_t count = stop_counting();
+    return check(correct && count == 0, "field iterators must not allocate wrappers") ? 0 : 40;
+}

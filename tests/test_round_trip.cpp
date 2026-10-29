@@ -102,7 +102,7 @@ TEST_CASE("Simple Integer Round Trip Test", "[test_roundtrip_int]") {
             // Verify field count (detects if field boundaries are corrupted)
             REQUIRE(row.size() == 5);
 
-            for (auto& col : row) {
+            for (auto col : row) {
                 REQUIRE(col == i);
 
                 // Verify field doesn't contain corruption markers (newlines/commas)
@@ -166,7 +166,7 @@ TEST_CASE("Round Trip with Distinct Field Values", "[test_roundtrip_distinct]") 
             
             // Verify fields are clean numeric tokens and were not contaminated by
             // delimiter/newline handling bugs.
-            for (auto& col : row) {
+            for (auto col : row) {
                 auto field_str = col.get_sv();
                 REQUIRE(field_str.find('\n') == std::string::npos);
                 REQUIRE(field_str.find(',') == std::string::npos);

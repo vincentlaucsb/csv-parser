@@ -1214,3 +1214,31 @@ TEST_CASE("Optional numeric keys use the default key on conversion failure", "[e
     REQUIRE(frame->try_find(0, error).try_field("value", error).get_sv() == "17");
     REQUIRE(frame->try_find(2, error).try_field("value", error).get_sv() == "29");
 }
+
+TEST_CASE("Const DataFrame cells use logically const field reads", "[data_frame][const_csv_field]") {
+    CSVError error;
+    auto reader = try_parse("id,value\n1,17\n", error);
+    REQUIRE(reader);
+    auto frame = DataFrame<>::try_create(*reader, error);
+    REQUIRE(frame);
+    const auto& view = *frame;
+    const auto row = view.try_at(0, error);
+    REQUIRE_FALSE(error);
+    const auto cell = row.try_field("value", error);
+    REQUIRE_FALSE(error);
+    REQUIRE(cell.is_num());
+    REQUIRE(cell.is_int());
+    REQUIRE_FALSE(cell.is_float());
+    REQUIRE_FALSE(cell.is_null());
+    REQUIRE_FALSE(cell.is_str());
+    REQUIRE(cell.type() == DataType::CSV_INT8);
+    int value = 0;
+    CSVConversionError conversion;
+    REQUIRE(cell.try_get(value));
+    REQUIRE(value == 17);
+    REQUIRE(cell.try_get(value, conversion));
+    REQUIRE(conversion == CSVConversionError::None);
+#if CSV_EXCEPTIONS_ENABLED
+    REQUIRE(cell.get<int>() == 17);
+#endif
+}

@@ -4,6 +4,7 @@
 
 #pragma once
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cmath>
 #include <iterator>
@@ -65,6 +66,10 @@ namespace csv {
     * @class CSVField
     * @brief Data type representing individual CSV values.
     *        CSVFields can be obtained by using CSVRow::operator[]
+    *
+    * Ordinary queries and conversions are logically const: they may populate a
+    * private lazy cache, but preserve the field's text and interpretation.
+    * Custom decimal parsing explicitly changes interpretation and is non-const.
     */
     class CSVField {
     public:
@@ -126,14 +131,13 @@ namespace csv {
         *  @warning Currently, conversions to floating point types are not
         *           checked for loss of precision
         *
-        *  @warning Any string_views returned are only guaranteed to be valid
-        *           if the parent CSVRow is still alive. If you are concerned
-        *           about object lifetimes, then grab a std::string or a
-        *           numeric value.
+        *  @warning Returned string views borrow the source text. Retain a row
+        *           or field iterator for its parsing buffer, or request an owning
+        *           std::string or numeric value.
         *
         */
 #if CSV_EXCEPTIONS_ENABLED
-        template<typename T = std::string> T get() {
+        template<typename T = std::string> T get() const {
             T out{};
             CSVConversionError err;
             try_get(out, err);
@@ -155,7 +159,7 @@ namespace csv {
          * @sa csv_conversion_error_message()
          */
         template<typename T = std::string>
-        std::expected<T, CSVConversionError> as() {
+        std::expected<T, CSVConversionError> as() const {
             T out{};
             CSVConversionError err;
             try_get(out, err);
@@ -181,7 +185,7 @@ namespace csv {
          *  @endcode
          */
         template<typename T = std::string>
-        bool try_get(T& out) noexcept {
+        bool try_get(T& out) const noexcept {
             CSVConversionError error;
             return try_get(out, error);
         }
@@ -190,7 +194,7 @@ namespace csv {
          *  On failure, out is unchanged and error identifies the conversion failure.
          */
         template<typename T>
-        bool try_get(T& out, CSVConversionError& error) noexcept {
+        bool try_get(T& out, CSVConversionError& error) const noexcept {
             error = check_convert(out);
             return error == CSVConversionError::None;
         }
@@ -205,7 +209,7 @@ namespace csv {
          *  @note Requires C++17 or later.
          */
         template<typename T>
-        operator std::optional<T>() {
+        operator std::optional<T>() const {
             T out{};
             return try_get(out) ? std::optional<T>(out) : std::nullopt;
         }
@@ -215,7 +219,7 @@ namespace csv {
          *  @tparam T An integral type (int, long, long long, etc.)
          */
         template<typename T = long long>
-        bool try_parse_hex(T& parsedValue) {
+        bool try_parse_hex(T& parsedValue) const {
             static_assert(std::is_integral<T>::value,
                 "try_parse_hex only works with integral types (int, long, long long, etc.)");
 
@@ -235,12 +239,12 @@ namespace csv {
          *  Timestamp-classified values return their parsed epoch value. Integral
          *  values are treated as already being Unix milliseconds.
          */
-        bool try_parse_timestamp(std::uint64_t& out) noexcept;
+        bool try_parse_timestamp(std::uint64_t& out) const noexcept;
 
         /** Parse this field as Unix milliseconds in a 64-bit unsigned integer. */
 #ifdef DOXYGEN_SHOULD_SKIP_THIS
         template<typename T>
-        bool try_parse_timestamp(T& out) noexcept;
+        bool try_parse_timestamp(T& out) const noexcept;
 #else
         template<typename T>
         internals::enable_if_t<
@@ -248,7 +252,7 @@ namespace csv {
             && (sizeof(T) >= sizeof(std::uint64_t)),
             bool
         >
-        try_parse_timestamp(T& out) noexcept {
+        try_parse_timestamp(T& out) const noexcept {
             std::uint64_t milliseconds = 0;
             if (!this->try_parse_timestamp(milliseconds))
                 return false;
@@ -260,7 +264,7 @@ namespace csv {
 
         /** Parse this field as a timestamp duration since the Unix epoch. */
         template<typename Rep, typename Period>
-        bool try_parse_timestamp(std::chrono::duration<Rep, Period>& out) noexcept {
+        bool try_parse_timestamp(std::chrono::duration<Rep, Period>& out) const noexcept {
             std::uint64_t milliseconds = 0;
             if (!this->try_parse_timestamp(milliseconds))
                 return false;
@@ -272,7 +276,7 @@ namespace csv {
 
         /** Parse this field as a std::chrono::system_clock time point. */
         template<typename Duration>
-        bool try_parse_timestamp(std::chrono::time_point<std::chrono::system_clock, Duration>& out) noexcept {
+        bool try_parse_timestamp(std::chrono::time_point<std::chrono::system_clock, Duration>& out) const noexcept {
             std::uint64_t milliseconds = 0;
             if (!this->try_parse_timestamp(milliseconds))
                 return false;
@@ -301,7 +305,7 @@ namespace csv {
             static_assert(std::is_arithmetic<T>::value,
                 "T should be a numeric value.");
 
-            const_cast<CSVField*>(this)->get_value();
+            this->get_value();
             if (this->type_ < DataType::CSV_INT8 || this->type_ > DataType::CSV_DOUBLE || this->type_ == DataType::CSV_BIGINT) {
                 return false;
             }
@@ -313,32 +317,32 @@ namespace csv {
         CONSTEXPR csv::string_view get_sv() const noexcept { return this->sv; }
 
         /** Returns true if field is an empty string or string of whitespace characters */
-        inline bool is_null() noexcept { return type() == DataType::CSV_NULL; }
+        inline bool is_null() const noexcept { return type() == DataType::CSV_NULL; }
 
         /** Returns true if field is a non-numeric, non-empty string */
-        inline bool is_str() noexcept { return type() == DataType::CSV_STRING; }
+        inline bool is_str() const noexcept { return type() == DataType::CSV_STRING; }
 
         /** Returns true if field is an integer or float */
-        inline bool is_num() noexcept {
+        inline bool is_num() const noexcept {
             return type() >= DataType::CSV_INT8 && type() <= DataType::CSV_DOUBLE;
         }
 
         /** Returns true if field is an integer */
-        inline bool is_int() noexcept {
+        inline bool is_int() const noexcept {
             return (type() >= DataType::CSV_INT8) && (type() <= DataType::CSV_INT64);
         }
 
         /** Returns true if field is a floating point value */
-        inline bool is_float() noexcept { return type() == DataType::CSV_DOUBLE; }
+        inline bool is_float() const noexcept { return type() == DataType::CSV_DOUBLE; }
 
         /** Returns true if field is a boolean value */
-        inline bool is_bool() noexcept { return type() == DataType::CSV_BOOL; }
+        inline bool is_bool() const noexcept { return type() == DataType::CSV_BOOL; }
 
         /** Returns true if field is a timestamp value */
-        inline bool is_timestamp() noexcept { return type() == DataType::CSV_TIMESTAMP; }
+        inline bool is_timestamp() const noexcept { return type() == DataType::CSV_TIMESTAMP; }
 
         /** Return the type of the underlying CSV data */
-        inline DataType type() noexcept {
+        inline DataType type() const noexcept {
             this->get_value();
             return type_;
         }
@@ -397,21 +401,21 @@ namespace csv {
             }
         };
 
-        FieldValue value_;        /**< Cached typed values. */
+        mutable FieldValue value_; /**< Cached typed values; logically const reads may populate them. */
         csv::string_view sv = ""; /**< A pointer to this field's text */
-        DataType type_ = DataType::UNKNOWN; /**< Cached data type value */
+        mutable DataType type_ = DataType::UNKNOWN; /**< Cached data type value */
 
-        CONSTEXPR_14 bool stores_integral() const noexcept {
+        bool stores_integral() const noexcept {
             return type_ >= DataType::CSV_INT8 && type_ <= DataType::CSV_INT64;
         }
 
-        CONSTEXPR_14 long double numeric_value_as_long_double() const noexcept {
+        long double numeric_value_as_long_double() const noexcept {
             return stores_integral()
                 ? static_cast<long double>(value_.integer)
                 : value_.floating;
         }
 
-        CONSTEXPR_14 void cache_parsed_value(DataType parsed_type, long double parsed_value) noexcept {
+        void cache_parsed_value(DataType parsed_type, long double parsed_value) noexcept {
             type_ = parsed_type;
 
             if (parsed_type >= DataType::CSV_INT8 && parsed_type <= DataType::CSV_INT64) {
@@ -425,23 +429,23 @@ namespace csv {
         /** Shared validation + conversion kernel used by get(), try_get(), and as().
          *  Assigns to @p out and returns CSVConversionError::None on success.
          */
-        CSVConversionError check_convert(std::string& out) noexcept {
+        CSVConversionError check_convert(std::string& out) const noexcept {
             out.assign(this->sv.data(), this->sv.size());
             return CSVConversionError::None;
         }
 
-        CSVConversionError check_convert(csv::string_view& out) noexcept {
+        CSVConversionError check_convert(csv::string_view& out) const noexcept {
             out = this->sv;
             return CSVConversionError::None;
         }
 
-        CSVConversionError check_convert(long double& out) noexcept {
+        CSVConversionError check_convert(long double& out) const noexcept {
             if (!is_num()) return CSVConversionError::NotANumber;
             out = this->numeric_value_as_long_double();
             return CSVConversionError::None;
         }
 
-        CSVConversionError check_convert(bool& out) noexcept {
+        CSVConversionError check_convert(bool& out) const noexcept {
             if (this->type() != DataType::CSV_BOOL)
                 return CSVConversionError::NotANumber;
 
@@ -450,7 +454,7 @@ namespace csv {
         }
 
         template<typename Rep, typename Period>
-        CSVConversionError check_convert(std::chrono::duration<Rep, Period>& out) noexcept {
+        CSVConversionError check_convert(std::chrono::duration<Rep, Period>& out) const noexcept {
             if (this->type() != DataType::CSV_TIMESTAMP)
                 return CSVConversionError::NotANumber;
 
@@ -460,7 +464,7 @@ namespace csv {
         }
 
         template<typename Duration>
-        CSVConversionError check_convert(std::chrono::time_point<std::chrono::system_clock, Duration>& out) noexcept {
+        CSVConversionError check_convert(std::chrono::time_point<std::chrono::system_clock, Duration>& out) const noexcept {
             if (this->type() != DataType::CSV_TIMESTAMP)
                 return CSVConversionError::NotANumber;
 
@@ -470,7 +474,7 @@ namespace csv {
         }
 
         template<typename T>
-        CSVConversionError check_convert(T& out) noexcept {
+        CSVConversionError check_convert(T& out) const noexcept {
             IF_CONSTEXPR(std::is_arithmetic<T>::value) {
                 if (!this->is_num())
                     return CSVConversionError::NotANumber;
@@ -503,7 +507,7 @@ namespace csv {
         }
 
         /** Check to see if value has been cached previously before evaluating. */
-        inline void get_value() noexcept {
+        inline void get_value() const noexcept {
             if ((int)type_ < 0) {
                 if (this->sv.empty()) {
                     type_ = DataType::CSV_NULL;
@@ -666,53 +670,119 @@ namespace csv {
         csv::string_view raw_str() const noexcept;
         ///@}
 
-        /** A random access iterator over the contents of a CSV row.
-         *  Each iterator points to a CSVField.
+        /** Iterator producing short-lived CSVField values with independent lazy
+         *  conversion caches. Use `const auto& field` or `auto field` in field loops.
+         *  Returned fields borrow their text; retain a row or iterator for that chunk.
+         *  Iterators retain their original row span even if the source row is reused.
+         *
+         *  The legacy category is input_iterator_tag because C++11 forward iterators
+         *  require references. C++20 iterator_concept supports random access, including
+         *  standard reverse adaptors. Navigation never materializes a field wrapper.
          */
         class iterator {
         public:
+            /** Temporary arrow proxy owning a field value, without a heap allocation.
+             *  Its field borrows the same chunk storage as a dereferenced field.
+             */
+            class pointer {
+            public:
+                explicit pointer(const CSVField& field) noexcept;
+                CSVField* operator->() noexcept;
+                const CSVField* operator->() const noexcept;
+
+            private:
+                CSVField field_;
+            };
+
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
             using value_type = CSVField;
-            using difference_type = int;
-            using pointer = std::shared_ptr<CSVField>;
-            using reference = CSVField & ;
-            using iterator_category = std::random_access_iterator_tag;
+            using difference_type = std::ptrdiff_t;
+            using reference = CSVField;
+            using iterator_category = std::input_iterator_tag;
+#ifdef CSV_HAS_CXX20
+            using iterator_concept = std::random_access_iterator_tag;
 #endif
-            iterator(const CSVRow*, int i);
+#endif
+            iterator() = default;
+            iterator(const CSVRow* row, difference_type index) noexcept;
 
             reference operator*() const;
             pointer operator->() const;
+            reference operator[](difference_type n) const;
 
-            iterator operator++(int);
-            iterator& operator++();
-            iterator operator--(int);
-            iterator& operator--();
-            iterator operator+(difference_type n) const;
-            iterator operator-(difference_type n) const;
-            iterator& operator+=(difference_type n);
-            iterator& operator-=(difference_type n);
+            iterator operator++(int) noexcept;
+            iterator& operator++() noexcept;
+            iterator operator--(int) noexcept;
+            iterator& operator--() noexcept;
+            iterator operator+(difference_type n) const noexcept;
+            iterator operator-(difference_type n) const noexcept;
+            iterator& operator+=(difference_type n) noexcept;
+            iterator& operator-=(difference_type n) noexcept;
             difference_type operator-(const iterator& other) const noexcept;
+            friend iterator operator+(difference_type n, const iterator& it) noexcept;
 
-            /** Two iterators are equal if they point to the same field */
-            CONSTEXPR bool operator==(const iterator& other) const noexcept {
-                return this->i == other.i;
-            };
-
-            CONSTEXPR bool operator!=(const iterator& other) const noexcept { return !operator==(other); }
-
-#ifndef NDEBUG
-            friend CSVRow;
-#endif
+            bool operator==(const iterator& other) const noexcept;
+            bool operator!=(const iterator& other) const noexcept;
+            bool operator<(const iterator& other) const noexcept;
+            bool operator>(const iterator& other) const noexcept;
+            bool operator<=(const iterator& other) const noexcept;
+            bool operator>=(const iterator& other) const noexcept;
 
         private:
-            const CSVRow * daddy = nullptr;                      // Pointer to parent
-            internals::RawCSVDataPtr data = nullptr;             // Keep data alive for lifetime of iterator
-            std::shared_ptr<CSVField> field = nullptr;           // Current field pointed at
-            int i = 0;                                           // Index of current field
+            internals::RawCSVDataPtr data_;
+            size_t data_start_ = 0;
+            size_t fields_start_ = 0;
+            size_t row_length_ = 0;
+            difference_type index_ = 0;
         };
 
-        /** A reverse iterator over the contents of a CSVRow. */
-        using reverse_iterator = std::reverse_iterator<iterator>;
+        /** Reverse field-value iterator available since C++11. Uses the same
+         *  temporary-field semantics as iterator, without a persistent field cache.
+         *  Use this type in C++11-17: legacy std::reverse_iterator requires references.
+         */
+        class reverse_iterator {
+        public:
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+            using value_type = iterator::value_type;
+            using difference_type = iterator::difference_type;
+            using pointer = iterator::pointer;
+            using reference = iterator::reference;
+            using iterator_category = std::input_iterator_tag;
+#ifdef CSV_HAS_CXX20
+            using iterator_concept = std::random_access_iterator_tag;
+#endif
+#endif
+            reverse_iterator() = default;
+            explicit reverse_iterator(iterator base) noexcept;
+
+            reference operator*() const;
+            pointer operator->() const;
+            reference operator[](difference_type n) const;
+
+            reverse_iterator operator++(int) noexcept;
+            reverse_iterator& operator++() noexcept;
+            reverse_iterator operator--(int) noexcept;
+            reverse_iterator& operator--() noexcept;
+            reverse_iterator operator+(difference_type n) const noexcept;
+            reverse_iterator operator-(difference_type n) const noexcept;
+            reverse_iterator& operator+=(difference_type n) noexcept;
+            reverse_iterator& operator-=(difference_type n) noexcept;
+            difference_type operator-(const reverse_iterator& other) const noexcept;
+            friend reverse_iterator operator+(difference_type n, const reverse_iterator& it) noexcept;
+
+            bool operator==(const reverse_iterator& other) const noexcept;
+            bool operator!=(const reverse_iterator& other) const noexcept;
+            bool operator<(const reverse_iterator& other) const noexcept;
+            bool operator>(const reverse_iterator& other) const noexcept;
+            bool operator<=(const reverse_iterator& other) const noexcept;
+            bool operator>=(const reverse_iterator& other) const noexcept;
+
+            /** The forward iterator one past the field this iterator produces. */
+            iterator base() const noexcept;
+
+        private:
+            iterator base_;
+        };
 
         /** Materialize named values; unknown names or absent header positions report an error. */
         std::unordered_map<std::string, std::string> try_to_unordered_map(CSVError& error) const;
@@ -720,13 +790,13 @@ namespace csv {
             CSVError& error, const std::vector<std::string>& subset) const;
 
         /** @name Iterators
-         *  @brief Each iterator points to a CSVField object.
+         *  @brief Iteration produces field values with independent conversion caches.
          */
          ///@{
-        iterator begin() const;
+        iterator begin() const noexcept;
         iterator end() const noexcept;
         reverse_iterator rbegin() const noexcept;
-        reverse_iterator rend() const;
+        reverse_iterator rend() const noexcept;
         ///@}
 
     private:
@@ -803,23 +873,23 @@ namespace csv {
 #if CSV_EXCEPTIONS_ENABLED
     /** Retrieve this field's original string */
     template<>
-    inline std::string CSVField::get<std::string>() {
+    inline std::string CSVField::get<std::string>() const {
         return std::string(this->sv);
     }
 
     /** Retrieve a view over this field's string
      *
-     *  @warning This string_view is only guaranteed to be valid as long as this
-     *           CSVRow is still alive.
+     *  @warning The source text must outlive the returned view. A retained row
+     *           or field iterator keeps its parsing buffer alive.
      */
     template<>
-    CONSTEXPR_14 csv::string_view CSVField::get<csv::string_view>() {
+    CONSTEXPR_14 csv::string_view CSVField::get<csv::string_view>() const {
         return this->sv;
     }
 
     /** Retrieve this field's value as a long double */
     template<>
-    inline long double CSVField::get<long double>() {
+    inline long double CSVField::get<long double>() const {
         if (!is_num())
             throw std::runtime_error(internals::ERROR_NAN);
 
@@ -830,7 +900,7 @@ namespace csv {
 
     // Preserve the existing constexpr view-retrieval API.
     template<>
-    CONSTEXPR_14 bool CSVField::try_get<csv::string_view>(csv::string_view& out) noexcept {
+    CONSTEXPR_14 bool CSVField::try_get<csv::string_view>(csv::string_view& out) const noexcept {
         out = this->sv;
         return true;
     }

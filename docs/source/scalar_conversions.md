@@ -11,6 +11,27 @@ Use classify_scalar directly if you want csv-parser's scalar behavior outside
 CSV parsing, or if you want to define a related classification policy for
 another data format.
 
+## Const reads and lazy caching
+
+Classification predicates and ordinary conversions accept `const CSVField&`.
+The private classification and numeric caches are mutable; filling them changes
+only derived bookkeeping, preserving the field's text and interpretation.
+
+```cpp
+for (const auto& row : reader) {
+    for (const auto& field : row) {
+        if (field.is_num()) {
+            const double number = field.get<double>();
+            // The conversion reuses the classification performed by is_num().
+        }
+    }
+}
+```
+
+`get()`, `try_get()`, optional/expected conversions, and hexadecimal and timestamp
+reads support const fields. Custom decimal parsing through `try_parse_decimal()`
+explicitly updates interpretation and requires a non-const field value.
+
 ## Conversion APIs
 
 | API | Result | Failure |

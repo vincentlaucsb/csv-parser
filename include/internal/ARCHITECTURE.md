@@ -59,7 +59,8 @@ Two independent parser paths exist and must be kept behaviorally aligned:
     split under `include/internal/data_frame/` to keep each proxy/helper focused.
   - Iterator APIs follow the library's cached-proxy convention: iterators store
     the current proxy and expose reference/pointer-like `operator*` and
-    `operator->`, as `CSVReader` and `CSVRow` do.
+    `operator->`, as `CSVReader` does. `CSVRow` field iteration instead returns
+    temporary field values, as described below.
   - DataFrame is deliberately row-backed. Structural edits use the simplest
     reliable strategy for each operation instead of forcing a uniform storage
     abstraction: row insert/erase mutate row vectors directly, column insert
@@ -318,6 +319,37 @@ reliable operation that preserves visible semantics and keeps ordinary row
 access simple. If repeated soft deletes leave too much hidden physical storage,
 prefer adding an explicit compaction/materialization operation over making all
 row access pay for a columnar model.
+
+### CSVRow field iterators produce values
+
+`CSVField` is a short-lived, non-owning text view with a local lazy conversion
+cache. Ordinary reads are logically const: only the type and numeric caches
+are mutable, so const references can classify and convert without changing text
+or interpretation. Custom decimal parsing remains non-const because it changes
+interpretation. Forward and reverse field iterators return fields by value.
+Navigation does not allocate or construct wrappers; dereferencing creates a wrapper through the
+same decoding, trimming and optional eager-scalar path as indexed access.
+
+Each iterator owns its original `RawCSVDataPtr` and captures `data_start`,
+`fields_start`, row length and column position. There is no parent-row pointer:
+reader reuse, assignment or destruction of the original row cannot redirect the
+iterator. The returned field itself does not own the bytes; a row or iterator
+for its chunk must outlive use of the field or its string views.
+
+An iterator-owned reference is unsafe when a standard adaptor dereferences a
+temporary iterator, and a chunk-owned field cache would retain one wrapper per
+touched field for the chunk's lifetime and share mutable parsing state. Returning
+values avoids both costs. Each dereference has an independent conversion cache;
+retain the field value to reuse its parsing results. Arrow access uses a temporary
+value-owning proxy without a heap allocation.
+
+The legacy `iterator_category` is `input_iterator_tag`: C++11-17 forward
+iterator requirements demand actual references. C++20 `iterator_concept` is
+`random_access_iterator_tag`, with value-returning indexing and dereferencing.
+The library provides its own small reverse iterator for all supported standards;
+C++20 standard reverse iterators and reverse views are also supported. This does
+not make the parsed row writable: assigning a field value cannot edit CSV bytes.
+See ../../docs/source/row_iterators.md for user-facing examples and migration.
 
 ### CSVReader::iterator is single-pass by design
 

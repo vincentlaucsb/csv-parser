@@ -10,7 +10,7 @@ using namespace csv;
 // CSVRow Iterators //
 //////////////////////
 
-TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
+TEST_CASE("Test CSVRow Iterator", "[test_csv_row_iter]") {
     auto rows = "A,B,C\r\n" // Header row
         "123,234,345\r\n"
         "1,2,3\r\n"
@@ -74,7 +74,7 @@ TEST_CASE("Test CSVRow Interator", "[test_csv_row_iter]") {
 
     SECTION("Range Based For") {
         size_t i = 0;
-        for (auto& field : row) {
+        for (auto field : row) {
             if (i == 0) REQUIRE(field.get<>() == "123");
             else if (i == 1) REQUIRE(field.get<>() == "234");
             else  REQUIRE(field.get<>() == "345");
@@ -172,3 +172,45 @@ TEST_CASE("CSVReader Iterator + Algorithms Requiring ForwardIterator", "[iter_al
 }
 #endif
 //! [CSVReader Iterator 2]
+
+// Regression: dereferencing reverse traversal must produce a live field value,
+// even when the reverse iterator itself is a temporary.
+TEST_CASE("CSVRow reverse iterator returns live field values", "[test_csv_row_iter]") {
+    auto rows = "A,B,C\r\n"
+        "123,234,345\r\n"_csv;
+
+    CSVRow row;
+    rows.read_row(row);
+
+    SECTION("Dereference copies a live field") {
+        CSVField last = *row.rbegin();
+        REQUIRE(last.get<int>() == 345);
+
+        CSVField first = *(row.rend() - 1);
+        REQUIRE(first.get<std::string>() == "123");
+    }
+
+    SECTION("Field value survives iterator movement") {
+        auto it = row.rbegin();
+        CSVField field = *it;
+        ++it;
+        REQUIRE(field.get<int>() == 345);
+        REQUIRE(field.get<std::string>() == "345");
+        REQUIRE(it->get<int>() == 234);
+    }
+
+    SECTION("Walks fields from back to front") {
+        auto it = row.rbegin();
+        REQUIRE((*it).get<int>() == 345);
+        REQUIRE(it.base() == row.end());
+
+        ++it;
+        REQUIRE((*it).get<std::string>() == "234");
+        ++it;
+        REQUIRE((*it).get<std::string>() == "123");
+        REQUIRE((it++)->get<int>() == 123);
+        REQUIRE(it == row.rend());
+        REQUIRE(row.rend() - row.rbegin() == 3);
+        REQUIRE(row.rend().base() == row.begin());
+    }
+}
