@@ -686,7 +686,7 @@ namespace csv {
              */
             class pointer {
             public:
-                explicit pointer(CSVField field) noexcept;
+                explicit pointer(const CSVField& field) noexcept;
                 CSVField* operator->() noexcept;
                 const CSVField* operator->() const noexcept;
 

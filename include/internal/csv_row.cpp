@@ -231,8 +231,8 @@ namespace csv {
         return reverse_iterator(this->begin());
     }
 
-    CSVRow::iterator::pointer::pointer(CSVField field) noexcept
-        : field_(std::move(field)) {}
+    CSVRow::iterator::pointer::pointer(const CSVField& field) noexcept
+        : field_(field) {}
 
     CSVField* CSVRow::iterator::pointer::operator->() noexcept {
         return &this->field_;
