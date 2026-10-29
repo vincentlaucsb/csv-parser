@@ -4,19 +4,30 @@
 
 `CSVRow` iterators produce `CSVField` values. A field is a small wrapper around
 existing CSV text and an independent, lazy conversion cache. Iterating does not
-copy the CSV text or allocate a field wrapper on the heap. Retain a field value
-when you want to reuse its parsing results:
+copy the CSV text or allocate a field wrapper on the heap. Use value iteration
+for both rows and fields:
 
 ```cpp
-for (auto field : row) {
-    const int value = field.get<int>();
-    // Subsequent conversions of field reuse its cached classification.
+for (auto row : reader) {
+    for (auto field : row) {
+        const int value = field.get<int>();
+        // Subsequent conversions of field reuse its cached classification.
+    }
 }
+```
 
+For an existing row, retain a field value to reuse its parsing results:
+
+```cpp
 auto field = *row.begin();
 int value = 0;
 if (field.try_get(value)) { /* use value; also works without exceptions */ }
 ```
+
+Use values for both loop variables in ordinary code. Copying a `CSVRow` only
+copies its view and shared ownership of the existing chunk; it does not copy CSV
+text. In throughput-sensitive row loops, `auto& row` avoids that shared-pointer
+copy. The reader's iterator API continues to support this optimization.
 
 Each dereference produces a new wrapper. Changes to one wrapper's conversion
 cache, including a custom decimal interpretation, do not affect other wrappers.
@@ -82,6 +93,8 @@ Mutation algorithms such as sorting the parsed row in place are not supported.
 Replace `for (auto& field : row)` or `for (CSVField& field : row)` with
 `for (auto field : row)` or `for (CSVField field : row)`. Likewise, replace
 `CSVField& field = *it` with `auto field = *it`.
+A non-const field reference cannot bind to the returned temporary, so the compiler
+rejects these old reference bindings instead of allowing a dangling reference.
 
 `const auto&` can extend a temporary field's lifetime, but conversion methods
 mutate its local cache. Prefer a non-const field value when converting.

@@ -308,8 +308,8 @@ using namespace csv;
 
 CSVReader reader("very_big_file.csv");
 
-for (CSVRow& row: reader) { // Input iterator
-    for (CSVField field: row) {
+for (auto row : reader) { // Input iterator
+    for (auto field : row) {
         // By default, get<>() produces a std::string.
         // A more efficient get<string_view>() is also available, where the resulting
         // string_view is valid as long as the parent CSVRow is alive
@@ -340,8 +340,10 @@ This design enables streaming large CSV files (50+ GB) without loading them enti
 
 If you need to get around this, I suggest either loading all rows into an STL container, e.g. `std::vector<CSVRow>`, or using the `DataFrame` class which supports row and column random access.
 
-`CSVRow` field iterators return short-lived `CSVField` values with independent
-lazy conversion caches. Use `auto field`, rather than `auto&`, for field loops.
+Use `auto row` and `auto field` for ordinary iteration. Copying a `CSVRow`
+shares its backing storage; it does not copy CSV text. Each `CSVField` value has
+its own lazy conversion cache. For throughput-sensitive row loops, `auto& row`
+avoids the row view's shared-pointer copy.
 Reverse traversal through `row.rbegin()`/`rend()` works since C++11; standard
 reverse adaptors and `std::views::reverse` are supported in C++20 and later.
 See the [field iteration guide](docs/source/row_iterators.md) for lifetimes,
@@ -385,7 +387,7 @@ format.column_names_policy(ColumnNamePolicy::CASE_INSENSITIVE);
 CSVReader reader("very_big_file.csv", format);
 double sum = 0;
 
-for (auto& row: reader) {
+for (auto row : reader) {
     // Note: Can also use index of column with [] operator
     sum += row["Total Salary"].get<double>();
 }
@@ -430,7 +432,7 @@ using namespace csv;
 
 CSVReader reader("very_big_file.csv");
 
-for (auto& row: reader) {
+for (auto row : reader) {
     int timestamp = 0;
     if (row["timestamp"].try_get(timestamp)) {
         // Non-throwing conversion
@@ -482,7 +484,7 @@ using namespace csv;
 CSVReader reader("very_big_file.csv");
 std::stringstream my_json;
 
-for (auto& row: reader) {
+for (auto row : reader) {
     my_json << row.to_json() << std::endl;
     my_json << row.to_json_array() << std::endl;
 
@@ -521,7 +523,7 @@ format.delimiter('\t')
 
 CSVReader reader("weird_csv_dialect.csv", format);
 
-for (auto& row: reader) {
+for (auto row : reader) {
     // Do stuff with rows here
 }
 
@@ -771,7 +773,7 @@ chunk_parallel_apply(big_reader, direct_summaries,
 // batches, and executor-driven column analysis.
 std::vector<CSVRow> promoted_rows;
 
-for (auto& row : reader) {
+for (auto row : reader) {
     if (row["department"] == "Engineering") {
         promoted_rows.push_back(row);
     }
