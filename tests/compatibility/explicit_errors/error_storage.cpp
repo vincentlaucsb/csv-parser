@@ -179,9 +179,9 @@ int csv_row_iterator_allocation_test() {
     start_counting();
     auto it = row.begin();
     auto reverse = row.rbegin();
-    auto first = *it;
-    auto middle = (1 + it)[0];
-    auto arrow = reverse.operator->();
+    const auto first = *it;
+    const auto middle = (1 + it)[0];
+    const auto arrow = reverse.operator->();
     ++it;
     reverse += 3;
     --reverse;

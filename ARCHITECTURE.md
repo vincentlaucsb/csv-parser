@@ -50,3 +50,5 @@ Notes:
 - CSVRow field iterators return temporary field values with independent lazy caches.
   They retain a captured row span and chunk, use a legacy input category, and model
   C++20 random access. See docs/source/row_iterators.md for the design and migration.
+- CSVField queries and ordinary conversions are logically const, with mutable
+  derived caches. Custom decimal interpretation remains explicitly non-const.

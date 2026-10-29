@@ -132,6 +132,29 @@ TEST_CASE("CSVRow field values work with standard reverse adaptors", "[ranges][c
         REQUIRE(it[1].get_sv() == "123");
     }
 
+    SECTION("Const field references in forward and reverse views") {
+        const csv::CSVRow& const_row = row;
+        int forward_sum = 0;
+        for (const auto& field : const_row) {
+            REQUIRE(field.is_num());
+            int value = 0;
+            REQUIRE(field.try_get(value));
+            forward_sum += value;
+#if CSV_EXCEPTIONS_ENABLED
+            REQUIRE(field.get<int>() == value);
+#endif
+        }
+        REQUIRE(forward_sum == 702);
+        std::vector<int> values;
+        for (const auto& field : const_row | std::views::reverse) {
+            REQUIRE(field.is_int());
+            int value = 0;
+            REQUIRE(field.try_get(value));
+            values.push_back(value);
+        }
+        REQUIRE(values == std::vector<int>{345, 234, 123});
+    }
+
     SECTION("Const, empty and single-field reverse views") {
         const csv::CSVRow& const_row = row;
         auto reversed = const_row | std::views::reverse;

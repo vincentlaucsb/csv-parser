@@ -71,7 +71,8 @@ compaction/materialization API over adding hot-path indirection for all access.
   materialization may retire dirty state; ordinary cell edits retain row locks.
 - DataFrame iterators should follow the library's cached-proxy convention:
   store the current proxy inside the iterator and expose `operator*` /
-  `operator->` reference-like access, as `CSVReader` and `CSVRow` do.
+  `operator->` reference-like access, as `CSVReader` does. `CSVRow` field
+  iterators produce values with logically const reads; see ../ARCHITECTURE.md.
 
 ## Test Expectations
 

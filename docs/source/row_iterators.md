@@ -4,12 +4,12 @@
 
 `CSVRow` iterators produce `CSVField` values. A field is a small wrapper around
 existing CSV text and an independent, lazy conversion cache. Iterating does not
-copy the CSV text or allocate a field wrapper on the heap. Use value iteration
-for both rows and fields:
+copy the CSV text or allocate a field wrapper on the heap. Use `const auto&`
+for read-only row and field loops:
 
 ```cpp
-for (auto row : reader) {
-    for (auto field : row) {
+for (const auto& row : reader) {
+    for (const auto& field : row) {
         const int value = field.get<int>();
         // Subsequent conversions of field reuse its cached classification.
     }
@@ -24,10 +24,20 @@ int value = 0;
 if (field.try_get(value)) { /* use value; also works without exceptions */ }
 ```
 
-Use values for both loop variables in ordinary code. Copying a `CSVRow` only
-copies its view and shared ownership of the existing chunk; it does not copy CSV
-text. In throughput-sensitive row loops, `auto& row` avoids that shared-pointer
-copy. The reader's iterator API continues to support this optimization.
+The row reference borrows the reader iterator's current row. The field reference
+extends the returned temporary field's lifetime through the loop body. Ordinary
+queries and conversions are logically const: a private mutable cache stores
+derived classification and numeric results, preserving the text and its
+interpretation. Calling `is_num()` before `get<double>()` classifies once and
+reuses the result. Explicit custom decimal parsing can change interpretation and
+requires a non-const field.
+
+`auto row` and `auto field` remain useful when you want local values. A row copy
+shares ownership of the existing chunk and copies only its view coordinates; it
+does not copy CSV text. Borrowing the row avoids that shared-pointer copy.
+
+Concurrent conversions on the same field object require external synchronization;
+separate field values have independent conversion caches.
 
 Each dereference produces a new wrapper. Changes to one wrapper's conversion
 cache, including a custom decimal interpretation, do not affect other wrappers.
@@ -80,7 +90,7 @@ results from dereferencing and indexing. Standard reverse adaptors are supported
 auto it = std::make_reverse_iterator(row.end());
 auto last = *it;
 
-for (auto field : row | std::views::reverse) {
+for (const auto& field : row | std::views::reverse) {
     // Process fields from last to first.
 }
 ```
@@ -90,14 +100,15 @@ Mutation algorithms such as sorting the parsed row in place are not supported.
 
 ## Migrating reference-based loops
 
-Replace `for (auto& field : row)` or `for (CSVField& field : row)` with
-`for (auto field : row)` or `for (CSVField field : row)`. Likewise, replace
-`CSVField& field = *it` with `auto field = *it`.
+Replace mutable reference bindings such as `for (auto& field : row)` with
+`for (const auto& field : row)` for reading, or `for (auto field : row)` for a
+local field value. Likewise, use `const auto& field = *it` or `auto field = *it`.
 A non-const field reference cannot bind to the returned temporary, so the compiler
-rejects these old reference bindings instead of allowing a dangling reference.
+rejects the old binding instead of allowing a dangling reference.
 
-`const auto&` can extend a temporary field's lifetime, but conversion methods
-mutate its local cache. Prefer a non-const field value when converting.
+Const field references support predicates, `get()`, `try_get()`, optional and
+expected conversions, and hexadecimal and timestamp reads. Use a non-const field
+value for custom decimal interpretation with `try_parse_decimal()`.
 
 This choice prevents dangling references from temporary iterator copies while
 preserving short-lived wrappers and lazy parsing. A persistent chunk-wide cache

@@ -195,7 +195,7 @@ namespace csv {
         return false;
     }
 
-    bool CSVField::try_parse_timestamp(std::uint64_t& out) noexcept {
+    bool CSVField::try_parse_timestamp(std::uint64_t& out) const noexcept {
         if (this->type_ == DataType::UNKNOWN)
             this->get_value();
 

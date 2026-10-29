@@ -323,8 +323,11 @@ row access pay for a columnar model.
 ### CSVRow field iterators produce values
 
 `CSVField` is a short-lived, non-owning text view with a local lazy conversion
-cache. Forward and reverse field iterators return it by value. Navigation does
-not allocate or construct wrappers; dereferencing creates a wrapper through the
+cache. Ordinary reads are logically const: only the type and numeric caches
+are mutable, so const references can classify and convert without changing text
+or interpretation. Custom decimal parsing remains non-const because it changes
+interpretation. Forward and reverse field iterators return fields by value.
+Navigation does not allocate or construct wrappers; dereferencing creates a wrapper through the
 same decoding, trimming and optional eager-scalar path as indexed access.
 
 Each iterator owns its original `RawCSVDataPtr` and captures `data_start`,
