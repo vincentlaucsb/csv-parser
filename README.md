@@ -856,6 +856,19 @@ writer.write_row(67, "six", "seven", 6.7, "mogged");
 You can pass in arbitrary types into `DelimWriter` by defining a conversion function for that type to `std::string`.
 
 #### C++20 Ranges: Efficient writing for `CSVRow`, `DataFrameRow`, and STL containers
-If compiling with C++20 or later, the `DelimWriter` uses efficient `std::ranges` over string views for zero-copy writing.
+With C++20 and exceptions enabled, `writer << row` accepts `CSVRow` and
+`DataFrameRow` directly, and `writer.write_rows(rows)` accepts ranges of rows.
+Native CSV fields can be read as string views; DataFrame fields preserve edits
+and may own copied text.
 
-You can still serialize `CSVRow` or `DataFrameRow` in older versions, but you will have to use the `std::vector<std::string>()` conversion operator.
+For C++11 and later, `writer.try_write_row(error, row)` accepts `CSVRow`,
+`DataFrameRow`, and `DataFrameColumn` directly with exceptions enabled or
+disabled. No intermediate vector is required. Pass a complete DataFrame to
+include its header; C++20 `writer.try_write_rows(rows, error)` writes data rows
+only. Check each result before making another checked call, then use
+`try_flush(error)` or an owned file's `try_close(error)` to observe output errors.
+
+A single empty field is written as `""` so it stays distinct from a row with no
+fields, which produces a blank line. Multiple empty fields retain their
+delimiters. This applies to tuples, ordinary ranges, and checked row writes;
+custom writers use their configured quote character.

@@ -132,6 +132,12 @@ int main() {
     csv::CSVWriter<std::ostringstream> writer(output);
     if (!writer.try_write_row(error, std::vector<std::string>{"A", "B"})) return 7;
     if (!writer.try_flush(error) || error || output.str() != "A,B\n") return 8;
+    // Keep checked row adapters covered in the real consumer standard, including
+    // C++11, rather than relying only on Catch2's C++14-or-later consumers.
+    if (!writer.try_write_row(error, row)) return 27;
+    if (!writer.try_write_row(error, *frame)) return 28;
+    if (!writer.try_flush(error) || error
+        || output.str() != "A,B\n2,Bob,20\nid,name,value\n1,Alice,10\n2,Bob,20\n") return 29;
 #ifdef CSV_HAS_STD_EXPECTED
     const csv::CSVField expected_number("12");
     auto number = expected_number.as<int>();

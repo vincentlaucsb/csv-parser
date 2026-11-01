@@ -258,6 +258,10 @@ Writes CSV rows to a path-like output file or text file-like object with a
 Python iterables. Fields are stringified before writing; `None` becomes an empty
 field.
 
+A row containing just `""` or `None` is written as a quoted empty field (`""`),
+while a row containing no fields produces a blank line. Multiple empty fields
+retain their delimiters when minimal quoting is enabled.
+
 Supported options:
 
 - `fieldnames`: optional output column names. When writing dictionaries, this

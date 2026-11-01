@@ -417,5 +417,10 @@ For full testing strategy, checklist, and conventions, see:
   operations propagate errors while preserving edit permissions, overlays and key lifetimes.
 - Writer checked operations observe stream status and preserve borrowed exception masks.
   File close is explicit when failure must be observed; destructors do best-effort cleanup.
+  `checked_field_range.hpp` adapts checked row access into a C++11 field range for
+  the shared range serializer in both exception modes. It validates proxies,
+  retains each field's owned storage through serialization, and stops on the
+  first access error. The writer discards the failed row's buffered prefix
+  before returning that error, while retaining previously buffered records.
 - Errors do not promise rollback of consumed input or emitted output. Allocation and
   resource-failure recovery is outside the explicit-error contract.

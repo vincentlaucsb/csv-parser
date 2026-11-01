@@ -49,7 +49,7 @@ namespace csv {
             size_t header_row = 0;
             size_t mode_row_length = 0;
 
-            // Final score is equal to the largest row size times rows of that size.
+            // Choose the row-length group with the largest width * frequency score.
             for (auto& pair : row_tally) {
                 const size_t row_size = pair.first;
                 const size_t row_count = pair.second;
@@ -61,7 +61,7 @@ namespace csv {
                 }
             }
 
-            // Heuristic: If first row has >= columns than mode, use it as header.
+            // Prefer the first row as header when it is at least as wide as the winning group.
             size_t first_row_length = rows.size() > 0 ? rows[0].size() : 0;
             if (first_row_length >= mode_row_length && first_row_length > 0) {
                 header_row = 0;
@@ -76,11 +76,12 @@ namespace csv {
                 fail_static(error, CSVErrorCode::InvalidFormat, "At least one delimiter is required.");
                 return {',', 0, 0};
             }
-            /** For each delimiter, find out which row length was most common (mode).
-             *  The delimiter with the highest score (row_length * count) wins.
+            /** Score each row-length group for every candidate delimiter.
+             *  The highest score (row_length * count) wins, even if that
+             *  row length is not the most frequent.
              *
-             *  Header detection: If first row has >= columns than mode, use row 0.
-             *  Otherwise use the first row with the mode length.
+             *  Header detection: If the first row is at least as wide as the
+             *  winning group, use row 0. Otherwise use that group's first row.
              */
             // The parser core does not handle BOMs, so strip one here (once, not
             // per candidate). This also rejects UTF-16/UTF-32 before guessing

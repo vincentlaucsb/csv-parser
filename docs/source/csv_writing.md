@@ -43,6 +43,47 @@ Through the magic of SFINAE, `write_row()` also supports any of the operations o
 
 \snippet tests/test_write_csv.cpp CSV write_row Variadic Example
 
+## Empty Fields and Quoting
+
+With minimal quoting, a row containing one empty field is written as `""`
+followed by a newline. A row with no fields produces a blank line, and a row
+containing two empty fields produces a delimiter followed by a newline. Quoting
+the lone empty field preserves that distinction when another CSV reader reads
+the output. A custom `DelimWriter` uses its configured quote character.
+
+With `quote_minimal = false`, string fields are always quoted, including empty
+strings. Tuple, range, and checked row writes follow the same empty-field rules.
+
+## Checked Row Writes in Both Exception Modes
+
+`try_write_row(error, row)` accepts ordinary containers, tuples, `CSVRow`,
+`DataFrameRow`, and `DataFrameColumn` in C++11 and later, with compiler exceptions
+enabled or disabled. Row and column proxies preserve visible values and edits;
+an invalid proxy or a missing physical field reports a `CSVError`.
+
+@code
+csv::CSVError error;
+std::ostringstream output;
+csv::CSVWriter<std::ostringstream> writer(output);
+writer.set_auto_flush(false);
+if (!writer.try_write_row(error, row)) {
+    // Inspect error before another checked call clears it.
+    return;
+}
+if (!writer.try_flush(error)) {
+    // Handle the output failure.
+    return;
+}
+@endcode
+
+A field-access failure discards the current record's buffered prefix and keeps
+previously buffered records. I/O failures can leave bytes already written to
+the output; they do not promise rollback. Buffered success means accepted into
+the writer's buffer. Use `try_flush(error)` or an owned file's `try_close(error)`
+to observe final output errors. Borrowed standard streams must have exceptions
+disabled when compiler exceptions are disabled. See [No-exceptions and Godot
+integration](@ref no_exceptions) for the full error contract.
+
 ## Data Reordering Workflow
 
 For read-transform-write pipelines, `csv::CSVRow` supports conversion to
@@ -69,7 +110,9 @@ With C++20, you can use `std::ranges::views` to elegantly reorder fields in a si
 `writer << frame` writes the visible column names once, then the visible rows in
 order, including sparse edits and structural column changes. It accepts const
 frames and is available in C++11 and later. A frame with a schema but no rows
-still writes its header.
+still writes its header. This convenience requires compiler exceptions enabled.
+In either exception mode, `writer.try_write_row(error, frame)` writes the same
+document and reports errors explicitly.
 
 The writer's delimiter, quoting, and buffering settings apply. With auto-flush
 enabled, the underlying stream is flushed once after the document. With
@@ -78,6 +121,8 @@ the writer also flushes on destruction.
 
 In C++20, `writer.write_rows(frame)` remains a data-row-only operation. It does
 not write a header, which is useful when appending to an existing document.
+Use `writer.try_write_rows(frame, error)` for the checked equivalent in either
+exception mode.
 
 ## DataFrame with Sparse Overlay
 

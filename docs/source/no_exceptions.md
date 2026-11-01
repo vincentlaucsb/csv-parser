@@ -125,12 +125,19 @@ remain available. Structural mutation invalidates outstanding proxies as
 documented by each operation. Const access continues to produce read-only cells.
 
 Writers expose `try_open()`, `try_write_row(error, ...)`, `try_flush(error)`, and
-file-owning `try_close(error)`. Buffered writes are complete only after a
+file-owning `try_close(error)`. Checked single-row writes accept `CSVRow`,
+`DataFrameRow`, and `DataFrameColumn` directly in C++11 and later without
+materializing a vector. Passing a complete DataFrame includes its header;
+C++20 `try_write_rows(rows, error)` writes data rows only. A lone empty field is
+quoted so it stays distinct from a zero-field row's blank line.
+
+Buffered writes are complete only after a
 successful explicit flush or close. Destruction performs a best-effort flush;
 use the checked completion operations to observe errors.
 
-Reading or writing does not roll back partial progress. A failed write may have
-emitted bytes, and a failed batch read may have consumed rows.
+A checked field-access failure discards the current record's buffered prefix
+while retaining previously buffered records. An I/O failure may have emitted
+bytes that cannot be rolled back. A failed batch read may have consumed rows.
 
 ## C++23 expected adapters
 

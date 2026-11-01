@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "basic_csv_parser_simd.hpp"
+#include "checked_field_range.hpp"
 #include "common.hpp"
 #include "csv_exceptions.hpp"
 #include "data_frame/fwd.hpp"
@@ -504,7 +505,7 @@ namespace internals {
          *  This includes std::vector<std::string>, std::vector<csv::string_view>,
          *  std::array, C++20 views, etc.
          *
-         *  @note Implementation detail: Uses SFINAE for runtime compatibility.
+         *  @note Available before C++20 through compile-time overload selection.
          */
         template<typename Range>
         typename std::enable_if<
@@ -533,6 +534,9 @@ namespace internals {
         }
 
         /** Write the same inputs accepted by write_row(), reporting stream failures.
+         *  CSVRow and DataFrame row/column proxies are accepted directly in C++11
+         *  and later in either exception mode. Field-access failures discard the
+         *  current buffered record while preserving previously buffered records.
          *  With buffering enabled, success means accepted into the buffer; try_flush()
          *  or try_close() observes completion. Output already written is not rolled back.
          *  Checked operations require a stream exposing fail(). In exception-disabled
@@ -672,15 +676,6 @@ namespace internals {
             });
         }
 
-        template<typename Row>
-        static auto checked_record_valid(const Row& row, int)
-            -> decltype(row.is_valid(), bool()) {
-            return row.is_valid();
-        }
-
-        template<typename Row>
-        static bool checked_record_valid(const Row&, long) { return true; }
-
         template<typename T>
         bool checked_write_call(CSVError& error, T&& record) {
             return this->checked_write_record(std::forward<T>(record), error, 0);
@@ -731,26 +726,16 @@ namespace internals {
             return true;
         }
 
-        // Logical rows need checked physical-width access: KEEP permits native
-        // rows shorter than the schema. Generic string ranges use their iterator
-        // contract instead, so this indexed validation cannot share that loop.
         template<typename Row>
         auto append_checked_row(Row&& row, CSVError& error, int)
             -> decltype(row.try_field(size_t{0}, error).get_sv(), bool()) {
-            if (!checked_record_valid(row, 0)) {
-                return internals::fail_static(error, CSVErrorCode::InvalidProxy, "CSV row or column proxy is invalid.");
-            }
             const size_t row_start = batch_buffer_.size();
-            for (size_t i = 0; i < row.size(); ++i) {
-                const auto field = row.try_field(i, error);
-                if (error) {
-                    // No bytes from this row have been sent yet. Discard its
-                    // incomplete buffered record while retaining earlier rows.
-                    batch_buffer_.resize(row_start);
-                    return false;
-                }
-                if (i != 0) batch_buffer_.push_back(Delim);
-                write_escaped_field(field.get_sv());
+            append_range_fields(internals::checked_field_range(row, error));
+            if (error) {
+                // No bytes from this row have been sent yet. Discard its
+                // incomplete buffered record while retaining earlier rows.
+                batch_buffer_.resize(row_start);
+                return false;
             }
             end_record();
             return true;
@@ -775,13 +760,25 @@ namespace internals {
             auto end = std::end(record);
 
             if (it != end) {
+                const size_t field_start = batch_buffer_.size();
                 write_field(*it);
                 ++it;
+                if (it == end) quote_lone_empty_field(field_start);
             }
 
             for (; it != end; ++it) {
                 batch_buffer_.push_back(Delim);
                 write_field(*it);
+            }
+        }
+
+        /** A row with one empty field would otherwise be a blank line, which
+         *  reads back as a row with no fields, so quote that field.
+         */
+        void quote_lone_empty_field(size_t field_start) {
+            if (batch_buffer_.size() == field_start) {
+                batch_buffer_.push_back(Quote);
+                batch_buffer_.push_back(Quote);
             }
         }
 
@@ -822,6 +819,13 @@ namespace internals {
             end_record();
         }
 #endif
+
+        // Preserve the owning checked field through serialization. This also
+        // avoids instantiating the string-conversion fallback in C++11/14.
+        template<typename Field>
+        void write_field(const internals::CheckedFieldValue<Field>& in) {
+            in.with_view([this](csv::string_view value) { write_escaped_field(value); });
+        }
 
         template<
             typename T,
@@ -897,7 +901,12 @@ namespace internals {
         /** Recursive template for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            const size_t field_start = batch_buffer_.size();
             write_field(std::get<Index>(record));
+
+            CSV_MSVC_PUSH_DISABLE(4127)
+            IF_CONSTEXPR (sizeof...(T) == 1) quote_lone_empty_field(field_start);
+            CSV_MSVC_POP
 
             CSV_MSVC_PUSH_DISABLE(4127)
             IF_CONSTEXPR (Index + 1 < sizeof...(T)) batch_buffer_.push_back(Delim);
