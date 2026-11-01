@@ -775,13 +775,25 @@ namespace internals {
             auto end = std::end(record);
 
             if (it != end) {
+                const size_t field_start = batch_buffer_.size();
                 write_field(*it);
                 ++it;
+                if (it == end) quote_lone_empty_field(field_start);
             }
 
             for (; it != end; ++it) {
                 batch_buffer_.push_back(Delim);
                 write_field(*it);
+            }
+        }
+
+        /** A row with one empty field would otherwise be a blank line, which
+         *  reads back as a row with no fields, so quote that field.
+         */
+        void quote_lone_empty_field(size_t field_start) {
+            if (batch_buffer_.size() == field_start) {
+                batch_buffer_.push_back(Quote);
+                batch_buffer_.push_back(Quote);
             }
         }
 
@@ -897,7 +909,12 @@ namespace internals {
         /** Recursive template for writing std::tuples */
         template<size_t Index = 0, typename... T>
         typename std::enable_if<Index < sizeof...(T), void>::type write_tuple(const std::tuple<T...>& record) {
+            const size_t field_start = batch_buffer_.size();
             write_field(std::get<Index>(record));
+
+            CSV_MSVC_PUSH_DISABLE(4127)
+            IF_CONSTEXPR (sizeof...(T) == 1) quote_lone_empty_field(field_start);
+            CSV_MSVC_POP
 
             CSV_MSVC_PUSH_DISABLE(4127)
             IF_CONSTEXPR (Index + 1 < sizeof...(T)) batch_buffer_.push_back(Delim);

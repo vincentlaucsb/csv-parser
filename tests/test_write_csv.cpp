@@ -151,6 +151,16 @@ TEMPLATE_TEST_CASE("Basic CSV Writing Cases", "[test_csv_write]", StringOutput, 
         correct << "Single column value";
     }
 
+    SECTION("Single Empty Field") {
+        writer << std::array<std::string, 1>({ "" });
+        correct << "\"\"";
+    }
+
+    SECTION("Single Empty Field Tuple") {
+        writer << std::make_tuple(std::string());
+        correct << "\"\"";
+    }
+
     correct << std::endl;
     REQUIRE(output.str() == correct.str());
 }
