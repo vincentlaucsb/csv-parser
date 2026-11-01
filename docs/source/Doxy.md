@@ -53,33 +53,38 @@ For exception-disabled builds and engine-owned resources, see
 
 ### DataFrame
 
-An in-memory keyed table built from a csv::CSVReader. Supports O(1) key lookup,
-column extraction, editing, and grouping.
+An in-memory table built from a csv::CSVReader or a batch of csv::CSVRow values.
+Frames support positional access, optional keyed lookup, column extraction,
+editing, and grouping.
 
  * csv::DataFrame: Main container class (template parameter is the key type, default `std::string`)
    * Construction
-     * From csv::CSVReader with an explicit key column
+     * From csv::CSVReader or a row batch for an unkeyed frame
+     * From csv::CSVReader with an explicit key column for a keyed frame
+     * csv::DataFrame::try_create(): Checked reader/file construction in either exception mode
    * Inspection
      * csv::DataFrame::n_rows()
      * csv::DataFrame::n_cols()
      * csv::DataFrame::size()
      * csv::DataFrame::empty()
      * csv::DataFrame::has_column()
-     * csv::DataFrame::get_col_names()
+     * csv::DataFrame::columns()
    * Row access by key
      * csv::DataFrame::operator[](): Access by key value (O(1))
      * csv::DataFrame::contains(): Check if a key exists
-     * csv::DataFrame::try_get(): Non-throwing keyed lookup
+     * csv::DataFrame::try_find(): Checked keyed lookup
+     * csv::DataFrame::try_contains(): Checked key membership
    * Row access by position
-     * csv::DataFrame::iloc(): Positional access by index (use instead of `operator[](size_t)` for integer-keyed DataFrames)
-     * csv::DataFrame::try_get(): Non-throwing positional lookup (overloaded on `size_t`)
+     * csv::DataFrame::at(): Positional access by index (use instead of `operator[](size_t)` for integer-keyed DataFrames)
+     * csv::DataFrame::try_at(): Checked positional lookup
    * Column extraction
      * csv::DataFrame::column(): Extract all values from a named column as `std::vector<T>`
+     * csv::DataFrame::try_column_view(): Checked column proxy access
    * Editing
-     * csv::DataFrame::set(): Edit a cell by key and column name
-     * csv::DataFrame::set_at(): Edit a cell by position and column name
-     * csv::DataFrame::erase_row(): Remove a row by key
-     * csv::DataFrame::erase_row_at(): Remove a row by position
+     * csv::DataFrameRow::try_field(): Get a checked cell proxy
+     * csv::DataFrameCell::try_assign(): Assign a cell value
+     * csv::DataFrameRow::try_erase(): Remove the row represented by a mutable proxy
+     * csv::DataFrameColumn::try_erase(): Remove the column represented by a mutable proxy
    * Grouping
      * csv::DataFrame::group_by(): Group row indices by an arbitrary key function or column name
    * Iteration
@@ -119,6 +124,13 @@ high-level overview of writing CSVs.
      * csv::TSVWriter
    * Methods
      * csv::DelimWriter::operator<<()
+     * csv::DelimWriter::write_row()
+     * csv::DelimWriter::write_rows(): C++20 data-row batches
+     * csv::DelimWriter::try_open(): Open an owned output file
+     * csv::DelimWriter::try_write_row(): Checked rows or a complete DataFrame, in either exception mode
+     * csv::DelimWriter::try_write_rows(): Checked C++20 data-row batches
+     * csv::DelimWriter::try_flush()
+     * csv::DelimWriter::try_close(): Finish an owned output file
 
 ## Frequently Asked Questions
 
@@ -126,7 +138,12 @@ high-level overview of writing CSVs.
 See "How does automatic delimiter detection work?"
 
 ### How does automatic delimiter detection work?
-See the implementation in csv::internals::_guess_format() — the source is the authoritative reference and is kept up to date.
+For each candidate delimiter, the reader groups sampled rows by field count
+and scores each group as its field count multiplied by its row count. The
+delimiter with the highest group score wins. Header detection uses the first
+row when it has at least the winning group's field count; otherwise it uses
+the first row in that group. Configure csv::CSVFormat explicitly when the
+format is known.
 
 ### Is the CSV parser thread-safe?
 This library already does a lot of work behind the scenes to use threads to squeeze

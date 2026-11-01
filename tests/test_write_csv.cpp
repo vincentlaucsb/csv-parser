@@ -719,6 +719,213 @@ TEST_CASE("Checked DataFrame writing retains edits and escapes every record", "[
     REQUIRE(output.str() == "id,value\n1,\"x,y\"\n2,29\n1,\"x,y\"\n\"x,y\",29\n");
 }
 
+TEST_CASE("Checked writers preserve a lone empty field", "[explicit_errors][writer][lone_empty_field]") {
+    // A one-field row must stay distinct from a zero-field row in every writer API.
+    // Construct storage directly: this regression exercises serialization only.
+    auto data = std::make_shared<internals::RawCSVData>();
+    data->fields.emplace_back(0, 0);
+    data->col_names = std::make_shared<internals::ColNames>(std::vector<std::string>{"value"});
+    CSVRow row(data, 0, 0, 1);
+    const DataFrame<> frame(std::vector<CSVRow>{row});
+    const bool quote_minimal = GENERATE(true, false);
+    const bool auto_flush = GENERATE(true, false);
+    CSVError error;
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output, quote_minimal);
+    writer.set_auto_flush(auto_flush);
+    REQUIRE(writer.try_write_row(error, std::array<std::string, 1>{{"prefix"}}));
+    std::string expected = quote_minimal ? "prefix\n" : "\"prefix\"\n";
+
+    SECTION("CSVRow") {
+        REQUIRE(writer.try_write_row(error, row));
+    }
+    SECTION("DataFrame row proxy") {
+        REQUIRE(writer.try_write_row(error, *frame.begin()));
+    }
+    SECTION("Complete DataFrame") {
+        REQUIRE(writer.try_write_row(error, frame));
+        expected += quote_minimal ? "value\n" : "\"value\"\n";
+    }
+#ifdef CSV_HAS_CXX20
+    SECTION("Bulk CSVRows") {
+        REQUIRE(writer.try_write_rows(std::vector<CSVRow>{row}, error));
+    }
+    SECTION("Bulk DataFrame rows") {
+        REQUIRE(writer.try_write_rows(frame, error));
+    }
+#endif
+    REQUIRE(writer.try_flush(error));
+    REQUIRE_FALSE(error);
+    REQUIRE(output.str() == expected + "\"\"\n");
+}
+
+TEST_CASE("Checked empty-field quoting preserves row width", "[explicit_errors][writer][lone_empty_field]") {
+    auto data = std::make_shared<internals::RawCSVData>();
+    data->fields.emplace_back(0, 0);
+    data->fields.emplace_back(0, 0);
+    CSVError error;
+    std::ostringstream output;
+    DelimWriter<std::ostringstream, '\t', '\''> writer(output);
+    SECTION("Zero fields stay a blank line") {
+        REQUIRE(writer.try_write_row(error, CSVRow(data, 0, 0, 0)));
+        REQUIRE(output.str() == "\n");
+    }
+    SECTION("Two empty fields retain their delimiter") {
+        REQUIRE(writer.try_write_row(error, CSVRow(data, 0, 0, 2)));
+        REQUIRE(output.str() == "\t\n");
+    }
+    SECTION("A lone empty field uses the configured quote") {
+        REQUIRE(writer.try_write_row(error, CSVRow(data, 0, 0, 1)));
+        REQUIRE(output.str() == "''\n");
+    }
+    REQUIRE_FALSE(error);
+}
+
+TEST_CASE("Checked field ranges stop on failure and roll back only their row", "[explicit_errors][writer][checked_range]") {
+    struct TestRow {
+        struct Field {
+            std::string text;
+            size_t* invalid_reads;
+
+            csv::string_view get_sv() const {
+                if (invalid_reads) ++*invalid_reads;
+                return text;
+            }
+        };
+
+        explicit TestRow(size_t failure) : failure(failure) {}
+        size_t size() const { return 3; }
+        Field try_field(size_t index, CSVError& error) const {
+            error.clear();
+            ++accesses;
+            if (index == failure) {
+                internals::fail_static(error, CSVErrorCode::IndexOutOfBounds, "first field failure");
+                return {"unreadable", &invalid_reads};
+            }
+            return {std::to_string(index), nullptr};
+        }
+
+        size_t failure;
+        mutable size_t accesses = 0;
+        mutable size_t invalid_reads = 0;
+    };
+    // Each position catches a different tentative prefix/delimiter rollback.
+    const size_t failure = GENERATE(size_t{0}, size_t{1}, size_t{2});
+    TestRow row(failure);
+    CSVError error;
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    writer.set_auto_flush(false);
+    REQUIRE(writer.try_write_row(error, std::array<std::string, 1>{{"prefix"}}));
+    REQUIRE_FALSE(writer.try_write_row(error, row));
+    REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
+    REQUIRE(error.message() == "first field failure");
+    REQUIRE(row.accesses == failure + 1);
+    REQUIRE(row.invalid_reads == 0);
+    REQUIRE(output.str().empty());
+    REQUIRE(writer.try_write_row(error, std::array<std::string, 1>{{"suffix"}}));
+    REQUIRE(writer.try_flush(error));
+    REQUIRE(output.str() == "prefix\nsuffix\n");
+}
+
+TEST_CASE("Checked field ranges reject unbound zero-width proxies", "[explicit_errors][writer][checked_range]") {
+    CSVError error;
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    writer.set_auto_flush(false);
+    REQUIRE(writer.try_write_row(error, std::array<std::string, 1>{{"prefix"}}));
+    SECTION("Unbound DataFrame row") {
+        const DataFrameRow<std::string> row;
+        REQUIRE_FALSE(writer.try_write_row(error, row));
+    }
+    SECTION("Unbound DataFrame column") {
+        const DataFrameColumn<std::string> column;
+        REQUIRE_FALSE(writer.try_write_row(error, column));
+    }
+    REQUIRE(error.code == CSVErrorCode::InvalidProxy);
+    REQUIRE(writer.try_flush(error));
+    REQUIRE(output.str() == "prefix\n");
+}
+
+TEST_CASE("Checked field ranges preserve owning access results", "[explicit_errors][writer][checked_range]") {
+    struct TestRow {
+        struct Field {
+            // Keep a temporary owning string alive until the writer consumes it.
+            std::string get_sv() const { return "a,\"" + std::string(128, 'x'); }
+        };
+        size_t size() const { return 1; }
+        Field try_field(size_t, CSVError& error) const {
+            error.clear();
+            return {};
+        }
+    };
+    TestRow row;
+    CSVError error;
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    REQUIRE(writer.try_write_row(error, row));
+    REQUIRE_FALSE(error);
+    REQUIRE(output.str() == "\"a,\"\"" + std::string(128, 'x') + "\"\n");
+}
+
+#ifdef CSV_HAS_CXX17
+TEST_CASE("Checked field ranges accept immovable field results", "[explicit_errors][writer][checked_range]") {
+    struct TestRow {
+        struct Field {
+            Field() = default;
+            Field(const Field&) = delete;
+            Field(Field&&) = delete;
+            csv::string_view get_sv() const { return "kept"; }
+        };
+        size_t size() const { return 1; }
+        Field try_field(size_t, CSVError& error) const {
+            error.clear();
+            return Field();
+        }
+    };
+    TestRow row;
+    CSVError error;
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    REQUIRE(writer.try_write_row(error, row));
+    REQUIRE(output.str() == "kept\n");
+}
+#endif
+
+TEST_CASE("Checked field ranges retain edited cell storage while writing", "[explicit_errors][writer][checked_range]") {
+    auto data = std::make_shared<internals::RawCSVData>();
+    data->fields.emplace_back(0, 0);
+    data->fields.emplace_back(0, 0);
+    data->col_names = std::make_shared<internals::ColNames>(std::vector<std::string>{"left", "right"});
+    DataFrame<> frame(std::vector<CSVRow>{CSVRow(data, 0, 0, 2)});
+    CSVError error;
+    auto row = frame.try_at(0, error);
+    REQUIRE_FALSE(error);
+    const std::string edited = "before," + std::string(128, 'x') + "\"after";
+    REQUIRE(row.try_field(size_t{0}, error).try_assign(edited, error));
+    REQUIRE(row.try_field(size_t{1}, error).try_assign("tail", error));
+    const std::string quoted = "\"before," + std::string(128, 'x') + "\"\"after\"";
+    std::ostringstream output;
+    CSVWriter<std::ostringstream> writer(output);
+    std::string expected;
+    SECTION("DataFrame row") {
+        REQUIRE(writer.try_write_row(error, row));
+        expected = quoted + ",tail\n";
+    }
+    SECTION("DataFrame column") {
+        const auto column = frame.try_column_view("left", error);
+        REQUIRE_FALSE(error);
+        REQUIRE(writer.try_write_row(error, column));
+        expected = quoted + "\n";
+    }
+    SECTION("Complete DataFrame") {
+        REQUIRE(writer.try_write_row(error, frame));
+        expected = "left,right\n" + quoted + ",tail\n";
+    }
+    REQUIRE_FALSE(error);
+    REQUIRE(output.str() == expected);
+}
+
 TEST_CASE("Checked writers reject failed and borrowed close operations", "[explicit_errors][writer]") {
     CSVError error;
     SECTION("Already failed output") {
