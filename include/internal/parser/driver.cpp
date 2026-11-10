@@ -25,6 +25,10 @@ namespace csv {
             std::error_code error;
             auto mmap = mio::make_mmap_source(std::string(filename), 0, mio::map_entire_file, error);
             if (error) {
+                // Native mapping APIs reject zero-length files. Confirm an empty,
+                // readable file before treating that failure as ordinary EOF.
+                std::ifstream input(std::string(filename), std::ios::binary | std::ios::ate);
+                if (input && input.tellg() == std::streampos(0)) return {};
                 fail(failure, CSVErrorCode::OpenFailed, make_prefixed_message(ERROR_CANNOT_OPEN_FILE, filename));
                 failure.system = error;
                 return {};
