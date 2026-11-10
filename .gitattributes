@@ -16,6 +16,8 @@
 CMakeLists.txt text eol=lf
 single_header.json text eol=lf
 *.md     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
 
 # Custom for Visual Studio
 *.cs     diff=csharp

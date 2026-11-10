@@ -6,6 +6,7 @@ targeting `master`.
 | Workflow | Coverage |
 | --- | --- |
 | [`sanitizers.yml`](sanitizers.yml) | Linux ASan (C++11 and C++20), TSan (C++20), and UBSan (C++17); Windows/MSVC ASan (C++20). Each job builds and runs CTest. |
+| [`fuzz.yml`](fuzz.yml) | Opt-in Clang C++20 libFuzzer ASan/UBSan stream and backend differential campaigns, compact boundary recipes, and separate deterministic TSan replay. See [fuzzer usage](../../fuzz/README.md). |
 | [`codeql.yml`](codeql.yml) | C++ security and quality queries on pushes, pull requests, and a weekly schedule. Results appear in GitHub's code scanning view. |
 
 The sanitizer jobs upload test logs when they fail. TSan can expose races in
