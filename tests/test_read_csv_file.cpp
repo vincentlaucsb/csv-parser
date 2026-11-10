@@ -970,6 +970,28 @@ TEST_CASE("Checked file helpers retain opening failures", "[explicit_errors]") {
     REQUIRE(error.code == CSVErrorCode::OpenFailed);
 }
 
+TEST_CASE("Empty files and streams both report ordinary EOF", "[explicit_errors][issue_352]") {
+    // Differential fuzzing found that zero-length mmap failed before parsing.
+    FileGuard file("tests/data/fake_data/explicit_errors_empty.csv");
+    { std::ofstream output(file.filename, std::ios::binary); REQUIRE(output.good()); }
+    CSVError error;
+    const auto validate = [&](std::unique_ptr<CSVReader> reader) {
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        CSVRow row;
+        REQUIRE_FALSE(reader->try_read_row(row, error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader->n_rows() == 0);
+    };
+    SECTION("Memory-mapped file") {
+        validate(CSVReader::try_open(file.filename, error));
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        validate(CSVReader::try_open(input, error));
+    }
+}
+
 TEST_CASE("Moved-from formats are validated before resolved delimiter access", "[explicit_errors][csv_format]") {
     FileGuard file("tests/data/fake_data/explicit_errors_moved_format.csv");
     { std::ofstream out(file.filename); out << "left,right\n3,7\n"; }

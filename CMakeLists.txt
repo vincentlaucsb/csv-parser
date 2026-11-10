@@ -330,3 +330,9 @@ if (CSV_DEVELOPER)
       add_subdirectory("tests")
     endif()
 endif()
+
+# Fuzzing is opt-in and uses separately instrumented parser objects.
+option(CSV_BUILD_FUZZERS "Build Clang libFuzzer harnesses" OFF)
+if(CSV_BUILD_FUZZERS)
+  add_subdirectory(fuzz)
+endif()

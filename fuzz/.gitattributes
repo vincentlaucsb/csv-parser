@@ -1,0 +1,3 @@
+* text eol=lf
+# Corpus bytes are test inputs: preserve CR/LF, BOMs, NULs and control bytes.
+corpus/** binary

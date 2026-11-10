@@ -60,20 +60,17 @@ jobs:
 
     - name: Capture coverage data
       run: |
+        # Exclude non-library sources during capture: GCC can emit inconsistent
+        # function ranges in test helpers, before a later --remove can run.
         lcov --capture \
           --directory build \
+          --exclude '/usr/*' \
+          --exclude '*/external/*' \
+          --exclude '*/catch2/*' \
+          --exclude '*/Catch2/*' \
+          --exclude '*/tests/*' \
           --output-file coverage.info \
           --ignore-errors mismatch,source,empty,unused,negative \
-          --rc lcov_branch_coverage=1
-        # Strip system headers, external deps, Catch2, and test files
-        lcov --remove coverage.info \
-          '/usr/*' \
-          '*/external/*' \
-          '*/catch2/*' \
-          '*/Catch2/*' \
-          '*/tests/*' \
-          --output-file coverage.info \
-          --ignore-errors empty,unused \
           --rc lcov_branch_coverage=1
         lcov --list coverage.info --ignore-errors empty,unused --rc lcov_branch_coverage=1
 
