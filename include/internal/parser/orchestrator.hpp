@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "driver.hpp"
 #include "../speculative/parallel_parser.hpp"
 
@@ -72,7 +74,14 @@ namespace csv {
             }
 
             SpeculativeParseDiagnostics diagnostics() const noexcept override {
+#if CSV_ENABLE_THREADS
+                this->lock_speculative_diagnostics_();
+                const SpeculativeParseDiagnostics diagnostics = this->speculative_diagnostics_;
+                this->unlock_speculative_diagnostics_();
+                return diagnostics;
+#else
                 return this->speculative_diagnostics_;
+#endif
             }
 
             size_t read_window_size(size_t chunk_size) const noexcept override {
@@ -146,6 +155,16 @@ namespace csv {
             }
 
         private:
+#if CSV_ENABLE_THREADS
+            void lock_speculative_diagnostics_() const noexcept {
+                while (this->speculative_diagnostics_lock_.test_and_set(std::memory_order_acquire)) {}
+            }
+
+            void unlock_speculative_diagnostics_() const noexcept {
+                this->speculative_diagnostics_lock_.clear(std::memory_order_release);
+            }
+#endif
+
             CSVParseWindowResult dispatch_window(
                 csv::string_view chunk,
                 std::shared_ptr<void> owner,
@@ -227,7 +246,9 @@ namespace csv {
                 );
 
                 result.complete_prefix_length = parse_result.complete_prefix_length;
+                this->lock_speculative_diagnostics_();
                 this->speculative_diagnostics_.merge(parse_result.diagnostics);
+                this->unlock_speculative_diagnostics_();
                 return result;
             }
 #endif
@@ -238,6 +259,10 @@ namespace csv {
                 CSVRowFieldPolicy<EagerClassify>,
                 CSVRowRowPolicy> serial_parser_;
             SpeculativeParseDiagnostics speculative_diagnostics_;
+#if CSV_ENABLE_THREADS
+            /** Keeps cumulative diagnostics coherent while a parser window is merged. */
+            mutable std::atomic_flag speculative_diagnostics_lock_ = ATOMIC_FLAG_INIT;
+#endif
 
             /** Whether the first source window has been checked for a Unicode BOM. */
             bool bom_scanned_ = false;

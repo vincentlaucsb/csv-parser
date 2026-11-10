@@ -8,7 +8,10 @@
 
 #include <catch2/catch_all.hpp>
 #include "csv.hpp"
+#include "shared/generated_file.hpp"
 #include "shared/timeout_helper.hpp"
+#include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <thread>
 #include <atomic>
@@ -29,6 +32,122 @@ namespace {
     constexpr int RAPID_SMALL_CSV_ITERATIONS = 500;
 #endif
 }
+
+#if CSV_ENABLE_THREADS && !defined(__EMSCRIPTEN__)
+namespace {
+    constexpr size_t READER_METADATA_RACE_ROWS = 500000;
+
+    const std::string& reader_metadata_race_filename() {
+        static csv_test::GeneratedFile file("csv_reader_metadata_race.csv");
+        return file.path([](std::ofstream& out) {
+            out << "col_a,col_b,col_c\n" << std::setfill('0');
+            for (size_t row = 0; row < READER_METADATA_RACE_ROWS; ++row) {
+                // Fixed-width, distinct fields make the fixture exceed the 10 MB
+                // parser boundary while retaining corruption-detecting values.
+                out << std::setw(7) << row * 3 << ','
+                    << std::setw(7) << row * 3 + 1 << ','
+                    << std::setw(7) << row * 3 + 2 << '\n';
+            }
+        });
+    }
+
+    bool coherent_diagnostics(const internals::SpeculativeParseDiagnostics& diagnostics) {
+        return diagnostics.assumed_quoted_chunks + diagnostics.assumed_unquoted_chunks
+                == diagnostics.chunks
+            && diagnostics.ambiguous_chunks <= diagnostics.chunks
+            && diagnostics.probability_model_chunks <= diagnostics.ambiguous_chunks
+            && diagnostics.record_size_heuristic_chunks <= diagnostics.ambiguous_chunks;
+    }
+
+    void exercise_reader_metadata_race(
+        CSVReader& reader,
+        const std::shared_ptr<ThreadSafeErrorCollector>& errors
+    ) {
+        if (reader.parse_worker_count() != 2) {
+            errors->add_error("parse_worker_count() != 2");
+        }
+
+        std::atomic<bool> stop_observer{ false };
+        bool observer_saw_eof = false;
+        bool observer_saw_incoherent_diagnostics = false;
+        bool observer_saw_speculative_chunks = false;
+        size_t previous_chunk_count = 0;
+
+        std::thread observer([&]() {
+            while (!stop_observer.load(std::memory_order_acquire) || !observer_saw_eof) {
+                // Before issue #353 was fixed, both calls raced with writes made
+                // by CSVReader's background parser. TSan reports those races even
+                // when an ordinary run happens to observe plausible values.
+                observer_saw_eof = observer_saw_eof || reader.eof();
+                const auto diagnostics = reader.speculative_diagnostics();
+
+                if (!coherent_diagnostics(diagnostics)
+                    || diagnostics.chunks < previous_chunk_count) {
+                    observer_saw_incoherent_diagnostics = true;
+                }
+                observer_saw_speculative_chunks = observer_saw_speculative_chunks
+                    || diagnostics.chunks > 0;
+                previous_chunk_count = diagnostics.chunks;
+                std::this_thread::yield();
+            }
+        });
+
+        CSVError read_error;
+        CSVRow row;
+        size_t row_count = 0;
+        while (reader.try_read_row(row, read_error)) {
+            if (row.size() != 3) {
+                errors->add_error("row.size() != 3");
+                break;
+            }
+
+            // Sample rows periodically while keeping the TSan test affordable.
+            if (row_count % 100000 == 0 || row_count + 1 == READER_METADATA_RACE_ROWS) {
+                size_t values[3] = {};
+                for (size_t column = 0; column < 3; ++column) {
+                    if (!row[column].try_get(values[column])) {
+                        errors->add_error("Failed to convert sampled field");
+                    }
+                    const size_t expected = row_count * 3 + column;
+                    if (values[column] != expected) {
+                        errors->add_error(
+                            "Sampled field mismatch at row " + std::to_string(row_count)
+                                + ", column " + std::to_string(column)
+                        );
+                    }
+                }
+            }
+            ++row_count;
+        }
+
+        stop_observer.store(true, std::memory_order_release);
+        observer.join();
+
+        if (read_error) {
+            errors->add_error("CSV read failed: " + read_error.message());
+        }
+        if (row_count != READER_METADATA_RACE_ROWS) {
+            errors->add_error(
+                "row_count != 500000 (got " + std::to_string(row_count) + ")"
+            );
+        }
+        if (!reader.eof()) {
+            errors->add_error("eof() remained false after consuming the source");
+        }
+        if (!observer_saw_eof) {
+            errors->add_error("Metadata observer never saw EOF");
+        }
+
+        const auto final_diagnostics = reader.speculative_diagnostics();
+        if (!observer_saw_speculative_chunks || final_diagnostics.chunks == 0) {
+            errors->add_error("Speculative parser was not exercised");
+        }
+        if (observer_saw_incoherent_diagnostics || !coherent_diagnostics(final_diagnostics)) {
+            errors->add_error("Observed an incoherent speculative diagnostics snapshot");
+        }
+    }
+}
+#endif
 
 TEST_CASE("ThreadSafeDeque kill_all race condition - small file iterator",
           "[threading][race_condition]") {
@@ -135,3 +254,36 @@ TEST_CASE("ThreadSafeDeque concurrent stress test",
         errors->check_and_fail_if_errors();
     }
 }
+
+#if CSV_ENABLE_THREADS && !defined(__EMSCRIPTEN__)
+TEST_CASE("CSVReader metadata remains race-free during background parsing - Issue #353",
+          "[threading][race_condition][issue_353]") {
+    const std::string& filename = reader_metadata_race_filename();
+
+    CSVFormat format;
+    format.delimiter(',')
+        .header_row(0)
+        .chunk_size(internals::CSV_CHUNK_SIZE_FLOOR)
+        .speculative_parallel_threads(2)
+        .speculative_parallel_min_bytes(0);
+
+    auto errors = std::make_shared<ThreadSafeErrorCollector>();
+
+    SECTION("Memory-mapped file path") {
+        test_with_timeout([filename, format, errors]() {
+            CSVReader reader(filename, format);
+            exercise_reader_metadata_race(reader, errors);
+        }, std::chrono::seconds(240));
+    }
+
+    SECTION("std::ifstream path") {
+        test_with_timeout([filename, format, errors]() {
+            std::ifstream input(filename, std::ios::binary);
+            CSVReader reader(input, format);
+            exercise_reader_metadata_race(reader, errors);
+        }, std::chrono::seconds(240));
+    }
+
+    errors->check_and_fail_if_errors();
+}
+#endif
