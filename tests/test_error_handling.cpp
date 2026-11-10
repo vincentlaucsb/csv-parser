@@ -146,26 +146,14 @@ TEST_CASE("Empty CSV does not crash parser entry points", "[error_handling][empt
     }
 
 #ifndef __EMSCRIPTEN__
-    SECTION("Filename path reports a zero-byte file as an open failure") {
-        bool caught = false;
-        std::string error_message;
-
-        try {
-            CSVReader reader("./tests/data/fake_data/empty.csv");
-            for (auto& row : reader) {
-                (void)row;
-            }
-        }
-        catch (const std::exception& e) {
-            caught = true;
-            error_message = e.what();
-        }
-
-        REQUIRE(caught);
-        REQUIRE(error_message == internals::make_prefixed_message(
-            internals::ERROR_CANNOT_OPEN_FILE,
-            "./tests/data/fake_data/empty.csv"
-        ));
+    SECTION("Filename path handles a zero-byte file as EOF") {
+        FileGuard file("./tests/data/fake_data/empty_reader_eof.csv");
+        { std::ofstream output(file.filename, std::ios::binary); REQUIRE(output.good()); }
+        CSVReader reader(file.filename);
+        REQUIRE(reader.empty());
+        CSVRow row;
+        REQUIRE_FALSE(reader.read_row(row));
+        REQUIRE(reader.n_rows() == 0);
     }
 #endif
 }

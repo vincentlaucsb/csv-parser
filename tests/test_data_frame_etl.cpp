@@ -543,17 +543,19 @@ TEST_CASE("DataFrame ETL: csv_data_types recognizes bool timestamp and null-only
 
 #ifndef __EMSCRIPTEN__
 TEST_CASE("ETL stats helper: missing file surfaces reader error", "[data_frame][etl][stats]") {
+    const std::string missing = "./tests/data/fake_data/etl_missing_directory/missing.csv";
+    REQUIRE_FALSE(std::ifstream(missing).is_open());
     bool error_caught = false;
 
     try {
-        auto dtypes = csv_data_types("./tests/data/fake_data/empty.csv");
+        auto dtypes = csv_data_types(missing);
         (void)dtypes;
     }
     catch (std::runtime_error& err) {
         error_caught = true;
         REQUIRE(err.what() == internals::make_prefixed_message(
             internals::ERROR_CANNOT_OPEN_FILE,
-            "./tests/data/fake_data/empty.csv"
+            missing
         ));
     }
 
