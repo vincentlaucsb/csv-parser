@@ -35,8 +35,8 @@ jobs:
       - uses: actions/cache/restore@v5
         with:
           path: fuzz-work/corpus
-          key: csv-fuzz-${{ matrix.target }}-${{ github.run_id }}
-          restore-keys: csv-fuzz-${{ matrix.target }}-
+          key: csv-fuzz-v2-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: csv-fuzz-v2-${{ matrix.target }}-
       - name: Replay committed regressions, then fuzz with restored corpus
         env:
           TARGET: ${{ matrix.target }}
@@ -71,7 +71,7 @@ jobs:
         if: success() && github.event_name != 'pull_request'
         with:
           path: fuzz-work/corpus
-          key: csv-fuzz-${{ matrix.target }}-${{ github.run_id }}
+          key: csv-fuzz-v2-${{ matrix.target }}-${{ github.run_id }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
