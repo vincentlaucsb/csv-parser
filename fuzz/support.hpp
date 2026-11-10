@@ -18,7 +18,12 @@ inline FileGuard& input_file() {
         ("csv-fuzz-" + std::to_string(getpid()) + ".csv")).string());
     return file;
 }
-inline csv::CSVFormat format(uint8_t control) {
+// Two control bytes precede the CSV payload so every option varies independently.
+// control: bit 0 guess delimiter, else bits 1-2 pick one; bit 3 no header, else
+// bit 4 is the header row; bit 5 disables quoting; bit 6 trims ' ' and '\r'.
+// policy: bits 0-1 select the variable-column policy (THROW..KEEP_NON_EMPTY).
+constexpr size_t control_bytes = 2;
+inline csv::CSVFormat format(uint8_t control, uint8_t policy) {
     csv::CSVFormat result;
     csv::CSVError error;
     if (control & 1) require(result.try_delimiter(std::vector<char>{',', ';', '\t', '|'}, error));
@@ -27,8 +32,12 @@ inline csv::CSVFormat format(uint8_t control) {
     else result.header_row((control >> 4) & 1);
     result.quote((control & 32) == 0);
     if (control & 64) require(result.try_trim({' ', '\r'}, error));
-    result.variable_columns(static_cast<csv::VariableColumnPolicy>(static_cast<int>((control >> 6) & 3) - 1));
+    result.variable_columns(static_cast<csv::VariableColumnPolicy>(static_cast<int>(policy & 3) - 1));
     return result;
+}
+inline csv::CSVFormat format(const uint8_t* data) { return format(data[0], data[1]); }
+inline std::string payload(const uint8_t* data, size_t size) {
+    return std::string(reinterpret_cast<const char*>(data + control_bytes), size - control_bytes);
 }
 struct Result {
     std::vector<std::vector<std::string>> rows;

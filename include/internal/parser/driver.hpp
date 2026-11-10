@@ -62,7 +62,7 @@ namespace csv {
                 return {};
             }
 #endif
-            const size_t limit = 500000;
+            const size_t limit = CSV_HEAD_PREVIEW_SIZE;
             std::string buf(limit, '\0');
             CSV_TRY {
                 source.read(&buf[0], static_cast<std::streamsize>(limit));

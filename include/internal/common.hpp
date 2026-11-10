@@ -429,6 +429,14 @@ namespace csv {
          */
         constexpr size_t CSV_CHUNK_SIZE_FLOOR = 500 * 1024; // 500KB
 
+        /** Bytes read from the start of a source to resolve its format (header,
+         *  delimiter guessing) before the first parsing window.
+         *
+         *  The mmap backend rewinds this preview to its last complete row, so the
+         *  boundary fuzzer uses this value to place syntax at mmap's first window.
+         */
+        constexpr size_t CSV_HEAD_PREVIEW_SIZE = 500000;
+
         /** Default minimum source size before speculative parallel parsing is considered. */
         constexpr size_t CSV_SPECULATIVE_PARALLEL_MIN_BYTES = 50ull * 1024ull * 1024ull; // 50MB
 

@@ -21,7 +21,7 @@ namespace csv {
 #if !defined(__EMSCRIPTEN__)
         std::pair<std::string, size_t> get_csv_head_mmap(csv::string_view filename, CSVError& failure) {
             failure.clear();
-            const size_t bytes = 500000;
+            const size_t bytes = CSV_HEAD_PREVIEW_SIZE;
             std::error_code error;
             auto mmap = mio::make_mmap_source(std::string(filename), 0, mio::map_entire_file, error);
             if (error) {

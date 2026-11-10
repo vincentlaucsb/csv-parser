@@ -24,8 +24,9 @@ the corresponding committed `fuzz/corpus/` directory. These corpora are tracked
 here rather than in the independently versioned `tests/data` submodule.
 
 `stream` checks arbitrary byte input through the checked stream APIs. Its first
-byte selects delimiter or guessing, header, quoting, trimming, and variable-column
-policy; remaining bytes are CSV (including NULs and malformed encodings).
+byte selects delimiter or guessing, header, quoting and trimming; the second
+selects the variable-column policy, so every combination is reachable. Remaining
+bytes are CSV (including NULs and malformed encodings).
 `differential` uses that same encoding and compares stream versus mmap in both
 synchronous and threaded scheduling, yielding periodically in the consumer. It
 copies every field into owned strings and compares rows, column names, resolved
@@ -38,8 +39,11 @@ One process-unique file is reused across iterations and owned by `FileGuard`.
 around a read-window boundary; byte 1 chooses closing/escaped quotes, embedded
 newline, CRLF, EOF, unterminated quote, extra delimiter, or NUL; byte 2 bit 0
 selects the minimum supported read window instead of the default 10MB window.
-Byte 2 bit 1 targets mmap's window after its 500000-byte preview and row rewind;
-otherwise the recipe targets the stream's first window. Boundary recipes use one
+Byte 2 bit 1 targets mmap's window after its `CSV_HEAD_PREVIEW_SIZE` preview and
+row rewind; otherwise the recipe targets the stream's first window. Byte 2 bit 2
+replaces the fixed tail with the fuzzer's own bytes 3 onward, bit 3 drops the
+opening quote so the boundary falls inside an unquoted field, and bit 4 ends the
+input right after the tail. Boundary recipes use one
 parser worker so speculative window expansion cannot move the boundary.
 Default-window recipes expand to over 500K rows with distinct column values;
 minimum-window recipes provide faster mutation. Use `-max_len=64` for this target.
