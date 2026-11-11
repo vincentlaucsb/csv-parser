@@ -296,8 +296,6 @@ namespace csv {
          */
         bool try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error);
 
-        /** Returns true if we have reached end of file */
-        bool eof() const noexcept { return this->parser->eof(); }
         ///@}
 
         /** @name CSV Metadata */

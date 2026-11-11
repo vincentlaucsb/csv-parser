@@ -152,9 +152,9 @@ experimenting should follow these guidelines:
  * Treat each csv::CSVReader as a single-consumer object. Do not concurrently call
    row-consumption APIs, iterate, mutate, or destroy the same reader from user threads.
  * A reader's own background worker may still overlap an ordinary single-threaded
-   caller after rows have been queued. csv::CSVReader::eof() is synchronized with
-   that worker, and csv::CSVReader::speculative_diagnostics() returns a coherent
-   snapshot rather than counters from a partially completed merge.
+   caller after rows have been queued. csv::CSVReader::speculative_diagnostics()
+   returns a coherent snapshot rather than counters from a partially completed
+   merge.
  * That metadata guarantee is narrow: it does not make other operations on a shared
    csv::CSVReader generally thread-safe.
  * csv::CSVReader::iterator should only be used from one thread

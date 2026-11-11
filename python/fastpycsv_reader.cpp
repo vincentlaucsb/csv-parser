@@ -682,9 +682,6 @@ void init_CSVReader(nb::module_& m){
     .def(nb::init<csv::string_view, CSVFormat>(),
     "filename"_a,
     "format"_a)
-    .def("eof", 
-    &CSVReader::eof,
-    "Returns true if we have reached end of file")
     .def("get_format", 
     &CSVReader::get_format)
     .def("empty", 
