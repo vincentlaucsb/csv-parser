@@ -177,7 +177,11 @@ namespace csv {
 #ifdef _MSC_VER
 #pragma region Reading helpers
 #endif
-    bool CSVReader::accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows) {
+    bool CSVReader::row_is_returnable(const CSVRow& candidate) {
+        // Any queued record proves that the previous source window made
+        // progress, even when policy filtering excludes the record.
+        this->_read_requested = false;
+
         const auto policy = this->_format.variable_column_policy;
         const size_t next_row_size = candidate.size();
 
@@ -200,6 +204,14 @@ namespace csv {
             return false;
         }
 
+        return true;
+    }
+
+    bool CSVReader::accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows) {
+        if (!this->row_is_returnable(candidate)) {
+            return false;
+        }
+
         if (single_row != nullptr) {
             *single_row = std::move(candidate);
         } else if (batch_rows != nullptr) {
@@ -209,7 +221,6 @@ namespace csv {
         }
 
         this->_n_rows++;
-        this->_read_requested = false;
         return true;
     }
 
@@ -291,6 +302,34 @@ namespace csv {
         return false;
     }
 
+    bool CSVReader::try_has_next_row(CSVError& error) {
+        error.clear();
+        while (this->check_for_rows()) {
+            CSVRow candidate;
+            if (!this->records->try_copy_front(candidate)) {
+                continue;
+            }
+
+            if (this->row_is_returnable(candidate)) {
+                return true;
+            }
+
+            if (error_) {
+                error = error_;
+                return false;
+            }
+
+            // Keep this lookahead loop separate from try_read_row(): only callers
+            // requesting a peek should pay for the locked front-row copy. Under
+            // CSVReader's single-consumer contract, the copied front remains the
+            // queue front until this discard.
+            this->records->pop_front();
+        }
+
+        error = error_;
+        return false;
+    }
+
     bool CSVReader::try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error) {
         error.clear();
         out.clear();
@@ -319,6 +358,13 @@ namespace csv {
         return true;
     }
 #if CSV_EXCEPTIONS_ENABLED
+    bool CSVReader::has_next_row() {
+        CSVError error;
+        const bool has_row = try_has_next_row(error);
+        internals::throw_error(error);
+        return has_row;
+    }
+
     bool CSVReader::read_row(CSVRow& row) {
         CSVError error;
         const bool read = try_read_row(row, error);

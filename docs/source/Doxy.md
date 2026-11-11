@@ -24,6 +24,8 @@ For exception-disabled builds and engine-owned resources, see
        * csv::CSVReader::end()
      * csv::CSVReader::read_row()
      * csv::CSVReader::read_chunk()
+     * csv::CSVReader::has_next_row()
+     * csv::CSVReader::try_has_next_row()
  * Convenience Functions
    * csv::parse()
    * csv::operator ""_csv()

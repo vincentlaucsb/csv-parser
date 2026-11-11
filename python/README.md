@@ -201,8 +201,10 @@ Unsupported dialect features intentionally fail fast instead of silently
 diverging from stdlib behavior.
 
 Lower-level extension objects remain available where they have a clear Python
-use, but `fastpycsv` intentionally keeps C++ configuration machinery out of the
-stable Python facade.
+use. `fastpycsv.Reader.has_next_row()` checks whether another logical row is
+available without consuming it, and may block while parsing. The `fastpycsv`
+package intentionally keeps C++ configuration machinery out of the stable
+Python facade.
 
 ## Benchmarks
 

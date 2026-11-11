@@ -37,6 +37,8 @@ CSVReader reader(infile, format);
 - A caller can consume queued rows while the internal worker is still finishing a
   source window. Keep source exhaustion worker-owned: `eof_` is a plain internal
   flag, and consumer-side code may inspect it only after `CSVReadScheduler` joins.
+  Non-consuming row lookahead must use the synchronized queue front and may drive
+  `check_for_rows()`; it must not poll source exhaustion independently.
   Keep speculative-diagnostics merge and snapshot operations under the same
   synchronization so snapshots remain coherent. This narrow metadata protection
   does not make a shared `CSVReader` generally safe for concurrent user operations.

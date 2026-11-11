@@ -20,6 +20,8 @@ Notes:
 - Unicode BOM ownership and source-offset invariants are maintained in include/internal/ARCHITECTURE.md.
 - Reader worker-state ownership and speculative-diagnostics publication are
   maintained in include/internal/ARCHITECTURE.md.
+- Non-consuming row lookahead and its join-before-EOF invariant are maintained
+  in include/internal/ARCHITECTURE.md and THREADSAFE_DEQUE_DESIGN.md.
 - Queue synchronization details are maintained only in THREADSAFE_DEQUE_DESIGN.md to avoid duplication.
 - Always update or remove incorrect comments.
 - Public API comments should remain user-facing and avoid references to internal helper/function details.

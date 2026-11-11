@@ -64,6 +64,9 @@ void load_items() {
 `try_read_row()` returns `false` with a clear error at EOF. A reader failure is
 terminal; further reads report that failure. The same distinction applies to
 `try_read_chunk()`, whose output may contain an already consumed prefix on error.
+`try_has_next_row()` makes the same checked distinction without consuming the
+next returnable row, although it may block while parsing and may discard records
+excluded by the active variable-column policy.
 
 Each checked operation clears stale errors before reporting its own result.
 Inspect an error before making another checked call. `CSVError::context` is a

@@ -240,13 +240,15 @@ the source adapter or parse orchestrator.
 
 `CSVReader` intentionally has no public EOF accessor. Source exhaustion can be
 observed while parsed rows remain queued, so it is not the same as reader
-exhaustion; callers should consume with iteration, `read_row()`, or
-`try_read_row()`. The source-exhaustion flag in `CSVParserDriverBase` is therefore
-a plain, worker-owned `bool`. `MmapParser` and `StreamParser` read and write it on
-the active parser thread, while consumer-side checks in `check_for_rows()` and
-`initial_read()` occur only after `CSVReadScheduler` has joined. Preserve that
-ownership and join ordering instead of exposing the flag to an unsynchronized
-observer.
+exhaustion. `has_next_row()` and `try_has_next_row()` answer whether a logical
+row can be returned by driving `check_for_rows()` and taking a synchronized copy
+of the queue front; a returnable row remains queued. Policy-excluded physical
+records may be discarded while searching. The source-exhaustion flag in
+`CSVParserDriverBase` is therefore a plain, worker-owned `bool`. `MmapParser` and
+`StreamParser` read and write it on the active parser thread, while consumer-side
+checks in `check_for_rows()` and `initial_read()` occur only after
+`CSVReadScheduler` has joined. Preserve that ownership and join ordering instead
+of exposing the flag to an unsynchronized observer.
 
 Speculative diagnostics have a stronger snapshot requirement. The worker merges
 seven cumulative counters after a speculative window, while the consumer may

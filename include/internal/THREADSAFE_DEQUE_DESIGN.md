@@ -28,6 +28,21 @@ The producer is intentionally not always running.
 - The consumer drains queued rows and only then triggers the next worker cycle if EOF is not reached.
 - This keeps parsed rows bounded in memory instead of allowing unbounded producer run-ahead.
 
+## Non-Consuming Row Lookahead
+
+`CSVReader::has_next_row()` and `try_has_next_row()` use
+`ThreadSafeDeque::try_copy_front()` to copy the front `CSVRow` while holding the
+queue mutex. A returnable row remains queued, so the next `read_row()`,
+`read_chunk()`, or iterator operation still receives it. Records excluded by a
+variable-column policy are popped while lookahead searches for the next logical
+row.
+
+The queue has one consumer: the parser worker only appends at the back. That
+contract keeps the copied front stable until the consumer either leaves it
+queued or discards an excluded record. Lookahead still reaches source exhaustion
+through `CSVReader::check_for_rows()`, which joins the worker before inspecting
+parser EOF; the queue peek does not require an atomic source-exhaustion flag.
+
 ## Two-Thread Model
 
 | Step | Consumer (read_row) | Producer (read_csv worker) | Shared State / Note |
@@ -257,6 +272,7 @@ t=5:   Consumer: pop_front() → returns row1
 | **Producer** | [csv_reader.cpp](../csv_reader.cpp) | kill_all() terminal signal |
 | **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | push_back() producer path |
 | **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | pop_front() consumer path |
+| **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | try_copy_front() synchronized lookahead |
 | **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | wait() condition protocol |
 | **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | notify_all() wake-up state |
 | **Queue** | [thread_safe_deque.hpp](thread_safe_deque.hpp) | kill_all() terminal publication |

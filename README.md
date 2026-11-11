@@ -203,8 +203,11 @@ intended for large file-backed inputs.
 
 Consume with range iteration, or until `read_row()` returns `false`. With
 explicit-error handling, `try_read_row()` distinguishes ordinary exhaustion (a
-clear `CSVError`) from failure. A `CSVReader` is a single-consumer object and
-should not be shared for concurrent reads or iteration.
+clear `CSVError`) from failure. Call `has_next_row()` when you need to check for
+the next logical row without consuming it; the check may block while parsing,
+so `read_row()` remains the normal loop condition. `try_has_next_row()` provides
+the same exhaustion-versus-error distinction. A `CSVReader` is a single-consumer
+object and should not be shared for concurrent reads, lookahead, or iteration.
 
 You can also disable it explicitly:
 
