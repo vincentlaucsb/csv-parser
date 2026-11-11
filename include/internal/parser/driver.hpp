@@ -5,6 +5,7 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <exception>
 #include <fstream>
@@ -194,7 +195,9 @@ namespace csv {
             const CSVError& error() const noexcept { return error_; }
 
             /** Whether or not we have reached the end of source */
-            bool eof() { return this->eof_; }
+            bool eof() const noexcept {
+                return this->eof_.load(std::memory_order_acquire);
+            }
 
             ResolvedFormat get_resolved_format() { return this->format; }
 
@@ -222,7 +225,7 @@ namespace csv {
         protected:
             /** @name Current Stream/File State */
             ///@{
-            bool eof_ = false;
+            std::atomic<bool> eof_{ false };
             CSVError error_;
 
             ResolvedFormat format;

@@ -230,6 +230,44 @@ Fields spanning chunk boundaries must not be split/corrupted.
 
 Mmap and stream parsers must preserve the same externally observable behavior.
 
+### Reader metadata publication during background parsing
+
+A single-threaded application can still have two threads touching parser state.
+The consumer may wake after rows have been queued and call metadata accessors
+while `CSVReadScheduler`'s worker finishes the current source window. Queue
+synchronization protects row transport; it does not by itself protect state in
+the source adapter or parse orchestrator.
+
+The source-exhaustion flag in `CSVParserDriverBase` must remain atomic for both
+`MmapParser` and `StreamParser`. `CSVReader::eof()` reads that flag without
+joining the worker, preserving the non-blocking overlap between row consumption
+and parsing. A plain `bool` here races the worker's final write even when the
+application never shares its reader between user-created threads.
+
+Speculative diagnostics have a stronger snapshot requirement. The worker merges
+seven cumulative counters after a speculative window, while the consumer may
+call `CSVReader::speculative_diagnostics()`. The merge and copy use the same
+short critical section so a returned snapshot belongs to one completed merge.
+Independent atomic counters would remove individual data races but could still
+combine values from different merge epochs and violate cross-counter invariants.
+
+This synchronization is deliberately narrow:
+
+- It makes `eof()` and `speculative_diagnostics()` safe against the reader's own
+  background worker. It does not make `CSVReader`, its iterator, row consumption,
+  destruction, or mutation generally safe across user threads.
+- Operational parser errors remain worker-owned; consumer-side inspection occurs
+  only after the scheduler has joined.
+- `utf8_bom()` and `parse_worker_count()` expose state resolved during synchronous
+  reader initialization and are not mutated by later worker cycles.
+- Neither accessor joins the worker. EOF is an atomic load; diagnostics lock only
+  long enough to copy or add the fixed set of counters.
+
+Regression coverage lives in `tests/test_threadsafe_deque_race.cpp`
+(`[issue_353]`). It observes both accessors while parsing a 500,000-row,
+greater-than-10MB fixture with distinct column values, using separate mmap and
+stream `SECTION`s so ThreadSanitizer exercises both source adapters.
+
 ### Unicode BOM handling and source offsets
 
 `CSVParseOrchestrator` checks the first source window once, before dispatching
@@ -382,8 +420,9 @@ This invariant is canonical here and summarized in the root `AGENTS.md` guidance
 - Speculative parallel parsing changes:
   - speculative/scanner.hpp, speculative/validator.hpp, speculative/parallel_parser.hpp, parser/orchestrator.hpp, speculative/diagnostics.hpp, parser/mmap.cpp, parser/stream.hpp
 
-- Reader worker/iteration behavior:
-  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, parser/scheduler.hpp
+- Reader worker/iteration behavior and concurrent metadata publication:
+  - csv_reader.hpp, csv_reader.cpp, csv_reader_iterator.cpp, parser/scheduler.hpp,
+    parser/driver.hpp, parser/orchestrator.hpp
 
 - Field extraction, backing storage, and trimming/unescaping:
   - csv_row.hpp, csv_row.cpp, raw_csv_data.hpp, memory/*.hpp

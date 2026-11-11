@@ -35,7 +35,7 @@ needed by that job.
 ## Optimized single-header distribution
 
 The generator owns the entire generation pipeline. With the Clang-enabled
-`single_header` 1.2.0 package, run:
+`single_header` 1.3.1 package, run:
 
 ```sh
 single_header --config single_header.json

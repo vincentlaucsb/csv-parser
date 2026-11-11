@@ -201,6 +201,15 @@ off speculative parsing for a reader.
 readers still benefit from reader threading, but speculative parsing is primarily
 intended for large file-backed inputs.
 
+Queued rows can reach the caller while the reader's internal worker is still
+finishing a source window. `CSVReader::eof()` therefore reads atomic exhaustion
+state, and `speculative_diagnostics()` returns a coherent synchronized snapshot
+instead of counters from a partially completed merge. This protection is against
+the library's own worker; a `CSVReader` remains a single-consumer object and
+should not be shared for concurrent reads or iteration. See the
+[internal architecture](include/internal/ARCHITECTURE.md#reader-metadata-publication-during-background-parsing)
+for the synchronization contract.
+
 You can also disable it explicitly:
 
 **CMake**

@@ -34,6 +34,11 @@ CSVReader reader(infile, format);
 - Worker thread reads in 10MB chunks (`CSV_CHUNK_SIZE_DEFAULT`)
 - Communicates via `ThreadSafeDeque<CSVRow>`
 - Operational errors propagate explicitly as `CSVError`; exception-enabled builds also transport user exceptions via `std::exception_ptr`
+- A caller can consume queued rows while the internal worker is still finishing a
+  source window. Keep `eof_` atomic, and keep speculative-diagnostics merge and
+  snapshot operations under the same synchronization so snapshots remain coherent.
+  This protects metadata access from the library's worker; it does not make a
+  shared `CSVReader` generally safe for concurrent user operations.
 - Critical: Fields spanning chunk boundaries must not corrupt
 
 **Testing requirement:** Use ≥500K rows to cross 10MB boundary.
