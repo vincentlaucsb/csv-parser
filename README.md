@@ -203,14 +203,8 @@ intended for large file-backed inputs.
 
 Consume with range iteration, or until `read_row()` returns `false`. With
 explicit-error handling, `try_read_row()` distinguishes ordinary exhaustion (a
-clear `CSVError`) from failure. Queued rows can reach the caller while the reader's
-internal worker is still finishing a source window, so
-`speculative_diagnostics()` returns a coherent synchronized snapshot instead of
-counters from a partially completed merge. This protection is against the
-library's own worker; a `CSVReader` remains a single-consumer object and should
-not be shared for concurrent reads or iteration. See the
-[internal architecture](include/internal/ARCHITECTURE.md#reader-worker-state-during-background-parsing)
-for the synchronization contract.
+clear `CSVError`) from failure. A `CSVReader` is a single-consumer object and
+should not be shared for concurrent reads or iteration.
 
 You can also disable it explicitly:
 
