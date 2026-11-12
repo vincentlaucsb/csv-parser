@@ -40,6 +40,7 @@ namespace csv {
             { q.push_back(std::move(item)) } -> std::same_as<void>;
             { q.append_rows(std::move(batch)) } -> std::same_as<void>;
             { q.pop_front() } -> std::same_as<T>;
+            { cq.try_copy_front(item) } -> std::same_as<bool>;
             { q.drain_front(batch, n) } -> std::same_as<size_t>;
             { cq.empty() } -> std::same_as<bool>;
             { cq.is_waitable() } -> std::same_as<bool>;

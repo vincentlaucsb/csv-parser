@@ -68,6 +68,16 @@ namespace csv {
                 return item;
             }
 
+            /** Copy the front item without removing it. */
+            bool try_copy_front(T& item) const {
+                if (this->records_.empty()) {
+                    return false;
+                }
+
+                item = this->records_.front();
+                return true;
+            }
+
             /** Move up to @p max_items rows into a caller-owned batch buffer. */
             size_t drain_front(std::vector<T>& out, size_t max_items) {
                 const size_t drain_count = this->records_.size() < max_items ? this->records_.size() : max_items;

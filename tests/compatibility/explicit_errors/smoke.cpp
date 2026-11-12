@@ -18,6 +18,17 @@ template<typename T>
 auto has_begin(int) -> decltype(std::declval<T&>().begin(), std::true_type());
 template<typename>
 std::false_type has_begin(...);
+template<typename Writer, typename Frame>
+auto has_write_row_frame(int) -> decltype(
+    std::declval<Writer&>().write_row(std::declval<Frame&>()), std::true_type());
+template<typename, typename>
+std::false_type has_write_row_frame(...);
+template<typename Writer, typename Frame>
+auto has_try_write_row_frame(int) -> decltype(
+    std::declval<Writer&>().try_write_row(
+        std::declval<csv::CSVError&>(), std::declval<Frame&>()), std::true_type());
+template<typename, typename>
+std::false_type has_try_write_row_frame(...);
 
 static_assert(CSV_EXCEPTIONS_ENABLED == CSV_TEST_EXCEPTIONS,
     "The consumer must use the requested compiler exception mode.");
@@ -42,6 +53,12 @@ static_assert(decltype(has_begin<csv::DataFrame<>::column_type>(0))::value
     "Column iteration cannot hide short-row failures without exceptions.");
 static_assert(decltype(has_begin<csv::DataFrame<>>(0))::value,
     "Materialized DataFrame row iteration must remain available.");
+using CheckedWriter = csv::CSVWriter<std::ostringstream>;
+using CheckedFrame = csv::DataFrame<>;
+static_assert(!decltype(has_write_row_frame<CheckedWriter, CheckedFrame>(0))::value,
+    "write_row() must not accept a complete DataFrame.");
+static_assert(!decltype(has_try_write_row_frame<CheckedWriter, CheckedFrame>(0))::value,
+    "try_write_row() must not accept a complete DataFrame.");
 
 #if CSV_EXCEPTIONS_ENABLED
 static_assert(std::is_member_function_pointer<decltype(&csv::CSVRow::to_json)>::value,
@@ -135,7 +152,7 @@ int main() {
     // Keep checked row adapters covered in the real consumer standard, including
     // C++11, rather than relying only on Catch2's C++14-or-later consumers.
     if (!writer.try_write_row(error, row)) return 27;
-    if (!writer.try_write_row(error, *frame)) return 28;
+    if (!writer.try_write_frame(*frame, error)) return 28;
     if (!writer.try_flush(error) || error
         || output.str() != "A,B\n2,Bob,20\nid,name,value\n1,Alice,10\n2,Bob,20\n") return 29;
 #ifdef CSV_HAS_STD_EXPECTED

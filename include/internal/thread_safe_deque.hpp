@@ -105,6 +105,22 @@ namespace csv {
                 return item;
             }
 
+            /** Copy the front item without removing it.
+             *
+             *  Returns false when the queue is empty. The copy and emptiness
+             *  check share one critical section so the consumer observes a
+             *  coherent front item while the producer appends rows.
+             */
+            bool try_copy_front(T& item) const {
+                std::lock_guard<std::mutex> lock{ this->_lock };
+                if (this->size_ == 0) {
+                    return false;
+                }
+
+                item = this->batches_.front()[this->front_index_];
+                return true;
+            }
+
             /** Move up to @p max_items rows into a caller-owned batch buffer under one lock.
              *
              *  This is the preferred consumer path for chunked reads: it preserves queue

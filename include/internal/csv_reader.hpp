@@ -33,9 +33,10 @@ namespace csv {
      *  - Custom behavior can be defined by overriding bad_row_handler in a subclass
      *
      *  **Streaming semantics:** CSVReader is a single-pass streaming reader. Every read
-     *  operation — read_row(), the iterator interface — pulls rows permanently
-     *  from the internal queue. Rows consumed by one interface are not visible to another.
-     *  There is no rewind or seek.
+     *  operation — read_row(), read_chunk(), and the iterator interface — pulls rows
+     *  permanently from the internal queue. Rows consumed by one interface are not
+     *  visible to another. has_next_row()/try_has_next_row() can check for a
+     *  logical next row without consuming it, but there is no rewind or seek.
      *
     *  **Ownership and sharing:** CSVReader is non-copyable and move-enabled. It manages
     *  live parsing state (worker thread, internal queue, and optional owned stream), so
@@ -265,6 +266,27 @@ namespace csv {
          */
         bool try_read_row(CSVRow& row, CSVError& error);
 
+        /** Check whether a logical next row is available without consuming it.
+         *
+         * This may read from the source and block while parsing completes. Rows
+         * excluded by the active variable-column policy may be discarded while
+         * searching for the next row that a consumption API would return.
+         *
+         * @returns `true` if the next call to a row-consumption API can produce a
+         *          row, or `false` after ordinary exhaustion.
+         *
+         * @note This reader remains a single-consumer object. Do not call this
+         *       concurrently with other reader operations.
+         */
+#if CSV_EXCEPTIONS_ENABLED
+        bool has_next_row();
+#endif
+        /** Check for a logical next row, distinguishing exhaustion from failure.
+         *  This has the same blocking, filtering, and non-consumption semantics
+         *  as has_next_row(). Returns false with a clear error at ordinary exhaustion.
+         */
+        bool try_has_next_row(CSVError& error);
+
         /** Read up to `max_rows` rows into a caller-owned batch buffer.
          *
          * This is the easiest way to process a CSV in bounded batches without
@@ -296,8 +318,6 @@ namespace csv {
          */
         bool try_read_chunk(std::vector<CSVRow>& out, size_t max_rows, CSVError& error);
 
-        /** Returns true if we have reached end of file */
-        bool eof() const noexcept { return this->parser->eof(); }
         ///@}
 
         /** @name CSV Metadata */
@@ -328,11 +348,11 @@ namespace csv {
 
         /** @name CSV Metadata: Attributes */
         ///@{
-        /** Whether or not the file or stream contains valid CSV rows,
-         *  not including the header.
+        /** Whether no data rows have been successfully returned yet.
          *
-         *  @note Gives an accurate answer regardless of when it is called.
-         *
+         *  This is historical consumption metadata equivalent to `n_rows() == 0`;
+         *  it does not report whether unread rows remain. Use has_next_row() or
+         *  try_has_next_row() for non-consuming lookahead.
          */
         CONSTEXPR bool empty() const noexcept { return this->n_rows() == 0; }
 
@@ -479,6 +499,11 @@ namespace csv {
          *  Shared consumer-side logic used by both single-row and batch reads.
          */
         ///@{
+        /** Mark parser progress and apply variable-column policy.
+         *  A THROW-policy mismatch records a terminal error in error_.
+         */
+        bool row_is_returnable(const CSVRow& candidate);
+
         /** Apply variable-column policy to a parsed row and emit it if accepted. */
         bool accept_row(CSVRow&& candidate, CSVRow* single_row, std::vector<CSVRow>* batch_rows);
 

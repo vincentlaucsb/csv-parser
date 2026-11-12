@@ -35,13 +35,13 @@ namespace {
 
 #if CSV_ENABLE_THREADS && !defined(__EMSCRIPTEN__)
 namespace {
-    constexpr size_t READER_METADATA_RACE_ROWS = 500000;
+    constexpr size_t SPECULATIVE_DIAGNOSTICS_RACE_ROWS = 500000;
 
-    const std::string& reader_metadata_race_filename() {
-        static csv_test::GeneratedFile file("csv_reader_metadata_race.csv");
+    const std::string& speculative_diagnostics_race_filename() {
+        static csv_test::GeneratedFile file("csv_reader_speculative_diagnostics_race.csv");
         return file.path([](std::ofstream& out) {
             out << "col_a,col_b,col_c\n" << std::setfill('0');
-            for (size_t row = 0; row < READER_METADATA_RACE_ROWS; ++row) {
+            for (size_t row = 0; row < SPECULATIVE_DIAGNOSTICS_RACE_ROWS; ++row) {
                 // Fixed-width, distinct fields make the fixture exceed the 10 MB
                 // parser boundary while retaining corruption-detecting values.
                 out << std::setw(7) << row * 3 << ','
@@ -59,7 +59,7 @@ namespace {
             && diagnostics.record_size_heuristic_chunks <= diagnostics.ambiguous_chunks;
     }
 
-    void exercise_reader_metadata_race(
+    void exercise_speculative_diagnostics_race(
         CSVReader& reader,
         const std::shared_ptr<ThreadSafeErrorCollector>& errors
     ) {
@@ -68,17 +68,17 @@ namespace {
         }
 
         std::atomic<bool> stop_observer{ false };
-        bool observer_saw_eof = false;
+        std::atomic<bool> observer_started{ false };
         bool observer_saw_incoherent_diagnostics = false;
         bool observer_saw_speculative_chunks = false;
         size_t previous_chunk_count = 0;
 
         std::thread observer([&]() {
-            while (!stop_observer.load(std::memory_order_acquire) || !observer_saw_eof) {
-                // Before issue #353 was fixed, both calls raced with writes made
-                // by CSVReader's background parser. TSan reports those races even
-                // when an ordinary run happens to observe plausible values.
-                observer_saw_eof = observer_saw_eof || reader.eof();
+            observer_started.store(true, std::memory_order_release);
+            do {
+                // Before issue #353 was fixed, this snapshot raced with merges
+                // made by CSVReader's background parser. TSan reports that race
+                // even when an ordinary run observes plausible counter values.
                 const auto diagnostics = reader.speculative_diagnostics();
 
                 if (!coherent_diagnostics(diagnostics)
@@ -89,8 +89,11 @@ namespace {
                     || diagnostics.chunks > 0;
                 previous_chunk_count = diagnostics.chunks;
                 std::this_thread::yield();
-            }
+            } while (!stop_observer.load(std::memory_order_acquire));
         });
+        while (!observer_started.load(std::memory_order_acquire)) {
+            std::this_thread::yield();
+        }
 
         CSVError read_error;
         CSVRow row;
@@ -102,7 +105,8 @@ namespace {
             }
 
             // Sample rows periodically while keeping the TSan test affordable.
-            if (row_count % 100000 == 0 || row_count + 1 == READER_METADATA_RACE_ROWS) {
+            if (row_count % 100000 == 0
+                || row_count + 1 == SPECULATIVE_DIAGNOSTICS_RACE_ROWS) {
                 size_t values[3] = {};
                 for (size_t column = 0; column < 3; ++column) {
                     if (!row[column].try_get(values[column])) {
@@ -126,16 +130,10 @@ namespace {
         if (read_error) {
             errors->add_error("CSV read failed: " + read_error.message());
         }
-        if (row_count != READER_METADATA_RACE_ROWS) {
+        if (row_count != SPECULATIVE_DIAGNOSTICS_RACE_ROWS) {
             errors->add_error(
                 "row_count != 500000 (got " + std::to_string(row_count) + ")"
             );
-        }
-        if (!reader.eof()) {
-            errors->add_error("eof() remained false after consuming the source");
-        }
-        if (!observer_saw_eof) {
-            errors->add_error("Metadata observer never saw EOF");
         }
 
         const auto final_diagnostics = reader.speculative_diagnostics();
@@ -256,9 +254,9 @@ TEST_CASE("ThreadSafeDeque concurrent stress test",
 }
 
 #if CSV_ENABLE_THREADS && !defined(__EMSCRIPTEN__)
-TEST_CASE("CSVReader metadata remains race-free during background parsing - Issue #353",
+TEST_CASE("CSVReader speculative diagnostics remain coherent during background parsing - Issue #353",
           "[threading][race_condition][issue_353]") {
-    const std::string& filename = reader_metadata_race_filename();
+    const std::string& filename = speculative_diagnostics_race_filename();
 
     CSVFormat format;
     format.delimiter(',')
@@ -272,7 +270,7 @@ TEST_CASE("CSVReader metadata remains race-free during background parsing - Issu
     SECTION("Memory-mapped file path") {
         test_with_timeout([filename, format, errors]() {
             CSVReader reader(filename, format);
-            exercise_reader_metadata_race(reader, errors);
+            exercise_speculative_diagnostics_race(reader, errors);
         }, std::chrono::seconds(240));
     }
 
@@ -280,7 +278,7 @@ TEST_CASE("CSVReader metadata remains race-free during background parsing - Issu
         test_with_timeout([filename, format, errors]() {
             std::ifstream input(filename, std::ios::binary);
             CSVReader reader(input, format);
-            exercise_reader_metadata_race(reader, errors);
+            exercise_speculative_diagnostics_race(reader, errors);
         }, std::chrono::seconds(240));
     }
 

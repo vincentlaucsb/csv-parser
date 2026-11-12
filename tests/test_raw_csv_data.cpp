@@ -237,6 +237,30 @@ TEST_CASE("Row collection inspect peeks queued rows from synchronized snapshot",
 }
 #endif
 
+TEST_CASE("Row collection try_copy_front does not consume the front row", "[raw_csv_parse][row_deque]") {
+    auto parsed_rows = parse_raw_rows(
+        "A,B\n"
+        "1,2\n"
+    );
+    RowCollection rows;
+    CSVRow peeked;
+
+    REQUIRE_FALSE(rows.try_copy_front(peeked));
+    rows.append_rows(std::move(parsed_rows));
+
+    REQUIRE(rows.try_copy_front(peeked));
+    REQUIRE(peeked[0] == "A");
+    REQUIRE(rows.size() == 2);
+    REQUIRE(rows.try_copy_front(peeked));
+    REQUIRE(peeked[0] == "A");
+    REQUIRE(rows.size() == 2);
+    REQUIRE(rows.pop_front()[0] == "A");
+
+    REQUIRE(rows.try_copy_front(peeked));
+    REQUIRE(peeked[0] == "1");
+    REQUIRE(rows.size() == 1);
+}
+
 TEST_CASE("Row collection append_rows preserves order and ignores empty batches", "[raw_csv_parse][row_deque]") {
     auto parsed_rows = parse_raw_rows(
         "A,B\n"

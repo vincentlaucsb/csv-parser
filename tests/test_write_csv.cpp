@@ -652,7 +652,7 @@ TEST_CASE("Checked DataFrame writing reports short native rows", "[explicit_erro
     std::ostringstream output;
     CSVWriter<std::ostringstream> writer(output);
     SECTION("Complete frame including header") {
-        REQUIRE_FALSE(writer.try_write_row(error, *frame));
+        REQUIRE_FALSE(writer.try_write_frame(*frame, error));
         REQUIRE(error.code == CSVErrorCode::IndexOutOfBounds);
     }
 #ifdef CSV_HAS_CXX20
@@ -711,7 +711,7 @@ TEST_CASE("Checked DataFrame writing retains edits and escapes every record", "[
     std::ostringstream output;
     CSVWriter<std::ostringstream> writer(output);
     writer.set_auto_flush(false);
-    REQUIRE(writer.try_write_row(error, *frame));
+    REQUIRE(writer.try_write_frame(*frame, error));
     REQUIRE(writer.try_write_row(error, row));
     REQUIRE(writer.try_write_row(error, column));
     REQUIRE(writer.try_flush(error));
@@ -743,7 +743,7 @@ TEST_CASE("Checked writers preserve a lone empty field", "[explicit_errors][writ
         REQUIRE(writer.try_write_row(error, *frame.begin()));
     }
     SECTION("Complete DataFrame") {
-        REQUIRE(writer.try_write_row(error, frame));
+        REQUIRE(writer.try_write_frame(frame, error));
         expected += quote_minimal ? "value\n" : "\"value\"\n";
     }
 #ifdef CSV_HAS_CXX20
@@ -919,7 +919,7 @@ TEST_CASE("Checked field ranges retain edited cell storage while writing", "[exp
         expected = quoted + "\n";
     }
     SECTION("Complete DataFrame") {
-        REQUIRE(writer.try_write_row(error, frame));
+        REQUIRE(writer.try_write_frame(frame, error));
         expected = "left,right\n" + quoted + ",tail\n";
     }
     REQUIRE_FALSE(error);

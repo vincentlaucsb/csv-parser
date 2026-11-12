@@ -903,6 +903,203 @@ TEST_CASE("Explicit row reads distinguish missing fields, failure and EOF", "[ex
     }
 }
 
+TEST_CASE("Checked row lookahead does not consume returnable rows", "[explicit_errors][has_next_row]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_has_next_row.csv");
+    {
+        std::ofstream out(file.filename);
+        out << "id,name\n"
+            << "1,Alice\n"
+            << "short\n"
+            << "2,Bob\n"
+            << "3,Carol\n"
+            << "4,Dan\n";
+    }
+
+    CSVError error;
+    CSVFormat format;
+    format.variable_columns(VariableColumnPolicy::IGNORE_ROW);
+
+    const auto validate = [&](CSVReader& reader) {
+        REQUIRE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 0);
+        REQUIRE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 0);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE(reader.has_next_row());
+        REQUIRE(reader.n_rows() == 0);
+#endif
+
+        CSVRow row;
+        REQUIRE(reader.try_read_row(row, error));
+        REQUIRE_FALSE(error);
+        REQUIRE(row.try_field("id", error).get_sv() == "1");
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 1);
+
+        // The malformed physical record is discarded while the next returnable
+        // row stays queued for the batch read.
+        REQUIRE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 1);
+
+        std::vector<CSVRow> rows;
+        REQUIRE(reader.try_read_chunk(rows, 1, error));
+        REQUIRE_FALSE(error);
+        REQUIRE(rows.size() == 1);
+        REQUIRE(rows[0].try_field("id", error).get_sv() == "2");
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 2);
+
+        REQUIRE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 2);
+
+#if CSV_EXCEPTIONS_ENABLED
+        std::vector<std::string> remaining_ids;
+        for (auto& remaining : reader) {
+            remaining_ids.push_back(remaining["id"].get<std::string>());
+        }
+        REQUIRE((remaining_ids == std::vector<std::string>{ "3", "4" }));
+#else
+        REQUIRE(reader.try_read_chunk(rows, 10, error));
+        REQUIRE_FALSE(error);
+        REQUIRE(rows.size() == 2);
+        REQUIRE(rows[0].try_field("id", error).get_sv() == "3");
+        REQUIRE_FALSE(error);
+        REQUIRE(rows[1].try_field("id", error).get_sv() == "4");
+        REQUIRE_FALSE(error);
+#endif
+        REQUIRE(reader.n_rows() == 4);
+
+        REQUIRE_FALSE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE_FALSE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_FALSE(reader.has_next_row());
+#endif
+    };
+
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(file.filename, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("Checked row lookahead surfaces variable-column failures", "[explicit_errors][has_next_row]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_has_next_row_failure.csv");
+    { std::ofstream out(file.filename); out << "left,right\nshort\n"; }
+
+    CSVError error;
+    CSVFormat format;
+    format.variable_columns(VariableColumnPolicy::THROW);
+
+    const auto validate = [&](CSVReader& reader) {
+        REQUIRE_FALSE(reader.try_has_next_row(error));
+        REQUIRE(error.code == CSVErrorCode::RowLengthMismatch);
+        REQUIRE_FALSE(reader.try_has_next_row(error));
+        REQUIRE(error.code == CSVErrorCode::RowLengthMismatch);
+#if CSV_EXCEPTIONS_ENABLED
+        REQUIRE_THROWS(reader.has_next_row());
+#endif
+    };
+
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(file.filename, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("Checked row lookahead can exhaust chunks containing only excluded rows",
+    "[explicit_errors][has_next_row][chunk_boundary]") {
+    const bool threaded = GENERATE(false, true);
+    const std::string& filename = large_csv(false);
+    CSVError error;
+    CSVFormat format;
+    format
+        .column_names({ "a", "b", "c", "d", "e", "f" })
+        .variable_columns(VariableColumnPolicy::IGNORE_ROW)
+        .threading(threaded);
+
+    const auto validate = [&](CSVReader& reader) {
+        REQUIRE_FALSE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 0);
+    };
+
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(filename, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+}
+
+TEST_CASE("Checked row lookahead skips empty records under KEEP_NON_EMPTY",
+    "[explicit_errors][has_next_row]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_has_next_non_empty.csv");
+    { std::ofstream out(file.filename); out << "left,right\n\n\n3,7\n"; }
+
+    CSVError error;
+    CSVFormat format;
+    format.variable_columns(VariableColumnPolicy::KEEP_NON_EMPTY);
+
+    const auto validate = [&](CSVReader& reader) {
+        REQUIRE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader.n_rows() == 0);
+
+        CSVRow row;
+        REQUIRE(reader.try_read_row(row, error));
+        REQUIRE_FALSE(error);
+        REQUIRE(row.try_field("left", error).get_sv() == "3");
+        REQUIRE_FALSE(error);
+        REQUIRE_FALSE(reader.try_has_next_row(error));
+        REQUIRE_FALSE(error);
+    };
+
+    SECTION("Memory-mapped file") {
+        auto reader = CSVReader::try_open(file.filename, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        auto reader = CSVReader::try_open(input, error, format);
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        validate(*reader);
+    }
+}
+
 TEST_CASE("Explicit reads preserve distinct fields across 10MB", "[explicit_errors][chunk_boundary]") {
     // Catches a no-exception path accidentally bypassing chunk ownership or
     // consumer filtering while preserving all 500K distinct-value rows.
@@ -913,7 +1110,9 @@ TEST_CASE("Explicit reads preserve distinct fields across 10MB", "[explicit_erro
     const auto validate = [&](CSVReader& reader) {
         std::vector<CSVRow> rows;
         size_t count = 0;
-        while (reader.try_read_chunk(rows, 8192, error)) {
+        while (reader.try_has_next_row(error)) {
+            REQUIRE_FALSE(error);
+            REQUIRE(reader.try_read_chunk(rows, 8192, error));
             for (const auto& row : rows) {
                 if (row.size() != 5) FAIL("A row lost fields at a chunk boundary");
                 for (size_t column = 0; column < 5; ++column) {
@@ -978,8 +1177,33 @@ TEST_CASE("Empty files and streams both report ordinary EOF", "[explicit_errors]
     const auto validate = [&](std::unique_ptr<CSVReader> reader) {
         REQUIRE(reader);
         REQUIRE_FALSE(error);
+        REQUIRE_FALSE(reader->try_has_next_row(error));
+        REQUIRE_FALSE(error);
         CSVRow row;
         REQUIRE_FALSE(reader->try_read_row(row, error));
+        REQUIRE_FALSE(error);
+        REQUIRE_FALSE(reader->try_has_next_row(error));
+        REQUIRE_FALSE(error);
+        REQUIRE(reader->n_rows() == 0);
+    };
+    SECTION("Memory-mapped file") {
+        validate(CSVReader::try_open(file.filename, error));
+    }
+    SECTION("Stream") {
+        std::ifstream input(file.filename, std::ios::binary);
+        validate(CSVReader::try_open(input, error));
+    }
+}
+
+TEST_CASE("Header-only files and streams report ordinary row exhaustion",
+    "[explicit_errors][has_next_row]") {
+    FileGuard file("tests/data/fake_data/explicit_errors_header_only.csv");
+    { std::ofstream output(file.filename, std::ios::binary); output << "left,right\n"; }
+    CSVError error;
+    const auto validate = [&](std::unique_ptr<CSVReader> reader) {
+        REQUIRE(reader);
+        REQUIRE_FALSE(error);
+        REQUIRE_FALSE(reader->try_has_next_row(error));
         REQUIRE_FALSE(error);
         REQUIRE(reader->n_rows() == 0);
     };

@@ -103,6 +103,20 @@ class CompatReaderTests(unittest.TestCase):
         self.assertEqual(row["a"], "1")
         self.assertEqual(row.as_dict(), {"a": "1", "b": "2.5", "c": "true"})
 
+    def test_low_level_reader_has_next_row_without_consuming(self):
+        with temp_csv_path("a,b\n1,2\n3,4\n") as filename:
+            source = fastpycsv.Reader(filename)
+
+            self.assertTrue(source.has_next_row())
+            self.assertTrue(source.has_next_row())
+            self.assertEqual(source.n_rows(), 0)
+            self.assertEqual(
+                [[field.get_str() for field in row] for row in source],
+                [["1", "2"], ["3", "4"]],
+            )
+            self.assertFalse(source.has_next_row())
+            self.assertFalse(source.has_next_row())
+
     def test_reader_cast_true_returns_scalar_types(self):
         row = next(fastpycsv.reader(
             io.StringIO("id,amount,name,empty,active,when\n1,2.5,text,,true,1970-01-02T00:00:00.123Z\n"),

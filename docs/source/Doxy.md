@@ -24,6 +24,8 @@ For exception-disabled builds and engine-owned resources, see
        * csv::CSVReader::end()
      * csv::CSVReader::read_row()
      * csv::CSVReader::read_chunk()
+     * csv::CSVReader::has_next_row()
+     * csv::CSVReader::try_has_next_row()
  * Convenience Functions
    * csv::parse()
    * csv::operator ""_csv()
@@ -127,7 +129,8 @@ high-level overview of writing CSVs.
      * csv::DelimWriter::write_row()
      * csv::DelimWriter::write_rows(): C++20 data-row batches
      * csv::DelimWriter::try_open(): Open an owned output file
-     * csv::DelimWriter::try_write_row(): Checked rows or a complete DataFrame, in either exception mode
+     * csv::DelimWriter::try_write_row(): Checked single rows in either exception mode
+     * csv::DelimWriter::try_write_frame(): Checked complete DataFrame including its header
      * csv::DelimWriter::try_write_rows(): Checked C++20 data-row batches
      * csv::DelimWriter::try_flush()
      * csv::DelimWriter::try_close(): Finish an owned output file
@@ -152,9 +155,9 @@ experimenting should follow these guidelines:
  * Treat each csv::CSVReader as a single-consumer object. Do not concurrently call
    row-consumption APIs, iterate, mutate, or destroy the same reader from user threads.
  * A reader's own background worker may still overlap an ordinary single-threaded
-   caller after rows have been queued. csv::CSVReader::eof() is synchronized with
-   that worker, and csv::CSVReader::speculative_diagnostics() returns a coherent
-   snapshot rather than counters from a partially completed merge.
+   caller after rows have been queued. csv::CSVReader::speculative_diagnostics()
+   returns a coherent snapshot rather than counters from a partially completed
+   merge.
  * That metadata guarantee is narrow: it does not make other operations on a shared
    csv::CSVReader generally thread-safe.
  * csv::CSVReader::iterator should only be used from one thread

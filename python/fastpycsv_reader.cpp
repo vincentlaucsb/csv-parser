@@ -682,13 +682,14 @@ void init_CSVReader(nb::module_& m){
     .def(nb::init<csv::string_view, CSVFormat>(),
     "filename"_a,
     "format"_a)
-    .def("eof", 
-    &CSVReader::eof,
-    "Returns true if we have reached end of file")
     .def("get_format", 
     &CSVReader::get_format)
+    .def("has_next_row",
+    &CSVReader::has_next_row,
+    "Return whether another logical row is available without consuming it; may block while parsing")
     .def("empty", 
-    &CSVReader::empty)
+    &CSVReader::empty,
+    "Return whether this reader has returned no data rows yet; does not report unread rows")
     .def("n_rows", 
     &CSVReader::n_rows,
     "Retrieves the number of rows that have been read so far")

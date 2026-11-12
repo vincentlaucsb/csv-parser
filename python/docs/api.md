@@ -290,7 +290,7 @@ with open("subset.csv", "w", newline="", encoding="utf-8") as out:
 Most users do not need these. They are exposed for compatibility and specialized
 inspection:
 
-- `fastpycsv.Reader`
+- `fastpycsv.Reader`, including non-consuming `has_next_row()` lookahead
 - `fastpycsv.Row`
 - `fastpycsv.Field`
 - `fastpycsv.DataType`
