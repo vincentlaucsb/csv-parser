@@ -127,12 +127,13 @@ Default and row-batch DataFrame construction and valid frame-row iteration
 remain available. Structural mutation invalidates outstanding proxies as
 documented by each operation. Const access continues to produce read-only cells.
 
-Writers expose `try_open()`, `try_write_row(error, ...)`, `try_flush(error)`, and
-file-owning `try_close(error)`. Checked single-row writes accept `CSVRow`,
+Writers expose `try_open()`, `try_write_row(error, ...)`,
+`try_write_frame(frame, error)`, `try_flush(error)`, and file-owning
+`try_close(error)`. Checked single-row writes accept `CSVRow`,
 `DataFrameRow`, and `DataFrameColumn` directly in C++11 and later without
-materializing a vector. Passing a complete DataFrame includes its header;
-C++20 `try_write_rows(rows, error)` writes data rows only. A lone empty field is
-quoted so it stays distinct from a zero-field row's blank line.
+materializing a vector. `try_write_frame()` writes a complete DataFrame,
+including its header; C++20 `try_write_rows(rows, error)` writes data rows only.
+A lone empty field is quoted so it stays distinct from a zero-field row's blank line.
 
 Buffered writes are complete only after a
 successful explicit flush or close. Destruction performs a best-effort flush;

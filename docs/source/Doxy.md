@@ -129,7 +129,8 @@ high-level overview of writing CSVs.
      * csv::DelimWriter::write_row()
      * csv::DelimWriter::write_rows(): C++20 data-row batches
      * csv::DelimWriter::try_open(): Open an owned output file
-     * csv::DelimWriter::try_write_row(): Checked rows or a complete DataFrame, in either exception mode
+     * csv::DelimWriter::try_write_row(): Checked single rows in either exception mode
+     * csv::DelimWriter::try_write_frame(): Checked complete DataFrame including its header
      * csv::DelimWriter::try_write_rows(): Checked C++20 data-row batches
      * csv::DelimWriter::try_flush()
      * csv::DelimWriter::try_close(): Finish an owned output file

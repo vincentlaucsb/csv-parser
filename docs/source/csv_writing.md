@@ -111,7 +111,7 @@ With C++20, you can use `std::ranges::views` to elegantly reorder fields in a si
 order, including sparse edits and structural column changes. It accepts const
 frames and is available in C++11 and later. A frame with a schema but no rows
 still writes its header. This convenience requires compiler exceptions enabled.
-In either exception mode, `writer.try_write_row(error, frame)` writes the same
+In either exception mode, `writer.try_write_frame(frame, error)` writes the same
 document and reports errors explicitly.
 
 The writer's delimiter, quoting, and buffering settings apply. With auto-flush

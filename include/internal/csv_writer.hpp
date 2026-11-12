@@ -415,8 +415,10 @@ namespace internals {
 
 #endif
 
-        /** Write a row from any single argument accepted by operator<<
+        /** Write a row from any single-row argument accepted by operator<<
          *  (std::vector, std::array, std::tuple, C-array, C++20 range, etc.).
+         *  Use operator<< when exceptions are enabled, or try_write_frame() in
+         *  either exception mode, for a complete DataFrame.
          *
          *  @code
          *  writer.write_row(my_vector);
@@ -426,7 +428,8 @@ namespace internals {
          *  SFINAE ensures this overload is only viable when the argument type
          *  is accepted by an existing operator<< overload.
          */
-        template<typename T>
+        template<typename T,
+            csv::enable_if_t<!internals::is_data_frame<typename std::decay<T>::type>::value, int> = 0>
         auto write_row(T&& record) -> decltype(*this << std::forward<T>(record)) {
             return *this << std::forward<T>(record);
         }
@@ -543,8 +546,7 @@ namespace internals {
          *  builds, standard streams must have their exception mask disabled.
          */
         template<typename T,
-            csv::enable_if_t<internals::has_checked_csv_fields<T>::value
-                || internals::is_data_frame<typename std::decay<T>::type>::value, int> = 0>
+            csv::enable_if_t<internals::has_checked_csv_fields<T>::value, int> = 0>
         bool try_write_row(CSVError& error, T&& record) {
             return this->checked_write(error, std::forward<T>(record));
         }
@@ -553,6 +555,15 @@ namespace internals {
         auto try_write_row(CSVError& error, Args&&... args)
             -> decltype(this->write_row(std::forward<Args>(args)...), bool()) {
             return this->checked_write(error, std::forward<Args>(args)...);
+        }
+
+        /** Write a complete DataFrame, including its header, and report failures.
+         *  Visible edits and structural column changes are preserved. A frame with
+         *  no data rows still writes its header.
+         */
+        template<typename KeyType>
+        bool try_write_frame(const DataFrame<KeyType>& frame, CSVError& error) {
+            return this->checked_write(error, frame);
         }
 
 #ifdef CSV_HAS_CXX20
@@ -685,16 +696,6 @@ namespace internals {
         bool checked_write_call(CSVError&, T&& first, U&& second, Rest&&... rest) {
             this->write_row(std::forward<T>(first), std::forward<U>(second), std::forward<Rest>(rest)...);
             return true;
-        }
-
-        template<typename KeyType>
-        bool checked_write_record(DataFrame<KeyType>& frame, CSVError& error, int) {
-            return this->checked_write_record(static_cast<const DataFrame<KeyType>&>(frame), error, 0);
-        }
-
-        template<typename KeyType>
-        bool checked_write_record(DataFrame<KeyType>&& frame, CSVError& error, int) {
-            return this->checked_write_record(static_cast<const DataFrame<KeyType>&>(frame), error, 0);
         }
 
         template<typename KeyType>
